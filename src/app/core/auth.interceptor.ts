@@ -1,31 +1,22 @@
 import { HttpInterceptorFn } from '@angular/common/http';
-import { inject } from '@angular/core';
-import { Router } from '@angular/router';
-import { catchError, throwError } from 'rxjs';
+
+import { CONFIG } from '../../../config';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const router = inject(Router);
-  const token = localStorage.getItem('token');
-  const authReq = token
-    ? req.clone({
-        setHeaders: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-    : req;
+  const token = localStorage.getItem(CONFIG.storage.token);
+  const isApiRequest = req.url.startsWith(CONFIG.baseUrl);
 
-  return next(authReq).pipe(
-    catchError((error) => {
-      if (error.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('role');
-        localStorage.removeItem('roleId');
-        localStorage.removeItem('permissions');
-        router.navigate(['/login']);
-      }
+  if (!isApiRequest) {
+    return next(req);
+  }
 
-      return throwError(() => error);
-    })
-  );
+  const headers: Record<string, string> = {
+    'X-Requested-With': 'XMLHttpRequest',
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  return next(req.clone({ setHeaders: headers }));
 };

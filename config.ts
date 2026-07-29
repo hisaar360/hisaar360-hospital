@@ -5,8 +5,23 @@ export const API_BASE_URL = 'https://hmsbackend-faizan99904.fly.dev/api/v1';
 // export const API_BASE_URL = 'http://localhost:3001/api/v1';
 
 export const CONFIG = {
+  baseUrl: API_BASE_URL,
+  authPortalLoginUrl: 'https://www.hisaar360.com/login',
+
+  storage: {
+    token: 'token',
+    refreshToken: 'refresh_token',
+    currentUser: 'user',
+    role: 'role',
+    roleId: 'roleId',
+    permissions: 'permissions',
+  },
+
   auth: {
     login: API_BASE_URL + '/auth/login',
+    ssoLogin: API_BASE_URL + '/auth/sso-login',
+    refresh: API_BASE_URL + '/auth/refresh',
+    logout: API_BASE_URL + '/auth/logout',
     me: API_BASE_URL + '/auth/me',
     changePassword: API_BASE_URL + '/auth/change-password',
     forgotPassword: API_BASE_URL + '/auth/forgot-password',

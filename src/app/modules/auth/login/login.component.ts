@@ -1,15 +1,16 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   FormBuilder,
   FormGroup,
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { BackendService } from '../../../core/services/backend.service';
+import { Subscription } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
-import { resolveDefaultRoute, sanitizePermissions } from '../access-control';
+
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -18,14 +19,20 @@ import { resolveDefaultRoute, sanitizePermissions } from '../access-control';
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss',
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit, OnDestroy {
   showNewPassword = false;
   loading = false;
+  ssoLoading = false;
+  ssoCode: string | null = null;
   loginForm: FormGroup;
+
+  private readonly subscriptions = new Subscription();
+  private hasStartedSsoLogin = false;
 
   constructor(
     private fb: FormBuilder,
-    private backend: BackendService,
+    public authService: AuthService,
+    private route: ActivatedRoute,
     private router: Router,
     private toaster: ToastrService
   ) {
@@ -35,6 +42,35 @@ export class LoginComponent {
     });
   }
 
+  get showLocalLoginForm(): boolean {
+    return this.authService.shouldUseLocalLogin() && !this.ssoCode;
+  }
+
+  ngOnInit(): void {
+    this.subscriptions.add(
+      this.route.queryParamMap.subscribe((params) => {
+        const ssoCode = params.get('ssoCode');
+        this.ssoCode = ssoCode;
+
+        if (ssoCode) {
+          const shouldStart =
+            !this.hasStartedSsoLogin || this.ssoCode !== ssoCode;
+          if (shouldStart) {
+            this.hasStartedSsoLogin = true;
+            this.startSsoLogin();
+          }
+          return;
+        }
+
+        this.hasStartedSsoLogin = false;
+      })
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
+  }
+
   togglePasswordVisibility(field: 'password') {
     if (field === 'password') {
       this.showNewPassword = !this.showNewPassword;
@@ -42,6 +78,10 @@ export class LoginComponent {
   }
 
   onSubmit() {
+    if (!this.showLocalLoginForm) {
+      return;
+    }
+
     if (this.loginForm.invalid) {
       this.loginForm.markAllAsTouched();
       return;
@@ -49,45 +89,47 @@ export class LoginComponent {
 
     this.loading = true;
 
-    const payload = {
-      email: this.loginForm.value.email,
-      password: this.loginForm.value.password,
-    };
+    this.authService
+      .login(this.loginForm.value.email, this.loginForm.value.password)
+      .subscribe({
+        next: (response) => {
+          this.loading = false;
+          this.toaster.success(response?.message || 'Login Successfully');
+        },
+        error: (err) => {
+          this.loading = false;
+          this.toaster.error(err?.error?.message || 'Something went wrong!');
+          console.error('Login failed:', err);
+        },
+      });
+  }
 
-    this.backend.login(payload).subscribe({
+  private startSsoLogin(): void {
+    if (!this.ssoCode) {
+      return;
+    }
+
+    this.ssoLoading = true;
+
+    this.authService.ssoLogin(this.ssoCode).subscribe({
       next: (response) => {
-        this.loading = false;
-
-        const data = response.data;
-        const token = data.token;
-        const user = data.user;
-        const userRole = user?.role;
-        const role = userRole?.name;
-        const roleId = userRole?._id;
-        const permissions = sanitizePermissions(userRole?.permissions);
-
-        if (!token) {
-          this.toaster.error('Invalid login response');
-          return;
-        }
-
-        localStorage.setItem('token', token);
-        if (user) {
-          localStorage.setItem('user', JSON.stringify(user));
-        }
-        localStorage.setItem('role', role || '');
-        localStorage.setItem('roleId', roleId || '');
-        localStorage.setItem('permissions', JSON.stringify(permissions));
-
-        this.toaster.success(response?.message || 'Login Successfully');
-
-        this.router.navigateByUrl(resolveDefaultRoute(permissions, role || ''));
+        this.ssoLoading = false;
+        this.toaster.success(response?.message || 'SSO login successful');
       },
-
       error: (err) => {
-        this.loading = false;
-        this.toaster.error(err?.error?.message || 'Something went wrong!');
-        console.error('Login failed:', err);
+        this.ssoLoading = false;
+        this.hasStartedSsoLogin = false;
+        this.toaster.error(err?.error?.message || 'SSO login failed');
+        console.error('SSO login failed:', err);
+
+        if (this.authService.shouldUseLocalLogin()) {
+          void this.router.navigate(['/login/access'], {
+            queryParams: {},
+            replaceUrl: true,
+          });
+        } else {
+          this.authService.redirectToHostedLogin();
+        }
       },
     });
   }

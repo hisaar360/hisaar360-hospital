@@ -2,6 +2,7 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { BackendService } from '../../../core/services/backend.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { User } from '../../../shared/models/hospital.model';
@@ -31,7 +32,8 @@ export class HeaderComponent implements OnInit {
   constructor(
     private router: Router,
     private backend: BackendService,
-    private toaster: ToastrService
+    private toaster: ToastrService,
+    private authService: AuthService
   ) {}
 
   ngOnInit(): void {
@@ -177,11 +179,6 @@ export class HeaderComponent implements OnInit {
   }
 
   logout(): void {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('role');
-    localStorage.removeItem('roleId');
-    localStorage.removeItem('permissions');
-    this.router.navigateByUrl('/login');
+    this.authService.logout();
   }
 }
