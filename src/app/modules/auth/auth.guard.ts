@@ -8,7 +8,7 @@ export const authGuard: CanActivateFn = (_route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  // Central Auth redirects to /?ssoCode=... — forward to the SSO login handler.
+ 
   const ssoCode = router.parseUrl(state.url).queryParamMap.get('ssoCode');
   if (ssoCode && !authService.hasSessionToken()) {
     console.groupCollapsed('[HMS Auth] authGuard forward ssoCode');
