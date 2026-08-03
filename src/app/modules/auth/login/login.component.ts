@@ -109,18 +109,24 @@ export class LoginComponent implements OnInit, OnDestroy {
       return;
     }
 
+    console.groupCollapsed('[HMS Auth] LoginComponent startSsoLogin');
+    console.log('ssoCode present', Boolean(this.ssoCode));
+    console.log('href', window.location.href);
+    console.groupEnd();
+
     this.ssoLoading = true;
 
     this.authService.ssoLogin(this.ssoCode).subscribe({
       next: (response) => {
         this.ssoLoading = false;
+        console.log('[HMS Auth] LoginComponent SSO UI success', response?.message);
         this.toaster.success(response?.message || 'SSO login successful');
       },
       error: (err) => {
         this.ssoLoading = false;
         this.hasStartedSsoLogin = false;
+        console.error('[HMS Auth] LoginComponent SSO UI error', err?.error || err);
         this.toaster.error(err?.error?.message || 'SSO login failed');
-        console.error('SSO login failed:', err);
 
         if (this.authService.shouldUseLocalLogin()) {
           void this.router.navigate(['/login/access'], {
