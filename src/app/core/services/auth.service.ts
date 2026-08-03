@@ -42,77 +42,25 @@ export class AuthService {
   );
 
   login(email: string, password: string): Observable<any> {
-    console.groupCollapsed('[HMS Auth] POST /auth/login');
-    console.log('url', CONFIG.auth.login);
-    console.log('email', email);
-    console.groupEnd();
-    // eslint-disable-next-line no-debugger
-    debugger;
-
     return this.http
       .post<ApiEnvelope<AuthPayload>>(CONFIG.auth.login, { email, password })
       .pipe(
-        tap({
-          next: (response) => {
-            console.groupCollapsed('[HMS Auth] login success');
-            console.log('message', response?.message);
-            console.log('hasToken', Boolean(response?.data?.token));
-            console.log('user', response?.data?.user);
-            console.groupEnd();
-            this.persistAuthResponse(response?.data);
-            const user = this.getCurrentUser();
-            void this.router.navigateByUrl(this.defaultAppRoute(user));
-          },
-          error: (err) => {
-            console.groupCollapsed('[HMS Auth] login error');
-            console.error('status', err?.status);
-            console.error('body', err?.error);
-            console.groupEnd();
-          },
+        tap((response) => {
+          this.persistAuthResponse(response?.data);
+          const user = this.getCurrentUser();
+          void this.router.navigateByUrl(this.defaultAppRoute(user));
         })
       );
   }
 
   ssoLogin(code: string): Observable<any> {
-    const masked =
-      code.length <= 10
-        ? `${code.slice(0, 2)}***${code.slice(-2)}`
-        : `${code.slice(0, 6)}***${code.slice(-4)}`;
-
-    console.groupCollapsed('[HMS Auth] POST /auth/sso-login');
-    console.log('url', CONFIG.auth.ssoLogin);
-    console.log('code', masked);
-    console.log('codeLength', code.length);
-    console.log('href', typeof window !== 'undefined' ? window.location.href : null);
-    console.groupEnd();
-    // eslint-disable-next-line no-debugger
-    debugger;
-
     return this.http
       .post<ApiEnvelope<AuthPayload>>(CONFIG.auth.ssoLogin, { code })
       .pipe(
-        tap({
-          next: (response) => {
-            console.groupCollapsed('[HMS Auth] sso-login success');
-            console.log('message', response?.message);
-            console.log('hasToken', Boolean(response?.data?.token));
-            console.log('userId', response?.data?.user?._id);
-            console.log('centralUserId', response?.data?.user?.centralUserId);
-            console.log('role', response?.data?.user?.roleName || response?.data?.user?.role?.name);
-            console.log('defaultRoute', this.defaultAppRoute(response?.data?.user));
-            console.groupEnd();
-            this.persistAuthResponse(response?.data);
-            const user = this.getCurrentUser();
-            void this.router.navigateByUrl(this.defaultAppRoute(user));
-          },
-          error: (err) => {
-            console.groupCollapsed('[HMS Auth] sso-login error');
-            console.error('status', err?.status);
-            console.error('code', err?.error?.error || err?.error?.code);
-            console.error('message', err?.error?.message);
-            console.error('body', err?.error);
-            console.groupEnd();
-          },
+        tap((response) => {
+          this.persistAuthResponse(response?.data);
+          const user = this.getCurrentUser();
+          void this.router.navigateByUrl(this.defaultAppRoute(user));
         })
       );
   }
