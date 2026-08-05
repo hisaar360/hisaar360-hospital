@@ -262,8 +262,9 @@ export class BackendService {
   changePass(payload: {
     currentPassword: string;
     newPassword: string;
+    confirmPassword: string;
   }): Observable<ApiResponse<null>> {
-    return this.patch<null>(CONFIG.auth.changePassword, payload);
+    return this.post<null>(CONFIG.auth.changePassword, payload);
   }
 
   getHospitalDashboardSummary(): Observable<DashboardSummary> {

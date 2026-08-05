@@ -218,33 +218,15 @@
         <div class="card" *ngIf="activeTab === 'password'">
           <div class="card-header">Change Password</div>
           <div class="card-body">
-            <div class="row">
-              <div class="col-lg-6 col-md-12">
-                <div class="form-group c_form_group">
-                  <label>Current Password</label>
-                  <div class="input-group flex">
-                    <input [(ngModel)]="oldPassword" [type]="showCurrentPass ? 'text' : 'password'" class="form-control" name="oldPassword" />
-                    <i class="fa" [ngClass]="showCurrentPass ? 'fa-eye-slash' : 'fa-eye'" (click)="toggleCurrentPass()"></i>
-                  </div>
-                </div>
-              </div>
-              <div class="col-lg-6 col-md-12">
-                <div class="form-group c_form_group">
-                  <label>New Password</label>
-                  <div class="input-group flex">
-                    <input [(ngModel)]="newPassword" [type]="showPassword ? 'text' : 'password'" class="form-control" name="newPassword" />
-                    <i class="fa" [ngClass]="showPassword ? 'fa-eye-slash' : 'fa-eye'" (click)="toggleNewPass()"></i>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <p class="password-tab-copy">
+              Hospital users can change their own password from the dedicated
+              change-password page. After a successful change you will be signed
+              out and asked to sign in again.
+            </p>
             <div class="settings-actions">
-              <button type="button" class="btn btn-primary theme-bg gradient" [disabled]="passwordSaving" (click)="changePass()">
-                {{ passwordSaving ? 'Changing...' : 'Change Password' }}
-              </button>
-              <button type="button" class="btn btn-default" [disabled]="passwordSaving" (click)="cancelPasswordChange()">
-                Cancel
-              </button>
+              <a class="btn btn-primary theme-bg gradient" routerLink="/change-password">
+                Open Change Password
+              </a>
             </div>
           </div>
         </div>

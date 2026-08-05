@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { BackendService } from '../../../core/services/backend.service';
 import { ToastrService } from 'ngx-toastr';
@@ -11,20 +12,15 @@ type SettingsTab = 'profile' | 'password' | 'hospital';
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
 export class SettingsComponent implements OnInit {
   activeTab: SettingsTab = 'profile';
-  showPassword = false;
-  showCurrentPass = false;
   currentUser: User | null = null;
   profileLoading = false;
   profileSaving = false;
-  passwordSaving = false;
-  oldPassword = '';
-  newPassword = '';
   profileName = '';
   profileEmail = '';
   profilePhone = '';
@@ -74,14 +70,6 @@ export class SettingsComponent implements OnInit {
     return this.permissions.includes('*') || this.permissions.includes('hospitals.update');
   }
 
-  toggleCurrentPass(): void {
-    this.showCurrentPass = !this.showCurrentPass;
-  }
-
-  toggleNewPass(): void {
-    this.showPassword = !this.showPassword;
-  }
-
   saveProfile(): void {
     if (!this.profileName.trim()) {
       this.toaster.error('Name is required.');
@@ -112,47 +100,6 @@ export class SettingsComponent implements OnInit {
           this.toaster.error(error?.error?.message || 'Unable to update profile.');
         },
       });
-  }
-
-  changePass(): void {
-    if (!this.oldPassword || !this.newPassword) {
-      this.toaster.error('Current password and new password are required.');
-      return;
-    }
-
-    if (this.oldPassword.length < 8 || this.newPassword.length < 8) {
-      this.toaster.error('Passwords must be at least 8 characters.');
-      return;
-    }
-
-    if (this.oldPassword === this.newPassword) {
-      this.toaster.error('New password must be different from current password.');
-      return;
-    }
-
-    this.passwordSaving = true;
-    this.backend
-      .changePass({
-        currentPassword: this.oldPassword,
-        newPassword: this.newPassword,
-      })
-      .pipe(finalize(() => (this.passwordSaving = false)))
-      .subscribe({
-        next: (response) => {
-          this.toaster.success(response.message || 'Password changed successfully.');
-          this.cancelPasswordChange();
-        },
-        error: (error) => {
-          this.toaster.error(error?.error?.message || 'Unable to change password.');
-        },
-      });
-  }
-
-  cancelPasswordChange(): void {
-    this.oldPassword = '';
-    this.newPassword = '';
-    this.showCurrentPass = false;
-    this.showPassword = false;
   }
 
   hospitalPrescriptionPreview(): PrescriptionPrintSettings & {

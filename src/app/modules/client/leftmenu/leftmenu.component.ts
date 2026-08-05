@@ -1,7 +1,6 @@
 import {
   AfterViewInit,
   Component,
-  HostListener,
   inject,
   OnInit,
 } from '@angular/core';
@@ -14,10 +13,6 @@ import {
 import { AppComponent } from '../../../app.component';
 import { trigger, style, animate, transition } from '@angular/animations';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs';
-import { ToastrService } from 'ngx-toastr';
-import { BackendService } from '../../../core/services/backend.service';
 import { readStoredPermissions, resolveDefaultRoute } from '../../auth/access-control';
 @Component({
   selector: 'app-leftmenu',
@@ -33,7 +28,7 @@ import { readStoredPermissions, resolveDefaultRoute } from '../../auth/access-co
     ]),
   ],
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, CommonModule, FormsModule],
+  imports: [RouterLink, RouterLinkActive, CommonModule],
   templateUrl: './leftmenu.component.html',
   styleUrl: './leftmenu.component.scss',
 })
@@ -47,16 +42,8 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   PrescriptionCollapsed = true;
   LaboratoryCollapsed = true;
   WardCollapsed = true;
-  changePasswordModalOpen = false;
-  changePasswordLoading = false;
-  showCurrentPassword = false;
-  showNewPassword = false;
-  currentPassword = '';
-  newPassword = '';
   private router = inject(Router);
   private app = inject(AppComponent);
-  private backend = inject(BackendService);
-  private toaster = inject(ToastrService);
   role = localStorage.getItem('role') || '';
   permissions = readStoredPermissions();
 
@@ -403,77 +390,6 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     document.getElementById('drp')?.classList.toggle('ShowDiv');
   }
 
-  openChangePasswordModal(): void {
-    this.resetChangePasswordForm();
-    this.changePasswordModalOpen = true;
-    document.getElementById('drp')?.classList.remove('ShowDiv');
-  }
-
-  closeChangePasswordModal(): void {
-    if (this.changePasswordLoading) {
-      return;
-    }
-
-    this.changePasswordModalOpen = false;
-    this.resetChangePasswordForm();
-  }
-
-  toggleCurrentPasswordVisibility(): void {
-    this.showCurrentPassword = !this.showCurrentPassword;
-  }
-
-  toggleNewPasswordVisibility(): void {
-    this.showNewPassword = !this.showNewPassword;
-  }
-
-  changePassword(): void {
-    if (!this.currentPassword || !this.newPassword) {
-      this.toaster.error('Current password and new password are required.');
-      return;
-    }
-
-    if (this.currentPassword.length < 8 || this.newPassword.length < 8) {
-      this.toaster.error('Passwords must be at least 8 characters.');
-      return;
-    }
-
-    if (this.currentPassword === this.newPassword) {
-      this.toaster.error(
-        'New password must be different from current password.',
-      );
-      return;
-    }
-
-    this.changePasswordLoading = true;
-    this.backend
-      .changePass({
-        currentPassword: this.currentPassword,
-        newPassword: this.newPassword,
-      })
-      .pipe(finalize(() => (this.changePasswordLoading = false)))
-      .subscribe({
-        next: (response) => {
-          this.toaster.success(
-            response.message || 'Password changed successfully.',
-          );
-          this.changePasswordModalOpen = false;
-          this.resetChangePasswordForm();
-        },
-        error: (error) => {
-          this.toaster.error(
-            error?.error?.message || 'Unable to change password.',
-          );
-        },
-      });
-  }
-
-  @HostListener('document:keydown.escape')
-  handleEscapeKey(): void {
-    if (this.changePasswordModalOpen) {
-      this.closeChangePasswordModal();
-    }
-  }
-
   toggleMenu(): void {
     document.body.classList.toggle('toggle_menu_active');
   }
@@ -492,12 +408,5 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
         document.querySelector('.overlay')?.classList.toggle('open');
       }
     }
-  }
-
-  private resetChangePasswordForm(): void {
-    this.currentPassword = '';
-    this.newPassword = '';
-    this.showCurrentPassword = false;
-    this.showNewPassword = false;
   }
 }

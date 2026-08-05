@@ -12,6 +12,7 @@ import { ContactsComponent } from './contacts/contacts.component';
 import { BlogComponent } from './blog/blog.component';
 import { SocialComponent } from './social/social.component';
 import { SettingsComponent } from './settings/settings.component';
+import { ChangePasswordComponent } from './change-password/change-password.component';
 import { ComposeEmailComponent } from './email/compose-email/compose-email.component';
 import { ComposeEmailDetailsComponent } from './email/compose-email-details/compose-email-details.component';
 import { InvoicesComponent } from './payments/invoices/invoices.component';
@@ -213,6 +214,11 @@ export const clientRoutes: Routes = [
         path: 'settings',
         component: SettingsComponent,
         data: { title: 'Mooli | Settings' },
+      },
+      {
+        path: 'change-password',
+        component: ChangePasswordComponent,
+        data: { title: 'Mooli | Change Password' },
       },
       {
         path: 'composeemail',

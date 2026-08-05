@@ -129,6 +129,22 @@ export class AuthService {
     this.redirectToHostedLogin();
   }
 
+  changePassword(payload: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Observable<any> {
+    return this.http.post(CONFIG.auth.changePassword, payload);
+  }
+
+  /**
+   * Password change revokes the session server-side. Clear local auth and send
+   * the user back to hosted login without attempting a refresh.
+   */
+  signOutAfterPasswordChange(): void {
+    this.handleAuthFailure();
+  }
+
   redirectToHostedLogin(): void {
     if (this.shouldUseLocalLogin()) {
       window.location.replace(this.localLoginUrl());
