@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, inject } from '@angular/core';
+import { Component, OnDestroy, inject } from '@angular/core';
 import {
   FormBuilder,
   ReactiveFormsModule,
@@ -7,7 +7,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { Subscription, finalize, merge } from 'rxjs';
 
 import { AuthService } from '../../../core/services/auth.service';
 import {
@@ -35,12 +35,13 @@ const CONFIRM_PASSWORD_FIELD_CODES = new Set(['PASSWORD_CONFIRMATION_MISMATCH'])
   templateUrl: './change-password.component.html',
   styleUrl: './change-password.component.scss',
 })
-export class ChangePasswordComponent {
+export class ChangePasswordComponent implements OnDestroy {
   private readonly formBuilder = inject(FormBuilder);
   private readonly authService = inject(AuthService);
-  private readonly changeDetector = inject(ChangeDetectorRef);
+  private readonly subscriptions = new Subscription();
 
   readonly policy = PASSWORD_POLICY;
+  readonly strengthSegments = [0, 1, 2, 3] as const;
 
   saving = false;
   completed = false;
@@ -49,6 +50,11 @@ export class ChangePasswordComponent {
   showConfirmPassword = false;
   formErrorMessage = '';
   fieldErrors: Record<string, string> = {};
+  policyChecklist: PasswordPolicyCheck[] = [];
+  strength: { score: 0 | 1 | 2 | 3 | 4; label: string } = {
+    score: 0,
+    label: '',
+  };
 
   private readonly userEmail = String(
     this.authService.getCurrentUser()?.email || ''
@@ -79,23 +85,19 @@ export class ChangePasswordComponent {
     }
   );
 
-  get policyChecklist(): PasswordPolicyCheck[] {
-    return passwordPolicyChecklist(
-      this.form.controls.newPassword.value,
-      this.userEmail
+  constructor() {
+    this.refreshPasswordHints();
+    this.subscriptions.add(
+      merge(
+        this.form.controls.newPassword.valueChanges,
+        this.form.controls.confirmPassword.valueChanges,
+        this.form.controls.currentPassword.valueChanges
+      ).subscribe(() => this.refreshPasswordHints())
     );
   }
 
-  get strength(): { score: 0 | 1 | 2 | 3 | 4; label: string } {
-    return passwordStrength(this.form.controls.newPassword.value);
-  }
-
-  readonly strengthSegments = [0, 1, 2, 3] as const;
-
-  constructor() {
-    this.form.controls.newPassword.valueChanges.subscribe(() => this.render());
-    this.form.controls.confirmPassword.valueChanges.subscribe(() => this.render());
-    this.form.controls.currentPassword.valueChanges.subscribe(() => this.render());
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
   }
 
   segmentClass(segment: number): string {
@@ -128,6 +130,10 @@ export class ChangePasswordComponent {
     this.showConfirmPassword = !this.showConfirmPassword;
   }
 
+  trackPolicyCheck(_index: number, check: PasswordPolicyCheck): string {
+    return check.key;
+  }
+
   submit(): void {
     if (this.saving || this.completed) {
       return;
@@ -138,7 +144,6 @@ export class ChangePasswordComponent {
 
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      this.render();
       return;
     }
 
@@ -151,7 +156,6 @@ export class ChangePasswordComponent {
       .pipe(
         finalize(() => {
           this.saving = false;
-          this.render();
         })
       )
       .subscribe({
@@ -162,12 +166,11 @@ export class ChangePasswordComponent {
             newPassword: '',
             confirmPassword: '',
           });
-          this.render();
+          this.refreshPasswordHints();
           setTimeout(() => this.authService.signOutAfterPasswordChange(), 1600);
         },
         error: (error) => {
           this.applyServerError(error);
-          this.render();
         },
       });
   }
@@ -202,6 +205,12 @@ export class ChangePasswordComponent {
     }
 
     return this.messageForErrors(control.errors);
+  }
+
+  private refreshPasswordHints(): void {
+    const newPassword = this.form.controls.newPassword.value;
+    this.policyChecklist = passwordPolicyChecklist(newPassword, this.userEmail);
+    this.strength = passwordStrength(newPassword);
   }
 
   private messageForErrors(errors: ValidationErrors): string {
@@ -258,9 +267,5 @@ export class ChangePasswordComponent {
     }
 
     this.formErrorMessage = message;
-  }
-
-  private render(): void {
-    this.changeDetector.detectChanges();
   }
 }
