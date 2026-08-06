@@ -186,9 +186,18 @@ export const resolveDefaultRoute = (
     return '/appointments';
   }
 
-  return (
-    DEFAULT_ROUTE_ACCESS.find((routeAccess) =>
-      hasRouteAccess(routeAccess.access, permissions)
-    )?.path || '/login/access'
-  );
+  const matchedRoute = DEFAULT_ROUTE_ACCESS.find((routeAccess) =>
+    hasRouteAccess(routeAccess.access, permissions)
+  )?.path;
+
+  if (matchedRoute) {
+    return matchedRoute;
+  }
+
+  // Authenticated users with no matching landing route should stay in-app.
+  if (permissions.length > 0) {
+    return '/settings';
+  }
+
+  return '/login/access';
 };
