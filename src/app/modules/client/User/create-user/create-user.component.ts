@@ -9,6 +9,7 @@ import {
 import { ToastrService } from 'ngx-toastr';
 import { CommonModule } from '@angular/common';
 import { BackendService } from '../../../../core/services/backend.service';
+import { AuthService } from '../../../../core/services/auth.service';
 import { Router } from '@angular/router';
 import { debounceTime, distinctUntilChanged, finalize, Subject, takeUntil } from 'rxjs';
 import { Hospital, Role, Store, User } from '../../../../shared/models/hospital.model';
@@ -46,6 +47,7 @@ export class CreateUserComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private toast: ToastrService,
     private backend: BackendService,
+    private authService: AuthService,
     private router: Router
   ) {}
 
@@ -54,9 +56,28 @@ export class CreateUserComponent implements OnInit, OnDestroy {
     this.setLoggedInUser();
     this.initForm();
     this.validateEditingScope();
-    this.loadRoles();
-    this.loadHospitalContext();
-    this.loadStores();
+
+    this.authService
+      .me()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.setLoggedInUser();
+          if (!this.canSelectHospital) {
+            this.userForm
+              ?.get('hospitalId')
+              ?.setValue(this.currentHospitalId || '', { emitEvent: false });
+          }
+          this.loadRoles();
+          this.loadHospitalContext();
+          this.loadStores();
+        },
+        error: () => {
+          this.loadRoles();
+          this.loadHospitalContext();
+          this.loadStores();
+        },
+      });
   }
 
   ngOnDestroy(): void {
@@ -166,9 +187,13 @@ export class CreateUserComponent implements OnInit, OnDestroy {
   }
 
   private setLoggedInUser(): void {
-    this.currentUser = JSON.parse(localStorage.getItem('user') || 'null') as User | null;
+    this.currentUser =
+      (this.authService.getCurrentUser() as User | null) ||
+      (JSON.parse(localStorage.getItem('user') || 'null') as User | null);
 
-    const permissions = JSON.parse(localStorage.getItem('permissions') || '[]') as string[];
+    const permissions =
+      this.authService.getUserPermissions(this.currentUser) ||
+      (JSON.parse(localStorage.getItem('permissions') || '[]') as string[]);
     const currentRoleName = String(
       this.currentUser?.role?.name || localStorage.getItem('role') || ''
     );
@@ -180,7 +205,8 @@ export class CreateUserComponent implements OnInit, OnDestroy {
       permissions.includes('stores.manage');
     this.isHospitalAdminUser = this.normalizeRoleName(currentRoleName) === 'hospitaladmin';
 
-    this.currentHospitalId = this.currentUser?.hospitalId || null;
+    this.currentHospitalId =
+      this.currentUser?.hospitalId || this.currentUser?.hospital?._id || null;
     this.currentHospitalName = this.currentUser?.hospital?.name || '';
   }
 
