@@ -12,19 +12,34 @@ const AUTH_ENDPOINTS = [
   CONFIG.auth.ssoLogin,
   CONFIG.auth.refresh,
   CONFIG.auth.logout,
-  CONFIG.auth.changePassword,
 ];
 
+/** Password form validation codes — never trigger refresh/logout. */
 const PASSWORD_FLOW_CODES = new Set([
   'CURRENT_PASSWORD_INCORRECT',
   'PASSWORD_CONFIRMATION_MISMATCH',
   'PASSWORD_CHANGED_RELOGIN_REQUIRED',
   'CENTRAL_PASSWORD_MANAGED',
   'VALIDATION_ERROR',
+  'PASSWORD_REUSE_NOT_ALLOWED',
+  'PASSWORD_POLICY_VIOLATION',
+]);
+
+const ACCESS_CHANGED_CODES = new Set([
+  'ACCESS_VERSION_CHANGED',
+  'SESSION_REVOKED',
+  'SESSION_EXPIRED',
+  'SESSION_REPLACED',
+  'PRODUCT_ACCESS_DISABLED',
 ]);
 
 const isAuthEndpoint = (url: string): boolean =>
   AUTH_ENDPOINTS.some((endpoint) => url.startsWith(endpoint));
+
+const extractErrorCode = (error: HttpErrorResponse): string =>
+  String(error?.error?.code || error?.error?.errorCode || error?.error?.error || '')
+    .trim()
+    .toUpperCase();
 
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
@@ -32,26 +47,15 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
-      const accessChangedCodes = [
-        'ACCESS_VERSION_CHANGED',
-        'SESSION_REVOKED',
-        'SESSION_EXPIRED',
-        'SESSION_REPLACED',
-        'PRODUCT_ACCESS_DISABLED',
-      ];
-      const errorCode = String(error?.error?.code || error?.error?.errorCode || '');
+      const errorCode = extractErrorCode(error);
 
-      if (isApiRequest && accessChangedCodes.includes(errorCode)) {
-        authService.handleAuthFailure();
+      // Wrong current password / policy errors must reach the form as-is.
+      if (isApiRequest && PASSWORD_FLOW_CODES.has(errorCode)) {
         return throwError(() => error);
       }
 
-      // Wrong current password / validation on change-password must not force logout.
-      if (
-        isApiRequest &&
-        req.url.startsWith(CONFIG.auth.changePassword) &&
-        (PASSWORD_FLOW_CODES.has(errorCode) || error.status === 400 || error.status === 401)
-      ) {
+      if (isApiRequest && ACCESS_CHANGED_CODES.has(errorCode)) {
+        authService.handleAuthFailure();
         return throwError(() => error);
       }
 
