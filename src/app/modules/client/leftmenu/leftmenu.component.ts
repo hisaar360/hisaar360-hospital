@@ -14,6 +14,7 @@ import { AppComponent } from '../../../app.component';
 import { trigger, style, animate, transition } from '@angular/animations';
 import { CommonModule } from '@angular/common';
 import { readStoredPermissions, resolveDefaultRoute } from '../../auth/access-control';
+import { isCurrentLaboratoryEdition } from '../../auth/product-edition';
 @Component({
   selector: 'app-leftmenu',
   animations: [
@@ -47,6 +48,10 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   role = localStorage.getItem('role') || '';
   permissions = readStoredPermissions();
 
+  get isLaboratoryEdition(): boolean {
+    return isCurrentLaboratoryEdition();
+  }
+
   get isDoctor(): boolean {
     return this.normalizeRole(this.role) === 'doctor';
   }
@@ -60,7 +65,7 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewAllRoutes(): boolean {
-    return this.hasWildcardPermission;
+    return this.hasWildcardPermission && !this.isLaboratoryEdition;
   }
 
   get canViewUsers(): boolean {
@@ -80,6 +85,10 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewDashboard(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return (
       this.isDoctor ||
       this.canViewAllRoutes ||
@@ -96,10 +105,17 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewDoctors(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
     return this.canViewAllRoutes || this.hasPermission('doctors.read');
   }
 
   get canManageDoctors(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return (
       this.canViewAllRoutes ||
       this.hasPermission('doctors.create') ||
@@ -108,14 +124,26 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewAppointments(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('appointments.read');
   }
 
   get canViewClinicalRecords(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('patients_history.read');
   }
 
   get canManageClinicalRecords(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return (
       this.canViewAllRoutes ||
       this.hasPermission('patients_history.create') ||
@@ -124,10 +152,18 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewPrescriptions(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('prescriptions.read');
   }
 
   get canManagePrescriptions(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return (
       this.canViewAllRoutes ||
       this.hasPermission('prescriptions.create') ||
@@ -136,10 +172,18 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewPharmacy(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('products.read');
   }
 
   get canOpenPharmacyPos(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return (
       this.canViewAllRoutes ||
       (this.hasPermission('sales.create') &&
@@ -152,6 +196,10 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewPosReports(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return (
       this.canViewAllRoutes ||
       this.hasPermission('reports.read') ||
@@ -162,38 +210,74 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewPharmacyCustomers(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('customers.read');
   }
 
   get canViewPharmacySuppliers(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('suppliers.read');
   }
 
   get canViewPharmacyInventory(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('inventory.read');
   }
 
   get canViewPharmacyStockMovements(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('stock_movements.read');
   }
 
   get canViewPharmacySales(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('sales.read');
   }
 
   get canViewPharmacyTransfers(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('transfers.read');
   }
 
   get canViewPharmacyReturns(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('returns.read');
   }
 
   get canViewPharmacyPayments(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('payments.read');
   }
 
   get canViewPharmacyRegisterSessions(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return (
       this.canViewAllRoutes ||
       this.hasPermission('register_sessions.read') ||
@@ -202,6 +286,10 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewPharmacyExpenses(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('expenses.read');
   }
 
@@ -224,6 +312,10 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewWardAdmin(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('patients_history.read');
   }
 
@@ -240,10 +332,18 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewRooms(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('rooms.read');
   }
 
   get canManageRooms(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return (
       this.canViewAllRoutes ||
       this.hasPermission('rooms.create') ||
@@ -252,10 +352,18 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewRoomAllotments(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('room_allotments.read');
   }
 
   get canManageRoomAllotments(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return (
       this.canViewAllRoutes ||
       (this.hasPermission('room_allotments.create') &&
@@ -265,10 +373,18 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewDepartments(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('departments.read');
   }
 
   get canViewBilling(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return this.canViewAllRoutes || this.hasPermission('bills.read');
   }
 
@@ -277,6 +393,10 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canManageBilling(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+
     return (
       this.canViewAllRoutes ||
       this.hasPermission('bills.create') ||

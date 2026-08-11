@@ -85,11 +85,15 @@
                                     <div class="form-group">
                                         <label>Subscription Plan</label>
                                         <select class="form-control" formControlName="subscriptionPlan">
-                                            <option value="basic">Basic</option>
-                                            <option value="standard">Standard</option>
-                                            <option value="premium">Premium</option>
-                                            <option value="enterprise">Enterprise</option>
+                                            <option value="basic">Basic (Full Hospital)</option>
+                                            <option value="standard">Standard (Full Hospital)</option>
+                                            <option value="premium">Premium (Full Hospital)</option>
+                                            <option value="enterprise">Enterprise (Full Hospital)</option>
+                                            <option value="laboratory">Laboratory Only</option>
                                         </select>
+                                        <small class="text-muted">
+                                            Laboratory Only clients get Lab + Patients features only.
+                                        </small>
                                     </div>
                                 </div>
 

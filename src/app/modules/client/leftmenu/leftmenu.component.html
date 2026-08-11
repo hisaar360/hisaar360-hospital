@@ -33,7 +33,7 @@
 
         <nav id="left-sidebar-nav" class="sidebar-nav">
             <ul id="main-menu" class="metismenu animation-li-delay">
-                <li class="header">Hospital</li>
+                <li class="header">{{ isLaboratoryEdition ? 'Laboratory' : 'Hospital' }}</li>
                 <li *ngIf="canViewDashboard" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
                     <a [routerLink]="[dashboardRoute]"><i class="fa fa-dashboard"></i> <span>Dashboard</span></a>
                 </li>

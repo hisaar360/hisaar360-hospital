@@ -1,3 +1,5 @@
+import { isCurrentLaboratoryEdition } from './product-edition';
+
 export type AccessRequirement =
   | string[]
   | {
@@ -170,6 +172,24 @@ export const resolveDefaultRoute = (
   permissions: string[],
   role = readStoredRole()
 ): string => {
+  if (isCurrentLaboratoryEdition()) {
+    if (
+      hasRouteAccess(
+        ['lab_orders.read', 'lab_tests.read', 'patients_history.read'],
+        permissions
+      ) ||
+      permissions.includes('*')
+    ) {
+      return '/laboratory';
+    }
+
+    if (hasRouteAccess(['patients.read'], permissions)) {
+      return '/patients/all-patients';
+    }
+
+    return '/settings';
+  }
+
   if (isDoctorRole(role)) {
     return '/doctor-dashboard';
   }

@@ -176,6 +176,7 @@ export interface Hospital {
   logoUrl?: string | null;
   status: Status;
   subscriptionPlan?: string | null;
+  productEdition?: 'hospital' | 'laboratory' | string | null;
   prescriptionSettings?: PrescriptionPrintSettings | null;
   laboratorySettings?: LaboratoryPrintSettings | null;
 }
