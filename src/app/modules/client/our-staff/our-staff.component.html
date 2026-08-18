@@ -91,7 +91,7 @@
             >
               <td>
                 <div class="ward-staff-primary-cell">
-                  <span class="ward-staff-avatar">{{ user.name.charAt(0) }}</span>
+                  <span class="ward-staff-avatar">{{ (user.name || '?').charAt(0) }}</span>
                   <span class="ward-staff-name">
                     <strong>{{ user.name }}</strong>
                     <span>{{ user.email }}</span>

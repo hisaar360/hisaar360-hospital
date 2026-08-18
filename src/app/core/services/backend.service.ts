@@ -940,7 +940,7 @@ export class BackendService {
 
   getRoomAllotments(params?: Record<string, unknown>): Observable<ListResult<RoomAllotment>> {
     return this.get<PaginatedResponse<RoomAllotment>>(CONFIG.roomAllotments, params).pipe(
-      map((response) => this.unwrapData(response))
+      map((response) => this.unwrapListResult(response))
     );
   }
 
@@ -968,7 +968,7 @@ export class BackendService {
 
   getWardBeds(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
     return this.get<PaginatedResponse<Record<string, unknown>>>(`${CONFIG.ward}/beds`, params).pipe(
-      map((response) => this.unwrapData(response))
+      map((response) => this.unwrapListResult(response))
     );
   }
 
@@ -986,7 +986,7 @@ export class BackendService {
 
   getWardActivities(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
     return this.get<PaginatedResponse<Record<string, unknown>>>(`${CONFIG.ward}/activities`, params).pipe(
-      map((response) => this.unwrapData(response))
+      map((response) => this.unwrapListResult(response))
     );
   }
 
@@ -1022,6 +1022,34 @@ export class BackendService {
     return this.get<Record<string, unknown>>(`${CONFIG.ward}/reports`).pipe(
       map((response) => this.unwrapData(response))
     );
+  }
+
+  getWardStaff(): Observable<User[]> {
+    return this.get<PaginatedResponse<User> | User[]>(`${CONFIG.ward}/staff`).pipe(
+      map((response) => this.unwrapListResult(response).items)
+    );
+  }
+
+  getWardDashboard(): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.ward}/dashboard`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  acknowledgeWardActivity(id: string): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.ward}/activities/${id}/acknowledge`, {});
+  }
+
+  completeWardActivity(id: string, payload: Record<string, unknown> = {}): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.ward}/activities/${id}/complete`, payload);
+  }
+
+  acceptWardHandover(id: string): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.ward}/activities/${id}/accept`, {});
+  }
+
+  createWardAssignment(payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.ward}/assignments`, payload);
   }
 
   getBills(params?: Record<string, unknown>): Observable<ListResult<Bill>> {

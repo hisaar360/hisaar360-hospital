@@ -14,6 +14,7 @@ import {
   HospitalWard,
   WardFloor,
   ListResult,
+  User,
 } from '../../../../shared/models/hospital.model';
 import { WardBedRecord, WardGalleryOption, WardRoomRecord } from '../ward-bed-management.models';
 import {
@@ -424,10 +425,7 @@ export class WardDataService {
 
         switch (moduleKey) {
           case 'admissions': {
-            const admitted = mapAdmissionRows(
-              enrichedAllotments.filter((item) => item.status === 'admitted'),
-              bundle.doctors
-            );
+            const admitted = mapAdmissionRows(enrichedAllotments, bundle.doctors);
             const pending = mapWardActivityRows(
               bundle.activities.filter((item) => item.activityType === 'admission_request'),
               'admission_request'
@@ -438,7 +436,9 @@ export class WardDataService {
           case 'nursing-care':
             rows = [
               ...mapWardActivityRows(
-                bundle.activities.filter((item) => item.activityType === 'nursing_task'),
+                bundle.activities.filter(
+                  (item) => item.activityType === 'nursing_task' || item.activityType === 'care_plan'
+                ),
                 'nursing_task'
               ),
               ...mapNursingRows(bundle.history),
@@ -466,7 +466,17 @@ export class WardDataService {
             );
             break;
           case 'orders-services':
-            rows = mapOrderRows(bundle.labOrders, bundle.prescriptions);
+            rows = [
+              ...mapOrderRows(bundle.labOrders, bundle.prescriptions),
+              ...mapWardActivityRows(
+                bundle.activities.filter(
+                  (item) =>
+                    item.activityType === 'nursing_task' &&
+                    Boolean((item.metadata as Record<string, unknown> | undefined)?.['orderType'])
+                ),
+                'nursing_task'
+              ),
+            ];
             break;
           case 'shift-handover':
             rows = mapWardActivityRows(
@@ -485,6 +495,25 @@ export class WardDataService {
         }
 
         rows = filterModuleRows(rows, enrichedAllotments, filters);
+
+        const admissionByPatient = new Map(
+          enrichedAllotments
+            .filter((item) => item.status === 'admitted')
+            .map((item) => [String(item.patientId), String(item._id)])
+        );
+        rows = rows.map((row) => {
+          const patientId = row.meta?.patientId;
+          const admissionId =
+            row.meta?.admissionId || (patientId ? admissionByPatient.get(String(patientId)) : undefined);
+          if (!admissionId) {
+            return row;
+          }
+          return {
+            ...row,
+            linkRoute: `/ward/patient-detail/${admissionId}`,
+            meta: { ...row.meta, admissionId },
+          };
+        });
 
         const normalizedSearch = search.trim().toLowerCase();
         return rows.filter((row) => {
@@ -583,9 +612,17 @@ export class WardDataService {
         return this.backend.createWardAdmission(payload);
       case 'nursing-care':
         return this.backend.createWardActivity({
-          activityType: 'nursing_task',
-          ...payload,
+          activityType: payload['activityType'] === 'care_plan' ? 'care_plan' : 'nursing_task',
+          patientId: payload['patientId'],
+          admissionId: payload['admissionId'] || undefined,
+          title: payload['title'],
+          description: payload['description'] || undefined,
+          priority: payload['priority'] || 'normal',
+          shift: payload['shift'] || undefined,
           status: 'due',
+          metadata: {
+            noteType: payload['noteType'] || 'routine',
+          },
         });
       case 'mar':
         return this.backend.recordWardDose(payload);
@@ -596,8 +633,12 @@ export class WardDataService {
       case 'io-chart':
         return this.backend.createWardActivity({
           activityType: 'io_entry',
+          patientId: payload['patientId'],
+          admissionId: payload['admissionId'] || undefined,
+          title: payload['title'] || 'I/O Entry',
+          description: payload['description'] || undefined,
+          shift: payload['shift'] || undefined,
           status: 'completed',
-          ...payload,
           metadata: {
             intake: payload['intake'],
             output: payload['output'],
@@ -609,8 +650,12 @@ export class WardDataService {
       case 'shift-handover':
         return this.backend.createWardActivity({
           activityType: 'handover',
+          patientId: payload['patientId'],
+          admissionId: payload['admissionId'] || undefined,
+          title: payload['title'] || 'Handover',
+          description: payload['description'] || undefined,
+          shift: payload['shift'] || undefined,
           status: 'completed',
-          ...payload,
           metadata: {
             nurseName: payload['nurseName'],
             pending: payload['pending'],
@@ -659,6 +704,24 @@ export class WardDataService {
 
   assignNurse(admissionId: string, nurseId: string) {
     return this.backend.assignNurseToAllotment(admissionId, { assignedNurseId: nurseId });
+  }
+
+  loadWardStaff(): Observable<User[]> {
+    return this.backend.getWardStaff().pipe(
+      catchError(() => this.backend.getUsers({ context: 'hospital' }))
+    );
+  }
+
+  acceptHandover(activityId: string) {
+    return this.backend.acceptWardHandover(activityId);
+  }
+
+  acknowledgeOrder(activityId: string) {
+    return this.backend.acknowledgeWardActivity(activityId);
+  }
+
+  completeOrder(activityId: string, notes = '') {
+    return this.backend.completeWardActivity(activityId, { notes });
   }
 
   createRoom(payload: Record<string, unknown>) {

@@ -83,15 +83,15 @@ const DEFAULT_ROUTE_ACCESS: RouteAccess[] = [
   },
   {
     path: '/ward/bed-management',
-    access: ['patients_history.read'],
+    access: { any: ['ward.read', 'patients_history.read', 'room_allotments.read'] },
   },
   {
     path: '/ward/dashboard',
-    access: ['patients_history.read'],
+    access: { any: ['ward.read', 'patients_history.read', 'room_allotments.read'] },
   },
   {
     path: '/ward-admin',
-    access: ['patients_history.read'],
+    access: { any: ['ward.read', 'patients_history.read'] },
   },
   { path: '/users', access: ['users.read'] },
   { path: '/hospitals', access: ['hospitals.read'] },

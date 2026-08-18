@@ -6,7 +6,7 @@ export const API_BASE_URL = 'https://hmsbackend-faizan99904.fly.dev/api/v1';
 
 export const CONFIG = {
   baseUrl: API_BASE_URL,
-  authPortalLoginUrl: 'https://www.hisaar360.com/login',
+  authPortalLoginUrl: 'https://hisaar-landing-page-main-eight.vercel.app/login',
 
   storage: {
     token: 'token',

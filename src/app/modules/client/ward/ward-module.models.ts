@@ -15,6 +15,8 @@ export interface WardModuleKpi {
   value: number | string;
   icon: string;
   tone: 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'amber' | 'teal';
+  /** Count live rows by `_tab`, or use `total` / `discharge-today` / `unique-patient`. */
+  countTab?: string;
 }
 
 export interface WardModuleTab {

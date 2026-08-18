@@ -41,6 +41,7 @@ import { EventsComponent } from './doctors/doctors-schedule/events/events.compon
 import { CovidComponent } from './dashboard/covid/covid.component';
 import { authGuard } from '../auth/auth.guard';
 import { roleGuard } from '../auth/role.guard';
+import type { AccessRequirement } from '../auth/access-control';
 import { UsersComponent } from './User/users/users.component';
 import { CreateUserComponent } from './User/create-user/create-user.component';
 import { HospitalsComponent } from './hospitals/hospitals.component'; 
@@ -130,7 +131,9 @@ const PHARMACY_POS_ACCESS = {
 };
 const LAB_ACCESS = ['lab_orders.read', 'lab_tests.read', 'patients_history.read'];
 const LAB_MANAGE_ACCESS = ['lab_orders.create', 'lab_orders.update', 'lab_tests.create', 'patients_history.create'];
-const WARD_ADMIN_ACCESS = ['patients_history.read'];
+const WARD_ADMIN_ACCESS: AccessRequirement = {
+  any: ['ward.read', 'patients_history.read', 'room_allotments.read'],
+};
 
 const wardModuleRoute = (path: string, title: string, wardModuleKey: string) => ({
   path,

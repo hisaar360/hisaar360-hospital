@@ -39,6 +39,7 @@
           <div><dt>Doctor</dt><dd>{{ p.doctorName }}</dd></div>
           <div><dt>Nurse</dt><dd>{{ p.nurseName || '—' }}</dd></div>
           <div><dt>Admitted</dt><dd>{{ p.admittedOn }}</dd></div>
+          <div><dt>Status</dt><dd>{{ statusLabel(p.status) }}</dd></div>
           <div><dt>Gallery</dt><dd>{{ p.galleryName }}</dd></div>
         </dl>
       </div>
@@ -76,41 +77,101 @@
             </div>
           </div>
           <div *ngSwitchCase="'vitals'">
-            <p class="ward-detail-note">Latest vitals and observation schedule for this admission.</p>
-            <ul class="ward-detail-list">
-              <li><span>BP</span><strong>118/76 mmHg</strong></li>
-              <li><span>Temperature</span><strong>37.4 C</strong></li>
-              <li><span>SpO2</span><strong>96%</strong></li>
-              <li><span>Next Due</span><strong>14:00</strong></li>
+            <p class="ward-detail-note">Latest vitals for this admission.</p>
+            <ul class="ward-detail-list" *ngIf="vitalsRows.length; else emptyTab">
+              <li *ngFor="let row of vitalsRows">
+                <span>{{ row.cells['bp'] || 'Vitals' }} · {{ row.cells['temp'] }} · SpO2 {{ row.cells['spo2'] }}</span>
+                <strong>{{ row.cells['recordedAt'] || row.cells['status'] }}</strong>
+              </li>
             </ul>
           </div>
           <div *ngSwitchCase="'mar'">
-            <p class="ward-detail-note">Medication administration overview for current shift.</p>
-            <ul class="ward-detail-list">
-              <li><span>Amoxicillin 250 mg</span><strong>Due 10:00</strong></li>
-              <li><span>Paracetamol 500 mg</span><strong>Given 08:00</strong></li>
+            <p class="ward-detail-note">Medication administration for this admission.</p>
+            <ul class="ward-detail-list" *ngIf="marRows.length; else emptyTab">
+              <li *ngFor="let row of marRows">
+                <span>{{ rowTitle(row) }}</span>
+                <strong>{{ rowStatus(row) }}</strong>
+              </li>
             </ul>
           </div>
           <div *ngSwitchCase="'drips'">
-            <p class="ward-detail-note">Running IV fluids and drip status.</p>
-            <ul class="ward-detail-list">
-              <li><span>Normal Saline</span><strong>80 ml/hr</strong></li>
+            <p class="ward-detail-note">IV fluids linked to this admission.</p>
+            <ul class="ward-detail-list" *ngIf="dripRows.length; else emptyTab">
+              <li *ngFor="let row of dripRows">
+                <span>{{ row.cells['fluid'] }} · {{ row.cells['rate'] }}</span>
+                <strong>{{ row.cells['status'] }}</strong>
+              </li>
             </ul>
           </div>
           <div *ngSwitchCase="'nursing'">
-            <p class="ward-detail-note">Recent nursing notes and pending care tasks.</p>
-            <ul class="ward-detail-list">
-              <li><span>Wound dressing</span><strong>Due 11:30</strong></li>
-              <li><span>Position change</span><strong>Completed</strong></li>
+            <p class="ward-detail-note">Nursing notes and care tasks.</p>
+            <ul class="ward-detail-list" *ngIf="nursingRows.length; else emptyTab">
+              <li *ngFor="let row of nursingRows">
+                <span>{{ rowTitle(row) }}</span>
+                <strong>{{ rowStatus(row) }}</strong>
+              </li>
+            </ul>
+          </div>
+          <div *ngSwitchCase="'lab'">
+            <p class="ward-detail-note">Lab and service orders linked to this admission.</p>
+            <ul class="ward-detail-list" *ngIf="labRows.length; else emptyTab">
+              <li *ngFor="let row of labRows">
+                <span>{{ rowTitle(row) }}</span>
+                <strong>{{ rowStatus(row) }}</strong>
+              </li>
+            </ul>
+          </div>
+          <div *ngSwitchCase="'care'">
+            <p class="ward-detail-note">Nursing care plan items for this admission.</p>
+            <ul class="ward-detail-list" *ngIf="carePlanRows.length; else emptyTab">
+              <li *ngFor="let row of carePlanRows">
+                <span>{{ rowTitle(row) }}</span>
+                <strong>{{ rowStatus(row) }}</strong>
+              </li>
             </ul>
           </div>
           <div *ngSwitchCase="'orders'">
-            <p class="ward-detail-note">Doctor orders and ward services for this patient.</p>
-            <ul class="ward-detail-list">
-              <li><span>CBC</span><strong>In Progress</strong></li>
-              <li><span>Chest X-Ray</span><strong>Pending</strong></li>
+            <p class="ward-detail-note">Doctor and ward orders for this admission.</p>
+            <ul class="ward-detail-list" *ngIf="orderRows.length; else emptyTab">
+              <li *ngFor="let row of orderRows">
+                <span>{{ rowTitle(row) }}</span>
+                <strong>{{ rowStatus(row) }}</strong>
+              </li>
             </ul>
           </div>
+          <div *ngSwitchCase="'io'">
+            <p class="ward-detail-note">Intake / output entries for this admission.</p>
+            <ul class="ward-detail-list" *ngIf="ioRows.length; else emptyTab">
+              <li *ngFor="let row of ioRows">
+                <span>{{ row.cells['intake'] || 'I/O' }} / {{ row.cells['output'] }}</span>
+                <strong>{{ row.cells['balance'] || row.cells['status'] }}</strong>
+              </li>
+            </ul>
+          </div>
+          <div *ngSwitchCase="'handover'">
+            <p class="ward-detail-note">Shift handovers for this admission.</p>
+            <ul class="ward-detail-list" *ngIf="handoverRows.length; else emptyTab">
+              <li *ngFor="let row of handoverRows">
+                <span>{{ row.cells['shift'] || 'Handover' }} · {{ row.cells['nurse'] }}</span>
+                <strong>{{ row.cells['status'] }}</strong>
+              </li>
+            </ul>
+          </div>
+          <div *ngSwitchCase="'timeline'">
+            <p class="ward-detail-note">Recent ward activity for this admission.</p>
+            <ul class="ward-detail-list" *ngIf="timelineRows.length; else emptyTab">
+              <li *ngFor="let row of timelineRows">
+                <span>{{ rowTitle(row) }}</span>
+                <strong>{{ rowStatus(row) }}</strong>
+              </li>
+            </ul>
+          </div>
+          <ng-template #emptyTab>
+            <div class="ward-empty-state ward-empty-state--compact">
+              <h3>No records yet</h3>
+              <p>Use the actions above to add the first entry.</p>
+            </div>
+          </ng-template>
         </div>
       </section>
 
@@ -129,8 +190,8 @@
 
     <section class="ward-empty-state ward-panel" *ngIf="!patient">
       <div class="ward-empty-state__icon"><i class="fa fa-user-md"></i></div>
-      <h3>Patient not found</h3>
-      <p>This admission is not available in mock data yet.</p>
+      <h3>Admission not found</h3>
+      <p>This admission is not available in your hospital scope, or the nurse is not assigned to this patient.</p>
       <a routerLink="/ward/patient-list" class="btn btn-sm btn-primary">Back to Patient List</a>
     </section>
   </div>

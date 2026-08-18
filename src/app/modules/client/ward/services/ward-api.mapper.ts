@@ -908,6 +908,7 @@ export function mapAdmissionRows(allotments: RoomAllotment[], doctors: Doctor[] 
           admittedOn: formatDisplayDate(item.admittedAt),
           status: item.status === 'admitted' ? 'Active' : 'Discharged',
           _tab: item.status === 'admitted' ? 'active' : item.dischargedAt ? 'discharge' : 'pending',
+          _dischargedAt: item.dischargedAt || '',
         },
         badgeTone: {
           status: item.status === 'admitted' ? 'active' : 'completed',

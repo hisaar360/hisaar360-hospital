@@ -316,7 +316,7 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
       return false;
     }
 
-    return this.canViewAllRoutes || this.hasPermission('patients_history.read');
+    return this.canViewAllRoutes || this.hasPermission('patients_history.read') || this.hasPermission('ward.read');
   }
 
   get canViewPatients(): boolean {

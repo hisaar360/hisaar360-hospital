@@ -19,10 +19,11 @@
 
       <ng-container *ngSwitchCase="'nursing-care'">
         <label><span>Patient</span><select [(ngModel)]="form['patientId']"><option value="">Select patient</option><option *ngFor="let patient of patients" [value]="patient._id">{{ patientLabel(patient) }}</option></select></label>
-        <label><span>Task</span><input [(ngModel)]="form['title']" placeholder="Wound dressing" /></label>
-        <label><span>Priority</span><select [(ngModel)]="form['priority']"><option value="normal">Normal</option><option value="high">High</option><option value="critical">Critical</option></select></label>
+        <label><span>Note Type</span><select [(ngModel)]="form['noteType']"><option value="routine">Routine</option><option value="assessment">Assessment</option><option value="intervention">Intervention</option><option value="progress">Progress</option><option value="incident">Incident</option><option value="escalation">Escalation</option><option value="wound">Wound</option><option value="pain">Pain</option><option value="care_plan">Care Plan</option></select></label>
+        <label><span>Task / Problem</span><input [(ngModel)]="form['title']" placeholder="Wound dressing" /></label>
+        <label><span>Priority</span><select [(ngModel)]="form['priority']"><option value="normal">Routine</option><option value="urgent">Urgent</option><option value="stat">STAT</option><option value="high">High</option><option value="critical">Critical</option></select></label>
         <label><span>Shift</span><select [(ngModel)]="form['shift']"><option *ngFor="let shift of shiftOptions" [value]="shift.value">{{ shift.label }}</option></select></label>
-        <label><span>Notes</span><textarea [(ngModel)]="form['description']" rows="3"></textarea></label>
+        <label><span>Observation / Notes</span><textarea [(ngModel)]="form['description']" rows="3"></textarea></label>
       </ng-container>
 
       <ng-container *ngSwitchCase="'mar'">
@@ -30,7 +31,8 @@
         <label><span>Medicine</span><input [(ngModel)]="form['medicineName']" /></label>
         <label><span>Dose</span><input [(ngModel)]="form['dose']" /></label>
         <label><span>Route</span><input [(ngModel)]="form['route']" /></label>
-        <label><span>Notes</span><textarea [(ngModel)]="form['notes']" rows="2"></textarea></label>
+        <label><span>Status</span><select [(ngModel)]="form['marStatus']"><option value="given">Given</option><option value="late">Late</option><option value="held">Held</option><option value="refused">Refused</option><option value="missed">Missed</option><option value="not_available">Not available</option></select></label>
+        <label><span>Notes / Reason</span><textarea [(ngModel)]="form['notes']" rows="2" placeholder="Required when held, refused, missed, or unavailable"></textarea></label>
       </ng-container>
 
       <ng-container *ngSwitchCase="'drips-iv'">
@@ -46,6 +48,12 @@
           <label><span>Temp</span><input [(ngModel)]="form['temperature']" placeholder="98.6" /></label>
           <label><span>Pulse</span><input [(ngModel)]="form['pulse']" placeholder="78" /></label>
           <label><span>Weight</span><input [(ngModel)]="form['weight']" placeholder="12 kg" /></label>
+          <label><span>SpO2</span><input type="number" min="0" max="100" [(ngModel)]="form['spo2']" placeholder="98" /></label>
+          <label><span>Pain (0-10)</span><input type="number" min="0" max="10" [(ngModel)]="form['painScore']" /></label>
+          <label><span>RR</span><input type="number" [(ngModel)]="form['respiratoryRate']" /></label>
+          <label><span>Systolic</span><input type="number" [(ngModel)]="form['systolic']" /></label>
+          <label><span>Diastolic</span><input type="number" [(ngModel)]="form['diastolic']" /></label>
+          <label><span>Glucose</span><input type="number" [(ngModel)]="form['bloodGlucose']" /></label>
         </div>
         <label><span>Notes</span><textarea [(ngModel)]="form['notes']" rows="2"></textarea></label>
       </ng-container>
@@ -65,7 +73,7 @@
         <label><span>Patient</span><select [(ngModel)]="form['patientId']"><option value="">Select patient</option><option *ngFor="let patient of patients" [value]="patient._id">{{ patientLabel(patient) }}</option></select></label>
         <label><span>Order Type</span><select [(ngModel)]="form['orderType']"><option value="lab">Lab</option><option value="service">Service</option></select></label>
         <label><span>Order Name</span><input [(ngModel)]="form['orderName']" /></label>
-        <label><span>Priority</span><select [(ngModel)]="form['priority']"><option value="normal">Normal</option><option value="urgent">Urgent</option></select></label>
+        <label><span>Priority</span><select [(ngModel)]="form['priority']"><option value="normal">Routine</option><option value="urgent">Urgent</option><option value="stat">STAT</option></select></label>
         <label><span>Notes</span><textarea [(ngModel)]="form['notes']" rows="2"></textarea></label>
       </ng-container>
 

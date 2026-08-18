@@ -6,6 +6,8 @@ import { ToastrService } from 'ngx-toastr';
 import { WardDataService } from './services/ward-data.service';
 import { WardPatient } from './ward-patient-list.models';
 import { WARD_PATIENT_SHIFT_OPTIONS } from './ward-patient-list.mock';
+import { WardModuleRow } from './ward-module.models';
+import { forkJoin } from 'rxjs';
 
 interface PatientDetailTab {
   key: string;
@@ -22,16 +24,28 @@ export class WardPatientDetailComponent implements OnInit {
   loading = false;
   patient: WardPatient | null = null;
   activeTab = 'overview';
+  vitalsRows: WardModuleRow[] = [];
+  marRows: WardModuleRow[] = [];
+  dripRows: WardModuleRow[] = [];
+  nursingRows: WardModuleRow[] = [];
+  orderRows: WardModuleRow[] = [];
+  ioRows: WardModuleRow[] = [];
+  handoverRows: WardModuleRow[] = [];
 
   wardOptions: string[] = [];
   readonly shiftOptions = WARD_PATIENT_SHIFT_OPTIONS;
   readonly tabs: PatientDetailTab[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'vitals', label: 'Vitals' },
-    { key: 'mar', label: 'MAR' },
-    { key: 'drips', label: 'Drips / IV' },
     { key: 'nursing', label: 'Nursing Notes' },
-    { key: 'orders', label: 'Orders' },
+    { key: 'mar', label: 'Medication / MAR' },
+    { key: 'drips', label: 'IV / Drips' },
+    { key: 'io', label: 'I/O' },
+    { key: 'orders', label: 'Doctor Orders' },
+    { key: 'lab', label: 'Lab / Services' },
+    { key: 'care', label: 'Care Plan' },
+    { key: 'handover', label: 'Handover' },
+    { key: 'timeline', label: 'Activity Timeline' },
   ];
 
   ward = '';
@@ -48,15 +62,32 @@ export class WardPatientDetailComponent implements OnInit {
   ngOnInit(): void {
     const admissionId = this.route.snapshot.paramMap.get('admissionId') || '';
     this.loading = true;
-    this.wardData.loadPatientByAdmission(admissionId).subscribe({
-      next: (patient) => {
-        this.patient = patient;
-        if (patient) {
-          this.ward = patient.wardName;
-          this.wardOptions = [patient.wardName];
+    const filters = { admissionId, patientId: this.patient?.patientId || '' };
+    forkJoin({
+      patient: this.wardData.loadPatientByAdmission(admissionId),
+      vitals: this.wardData.loadModuleRows('vitals', 'all', '', filters),
+      mar: this.wardData.loadModuleRows('mar', 'all', '', filters),
+      drips: this.wardData.loadModuleRows('drips-iv', 'all', '', filters),
+      nursing: this.wardData.loadModuleRows('nursing-care', 'all', '', filters),
+      orders: this.wardData.loadModuleRows('orders-services', 'all', '', filters),
+      io: this.wardData.loadModuleRows('io-chart', 'all', '', filters),
+      handover: this.wardData.loadModuleRows('shift-handover', 'all', '', filters),
+    }).subscribe({
+      next: (data) => {
+        this.patient = data.patient;
+        this.vitalsRows = data.vitals;
+        this.marRows = data.mar;
+        this.dripRows = data.drips;
+        this.nursingRows = data.nursing;
+        this.orderRows = data.orders;
+        this.ioRows = data.io;
+        this.handoverRows = data.handover;
+        if (data.patient) {
+          this.ward = data.patient.wardName;
+          this.wardOptions = [data.patient.wardName];
         }
         this.loading = false;
-        if (!patient) {
+        if (!data.patient) {
           this.toastr.warning('Patient admission not found.', 'Patient Detail');
         }
       },
@@ -84,6 +115,44 @@ export class WardPatientDetailComponent implements OnInit {
 
   statusClass(status: WardPatient['status']): string {
     return `ward-badge ward-badge--${status}`;
+  }
+
+  rowTitle(row: WardModuleRow): string {
+    return String(
+      row.cells['task'] ||
+        row.cells['medicine'] ||
+        row.cells['fluid'] ||
+        row.cells['order'] ||
+        row.cells['patient'] ||
+        row.cells['bp'] ||
+        'Record'
+    );
+  }
+
+  rowStatus(row: WardModuleRow): string {
+    return String(row.cells['status'] || row.cells['dueTime'] || row.cells['recordedAt'] || row.cells['updatedAt'] || '');
+  }
+
+  get carePlanRows(): WardModuleRow[] {
+    return this.nursingRows.filter((row) =>
+      /care plan/i.test(`${row.cells['task'] || ''} ${row.cells['type'] || ''} ${this.rowTitle(row)}`)
+    );
+  }
+
+  get labRows(): WardModuleRow[] {
+    return this.orderRows.filter((row) => /lab/i.test(`${row.cells['order'] || ''} ${this.rowTitle(row)}`));
+  }
+
+  get timelineRows(): WardModuleRow[] {
+    return [
+      ...this.vitalsRows,
+      ...this.marRows,
+      ...this.dripRows,
+      ...this.nursingRows,
+      ...this.orderRows,
+      ...this.ioRows,
+      ...this.handoverRows,
+    ].slice(0, 40);
   }
 
   navigate(path: string): void {

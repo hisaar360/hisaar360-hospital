@@ -2,7 +2,7 @@
   <div class="container-fluid ward-page-container">
     <div class="ward-page-header ward-page-header--compact">
       <div class="ward-page-header__copy">
-        <h1>Ward & Nursing Center</h1>
+        <h1>{{ isNurseView ? 'Nurse Dashboard' : 'Ward & Nursing Center' }}</h1>
         <p>{{ dashboardSubtitle }}</p>
       </div>
       <div class="ward-page-header__actions">
@@ -23,7 +23,7 @@
             <option *ngFor="let shift of shiftOptions" [value]="shift.value">{{ shift.label }}</option>
           </select>
         </label>
-        <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" (click)="navigateTo('/ward/bed-management')">
+        <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" (click)="navigateTo('/ward/bed-management')" *ngIf="!isNurseView">
           <i class="fa fa-bed"></i> Bed Management
         </button>
         <button type="button" class="btn btn-sm ward-refresh-btn" (click)="refresh()" [disabled]="loading">
@@ -37,7 +37,7 @@
       <button
         type="button"
         class="ward-workflow-tab"
-        *ngFor="let tab of workflowTabs"
+        *ngFor="let tab of visibleWorkflowTabs"
         [class.is-active]="tab.key === 'dashboard'"
         (click)="navigateTo(tab.route)"
       >

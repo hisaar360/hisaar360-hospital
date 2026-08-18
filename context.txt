@@ -1,0 +1,667 @@
+================================================================================
+HISAAR360 HMS — PROJECT FLOW CONTEXT
+================================================================================
+Last updated: 2026-08-18
+
+Product name (UI): Hisaar360 HMS / Mooli hospital admin
+Backend folder:   HMSBackend
+Frontend folder:  mooli
+
+Live API:  https://hmsbackend-faizan99904.fly.dev/api/v1
+Local BE:  http://localhost:3001  (npm run dev)
+Local FE:  http://localhost:4200  (ng serve)
+Auth:      Hisaar360 Central Auth (www.hisaar360.com) — JWT + SSO
+           Product code HSPTL0012 / key hsptl-hisaar-3299498
+Mongo DB:  hms  (MUST stay separate from RMS)
+Fly app:   hmsbackend-faizan99904
+
+This file explains the CURRENT architecture and business flow of the two apps
+that work together. Other folders in this monorepo (POS, RMS, marquee, etc.)
+are separate products and are NOT part of this stack.
+
+Copies of this file also live in:
+  HMSBackend/context.txt
+  mooli/context.txt
+
+
+================================================================================
+1. WHAT THE PRODUCT DOES
+================================================================================
+
+Hospital Management System for a company that may own one or more hospitals.
+
+TWO product editions (from hospital/company subscriptionPlan):
+
+  A) HOSPITAL (default)
+     Full HMS: OPD, doctors, appointments, prescriptions, patients,
+     room/ward admission, laboratory, pharmacy POS, billing/ledger,
+     users/roles, dashboard, audit logs.
+
+  B) LABORATORY (lab / lab-only / pathology)
+     Lab-only UI + permission set: patients, lab catalog, lab orders,
+     results, users/roles, hospitals, settings. Dashboard, pharmacy,
+     ward, appointments, prescriptions are hidden.
+
+Core clinical idea:
+  Patient is the master record.
+  A visit/admission is an Encounter (OPD / admission / emergency / follow_up).
+  Where a service is performed, a ledger charge is created.
+  Payments are collected separately by receptionist / cashier / accountant.
+
+Pharmacy inside HMS is the hospital pharmacy (POS + inventory), not a
+standalone RMS shop. It still uses POS-style collections (products, sales,
+inventory, register sessions) scoped by companyId.
+
+
+================================================================================
+2. TECH STACK
+================================================================================
+
+BACKEND (HMSBackend)
+  - Node.js >= 18, Express 5, CommonJS
+  - MongoDB + Mongoose (replica set for pharmacy transactions)
+  - Zod request validation
+  - Redis (optional: session cache / JWT blacklist; prefix hms:)
+  - JWT: EdDSA (Ed25519) access tokens; optional legacy HS256
+  - Audience: hms-api
+  - Session policy: 10-min access token, 12-hour absolute session,
+    MAX_ACTIVE_SESSIONS_PER_USER = 1
+  - Layout: src/modules/<domain>/{routes,controller,service,model,validation}
+            src/common/{middlewares,utils,auth,enums}
+  - Deploy: Fly.io (hmsbackend-faizan99904)
+
+FRONTEND (mooli)
+  - Angular 19 (standalone components)
+  - Feature screens under src/app/modules/client/*
+  - Auth under src/app/modules/auth/*
+  - BackendService (src/app/core/services/backend.service.ts) → CONFIG.baseUrl
+  - AuthService + authInterceptor (Bearer) + authGuard + roleGuard
+  - Print/PDF: html2canvas + jsPDF (prescriptions, lab reports, invoices)
+  - config.ts currently points at live Fly API by default
+    (localhost:3001 is commented)
+
+
+================================================================================
+3. HIGH-LEVEL REQUEST FLOW
+================================================================================
+
+  Browser (Angular SPA)
+       │  Hosted login at www.hisaar360.com  OR  /login/access?ssoCode=
+       │  Bearer JWT stored as localStorage "token"
+       ▼
+  GET/POST/PATCH/DELETE  /api/v1/<resource>
+       │
+       ▼
+  Express:
+       helmet → cors → json → requestLogger
+       authMiddleware (JWT + HmsUserProfile/User + subscription + edition)
+       requirePermission / requireAnyPermission
+       hospital-scope (hospitalId from user, unless wildcard superAdmin)
+       │
+       ▼
+  Controller → Service → Mongoose model
+       │
+       ▼
+  JSON envelope { data, message } → Angular page
+
+
+SSO login path:
+  Central Auth issues a one-time ssoCode
+    → POST /api/v1/auth/sso-login { code }
+    → HMS verifies product (HSPTL0012 / hsptl-hisaar-3299498 / backend URL)
+    → hydrates/creates HmsUserProfile + company + hospital roles
+    → returns access + refresh tokens
+
+Local login still exists (POST /auth/login) for leftover User collection
+accounts, but hosted login is the default in production.
+
+
+================================================================================
+4. BACKEND LAYOUT
+================================================================================
+
+HMSBackend/
+  src/server.js, src/app.js
+  src/config/         env.js, redis.js
+  src/bootstrap/      platform super-admin ensure
+  src/common/
+    auth/             token + auth-context session
+    enums/            permissions.enum.js, hospital-audit-actions
+    middlewares/      auth, permission, error, not-found, platform-readonly
+    plugins/          central-company-scope
+    services/         session-cache, auth-context-cache
+    utils/            jwt, hospital-scope, product-edition, central-auth-client,
+                      serialize-user, pagination, mailer, cloudinary
+  src/modules/        one folder per API area
+  src/scripts/seed.js
+
+API mount (src/app.js) under /api/v1:
+
+  Clinical / hospital
+    /health
+    /auth
+    /hospitals, /departments, /doctors
+    /patients, /patient-history
+    /appointments
+    /prescriptions
+    /encounters          (+ ledger items, payments, charge-catalog, discharge)
+    /bills               (legacy; lab still syncs bills)
+    /rooms, /room-allotments
+    /hospital-wards      (ward master + floors)
+    /ward                (beds, activities, vitals, MAR, drips, orders)
+    /laboratory          (tests, orders, samples, results, settings)
+    /hospital-dashboard
+
+  Admin
+    /users, /roles, /companies, /audit-logs
+
+  Pharmacy / POS support (used by mooli pharmacy screens)
+    /categories, /products, /customers, /suppliers
+    /inventory, /stock-movements, /stores, /warehouses
+    /sales, /returns, /transfers
+    /payments, /expenses
+    /register-sessions
+    /reports
+
+
+================================================================================
+5. FRONTEND LAYOUT
+================================================================================
+
+mooli/src/app/
+  app.routes.ts          authRoutes first, then clientRoutes
+  config.ts              API_BASE_URL + CONFIG.* endpoint map
+  core/
+    services/auth.service.ts
+    services/backend.service.ts     all HTTP to HMS
+    auth.interceptor.ts             Bearer token
+    error.interceptor.ts
+    loading.interceptor.ts
+  modules/auth/
+    login, forgot-password
+    auth.guard.ts, role.guard.ts, hosted-login.guard.ts
+    access-control.ts               permission checks + default landing route
+    product-edition.ts              hospital vs laboratory UI
+  modules/client/
+    leftmenu, header, dashboard, doctor-dashboard
+    patients, appointment, doctors, department
+    prescription (+ physiotherapy, gynae print templates)
+    laboratory
+    ward (+ bed management, patient detail, module pages)
+    room-allotment
+    payments (+ invoices, encounter-ledger, addpayment)
+    pharmacy*  (POS, products, inventory, sales, returns, register, …)
+    User, hospitals, roles, settings, change-password, audit-logs
+    care-records (clinical / lab notes / ward-admin notes)
+
+Typical screen pattern:
+  *.component.ts / *.component.html / *.component.scss
+  Calls BackendService methods, not raw HttpClient (except AuthService).
+
+Guards:
+  - authGuard on the layout shell
+  - roleGuard(permissions) per route (any[] or { any, all })
+  - hostedLoginGuard on /login/access (redirects to Central Auth unless
+    local login is enabled or ?ssoCode= is present)
+
+
+================================================================================
+6. CORE DOMAIN MODEL (CURRENT)
+================================================================================
+
+COMPANY
+  Tenant. Users, roles, pharmacy stock, and hospitals belong to a company.
+  Central Auth company is mirrored locally.
+
+HOSPITAL
+  One clinical site under a company. Almost all clinical docs have hospitalId.
+  Fields include subscriptionPlan (drives product edition), lab report
+  settings, prescription settings.
+  Super admin (wildcard *) can see all hospitals; everyone else is scoped
+  to req.user.hospitalId.
+
+DEPARTMENT
+  Hospital department (Cardiology, Gynae, …). Doctors and appointments link here.
+
+DOCTOR (DoctorProfile)
+  Clinical doctor profile. May be created with a new login (name/email/password)
+  or linked to an existing userId.
+  Has consultationFee, availableDays/slots, prescription template settings.
+  Role name "Doctor" is special: hospital-scope limits data to assigned patients
+  and own appointments (assertDoctorPatientAccess).
+
+PATIENT
+  Master person record. patientNo is hospital-unique uppercase code.
+  assignedDoctorId, demographics, allergies, chronic diseases, medications.
+  Profile APIs: /patients/:id/profile, /history, /prescriptions, /bills.
+
+PATIENT HISTORY
+  Free-text clinical notes (diagnosis, vitals, attachments).
+  Also used as the permission gate for ward UI and some lab screens
+  (patients_history.read / create).
+
+APPOINTMENT
+  OPD booking: patient + doctor + department + date/time + status.
+  Calendar: GET /appointments/calendar
+  Status updates: PATCH /appointments/:id/status
+  Completing a visit can open an OPD encounter (from-appointment).
+
+PRESCRIPTION
+  Doctor Rx: medicines[], advice, followUpDate, specialty print layouts
+  (including gynae / physiotherapy). Doctor medicine shortcuts:
+  GET/POST /prescriptions/doctor-medicines
+  Pharmacy role can READ prescriptions (dispense from POS), not write them.
+
+ENCOUNTER  (billing account for one visit/admission)
+  Collection: encounters
+  Types: opd | admission | emergency | follow_up
+  Statuses: open | admitted | ready_for_discharge | discharged | closed | cancelled
+  Numbers: ADM-YYYYMMDD-001, OPD-… (daily hospital document numbers)
+  Links: patientId, appointmentId, roomAllotmentId, prescriptionId,
+         consultantDoctorId, roomId, ward/bed labels
+  summary: totalCharges, totalDiscount, netPayable, totalPaid,
+           totalRefunded, balance  (recalculated on every item/payment change)
+
+LEDGER ITEM  (ledger_items)
+  One charge line. sourceType: pharmacy | lab | ward | doctor | manual |
+  bed | procedure | nursing | misc | appointment
+  Status: active | cancelled | refunded
+  Unique-ish by hospitalId + sourceType + sourceId (lab order, bed stay, …)
+
+LEDGER PAYMENT  (ledger_payments)
+  advance | partial | final | refund
+  Methods: cash, card, bank, online, wallet, check, jazzcash, easypaisa
+
+CHARGE CATALOG  (charge_catalog)
+  Master list of optional/manual charges for cashier (admission, drip,
+  injection, oxygen, procedure, file, service, …)
+
+BILL  (legacy collection `bills`)
+  Still used. Lab orders still upsert a Bill with sourceType=lab.
+  New clinical charges should go to the encounter ledger.
+  UI Payments/Invoices pages still talk to both bills + encounters.
+
+ROOM
+  Physical room. roomType, chargesPerDay, optional wardId + floorId.
+  Status: available / occupied / etc.
+
+HOSPITAL WARD + WARD FLOOR
+  Master structure for bed management UI.
+  /hospital-wards  CRUD wards
+  /hospital-wards/:wardId/floors  floors
+
+ROOM ALLOTMENT
+  Admission: patient assigned to a room/bed.
+  Create → opens Encounter type=admission, status=admitted
+  Discharge → auto bed charges (days × chargesPerDay), encounter discharged
+  Transfer room, assign nurse also exist.
+
+WARD runtime (/ward)
+  beds, activities, admissions, vitals, MAR record-dose, drip actions,
+  orders (can create lab orders), reports.
+  Frontend ward modules: admissions, nursing-care, mar, drips-iv, vitals,
+  io-chart, orders-services, shift-handover, inventory, reports.
+
+LABORATORY
+  LabTest catalog, LabOrder with items/samples/results.
+  Flow: create order → collect sample → enter results → verify
+        → optional reject sample / cancel item / upload report
+  Settings live on Hospital (laboratorySettings) via /laboratory/settings
+  Creating/updating an order:
+    - upserts a legacy Bill (sourceType=lab)
+    - finds or creates an Encounter and posts a ledger_item sourceType=lab
+  Patient comparison / history:
+    GET /laboratory/patients/:patientId/comparison
+    GET /laboratory/patients/:patientId/history
+
+PHARMACY (POS collections, hospital-scoped company)
+  Categories, products, customers, suppliers
+  Inventory + stock_movements (stock never stored on product)
+  Stores / warehouses
+  Sales (incl. held carts, convert-to-sale, invoice)
+  Sales returns, transfers, payments, expenses
+  Register sessions (open/close cash drawer)
+  Pharmacy POS in mooli requires ALL of:
+    sales.create, sales.read, products.read,
+    register_sessions.open, register_sessions.read, register_sessions.close
+  Pharmacy sales do NOT currently auto-post to the encounter ledger
+  (docs list it as a next integration). Cashier can add manual ledger
+  items with sourceType=pharmacy if needed.
+
+USER vs HMS USER PROFILE
+  User            — legacy local-login accounts
+  HmsUserProfile  — Central Auth operators (centralUserId, companyId, roleId,
+                    hospitalId, branch/warehouse access)
+  Auth middleware looks up profile first, then User.
+  JWT userId is the profile _id (or legacy user _id).
+
+ROLE
+  context: 'hospital'. System templates are upserted per company.
+  Wildcard permission '*' = superAdmin (cross-hospital).
+
+
+================================================================================
+7. BUSINESS FLOWS (HOW USERS WORK)
+================================================================================
+
+--- 7.1 Master data first ------------------------------------------------------
+
+  1. Company exists (Central Auth / register-business / seed)
+  2. Create Hospital
+  3. Create Departments
+  4. Create Doctors (optionally with login)
+  5. Create Roles (auto-seeded templates) and Users
+  6. Create Rooms / Hospital Wards / Floors / Ward beds
+  7. Optional: Lab test catalog (or POST /laboratory/tests/seed-defaults)
+  8. Optional pharmacy: store, warehouse, categories, products, opening stock
+
+--- 7.2 OPD visit --------------------------------------------------------------
+
+  1. Reception: create/find Patient
+  2. Book Appointment (patient + doctor + slot)
+  3. Doctor: see Doctor Dashboard, open appointment, write clinical notes
+     (patient-history) and Prescription
+  4. POST /encounters/from-appointment
+       → Encounter type=opd
+       → consultation fee ledger item if appointment.consultationFee > 0
+  5. Cashier: Payments → patient ledger → collect payment
+
+Landing after login for Receptionist: /appointments
+Landing for Doctor: /doctor-dashboard
+
+--- 7.3 Inpatient admission ----------------------------------------------------
+
+  1. Room Allotment create (patient + room)
+       → Encounter type=admission, status=admitted
+       → optional advance payment on ledger
+  2. Ward Admin / Nurse: bed board, vitals, MAR, drips, I/O, handover
+  3. Lab orders / pharmacy issues during stay (lab auto-posts to ledger)
+  4. Discharge:
+       PATCH /room-allotments/:id/discharge
+         OR GET /encounters/:id/discharge-preview
+            POST /encounters/:id/finalize-discharge
+       → bed charges (days × room.chargesPerDay)
+       → encounter status = discharged
+
+Landing for Ward Admin / Nurse: /ward/dashboard
+
+--- 7.4 Laboratory -------------------------------------------------------------
+
+  1. Create/select Patient
+  2. Lab Dashboard → Create Order (pick tests from catalog)
+  3. Collect sample → enter results → verify (lab_results.verify)
+  4. Print report (hospital laboratorySettings colors/header)
+  5. Order amount is billed:
+       Bill sourceType=lab  AND  ledger_item sourceType=lab on an encounter
+  Laboratory edition: home route is /laboratory; other clinical menus hidden.
+
+--- 7.5 Prescription -----------------------------------------------------------
+
+  Doctor (or Hospital Admin) creates Rx on /prescriptions
+  Print templates vary by specialty (gynae, physiotherapy plan, clinical Rx)
+  Pharmacy users can read Rx to dispense; they cannot create Rx.
+
+--- 7.6 Billing / cashier ------------------------------------------------------
+
+  Screens:
+    /payments                 patient payment summaries
+    /payments/ledger          encounter ledger UI
+    /payments/invoices        invoice list
+    /payments/addpayment      add payment / charge
+  APIs:
+    GET  /encounters/patient-payments
+    GET  /encounters/patient-payments/:patientId/detail
+    GET  /encounters/:id/ledger
+    POST /encounters/:id/ledger-items
+    POST /encounters/:id/payments
+    POST /encounters/:id/apply-discount
+    PATCH .../ledger-items/:itemId/cancel
+  Rule: services post charges; cashier collects money separately.
+
+--- 7.7 Pharmacy POS -----------------------------------------------------------
+
+  Open register session → POS sale (patient can be a pharmacy customer)
+  → stock movement → optional sale return / transfer / expense
+  Reports: /pharmacy/reports and /pos-reports
+
+--- 7.8 Hospital dashboard -----------------------------------------------------
+
+  GET /hospital-dashboard/summary          (hospital_dashboard.read)
+  GET /hospital-dashboard/doctor-summary   (doctor daily view)
+  POST /hospital-dashboard/doctor-summary/email
+
+
+================================================================================
+8. AUTH, ROLES, PERMISSIONS
+================================================================================
+
+Login is primarily Central Auth, not isolated local passwords:
+  - User signs in at www.hisaar360.com
+  - Frontend stores token, refresh_token, user, role, roleId, permissions
+  - Every API call sends Authorization: Bearer <token>
+  - Access token TTL ~10 minutes; AuthService.refreshSession() uses refresh token
+  - Change password revokes session; user is sent back to hosted login
+  - Single active session per user (new login kills the previous one)
+
+Default hospital role templates (src/modules/roles/hospital-role-templates.js)
+upserted per company:
+
+  superAdmin      *  (all hospitals)
+  Hospital Admin  full hospital ops (no pharmacy POS keys unless added)
+  Doctor          own patients, history, appointments status, prescriptions
+  Receptionist    patients, appointments, bills/encounters payments, allotments
+  Accountant      bills + full ledger + charge catalog
+  Pharmacy        prescriptions.read + POS/inventory/sales/register
+  Laboratory      patients + lab tests/orders/verify
+  Ward Admin      rooms, allotments, ward.*, history, encounters.read
+  Nurse           ward care (no room create/delete, no allotment create)
+
+Laboratory edition templates (narrower):
+  superAdmin, Hospital Admin, Laboratory
+  Permissions clipped to LABORATORY_EDITION_PERMISSIONS.
+
+Frontend default routes (access-control.ts):
+  laboratory edition → /laboratory
+  Doctor             → /doctor-dashboard
+  Ward Admin / Nurse → /ward/dashboard
+  Receptionist       → /appointments
+  else first matching permission route, else /settings
+
+Hospital scope (src/common/utils/hospital-scope.js):
+  - Non-superAdmin MUST have hospitalId
+  - Queries always filter hospitalId
+  - Doctor role additionally limited to assigned patients / own appointments
+
+Product edition (src/common/utils/product-edition.js):
+  Plan aliases laboratory|lab|lab-only|pathology → LABORATORY
+  Auth middleware filters permissions to the edition set.
+
+
+================================================================================
+9. LINKING RULES (IMPORTANT PRODUCT RULES)
+================================================================================
+
+  - Clinical data is hospital-scoped. Super admin must send hospitalId
+    when creating records; hospital users inherit req.user.hospitalId.
+  - Patient is the receivable owner for clinical money (encounter ledger).
+  - Lab order always tries to attach an Encounter and a ledger_item
+    (and a legacy Bill). Do not remove that dual-write without a migration.
+  - Room allotment create opens an admission encounter; discharge posts bed
+    charges. Do not discharge without going through those services.
+  - Pharmacy stock changes go through InventoryService only (except seed).
+  - Products never store current stock; inventory rows + stock_movements do.
+  - Doctor login is NOT the same as DoctorProfile, but they are usually linked.
+  - Staff-like ward nurses are app Users with role Nurse; they are login users.
+  - Wildcard '*' bypasses hospital scope — treat as platform super admin.
+  - Laboratory edition must not expose pharmacy/ward/appointment menus.
+
+
+================================================================================
+10. BILLING vs LEDGER (CURRENT STATE)
+================================================================================
+
+Preferred path (new work):
+  Encounter + ledger_items + ledger_payments
+
+Still alive:
+  bills collection + /bills CRUD
+  Lab syncLabBill() still upserts bills
+  Frontend Payments/Invoices still use bills.read / bills.create
+
+Do not delete /bills until mooli invoice screens are fully on encounters.
+Encounter ledger permissions are separate:
+  encounters.*, ledger_items.*, ledger_payments.*, charge_catalog.*
+Receptionist has encounters + ledger_payments but NOT ledger_items.create
+(Accountant / Hospital Admin add manual charges).
+
+
+================================================================================
+11. LOCAL DEV QUICK START
+================================================================================
+
+Backend:
+  cd HMSBackend
+  cp .env.example .env
+  # Mongo replica set, MONGODB_DB_NAME=hms, Central Auth URLs, JWT keys
+  npm install
+  npm run dev            # PORT=3001
+
+Frontend:
+  cd mooli
+  npm install
+  # Optionally point config.ts API_BASE_URL at http://localhost:3001/api/v1
+  npm start              # localhost:4200
+
+Health:
+  GET /api/v1/health
+
+Seed:
+  npm run seed           # HMSBackend — demo hospital bootstrap (idempotent)
+
+
+================================================================================
+12. WHERE TO LOOK IN CODE (CHEAT SHEET)
+================================================================================
+
+Backend mount:            HMSBackend/src/app.js
+Env:                      HMSBackend/src/config/env.js
+Auth JWT + SSO:           …/modules/auth/
+                          …/common/middlewares/auth.middleware.js
+                          …/common/utils/central-auth-client.js
+                          …/common/utils/central-product.js
+Permissions:              …/common/enums/permissions.enum.js
+Role templates:           …/modules/roles/hospital-role-templates.js
+Hospital scope:           …/common/utils/hospital-scope.js
+Product edition:          …/common/utils/product-edition.js
+Users:                    …/modules/users/user.service.js
+                          …/modules/users/hms-user-profile.service.js
+Patients:                 …/modules/patients/
+Doctors:                  …/modules/doctors/
+Appointments:             …/modules/appointments/
+Prescriptions:            …/modules/prescriptions/
+Encounters / ledger:      …/modules/encounters/encounter.service.js
+                          …/modules/encounters/ledger.service.js
+                          docs/encounter-ledger-workflow.md
+Bills (legacy):           …/modules/bills/
+Lab:                      …/modules/laboratory/lab.service.js
+                          (syncLabBill + syncLabLedgerItem)
+Rooms / allotments:       …/modules/rooms/, …/modules/room-allotments/
+Hospital wards:           …/modules/hospital-wards/
+Ward runtime:             …/modules/ward/
+Dashboard:                …/modules/hospital-dashboard/
+Pharmacy POS:             …/modules/sales/, inventory/, products/, …
+Hospital API list:        HMSBackend/docs/hospital-api-endpoints.md
+Split notes:              HMSBackend/SPLIT.md
+
+Frontend API map:         mooli/config.ts
+Routes:                   mooli/src/app/app.routes.ts
+                          mooli/src/app/modules/client/client.routes.ts
+Access / landing:         mooli/src/app/modules/auth/access-control.ts
+Edition:                  mooli/src/app/modules/auth/product-edition.ts
+HTTP client:              mooli/src/app/core/services/backend.service.ts
+Auth:                     mooli/src/app/core/services/auth.service.ts
+Menu visibility:          mooli/src/app/modules/client/leftmenu/
+Models:                   mooli/src/app/shared/models/hospital.model.ts
+
+
+================================================================================
+13. MENTAL MODEL (ONE DIAGRAM)
+================================================================================
+
+  Central Auth ──SSO/JWT──▶ mooli (Angular) ──HTTP──▶ HMSBackend ──▶ Mongo `hms`
+
+  Company
+    └── Hospital  (edition: hospital | laboratory)
+          ├── Departments · Doctors · Users/Roles
+          ├── Patients
+          │     ├── Appointments ──▶ Encounter (opd) + consult fee
+          │     ├── Prescriptions
+          │     ├── Patient history / clinical records
+          │     ├── Lab orders ──▶ Bill (legacy) + ledger_item (lab)
+          │     ├── Room allotment ──▶ Encounter (admission)
+          │     │                         └── bed charges on discharge
+          │     └── Encounter ledger ── charges + payments + balance
+          ├── Wards / floors / rooms / ward beds · vitals · MAR · drips
+          └── Pharmacy POS (company inventory, not yet auto-ledger)
+
+  Laboratory edition = same backend, clipped permissions + clipped Angular menu.
+
+
+================================================================================
+14. UI / ROUTE MAP (MOOLI)
+================================================================================
+
+Auth
+  /login/access          hosted login (SSO) or local if enabled
+  /forgot-password
+  /signup                (legacy page; production uses Central Auth)
+
+Clinical
+  /dashboard             hospital admin KPIs
+  /doctor-dashboard      doctor home
+  /appointments
+  /patients, /patients/all-patients, /patients/add-patient
+  /patients/patient-profile/:id
+  /patients/patient-invoices/:id
+  /all-doctors, /add-doctors, /doctors-profile/:id, /doctors-schedule
+  /departments
+  /clinical-records
+  /prescriptions, /prescriptions/created, /prescriptions/physiotherapy
+
+Lab
+  /laboratory
+  /laboratory/create-order, /laboratory/orders/:id, /orders/:id/edit
+  /laboratory/catalog, /laboratory/settings
+  /laboratory/created-reports, /laboratory/records
+
+Ward / rooms
+  /ward/dashboard, /ward/bed-management, /ward/patient-list
+  /ward/patient-detail/:admissionId
+  /ward/admissions, nursing-care, mar, drips-iv, vitals, io-chart,
+    orders-services, shift-handover, inventory, reports, nurses-staff
+  /ward-admin            legacy free-text ward notes
+  /room-allotment, /alloted-rooms, /add-alloted-rooms
+
+Billing
+  /payments, /payments/addpayment, /payments/ledger
+  /payments/invoices, /payments/invoices/invoice-detail/:id
+
+Pharmacy
+  /pharmacy, /pharmacy/pos, /pharmacy/products, customers, suppliers
+  /pharmacy/inventory, stock-movements, transfers, sales, sales/:id
+  /pharmacy/returns/sales, payments, expenses
+  /pharmacy/register-sessions, register-sessions/:id
+  /pharmacy/reports, /pos-reports
+
+Admin
+  /users, /create-user, /hospitals, /create-hospital, /roles
+  /settings, /change-password, /audit-logs
+
+Template leftovers still routed (wildcard * only): inbox, chat, charts,
+todo, filemanager, contacts, blog, social, covid-19, our-centers, our-staff.
+Do not treat those as product features unless asked to revive them.
+
+
+================================================================================
+END OF CONTEXT
+================================================================================

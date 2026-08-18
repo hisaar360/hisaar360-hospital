@@ -11,13 +11,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { WARD_MODULE_PAGE_CONFIGS } from './ward-module.config';
 import {
+  WardModuleHierarchyNode,
   WardModuleKpi,
   WardModulePageConfig,
   WardModuleReportCard,
   WardModuleRow,
   WardRowMenuItem,
 } from './ward-module.models';
-import { getWardHierarchyNodes } from './ward-module.mock';
+import { isNurseRole, readStoredRole } from '../../auth/access-control';
 import { WardActionModalComponent } from './ward-action-modal.component';
 import { WardDripActionModalComponent } from './ward-drip-action-modal.component';
 import { WardVitalsTrendsComponent } from './ward-vitals-trends.component';
@@ -38,7 +39,7 @@ export class WardModulePageComponent implements OnInit {
   allRows: WardModuleRow[] = [];
   reportCards: WardModuleReportCard[] = [];
   allReportCards: WardModuleReportCard[] = [];
-  hierarchyNodes = getWardHierarchyNodes();
+  hierarchyNodes: WardModuleHierarchyNode[] = [];
 
   ward = '';
   date = new Date().toISOString().slice(0, 10);
@@ -82,28 +83,10 @@ export class WardModulePageComponent implements OnInit {
   }
 
   get displayKpis(): WardModuleKpi[] {
-    if (this.config?.key === 'drips-iv') {
-      const running = this.allRows.filter((row) => row.cells['_tab'] === 'running').length;
-      const completed = this.allRows.filter((row) => row.cells['_tab'] === 'completed').length;
-      const planned = this.allRows.filter((row) => row.cells['status'] === 'Planned').length;
-      return [
-        { label: 'Running', value: running, icon: 'fa-tint', tone: 'blue' },
-        { label: 'Planned', value: planned, icon: 'fa-clock-o', tone: 'orange' },
-        { label: 'Completed', value: completed, icon: 'fa-check', tone: 'green' },
-        { label: 'Total', value: this.allRows.length, icon: 'fa-list', tone: 'teal' },
-      ];
-    }
-    if (this.config?.key === 'vitals') {
-      const recorded = this.allRows.filter((row) => row.cells['_tab'] === 'recorded').length;
-      const due = this.allRows.filter((row) => row.cells['_tab'] === 'due').length;
-      return [
-        { label: 'Recorded', value: recorded, icon: 'fa-check', tone: 'green' },
-        { label: 'Due', value: due, icon: 'fa-heartbeat', tone: 'orange' },
-        { label: 'Patients', value: new Set(this.allRows.map((row) => row.cells['patient'])).size, icon: 'fa-users', tone: 'blue' },
-        { label: 'Total Entries', value: this.allRows.length, icon: 'fa-list', tone: 'teal' },
-      ];
-    }
-    return this.config?.kpis || [];
+    return (this.config?.kpis || []).map((kpi) => ({
+      ...kpi,
+      value: this.kpiValueFromRows(kpi),
+    }));
   }
 
   get hideVitalsListTable(): boolean {
@@ -236,6 +219,24 @@ export class WardModulePageComponent implements OnInit {
       }
     }
 
+    if (this.config.key === 'shift-handover' && row.cells['_tab'] !== 'completed' && row.id) {
+      items.push({ id: 'accept-handover', label: 'Accept Handover' });
+    }
+
+    if (this.config.key === 'orders-services' && row.id && !String(row.id).includes('-')) {
+      const status = String(row.cells['status'] || '').toLowerCase();
+      if (status === 'pending' || status === 'due') {
+        items.push({ id: 'acknowledge-order', label: 'Acknowledge Order' });
+      }
+      if (status === 'pending' || status === 'due' || status === 'in progress' || status === 'in_progress') {
+        items.push({ id: 'complete-order', label: 'Complete Order' });
+      }
+    }
+
+    if (this.config.key === 'mar' && row.cells['_tab'] === 'due') {
+      items.push({ id: 'administer-mar', label: 'Record Administration' });
+    }
+
     if (patientId) {
       items.push({ id: 'mar', label: 'View MAR' });
       if (this.config.key !== 'vitals') {
@@ -246,7 +247,7 @@ export class WardModulePageComponent implements OnInit {
       }
     }
 
-    if (admissionId || this.contextAdmissionId) {
+    if ((admissionId || this.contextAdmissionId) && !isNurseRole(readStoredRole())) {
       items.push({ id: 'transfer', label: 'Transfer Bed' });
       items.push({ id: 'discharge', label: 'Discharge Patient', danger: true });
     }
@@ -265,6 +266,8 @@ export class WardModulePageComponent implements OnInit {
       case 'view-patient':
         if (row.linkRoute) {
           void this.router.navigateByUrl(row.linkRoute);
+        } else if (admissionId) {
+          void this.router.navigate(['/ward/patient-detail', admissionId]);
         } else if (patientId) {
           void this.router.navigate(['/ward/patient-detail', patientId]);
         }
@@ -292,6 +295,36 @@ export class WardModulePageComponent implements OnInit {
         break;
       case 'discharge':
         this.dischargePatient(admissionId);
+        break;
+      case 'accept-handover':
+        this.wardData.acceptHandover(row.id).subscribe({
+          next: () => {
+            this.toastr.success('Handover accepted.');
+            this.refreshRows();
+          },
+          error: (err) => this.toastr.error(err?.error?.message || 'Failed to accept handover.'),
+        });
+        break;
+      case 'acknowledge-order':
+        this.wardData.acknowledgeOrder(row.id).subscribe({
+          next: () => {
+            this.toastr.success('Order acknowledged.');
+            this.refreshRows();
+          },
+          error: (err) => this.toastr.error(err?.error?.message || 'Failed to acknowledge order.'),
+        });
+        break;
+      case 'complete-order':
+        this.wardData.completeOrder(row.id).subscribe({
+          next: () => {
+            this.toastr.success('Order completed.');
+            this.refreshRows();
+          },
+          error: (err) => this.toastr.error(err?.error?.message || 'Failed to complete order.'),
+        });
+        break;
+      case 'administer-mar':
+        this.primaryAction();
         break;
     }
     this.cdr.markForCheck();
@@ -634,6 +667,24 @@ export class WardModulePageComponent implements OnInit {
         this.cdr.markForCheck();
       },
     });
+  }
+
+  private kpiValueFromRows(kpi: WardModuleKpi): number {
+    const countTab = kpi.countTab;
+    if (!countTab || countTab === 'total') {
+      return this.allRows.length;
+    }
+    if (countTab === 'unique-patient') {
+      return new Set(this.allRows.map((row) => row.cells['patient'])).size;
+    }
+    if (countTab === 'discharge-today') {
+      const today = new Date().toISOString().slice(0, 10);
+      return this.allRows.filter((row) => {
+        const dischargedAt = String(row.cells['_dischargedAt'] || '');
+        return row.cells['_tab'] === 'discharge' && dischargedAt.slice(0, 10) === today;
+      }).length;
+    }
+    return this.allRows.filter((row) => row.cells['_tab'] === countTab).length;
   }
 
   private applyRouteContext(query: { get: (key: string) => string | null }): void {

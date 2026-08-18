@@ -9,10 +9,10 @@ export const WARD_MODULE_PAGE_CONFIGS: Record<string, WardModulePageConfig> = {
     searchPlaceholder: 'Search patient, MRN, bed, doctor...',
     layout: 'table',
     kpis: [
-      { label: 'Active Admissions', value: 23, icon: 'fa-bed', tone: 'blue' },
-      { label: 'Pending Requests', value: 4, icon: 'fa-clock-o', tone: 'orange' },
-      { label: 'Discharge Today', value: 2, icon: 'fa-sign-out', tone: 'purple' },
-      { label: 'Transfers', value: 1, icon: 'fa-random', tone: 'teal' },
+      { label: 'Active Admissions', value: 0, icon: 'fa-bed', tone: 'blue', countTab: 'active' },
+      { label: 'Pending Requests', value: 0, icon: 'fa-clock-o', tone: 'orange', countTab: 'pending' },
+      { label: 'Discharge Today', value: 0, icon: 'fa-sign-out', tone: 'purple', countTab: 'discharge-today' },
+      { label: 'Transfers', value: 0, icon: 'fa-random', tone: 'teal', countTab: 'transfer' },
     ],
     tabs: [
       { key: 'all', label: 'All' },
@@ -37,10 +37,10 @@ export const WARD_MODULE_PAGE_CONFIGS: Record<string, WardModulePageConfig> = {
     searchPlaceholder: 'Search patient, task, nurse...',
     layout: 'table',
     kpis: [
-      { label: 'Tasks Due', value: 18, icon: 'fa-tasks', tone: 'orange' },
-      { label: 'Completed', value: 42, icon: 'fa-check', tone: 'green' },
-      { label: 'Overdue', value: 3, icon: 'fa-exclamation-triangle', tone: 'red' },
-      { label: 'Notes Today', value: 11, icon: 'fa-sticky-note', tone: 'blue' },
+      { label: 'Tasks Due', value: 0, icon: 'fa-tasks', tone: 'orange', countTab: 'due' },
+      { label: 'Completed', value: 0, icon: 'fa-check', tone: 'green', countTab: 'completed' },
+      { label: 'Overdue', value: 0, icon: 'fa-exclamation-triangle', tone: 'red', countTab: 'overdue' },
+      { label: 'Notes Today', value: 0, icon: 'fa-sticky-note', tone: 'blue', countTab: 'total' },
     ],
     tabs: [
       { key: 'all', label: 'All Tasks' },
@@ -65,10 +65,10 @@ export const WARD_MODULE_PAGE_CONFIGS: Record<string, WardModulePageConfig> = {
     searchPlaceholder: 'Search patient, medicine, nurse...',
     layout: 'table',
     kpis: [
-      { label: 'Due Now', value: 7, icon: 'fa-medkit', tone: 'orange' },
-      { label: 'Given', value: 56, icon: 'fa-check-circle', tone: 'green' },
-      { label: 'Missed', value: 2, icon: 'fa-times-circle', tone: 'red' },
-      { label: 'PRN Orders', value: 5, icon: 'fa-plus-square', tone: 'purple' },
+      { label: 'Due Now', value: 0, icon: 'fa-medkit', tone: 'orange', countTab: 'due' },
+      { label: 'Given', value: 0, icon: 'fa-check-circle', tone: 'green', countTab: 'given' },
+      { label: 'Missed', value: 0, icon: 'fa-times-circle', tone: 'red', countTab: 'missed' },
+      { label: 'PRN Orders', value: 0, icon: 'fa-plus-square', tone: 'purple', countTab: 'total' },
     ],
     tabs: [
       { key: 'all', label: 'All' },
@@ -93,10 +93,10 @@ export const WARD_MODULE_PAGE_CONFIGS: Record<string, WardModulePageConfig> = {
     searchPlaceholder: 'Search patient, fluid, bed...',
     layout: 'table',
     kpis: [
-      { label: 'Running', value: 9, icon: 'fa-tint', tone: 'blue' },
-      { label: 'Due Review', value: 4, icon: 'fa-clock-o', tone: 'orange' },
-      { label: 'Completed', value: 12, icon: 'fa-check', tone: 'green' },
-      { label: 'Alerts', value: 1, icon: 'fa-bell', tone: 'red' },
+      { label: 'Running', value: 0, icon: 'fa-tint', tone: 'blue', countTab: 'running' },
+      { label: 'Planned', value: 0, icon: 'fa-clock-o', tone: 'orange', countTab: 'planned' },
+      { label: 'Completed', value: 0, icon: 'fa-check', tone: 'green', countTab: 'completed' },
+      { label: 'Total', value: 0, icon: 'fa-list', tone: 'teal', countTab: 'total' },
     ],
     tabs: [
       { key: 'all', label: 'All' },
@@ -122,10 +122,10 @@ export const WARD_MODULE_PAGE_CONFIGS: Record<string, WardModulePageConfig> = {
     searchPlaceholder: 'Search patient, bed, nurse...',
     layout: 'table',
     kpis: [
-      { label: 'Due', value: 6, icon: 'fa-heartbeat', tone: 'orange' },
-      { label: 'Recorded', value: 38, icon: 'fa-check', tone: 'green' },
-      { label: 'Critical', value: 2, icon: 'fa-exclamation-circle', tone: 'red' },
-      { label: 'Observations', value: 14, icon: 'fa-eye', tone: 'blue' },
+      { label: 'Recorded', value: 0, icon: 'fa-check', tone: 'green', countTab: 'recorded' },
+      { label: 'Due', value: 0, icon: 'fa-heartbeat', tone: 'orange', countTab: 'due' },
+      { label: 'Patients', value: 0, icon: 'fa-users', tone: 'blue', countTab: 'unique-patient' },
+      { label: 'Total Entries', value: 0, icon: 'fa-list', tone: 'teal', countTab: 'total' },
     ],
     tabs: [
       { key: 'all', label: 'All' },
@@ -152,10 +152,10 @@ export const WARD_MODULE_PAGE_CONFIGS: Record<string, WardModulePageConfig> = {
     searchPlaceholder: 'Search patient, bed...',
     layout: 'table',
     kpis: [
-      { label: 'Patients Tracked', value: 23, icon: 'fa-users', tone: 'blue' },
-      { label: 'Positive Balance', value: 14, icon: 'fa-arrow-up', tone: 'green' },
-      { label: 'Negative Balance', value: 5, icon: 'fa-arrow-down', tone: 'orange' },
-      { label: 'Alerts', value: 2, icon: 'fa-bell', tone: 'red' },
+      { label: 'Patients Tracked', value: 0, icon: 'fa-users', tone: 'blue', countTab: 'unique-patient' },
+      { label: 'Positive Balance', value: 0, icon: 'fa-arrow-up', tone: 'green', countTab: 'positive' },
+      { label: 'Negative Balance', value: 0, icon: 'fa-arrow-down', tone: 'orange', countTab: 'negative' },
+      { label: 'Alerts', value: 0, icon: 'fa-bell', tone: 'red', countTab: 'alerts' },
     ],
     tabs: [
       { key: 'all', label: 'All' },
@@ -179,10 +179,10 @@ export const WARD_MODULE_PAGE_CONFIGS: Record<string, WardModulePageConfig> = {
     searchPlaceholder: 'Search patient, order, doctor...',
     layout: 'table',
     kpis: [
-      { label: 'Pending', value: 8, icon: 'fa-file-text-o', tone: 'orange' },
-      { label: 'In Progress', value: 5, icon: 'fa-spinner', tone: 'blue' },
-      { label: 'Completed', value: 31, icon: 'fa-check', tone: 'green' },
-      { label: 'Urgent', value: 2, icon: 'fa-bolt', tone: 'red' },
+      { label: 'Pending', value: 0, icon: 'fa-file-text-o', tone: 'orange', countTab: 'pending' },
+      { label: 'In Progress', value: 0, icon: 'fa-spinner', tone: 'blue', countTab: 'progress' },
+      { label: 'Completed', value: 0, icon: 'fa-check', tone: 'green', countTab: 'completed' },
+      { label: 'Urgent', value: 0, icon: 'fa-bolt', tone: 'red', countTab: 'urgent' },
     ],
     tabs: [
       { key: 'all', label: 'All' },
@@ -207,10 +207,10 @@ export const WARD_MODULE_PAGE_CONFIGS: Record<string, WardModulePageConfig> = {
     searchPlaceholder: 'Search nurse, shift, patient...',
     layout: 'table',
     kpis: [
-      { label: 'Handovers Today', value: 3, icon: 'fa-exchange', tone: 'blue' },
-      { label: 'Pending Items', value: 12, icon: 'fa-list', tone: 'orange' },
-      { label: 'Critical Notes', value: 2, icon: 'fa-exclamation-triangle', tone: 'red' },
-      { label: 'Completed', value: 2, icon: 'fa-check', tone: 'green' },
+      { label: 'Handovers Today', value: 0, icon: 'fa-exchange', tone: 'blue', countTab: 'total' },
+      { label: 'Pending Items', value: 0, icon: 'fa-list', tone: 'orange', countTab: 'pending' },
+      { label: 'Critical Notes', value: 0, icon: 'fa-exclamation-triangle', tone: 'red', countTab: 'critical' },
+      { label: 'Completed', value: 0, icon: 'fa-check', tone: 'green', countTab: 'completed' },
     ],
     tabs: [
       { key: 'all', label: 'All' },
@@ -237,10 +237,10 @@ export const WARD_MODULE_PAGE_CONFIGS: Record<string, WardModulePageConfig> = {
     searchPlaceholder: 'Search item, category...',
     layout: 'table',
     kpis: [
-      { label: 'Total Items', value: 86, icon: 'fa-cubes', tone: 'blue' },
-      { label: 'Low Stock', value: 7, icon: 'fa-arrow-down', tone: 'orange' },
-      { label: 'Out of Stock', value: 2, icon: 'fa-times', tone: 'red' },
-      { label: 'Requested', value: 5, icon: 'fa-shopping-cart', tone: 'purple' },
+      { label: 'Total Items', value: 0, icon: 'fa-cubes', tone: 'blue', countTab: 'total' },
+      { label: 'Low Stock', value: 0, icon: 'fa-arrow-down', tone: 'orange', countTab: 'low' },
+      { label: 'Out of Stock', value: 0, icon: 'fa-times', tone: 'red', countTab: 'out' },
+      { label: 'Requested', value: 0, icon: 'fa-shopping-cart', tone: 'purple', countTab: 'requested' },
     ],
     tabs: [
       { key: 'all', label: 'All' },
@@ -264,10 +264,10 @@ export const WARD_MODULE_PAGE_CONFIGS: Record<string, WardModulePageConfig> = {
     searchPlaceholder: 'Search report...',
     layout: 'reports',
     kpis: [
-      { label: 'Saved Reports', value: 12, icon: 'fa-file-text', tone: 'blue' },
-      { label: 'Scheduled', value: 4, icon: 'fa-calendar', tone: 'purple' },
-      { label: 'Generated Today', value: 3, icon: 'fa-line-chart', tone: 'green' },
-      { label: 'Alerts', value: 1, icon: 'fa-bell', tone: 'red' },
+      { label: 'Saved Reports', value: 0, icon: 'fa-file-text', tone: 'blue', countTab: 'total' },
+      { label: 'Scheduled', value: 0, icon: 'fa-calendar', tone: 'purple', countTab: 'scheduled' },
+      { label: 'Generated Today', value: 0, icon: 'fa-line-chart', tone: 'green', countTab: 'today' },
+      { label: 'Alerts', value: 0, icon: 'fa-bell', tone: 'red', countTab: 'alerts' },
     ],
     tabs: [
       { key: 'all', label: 'All Reports' },

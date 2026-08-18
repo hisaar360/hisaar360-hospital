@@ -27,6 +27,7 @@ export class WardActionModalComponent implements OnChanges {
   prescriptions: Prescription[] = [];
 
   form: Record<string, string | number> = {
+    admissionId: '',
     patientId: '',
     roomId: '',
     doctorId: '',
@@ -68,6 +69,14 @@ export class WardActionModalComponent implements OnChanges {
     runningDrips: '',
     specialInstructions: '',
     riskAlerts: '',
+    marStatus: 'given',
+    spo2: '',
+    painScore: '',
+    respiratoryRate: '',
+    systolic: '',
+    diastolic: '',
+    bloodGlucose: '',
+    noteType: 'routine',
     doctorInformed: 'no',
   };
 
@@ -163,6 +172,9 @@ export class WardActionModalComponent implements OnChanges {
     this.form['route'] = 'PO';
     this.form['orderType'] = 'lab';
     this.form['priority'] = 'normal';
+    this.form['marStatus'] = 'given';
+    this.form['noteType'] = 'routine';
+    this.form['doctorInformed'] = 'no';
     this.form['bedType'] = 'standard';
     this.form['category'] = 'Consumable';
     this.form['location'] = 'Ward Store';
@@ -186,27 +198,33 @@ export class WardActionModalComponent implements OnChanges {
         if (!this.form['patientId'] || !this.form['title']) return null;
         return {
           patientId: this.form['patientId'],
+          admissionId: this.form['admissionId'] || undefined,
           title: this.form['title'],
           description: this.form['description'],
           priority: this.form['priority'] || 'normal',
           shift: this.form['shift'],
+          noteType: this.form['noteType'] || 'routine',
+          activityType: this.form['noteType'] === 'care_plan' ? 'care_plan' : 'nursing_task',
         };
       case 'mar':
         if (!this.form['patientId'] || !this.form['medicineName']) return null;
         return {
           patientId: this.form['patientId'],
+          admissionId: this.form['admissionId'] || undefined,
           prescriptionId: this.form['prescriptionId'] || undefined,
           medicineName: this.form['medicineName'],
           dose: this.form['dose'],
           route: this.form['route'],
           notes: this.form['notes'],
           shift: this.form['shift'],
+          marStatus: this.form['marStatus'] || 'given',
         };
       case 'drips-iv':
         if (!this.form['prescriptionId']) return null;
         return {
           prescriptionId: this.form['prescriptionId'],
           patientId: this.form['patientId'] || undefined,
+          admissionId: this.form['admissionId'] || undefined,
           fluidName: this.form['fluidName'] || undefined,
           notes: this.form['notes'],
         };
@@ -214,6 +232,7 @@ export class WardActionModalComponent implements OnChanges {
         if (!this.form['patientId']) return null;
         return {
           patientId: this.form['patientId'],
+          admissionId: this.form['admissionId'] || undefined,
           doctorId: this.form['doctorId'] || undefined,
           notes: this.form['notes'],
           shift: this.form['shift'],
@@ -222,12 +241,19 @@ export class WardActionModalComponent implements OnChanges {
             temperature: this.form['temperature'],
             pulse: this.form['pulse'],
             weight: this.form['weight'],
+            spo2: this.form['spo2'] || undefined,
+            painScore: this.form['painScore'] || undefined,
+            respiratoryRate: this.form['respiratoryRate'] || undefined,
+            systolic: this.form['systolic'] || undefined,
+            diastolic: this.form['diastolic'] || undefined,
+            bloodGlucose: this.form['bloodGlucose'] || undefined,
           },
         };
       case 'io-chart':
         if (!this.form['patientId']) return null;
         return {
           patientId: this.form['patientId'],
+          admissionId: this.form['admissionId'] || undefined,
           title: 'I/O Entry',
           description: this.form['notes'],
           shift: this.form['shift'],
@@ -239,6 +265,7 @@ export class WardActionModalComponent implements OnChanges {
         if (!this.form['patientId'] || !this.form['orderName']) return null;
         return {
           patientId: this.form['patientId'],
+          admissionId: this.form['admissionId'] || undefined,
           orderType: this.form['orderType'],
           orderName: this.form['orderName'],
           doctorId: this.form['doctorId'] || undefined,
@@ -249,6 +276,7 @@ export class WardActionModalComponent implements OnChanges {
         if (!this.form['patientId'] || !this.form['patientCondition']) return null;
         return {
           patientId: this.form['patientId'],
+          admissionId: this.form['admissionId'] || undefined,
           title: `Handover - ${this.form['shift']}`,
           description: this.form['description'],
           shift: this.form['shift'],

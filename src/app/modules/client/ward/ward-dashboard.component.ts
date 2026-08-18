@@ -19,6 +19,7 @@ import {
   WardWorkflowTab,
 } from './ward-dashboard.models';
 import { WardDataService } from './services/ward-data.service';
+import { isNurseRole, readStoredRole } from '../../auth/access-control';
 
 type ManageableBedStatus = 'available' | 'on_hold' | 'cleaning' | 'maintenance';
 
@@ -99,10 +100,27 @@ export class WardDashboardComponent implements OnInit {
     return this.filters.ward ? `Bed Overview — ${this.filters.ward}` : 'Bed Overview — All Wards';
   }
 
+  get isNurseView(): boolean {
+    return isNurseRole(readStoredRole());
+  }
+
+  get visibleWorkflowTabs(): WardWorkflowTab[] {
+    if (!this.isNurseView) {
+      return this.workflowTabs;
+    }
+    return this.workflowTabs.filter((tab) => tab.key !== 'beds' && tab.key !== 'discharge');
+  }
+
   get dashboardSubtitle(): string {
+    const shift = this.selectedShiftLabel;
+    if (this.isNurseView) {
+      return this.filters.ward
+        ? `My assigned patients · ${this.filters.ward} · ${shift}`
+        : `My assigned patients · ${shift}`;
+    }
     return this.filters.ward
-      ? `${this.filters.ward} nurse task center · ${this.selectedShiftLabel}`
-      : `All wards nurse task center · ${this.selectedShiftLabel}`;
+      ? `${this.filters.ward} operational overview · ${shift}`
+      : `Ward operational overview · ${shift}`;
   }
 
   loadDashboard(): void {
@@ -277,6 +295,12 @@ export class WardDashboardComponent implements OnInit {
     }
 
     actions.push({ key: 'bed_details', label: 'Bed Details', icon: 'fa-bed' });
+    if (this.isNurseView) {
+      return actions.filter(
+        (action) =>
+          !['admit_patient', 'transfer', 'discharge', 'reserve_bed'].includes(action.key)
+      );
+    }
     return actions;
   }
 

@@ -3,7 +3,8 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
-import { BackendService } from '../../../core/services/backend.service';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { User } from '../../../shared/models/hospital.model';
 import { WardDataService } from '../ward/services/ward-data.service';
 import { WardPatient } from '../ward/ward-patient-list.models';
@@ -26,7 +27,6 @@ export class OurStaffComponent implements OnInit {
   contextPatient: WardPatient | null = null;
 
   constructor(
-    private backend: BackendService,
     private wardData: WardDataService,
     private route: ActivatedRoute,
     private router: Router,
@@ -79,29 +79,21 @@ export class OurStaffComponent implements OnInit {
 
   loadData(): void {
     this.loading = true;
-    this.backend.getUsers({ context: 'hospital' }).subscribe({
-      next: (users) => {
+    forkJoin({
+      users: this.wardData.loadWardStaff().pipe(catchError(() => of([] as User[]))),
+      patients: this.wardData.loadAdmittedPatients('').pipe(catchError(() => of([] as WardPatient[]))),
+    }).subscribe({
+      next: ({ users, patients }) => {
         this.users = users || [];
-        this.loadPatients();
-      },
-      error: () => {
-        this.users = [];
-        this.loading = false;
-        this.toastr.error('Failed to load staff.');
-      },
-    });
-  }
-
-  loadPatients(): void {
-    this.wardData.loadAdmittedPatients('').subscribe({
-      next: (patients) => {
-        this.patients = patients;
+        this.patients = patients || [];
         this.syncContextPatient();
         this.loading = false;
       },
       error: () => {
+        this.users = [];
         this.patients = [];
         this.loading = false;
+        this.toastr.error('Failed to load nurses and staff.');
       },
     });
   }
