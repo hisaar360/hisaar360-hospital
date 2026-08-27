@@ -1,12 +1,10 @@
-export const API_BASE_URL = 'https://hmsbackend-faizan99904.fly.dev/api/v1';
+import { environment } from './src/environments/environment';
 
-// Previous combined backend:
-// export const API_BASE_URL = 'https://posbackend-faizan99904.fly.dev/api/v1';
-// export const API_BASE_URL = 'http://localhost:3001/api/v1';
+export const API_BASE_URL = environment.apiBaseUrl;
 
 export const CONFIG = {
   baseUrl: API_BASE_URL,
-  authPortalLoginUrl: 'https://hisaar-landing-page-main-eight.vercel.app/login',
+  authPortalLoginUrl: environment.authPortalLoginUrl,
 
   storage: {
     token: 'token',

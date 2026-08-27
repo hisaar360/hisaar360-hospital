@@ -2,6 +2,20 @@
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.1.
 
+## Environment configuration
+
+Angular uses `src/environments/environment.ts` for local development and replaces
+it with `src/environments/environment.prod.ts` for production builds.
+
+Each environment defines:
+
+- `production`: whether the build targets production
+- `apiBaseUrl`: backend API root, including the API version path
+- `authPortalLoginUrl`: login page used when the user must authenticate
+
+Run `ng serve` for the development environment or `ng build --configuration
+production` for the production environment.
+
 ## Development server
 
 To start a local development server, run:
