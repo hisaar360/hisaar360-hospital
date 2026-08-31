@@ -4,7 +4,7 @@
 
     <header class="gm-header card section">
       <div class="gm-header-left">
-        <div class="gm-logo" aria-hidden="true">
+        <div class="gm-logo" [class.has-logo]="preview.showHospitalLogo" aria-hidden="true">
           <img *ngIf="preview.showHospitalLogo" [src]="preview.hospitalLogoUrl" [alt]="preview.hospitalName">
           <i *ngIf="!preview.showHospitalLogo" class="fa fa-female"></i>
         </div>

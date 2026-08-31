@@ -6,6 +6,8 @@ import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { AppDialogService } from '../../../../core/services/app-dialog.service';
 import { BackendService } from '../../../../core/services/backend.service';
+import { todayYmd, toCalendarYmd } from '../../../../core/utils/calendar-date';
+import { isDoctorRole } from '../../../auth/access-control';
 import { Doctor, Patient } from '../../../../shared/models/hospital.model';
 
 type PatientDateGroup = {
@@ -28,8 +30,8 @@ export class AllPatientsComponent implements OnInit {
   search = '';
   status = '';
   assignedDoctorId = '';
-  dateFrom = '';
-  dateTo = '';
+  dateFrom = this.defaultDateFrom();
+  dateTo = todayYmd();
   page = 1;
   limit = 10;
   totalPages = 0;
@@ -53,12 +55,20 @@ export class AllPatientsComponent implements OnInit {
 
   get hasActiveFilters(): boolean {
     return Boolean(
-      this.search.trim() || this.status || this.assignedDoctorId || this.dateFrom || this.dateTo
+      this.search.trim() ||
+        this.status ||
+        (!this.isDoctorUser && this.assignedDoctorId) ||
+        this.dateFrom !== this.defaultDateFrom() ||
+        this.dateTo !== todayYmd()
     );
   }
 
+  get isDoctorUser(): boolean {
+    return isDoctorRole(localStorage.getItem('role') || '');
+  }
+
   loadLookups(): void {
-    this.backend.getDoctors({ limit: 100, status: 'active' }).subscribe({
+    this.backend.getAccessibleDoctors({ limit: 100, status: 'active' }).subscribe({
       next: (result) => {
         this.doctors = result.items;
       },
@@ -132,8 +142,8 @@ export class AllPatientsComponent implements OnInit {
     this.search = '';
     this.status = '';
     this.assignedDoctorId = '';
-    this.dateFrom = '';
-    this.dateTo = '';
+    this.dateFrom = this.defaultDateFrom();
+    this.dateTo = todayYmd();
     this.page = 1;
     this.loadPatients();
   }
@@ -234,5 +244,11 @@ export class AllPatientsComponent implements OnInit {
       day: 'numeric',
       year: 'numeric',
     });
+  }
+
+  private defaultDateFrom(): string {
+    const date = new Date();
+    date.setDate(date.getDate() - 7);
+    return toCalendarYmd(date);
   }
 }

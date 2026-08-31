@@ -6,6 +6,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
+import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import { MooliOfflineService } from '../../../core/services/mooli-offline.service';
 import {
   Doctor,
@@ -58,6 +59,7 @@ import {
   formatUrduQualification,
   stripDoctorPrefix,
 } from './prescription-print-urdu';
+import { transliterateLatinToUrdu } from '../../../shared/utils/urdu-transliteration';
 import { buildPhysiotherapyPrintHtml } from './physiotherapy-print';
 import {
   defaultPhysioPlanPayload,
@@ -92,6 +94,7 @@ type CreatedPrescriptionPreviewData = {
   hospitalAddressUrdu: string;
   hospitalLogoUrl: string;
   showHospitalLogo: boolean;
+  hospitalLogoScale: number;
   prescriptionRevisionNote: string;
   prescriptionFollowUpLine: string;
   prescriptionFooterLines: string[];
@@ -219,6 +222,10 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
     return this.backend.hasPermission('prescriptions.create');
   }
 
+  get canReadPatients(): boolean {
+    return this.backend.hasPermission('patients.read');
+  }
+
   get viewTemplateLabel(): string {
     return (
       this.prescriptionTemplates.find((template) => template.id === this.viewPreviewData?.template)?.name ||
@@ -266,14 +273,18 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
   }
 
   loadLookups(): void {
-    this.backend.getPatients({ limit: 100, status: 'active' }).subscribe({
-      next: (result) => {
-        this.patients = result.items;
-      },
-      error: () => {
-        this.patients = [];
-      },
-    });
+    if (this.canReadPatients) {
+      this.backend.getPatients({ limit: 100, status: 'active' }).subscribe({
+        next: (result) => {
+          this.patients = result.items;
+        },
+        error: () => {
+          this.patients = [];
+        },
+      });
+    } else {
+      this.patients = [];
+    }
 
     if (this.isDoctorUser()) {
       this.backend.getMyDoctorProfile().subscribe({
@@ -289,7 +300,7 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
       });
     }
 
-    this.backend.getDoctors({ limit: 100, status: 'active' }).subscribe({
+    this.backend.getAccessibleDoctors({ limit: 100, status: 'active' }).subscribe({
       next: (result) => {
         this.doctors = result.items;
         if (this.currentDoctorProfile) {
@@ -721,11 +732,14 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
       doctorTitleEnglish: formatEnglishDoctorTitle(),
       doctorTitleUrdu: formatUrduDoctorTitle(),
       hospitalName: formatEnglishOrganizationName(hospitalName) || hospitalName,
-      hospitalNameUrdu: formatUrduOrganizationName(hospitalName) || hospitalName,
+      hospitalNameUrdu:
+        formatUrduOrganizationName(hospitalName, hospital?.nameUrdu) ||
+        transliterateLatinToUrdu(hospitalName),
       hospitalAddress: formatEnglishAddress(hospitalAddress),
       hospitalAddressUrdu: formatUrduAddress(hospitalAddress) || formatEnglishAddress(hospitalAddress),
       hospitalLogoUrl,
       showHospitalLogo: settings.showLogo !== false && Boolean(hospitalLogoUrl),
+      hospitalLogoScale: settings.logoScale,
       prescriptionRevisionNote: settings.revisionNote || '* Rx to be revised after Reports.',
       prescriptionFollowUpLine:
         settings.followUpLine || `For appointment and follow up, contact ${hospitalName}.`,
@@ -1140,6 +1154,7 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
   private resolvePrescriptionSettings(hospital: Hospital | null): PrescriptionPrintSettings {
     return {
       showLogo: hospital?.prescriptionSettings?.showLogo !== false,
+      logoScale: Math.min(200, Math.max(50, Number(hospital?.prescriptionSettings?.logoScale) || 100)),
       revisionNote: hospital?.prescriptionSettings?.revisionNote || '* Rx to be revised after Reports.',
       followUpLine: hospital?.prescriptionSettings?.followUpLine || '',
       contactLine: hospital?.prescriptionSettings?.contactLine || '',
@@ -1177,7 +1192,7 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
       return '';
     }
 
-    return logoUrl.startsWith('data:image/') && logoUrl.length > 1000000 ? '' : logoUrl;
+    return resolveAssetUrl(logoUrl.startsWith('data:image/') && logoUrl.length > 1000000 ? '' : logoUrl);
   }
 
   private formatVitalLabel(key: string): string {

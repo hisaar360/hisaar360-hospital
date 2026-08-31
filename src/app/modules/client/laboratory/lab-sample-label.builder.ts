@@ -1,4 +1,6 @@
-import { LabOrder, LabSample } from '../../../shared/models/hospital.model';
+import { Hospital, LabOrder, LabSample } from '../../../shared/models/hospital.model';
+import { resolveAssetUrl } from '../../../core/utils/asset.util';
+import { resolveLabPrintDetails } from './lab-print-details';
 
 function escapeHtml(value: string | number | null | undefined): string {
   return String(value ?? '')
@@ -111,9 +113,20 @@ function sampleStatusLabel(status?: string): string {
   return String(status || 'collected').replace(/_/g, ' ');
 }
 
-function buildSampleLabelHtml(order: LabOrder, sample: LabSample): string {
+function buildSampleLabelHtml(order: LabOrder, sample: LabSample, hospital: Hospital | null): string {
+  const printDetails = resolveLabPrintDetails(hospital, { mode: 'receipt' });
+  const logoUrl = resolveAssetUrl(hospital?.logoUrl);
+  const labName = printDetails.name || hospital?.name || 'Laboratory';
+
   return `
     <section class="label">
+      <div class="label-brand">
+        ${logoUrl ? `<img class="label-logo" src="${escapeHtml(logoUrl)}" alt="" />` : ''}
+        <div>
+          <strong>${escapeHtml(labName)}</strong>
+          ${printDetails.tagline ? `<span>${escapeHtml(printDetails.tagline)}</span>` : ''}
+        </div>
+      </div>
       <div class="label-top">
         <div>
           <p class="label-kicker">Sample ID</p>
@@ -136,8 +149,12 @@ function buildSampleLabelHtml(order: LabOrder, sample: LabSample): string {
   `;
 }
 
-export function buildLabSampleLabelsHtml(order: LabOrder, samples: LabSample[]): string {
-  const labels = samples.map((sample) => buildSampleLabelHtml(order, sample)).join('');
+export function buildLabSampleLabelsHtml(
+  order: LabOrder,
+  samples: LabSample[],
+  hospital: Hospital | null = null
+): string {
+  const labels = samples.map((sample) => buildSampleLabelHtml(order, sample, hospital)).join('');
 
   return `<!doctype html>
 <html>
@@ -159,6 +176,29 @@ export function buildLabSampleLabelsHtml(order: LabOrder, samples: LabSample[]):
         max-width: 72mm;
         padding: 8px;
         page-break-inside: avoid;
+      }
+      .label-brand {
+        align-items: center;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        gap: 8px;
+        margin-bottom: 8px;
+        padding-bottom: 6px;
+      }
+      .label-logo {
+        height: 28px;
+        object-fit: contain;
+        width: 28px;
+      }
+      .label-brand strong {
+        display: block;
+        font-size: 11px;
+        line-height: 1.2;
+      }
+      .label-brand span {
+        color: #64748b;
+        display: block;
+        font-size: 8px;
       }
       .label-top {
         align-items: flex-start;
@@ -220,7 +260,11 @@ export function buildLabSampleLabelsHtml(order: LabOrder, samples: LabSample[]):
 </html>`;
 }
 
-export function printLabSampleLabels(order: LabOrder, samples: LabSample[]): void {
+export function printLabSampleLabels(
+  order: LabOrder,
+  samples: LabSample[],
+  hospital: Hospital | null = null
+): void {
   if (!samples.length) {
     return;
   }
@@ -249,7 +293,7 @@ export function printLabSampleLabels(order: LabOrder, samples: LabSample[]): voi
   }
 
   printDocument.open();
-  printDocument.write(buildLabSampleLabelsHtml(order, samples));
+  printDocument.write(buildLabSampleLabelsHtml(order, samples, hospital));
   printDocument.close();
 
   let handled = false;

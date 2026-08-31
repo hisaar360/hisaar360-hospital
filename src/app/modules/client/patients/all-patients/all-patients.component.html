@@ -26,12 +26,12 @@
                                     (keyup.enter)="applyFilters()">
                             </div>
                             <div class="col-md-2 col-sm-6 mb-2">
-                                <input class="form-control" type="date" [(ngModel)]="dateFrom">
+                                <input class="form-control" type="date" [(ngModel)]="dateFrom" title="From date">
                             </div>
                             <div class="col-md-2 col-sm-6 mb-2">
-                                <input class="form-control" type="date" [(ngModel)]="dateTo">
+                                <input class="form-control" type="date" [(ngModel)]="dateTo" title="To date">
                             </div>
-                            <div class="col-md-2 col-sm-6 mb-2">
+                            <div class="col-md-2 col-sm-6 mb-2" *ngIf="!isDoctorUser">
                                 <select class="form-control" [(ngModel)]="assignedDoctorId">
                                     <option value="">All doctors</option>
                                     <option *ngFor="let doctor of doctors" [value]="doctor.userId">
@@ -39,7 +39,7 @@
                                     </option>
                                 </select>
                             </div>
-                            <div class="col-md-2 col-sm-6 mb-2">
+                            <div class="col-md-2 col-sm-6 mb-2" [class.col-md-4]="isDoctorUser">
                                 <select class="form-control" [(ngModel)]="status">
                                     <option value="">All statuses</option>
                                     <option value="active">Active</option>

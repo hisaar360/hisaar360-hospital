@@ -1,0 +1,363 @@
+<div id="main-content" class="pharmacy-page">
+  <div class="pharmacy-shell pharmacy-admin-page">
+    <header class="pharmacy-hero">
+      <div class="pharmacy-hero-main">
+        <a class="pharmacy-back-link" routerLink="/pharmacy">&larr; Pharmacy Queue</a>
+        <h1 *ngIf="view === 'list'">Pharmacy Purchases</h1>
+        <h1 *ngIf="view === 'create'">Create Purchase</h1>
+        <h1 *ngIf="view === 'detail'">{{ text(purchase?.['invoiceNo']) || 'Purchase Detail' }}</h1>
+        <h1 *ngIf="view === 'returns'">Purchase Returns</h1>
+        <p *ngIf="view !== 'detail'">Procurement, receiving, supplier payable, and return documents.</p>
+        <p *ngIf="view === 'detail' && purchase">
+          {{ supplierName() }} · {{ warehouseName() }} · {{ date(purchase['purchaseDate']) }}
+        </p>
+        <span
+          class="pharmacy-status-pill"
+          *ngIf="view === 'detail' && purchase"
+          [ngClass]="statusClass(text(purchase['status']))">
+          {{ text(purchase['status']) }}
+        </span>
+      </div>
+      <div class="pharmacy-hero-actions">
+        <a class="btn btn-default" routerLink="/pharmacy/purchases">Purchases</a>
+        <a class="btn btn-default" routerLink="/pharmacy/purchase-returns">Returns</a>
+        <a class="btn btn-primary" routerLink="/pharmacy/purchases/create" *ngIf="canCreate">New Purchase</a>
+        <button
+          class="btn btn-success"
+          type="button"
+          *ngIf="view === 'detail' && purchase && canReceive && text(purchase['status']) !== 'received' && text(purchase['status']) !== 'cancelled'"
+          (click)="receive(text(purchase['_id']))"
+          [disabled]="saving">
+          Receive stock
+        </button>
+        <button
+          class="btn btn-outline-danger"
+          type="button"
+          *ngIf="view === 'detail' && purchase && canCancel && text(purchase['status']) !== 'cancelled'"
+          (click)="cancel(text(purchase['_id']))"
+          [disabled]="saving">
+          Cancel
+        </button>
+      </div>
+    </header>
+
+    <div class="pharmacy-filter-card" *ngIf="view === 'list'">
+      <div class="pharmacy-filter-head">
+        <div>
+          <h2>Purchase Filters</h2>
+          <p>Review supplier invoices by receiving status.</p>
+        </div>
+      </div>
+      <div class="pharmacy-filter-grid">
+        <label>
+          <span>Status</span>
+          <select class="form-select" [(ngModel)]="status">
+            <option value="">All</option>
+            <option value="draft">Draft</option>
+            <option value="ordered">Ordered</option>
+            <option value="partially_received">Partially received</option>
+            <option value="received">Received</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </label>
+        <div class="pharmacy-filter-actions">
+          <button class="btn btn-outline-primary" type="button" (click)="loadPurchases()">Apply</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="pharmacy-table-card" *ngIf="view === 'list'">
+      <div class="pharmacy-table-head">
+        <div>
+          <h2>Purchase Register</h2>
+          <p>{{ purchases.length }} purchase documents in this view.</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div *ngIf="loading" class="pharmacy-empty-state">Loading purchases...</div>
+        <div *ngIf="!loading && !purchases.length" class="pharmacy-empty-state">No purchases found.</div>
+        <div class="table-responsive" *ngIf="!loading && purchases.length">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Purchase #</th>
+                <th>Date</th>
+                <th>Supplier</th>
+                <th>Warehouse</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th>Paid</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of purchases">
+                <td class="fw-semibold">{{ text(item['invoiceNo']) }}</td>
+                <td>{{ date(item['purchaseDate']) }}</td>
+                <td>{{ supplierName(item) }}</td>
+                <td>{{ warehouseName(item) }}</td>
+                <td>
+                  <span class="pharmacy-status-pill" [ngClass]="statusClass(text(item['status']))">
+                    {{ text(item['status']) }}
+                  </span>
+                </td>
+                <td>{{ currency(item['total']) }}</td>
+                <td>{{ currency(item['paidAmount']) }}</td>
+                <td class="text-end">
+                  <a class="btn btn-sm btn-default" [routerLink]="['/pharmacy/purchases', item['_id']]">Open</a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="pharmacy-filter-card" *ngIf="view === 'create'">
+      <div class="pharmacy-filter-head">
+        <div>
+          <h2>Purchase Header</h2>
+          <p>Supplier, receiving warehouse, and payment. Use Receive now only when stock is already at the door.</p>
+        </div>
+      </div>
+      <div class="pharmacy-filter-grid">
+        <label>
+          <span>Supplier</span>
+          <select class="form-select" [(ngModel)]="form.supplierId">
+            <option value="">Select supplier</option>
+            <option *ngFor="let supplier of suppliers" [value]="supplier._id">{{ supplier.name }}</option>
+          </select>
+        </label>
+        <label>
+          <span>Warehouse / store receiving</span>
+          <select class="form-select" [(ngModel)]="form.warehouseId">
+            <option value="">Select warehouse</option>
+            <option *ngFor="let warehouse of warehouses" [value]="warehouse._id">{{ warehouse.name }}</option>
+          </select>
+          <small class="d-block mt-1 text-muted" *ngIf="!warehouses.length">No warehouse exists yet. Create one to receive stock.</small>
+          <button class="btn btn-sm btn-default mt-2" type="button" *ngIf="canManageWarehouses && !warehouseCreateOpen" (click)="openWarehouseCreate()">Add warehouse</button>
+        </label>
+        <ng-container *ngIf="warehouseCreateOpen">
+          <label>
+            <span>New warehouse name</span>
+            <input class="form-control" [(ngModel)]="warehouseForm.name" placeholder="Main warehouse" />
+          </label>
+          <label>
+            <span>Warehouse code</span>
+            <input class="form-control" [(ngModel)]="warehouseForm.code" placeholder="WH-01" />
+          </label>
+          <div class="pharmacy-filter-actions">
+            <button class="btn btn-outline-secondary" type="button" (click)="warehouseCreateOpen = false" [disabled]="creatingWarehouse">Cancel</button>
+            <button class="btn btn-outline-primary" type="button" (click)="createWarehouse()" [disabled]="creatingWarehouse">{{ creatingWarehouse ? 'Creating...' : 'Create warehouse' }}</button>
+          </div>
+        </ng-container>
+        <label>
+          <span>Date</span>
+          <input class="form-control" type="date" [(ngModel)]="form.purchaseDate" />
+        </label>
+        <label>
+          <span>Status</span>
+          <select class="form-select" [(ngModel)]="form.status">
+            <option value="draft">Draft</option>
+            <option value="ordered">Ordered</option>
+            <option value="received">Receive now</option>
+          </select>
+        </label>
+        <label>
+          <span>Paid amount</span>
+          <input class="form-control" type="number" [(ngModel)]="form.paidAmount" />
+        </label>
+        <label>
+          <span>Payment method</span>
+          <select class="form-select" [(ngModel)]="form.paymentMethod">
+            <option value="">Credit</option>
+            <option value="cash">Cash</option>
+            <option value="bank">Bank</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="pharmacy-table-card" *ngIf="view === 'create'">
+      <div class="pharmacy-table-head">
+        <div>
+          <h2>Line Items</h2>
+          <p>Add products, qty, and cost. Batch and expiry are optional.</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Qty</th>
+                <th>Rate</th>
+                <th>Discount</th>
+                <th>Tax</th>
+                <th>Batch</th>
+                <th>Expiry</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let line of form.items; let i = index">
+                <td>
+                  <select class="form-select" [(ngModel)]="line.productId">
+                    <option value="">Select</option>
+                    <option *ngFor="let product of products" [value]="product._id">{{ product.name }}</option>
+                  </select>
+                </td>
+                <td><input class="form-control" type="number" [(ngModel)]="line.qty" /></td>
+                <td><input class="form-control" type="number" [(ngModel)]="line.unitCost" /></td>
+                <td><input class="form-control" type="number" [(ngModel)]="line.discount" /></td>
+                <td><input class="form-control" type="number" [(ngModel)]="line.tax" /></td>
+                <td><input class="form-control" [(ngModel)]="line.batchNumber" /></td>
+                <td><input class="form-control" type="date" [(ngModel)]="line.expiryDate" /></td>
+                <td><button class="btn btn-sm btn-default" type="button" (click)="removeLine(i)">Remove</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <label class="d-block mt-3">
+          <span class="form-label">Notes</span>
+          <textarea class="form-control" [(ngModel)]="form.note"></textarea>
+        </label>
+        <div class="mt-3">
+          <button class="btn btn-default mr-2" type="button" (click)="addLine()">Add item</button>
+          <button class="btn btn-primary" type="button" (click)="save()" [disabled]="saving">Save purchase</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="pharmacy-loading" *ngIf="view === 'detail' && loading && !purchase">
+      <i class="fa fa-spinner fa-spin"></i> Loading purchase...
+    </div>
+
+    <div class="pharmacy-empty-state" *ngIf="view === 'detail' && !loading && !purchase">
+      Purchase not found.
+      <a class="pharmacy-back-link" routerLink="/pharmacy/purchases">Back to Purchases</a>
+    </div>
+
+    <ng-container *ngIf="view === 'detail' && purchase">
+      <div class="pharmacy-stats-grid">
+        <article class="pharmacy-stat-card">
+          <span>Total</span>
+          <strong>{{ currency(purchase['total']) }}</strong>
+        </article>
+        <article class="pharmacy-stat-card">
+          <span>Paid</span>
+          <strong>{{ currency(purchase['paidAmount']) }}</strong>
+        </article>
+        <article class="pharmacy-stat-card">
+          <span>Balance</span>
+          <strong>{{ currency(balance(purchase)) }}</strong>
+        </article>
+        <article class="pharmacy-stat-card">
+          <span>Payment</span>
+          <strong>{{ paymentStatusLabel(purchase) }}</strong>
+        </article>
+      </div>
+
+      <div class="pharmacy-summary-card">
+        <div class="pharmacy-table-head">
+          <div>
+            <h2>Purchase Summary</h2>
+            <p>Supplier, warehouse, and document totals for this procurement.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-4">
+            <div class="col-md-4"><strong>Purchase #</strong><div>{{ text(purchase['invoiceNo']) }}</div></div>
+            <div class="col-md-4"><strong>Date</strong><div>{{ date(purchase['purchaseDate']) }}</div></div>
+            <div class="col-md-4"><strong>Status</strong><div>{{ text(purchase['status']) }}</div></div>
+            <div class="col-md-4"><strong>Supplier</strong><div>{{ supplierName() }}</div></div>
+            <div class="col-md-4"><strong>Warehouse</strong><div>{{ warehouseName() }}</div></div>
+            <div class="col-md-4"><strong>Payment status</strong><div>{{ text(purchase['paymentStatus']) || 'unpaid' }}</div></div>
+            <div class="col-md-4"><strong>Subtotal</strong><div>{{ currency(purchase['subtotal']) }}</div></div>
+            <div class="col-md-4"><strong>Discount</strong><div>{{ currency(purchase['discount']) }}</div></div>
+            <div class="col-md-4"><strong>Tax</strong><div>{{ currency(purchase['tax']) }}</div></div>
+            <div class="col-12"><strong>Note</strong><div>{{ text(purchase['note']) || 'No note' }}</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pharmacy-table-card">
+        <div class="pharmacy-table-head">
+          <div>
+            <h2>Line Items</h2>
+            <p>{{ purchaseLines().length }} product lines on this purchase.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="pharmacy-empty-state" *ngIf="!purchaseLines().length">No line items on this purchase.</div>
+          <div class="table-responsive" *ngIf="purchaseLines().length">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>SKU</th>
+                  <th>Qty</th>
+                  <th>Rate</th>
+                  <th>Discount</th>
+                  <th>Tax</th>
+                  <th>Total</th>
+                  <th>Batch</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let line of purchaseLines()">
+                  <td class="fw-semibold">{{ text(line['name']) || '—' }}</td>
+                  <td>{{ text(line['sku']) || '—' }}</td>
+                  <td>{{ text(line['qty']) }}</td>
+                  <td>{{ currency(line['unitCost']) }}</td>
+                  <td>{{ currency(line['discount']) }}</td>
+                  <td>{{ currency(line['tax']) }}</td>
+                  <td>{{ currency(line['total']) }}</td>
+                  <td>{{ text(line['batchNumber']) || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+
+    <div class="pharmacy-table-card" *ngIf="view === 'returns'">
+      <div class="pharmacy-table-head">
+        <div>
+          <h2>Purchase Return Register</h2>
+          <p>{{ returns.length }} purchase return documents in this view.</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div *ngIf="loading" class="pharmacy-empty-state">Loading returns...</div>
+        <div *ngIf="!loading && !returns.length" class="pharmacy-empty-state">No purchase returns found.</div>
+        <div class="table-responsive" *ngIf="!loading && returns.length">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Return #</th>
+                <th>Date</th>
+                <th>Total</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of returns">
+                <td class="fw-semibold">{{ text(item['returnNo']) }}</td>
+                <td>{{ date(item['returnDate']) }}</td>
+                <td>{{ currency(item['total']) }}</td>
+                <td>
+                  <span class="pharmacy-status-pill" [ngClass]="statusClass(text(item['status']))">
+                    {{ text(item['status']) }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

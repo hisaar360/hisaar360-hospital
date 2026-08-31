@@ -37,6 +37,9 @@ yarn-error.log
 testem.log
 /typings
 
+# Local QA working log — never commit
+HMS_CURSOR_QA_ISSUES.md
+
 # System files
 .DS_Store
 Thumbs.db

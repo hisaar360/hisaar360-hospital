@@ -31,6 +31,9 @@ const ACCESS_CHANGED_CODES = new Set([
   'SESSION_EXPIRED',
   'SESSION_REPLACED',
   'PRODUCT_ACCESS_DISABLED',
+  'TOKEN_INVALID',
+  'TOKEN_AUDIENCE_INVALID',
+  'TOKEN_VERSION_INVALID',
 ]);
 
 const isAuthEndpoint = (url: string): boolean =>

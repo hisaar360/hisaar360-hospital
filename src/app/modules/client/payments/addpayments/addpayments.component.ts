@@ -7,7 +7,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../core/services/backend.service';
@@ -15,7 +15,7 @@ import { Appointment, Patient } from '../../../../shared/models/hospital.model';
 
 @Component({
   selector: 'app-addpayments',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   templateUrl: './addpayments.component.html',
   styleUrl: './addpayments.component.scss',
 })
@@ -55,6 +55,9 @@ export class AddpaymentsComponent implements OnInit {
       next: (result) => (this.appointments = result.items),
       error: () => (this.appointments = []),
     });
+    this.billForm.get('patientId')?.valueChanges.subscribe(() => {
+      this.billForm.patchValue({ appointmentId: '' }, { emitEvent: false });
+    });
   }
 
   get items(): FormArray {
@@ -93,6 +96,18 @@ export class AddpaymentsComponent implements OnInit {
       this.subtotal() - Number(value.discount || 0) + Number(value.tax || 0),
       0
     );
+  }
+
+  remaining(): number {
+    return Math.max(this.grandTotal() - Number(this.billForm.value.paidAmount || 0), 0);
+  }
+
+  filteredAppointments(): Appointment[] {
+    const patientId = String(this.billForm.value.patientId || '');
+    if (!patientId) {
+      return [];
+    }
+    return this.appointments.filter((appointment) => String(appointment.patientId) === patientId);
   }
 
   patientName(patient: Patient): string {

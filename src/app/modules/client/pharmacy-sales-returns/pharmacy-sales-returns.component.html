@@ -21,7 +21,10 @@
       <div class="pharmacy-filter-grid">
         <label>
           <span>Store</span>
-          <input class="form-control" [(ngModel)]="storeId" />
+          <select class="form-select" [(ngModel)]="storeId">
+            <option value="">All stores</option>
+            <option *ngFor="let store of stores" [value]="store._id">{{ store.name }}</option>
+          </select>
         </label>
 
         <label>
@@ -67,7 +70,10 @@
             <tbody>
               <tr *ngFor="let item of returns">
                 <td class="fw-semibold">{{ item.returnNo }}</td>
-                <td>{{ item.saleId }}</td>
+                <td>
+                  <a *ngIf="item.saleId" [routerLink]="['/pharmacy/sales', item.saleId]">{{ saleLabel(item) }}</a>
+                  <span *ngIf="!item.saleId">{{ saleLabel(item) }}</span>
+                </td>
                 <td>{{ date(item.returnDate) }}</td>
                 <td>{{ item.items.length }}</td>
                 <td>{{ currency(item.refundAmount) }}</td>

@@ -59,7 +59,7 @@ export class AddPatientComponent implements OnInit {
     this.currentHospitalId = this.currentUser?.hospitalId || null;
     this.applyEditingState();
     this.applyPhoneFromQuery();
-    this.backend.getDoctors({ limit: 100, status: 'active' }).subscribe({
+    this.backend.getAccessibleDoctors({ limit: 100, status: 'active' }).subscribe({
       next: (result) => {
         this.doctors = result.items;
         void this.offline.cacheValue(this.doctorsCacheKey(), this.doctors);

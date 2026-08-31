@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import {
   FormBuilder,
   FormGroup,
@@ -8,7 +8,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute, Data, RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { combineLatest, finalize, Subject, takeUntil } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { AppDialogService } from '../../../core/services/app-dialog.service';
 import { BackendService } from '../../../core/services/backend.service';
@@ -29,7 +29,7 @@ type RecordType = 'clinical' | 'laboratory' | 'ward';
   templateUrl: './care-records.component.html',
   styleUrl: './care-records.component.scss',
 })
-export class CareRecordsComponent implements OnInit {
+export class CareRecordsComponent implements OnInit, OnDestroy {
   recordType: RecordType = 'clinical';
   pageTitle = 'Clinical Records';
   pageSubtitle = 'Doctor notes, diagnosis, and patient follow-up records';
@@ -41,7 +41,9 @@ export class CareRecordsComponent implements OnInit {
   activeAllotments: RoomAllotment[] = [];
   recordForm: FormGroup;
   loading = false;
+  loadError = '';
   saving = false;
+  bootstrapped = false;
   recordsPage = 1;
   limit = 10;
   totalPages = 0;
@@ -53,6 +55,8 @@ export class CareRecordsComponent implements OnInit {
   routePatientId = '';
   routeDoctorId = '';
   routeAppointmentId = '';
+
+  private readonly destroy$ = new Subject<void>();
 
   constructor(
     private fb: FormBuilder,
@@ -85,25 +89,23 @@ export class CareRecordsComponent implements OnInit {
     this.currentUserId = currentUser?._id || null;
     this.currentRole = String(localStorage.getItem('role') || currentUser?.role?.name || '');
 
-    this.route.data.subscribe((data) => {
-      this.applyRouteData(data);
-      this.loadRecords();
-      if (this.recordType === 'ward') {
-        this.loadActiveAllotments();
-      }
-    });
+    combineLatest([this.route.data, this.route.queryParamMap])
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(([data, params]) => {
+        this.applyRouteData(data);
+        this.routePatientId = params.get('patientId') || '';
+        this.routeDoctorId = params.get('doctorId') || '';
+        this.routeAppointmentId = params.get('appointmentId') || '';
+        this.selectedPatientId = this.routePatientId;
+        this.recordsPage = 1;
+        this.applyRouteDefaults();
+        this.loadPageBootstrap();
+      });
+  }
 
-    this.route.queryParamMap.subscribe((params) => {
-      this.routePatientId = params.get('patientId') || '';
-      this.routeDoctorId = params.get('doctorId') || '';
-      this.routeAppointmentId = params.get('appointmentId') || '';
-      this.selectedPatientId = this.routePatientId;
-      this.applyRouteDefaults();
-      this.recordsPage = 1;
-      this.loadRecords();
-    });
-
-    this.loadLookups();
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   get canCreate(): boolean {
@@ -162,36 +164,53 @@ export class CareRecordsComponent implements OnInit {
     return 'Clinical Notes';
   }
 
-  loadLookups(): void {
-    this.backend.getPatients({ limit: 100, status: 'active' }).subscribe({
-      next: (result) => {
-        this.patients = result.items;
-        this.ensureDoctorPatientScope();
-      },
-      error: () => (this.patients = []),
-    });
-
-    this.backend.getDoctors({ limit: 100, status: 'active' }).subscribe({
-      next: (result) => {
-        this.doctors = result.items;
-        this.applyRouteDefaults();
-      },
-      error: () => (this.doctors = []),
-    });
-
+  /** Initial page load + filter changes that need full form lookups. */
+  loadPageBootstrap(): void {
+    this.loading = true;
+    this.loadError = '';
     this.backend
-      .getAppointments({
-        limit: 100,
+      .getCareRecordsBootstrap({
+        page: this.recordsPage,
+        limit: this.limit,
+        patientId: this.selectedPatientId || undefined,
         doctorId: this.isDoctorUser() ? this.currentUserId || undefined : undefined,
+        recordType: this.recordType,
       })
+      .pipe(finalize(() => (this.loading = false)))
       .subscribe({
-      next: (result) => (this.appointments = result.items),
-      error: () => (this.appointments = []),
-    });
+        next: (result) => {
+          this.patients = result.patients || [];
+          this.doctors = result.doctors || [];
+          this.appointments = result.appointments || [];
+          this.activeAllotments = result.activeAllotments || [];
+          this.records = result.history?.items || [];
+          this.totalPages = result.history?.pagination?.totalPages || 0;
+          this.bootstrapped = true;
+          this.ensureDoctorPatientScope();
+          this.applyRouteDefaults();
+        },
+        error: (err) => {
+          this.records = [];
+          this.patients = [];
+          this.doctors = [];
+          this.appointments = [];
+          this.activeAllotments = [];
+          this.bootstrapped = false;
+          this.loadError = err?.error?.message || 'Unable to load care records.';
+          this.toastr.error(this.loadError);
+        },
+      });
   }
 
+  /** Pagination / patient filter refresh — history only (lookups already loaded). */
   loadRecords(): void {
+    if (!this.bootstrapped) {
+      this.loadPageBootstrap();
+      return;
+    }
+
     this.loading = true;
+    this.loadError = '';
     this.backend
       .getPatientHistoryRecords({
         page: this.recordsPage,
@@ -208,20 +227,10 @@ export class CareRecordsComponent implements OnInit {
         },
         error: (err) => {
           this.records = [];
-          this.toastr.error(err?.error?.message || 'Unable to load records.');
+          this.loadError = err?.error?.message || 'Unable to load records.';
+          this.toastr.error(this.loadError);
         },
       });
-  }
-
-  loadActiveAllotments(): void {
-    this.backend.getRoomAllotments({ limit: 50, status: 'admitted' }).subscribe({
-      next: (result) => {
-        this.activeAllotments = result.items;
-      },
-      error: () => {
-        this.activeAllotments = [];
-      },
-    });
   }
 
   submitRecord(): void {
@@ -332,6 +341,11 @@ export class CareRecordsComponent implements OnInit {
     }
 
     this.recordsPage = nextPage;
+    this.loadRecords();
+  }
+
+  onPatientFilterChange(): void {
+    this.recordsPage = 1;
     this.loadRecords();
   }
 

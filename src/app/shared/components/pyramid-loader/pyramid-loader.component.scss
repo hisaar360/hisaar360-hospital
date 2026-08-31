@@ -8,9 +8,12 @@
   display: flex;
   inset: 0;
   justify-content: center;
+  overflow: hidden;
   perspective: 900px;
   pointer-events: all;
   position: fixed;
+  width: 100vw;
+  height: 100dvh;
   z-index: 2147483000;
 }
 
@@ -104,4 +107,11 @@
   top: 0;
   transform: rotateX(90deg) translateZ(-40px);
   width: 60px;
+}
+
+@media (max-width: 767px) {
+  .pyramid-loader {
+    height: 140px;
+    width: 140px;
+  }
 }

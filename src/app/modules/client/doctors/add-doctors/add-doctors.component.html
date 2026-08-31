@@ -19,6 +19,26 @@
                     <div class="body">
                         <form [formGroup]="doctorForm" (ngSubmit)="submitDoctor()">
                             <div class="row clearfix">
+                                <div class="col-md-12 form-group">
+                                    <app-profile-photo-field
+                                        label="Doctor Photo"
+                                        [currentUrl]="displayPhotoUrl"
+                                        [personName]="doctorForm.get('name')?.value"
+                                        [disabled]="saving"
+                                        [uploading]="saving"
+                                        (fileSelected)="onPhotoSelected($event)"
+                                        (removeCurrent)="onRemoveCurrentPhoto()"
+                                        (viewImage)="viewerOpen = true">
+                                    </app-profile-photo-field>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-primary"
+                                        *ngIf="photoUploadFailed && pendingPhoto"
+                                        (click)="retryPhotoUpload()"
+                                        [disabled]="saving">
+                                        Retry image upload
+                                    </button>
+                                </div>
 
                                 <div class="col-md-4 form-group" *ngIf="canSelectHospital && !currentHospitalId">
                                     <label>Hospital</label>
@@ -50,7 +70,7 @@
                                     <label>Name (Urdu)</label>
                                     <div class="urdu-name-field">
                                         <input class="form-control doctor-urdu-name-input" formControlName="nameUrdu"
-                                            placeholder="ڈاکٹر عائشہ خان" dir="rtl"
+                                            placeholder="Doctor name in Urdu" dir="rtl"
                                             (input)="onUrduNameInput()">
                                         <button type="button" class="urdu-auto-fill-button"
                                             [disabled]="!doctorForm.get('name')?.value"
@@ -109,7 +129,7 @@
                                     </small>
                                 </div>
 
-                                <div class="col-md-4 form-group">
+                                <div class="col-md-4 form-group" *ngIf="can('departments.read')">
                                     <label>Hospital Unit</label>
                                     <select class="form-control" formControlName="departmentId">
                                         <option value="">Select hospital unit (optional)</option>
@@ -117,7 +137,15 @@
                                             {{ department.name }}
                                         </option>
                                     </select>
-                                    <small class="text-muted">Internal hospital ward / unit mapping.</small>
+                                    <small class="text-muted d-block">
+                                        Internal ward / unit mapping.
+                                        <a routerLink="/departments">Manage units in Departments</a>
+                                    </small>
+                                    <small class="text-warning d-block" *ngIf="departments.length === 0">
+                                        No units yet. Open
+                                        <a routerLink="/departments">Departments</a>
+                                        to add OPD, Emergency, Ward, etc.
+                                    </small>
                                 </div>
 
                                 <div class="col-md-4 form-group catalog-select-field">
@@ -236,6 +264,17 @@
                                     </small>
                                 </div>
 
+                                <div class="col-md-2 form-group">
+                                    <label>Minutes per patient</label>
+                                    <select class="form-control" formControlName="slotDurationMinutes">
+                                        <option [ngValue]="5">5 minutes</option>
+                                        <option [ngValue]="10">10 minutes</option>
+                                        <option [ngValue]="15">15 minutes</option>
+                                        <option [ngValue]="20">20 minutes</option>
+                                        <option [ngValue]="30">30 minutes</option>
+                                    </select>
+                                </div>
+
                                 <div class="col-md-4 form-group">
                                     <label>Status</label>
                                     <select class="form-control" formControlName="status">
@@ -315,33 +354,24 @@
                                 </div>
 
                                 <div class="col-md-12 form-group">
-                                    <label>Available Days</label>
-                                    <div class="d-flex flex-wrap">
-                                        <label class="fancy-checkbox mr-3" *ngFor="let day of days">
-                                            <input type="checkbox" [checked]="isDaySelected(day)"
-                                                (change)="toggleDay(day, $event)">
-                                            <span class="text-capitalize">{{ day }}</span>
-                                        </label>
+                                    <label>Weekly hours</label>
+                                    <p class="text-muted small mb-2">Set a start and end time for each working day. Unchecked days are not available.</p>
+                                    <div class="day-hours-list">
+                                        <div class="day-hours-row" *ngFor="let day of days">
+                                            <label class="fancy-checkbox mb-0 day-hours-day">
+                                                <input type="checkbox" [checked]="isDaySelected(day)"
+                                                    (change)="toggleDay(day, $event)">
+                                                <span class="text-capitalize">{{ day }}</span>
+                                            </label>
+                                            <div class="day-hours-times">
+                                                <input class="form-control" type="time" [value]="dayStart(day)"
+                                                    (change)="setDayStart(day, $event)" [disabled]="!isDaySelected(day)">
+                                                <span class="day-hours-sep">to</span>
+                                                <input class="form-control" type="time" [value]="dayEnd(day)"
+                                                    (change)="setDayEnd(day, $event)" [disabled]="!isDaySelected(day)">
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-
-                                <div class="col-md-4 form-group">
-                                    <label>Slot Day</label>
-                                    <select class="form-control" formControlName="slotDay">
-                                        <option *ngFor="let day of days" [value]="day">
-                                            {{ day | titlecase }}
-                                        </option>
-                                    </select>
-                                </div>
-
-                                <div class="col-md-4 form-group">
-                                    <label>Start Time</label>
-                                    <input class="form-control" type="time" formControlName="startTime">
-                                </div>
-
-                                <div class="col-md-4 form-group">
-                                    <label>End Time</label>
-                                    <input class="form-control" type="time" formControlName="endTime">
                                 </div>
                             </div>
 
@@ -355,3 +385,10 @@
         </div>
     </div>
 </div>
+
+<app-image-viewer-modal
+    [open]="viewerOpen"
+    [src]="viewerSrc"
+    alt="Doctor photo"
+    (closed)="viewerOpen = false">
+</app-image-viewer-modal>

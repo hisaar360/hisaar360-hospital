@@ -27,9 +27,13 @@
           <i class="fa fa-flask"></i>
           <span>Collect Samples</span>
         </button>
-        <button type="button" class="btn-light" (click)="printSampleLabels()" *ngIf="activeSamples().length">
+        <button type="button" class="btn-light" (click)="printSampleLabels()" *ngIf="canPrintSampleLabels()">
           <i class="fa fa-barcode"></i>
           <span>Print Sample Labels</span>
+        </button>
+        <button type="button" class="btn-light" (click)="printInvoice()" *ngIf="canPrintLabInvoice()">
+          <i class="fa fa-file-text-o"></i>
+          <span>Print Invoice</span>
         </button>
         <button type="button" class="btn-primary" *ngIf="isReportReady()" (click)="printReport()">
           <i class="fa fa-file-pdf-o"></i> Print / PDF Report
@@ -48,10 +52,25 @@
         <strong>{{ current.referredBy || current.doctor?.name || '—' }}</strong>
         <small>{{ sourceLabel(current.source) }} order</small>
       </article>
-      <article class="summary-card">
-        <span class="summary-label">Payment</span>
+      <article class="summary-card" *ngIf="canViewLabFinance()" [attr.data-pay]="paymentStatusLabel(current)">
+        <span class="summary-label">Payment · {{ paymentStatusLabel(current) }}</span>
         <strong>Rs. {{ current.totalAmount | number:'1.0-0' }}</strong>
         <small>Paid Rs. {{ current.paidAmount | number:'1.0-0' }} · Balance Rs. {{ current.balanceAmount | number:'1.0-0' }}</small>
+        <small *ngIf="current.paidAmount > 0">
+          Received by {{ current.receivedBy?.name || 'laboratory staff' }}
+          <ng-container *ngIf="current.paymentMethod"> · {{ current.paymentMethod }}</ng-container>
+          <ng-container *ngIf="current.paidAt"> · {{ current.paidAt | date:'medium' }}</ng-container>
+        </small>
+        <small *ngIf="current.paidAmount <= 0">Not received at laboratory. Amount is on the hospital visit bill.</small>
+        <small *ngIf="current.encounterId">Posted to hospital ledger</small>
+        <button
+          type="button"
+          class="btn-light btn-sm"
+          *ngIf="canCollectLabPayment() && current.balanceAmount > 0"
+          [disabled]="saving"
+          (click)="collectRemainingPayment()">
+          Record payment received
+        </button>
       </article>
       <article class="summary-card">
         <span class="summary-label">Active Test</span>
@@ -86,7 +105,7 @@
             </div>
           </div>
           <div class="sample-card-actions">
-            <button type="button" class="btn-light btn-sm" (click)="printSingleSampleLabel(sample)" *ngIf="sample.status !== 'rejected'">
+            <button type="button" class="btn-light btn-sm" (click)="printSingleSampleLabel(sample)" *ngIf="canPrintSampleLabels() && sample.status !== 'rejected'">
               <i class="fa fa-print"></i>
               <span>Print Label</span>
             </button>
@@ -120,7 +139,7 @@
         <section class="lab-panel result-panel">
           <div class="panel-head">
             <div>
-              <h2>Result Entry</h2>
+            <h2>{{ canUpdateLabOrder() ? 'Result Entry' : 'Results' }}</h2>
               <p>
                 {{ item.testName }} · {{ item.sampleType || 'Sample' }}<span *ngIf="item.tubeType"> / {{ item.tubeType }}</span>
                 <span *ngIf="sampleForItem(item) as sample"> · Sample ID: {{ sample.sampleNo }}</span>
@@ -129,7 +148,7 @@
             <span class="mode-badge">{{ resultModeLabel(item.resultMode) }}</span>
           </div>
 
-          <div class="result-entry-help" *ngIf="(item.parameters?.length || 0) > 0">
+          <div class="result-entry-help" *ngIf="canUpdateLabOrder() && (item.parameters?.length || 0) > 0">
             Enter patient result values in the <strong>Result</strong> column for each parameter row below.
             Sub categories are labels from the test catalog; ranges and units are pre-filled.
           </div>
@@ -159,7 +178,7 @@
                     <td class="col-parameter" data-label="Parameter"><strong>{{ parameter.parameterName }}</strong></td>
                     <td class="col-subcategory" data-label="Sub Category">{{ parameter.subCategory || '—' }}</td>
                     <td class="col-result" data-label="Result">
-                      <input type="text" [(ngModel)]="parameter.resultValue" placeholder="Enter value" />
+                      <input type="text" [(ngModel)]="parameter.resultValue" [disabled]="!canUpdateLabOrder()" placeholder="Enter value" />
                     </td>
                     <td class="col-unit" data-label="Unit">{{ parameter.unit || '—' }}</td>
                     <td class="col-range" data-label="Reference Range">{{ parameter.referenceText || formatRange(parameter) }}</td>
@@ -187,23 +206,47 @@
               <p class="panel-empty-note" *ngIf="item.testId">
                 If you added parameters in Test Catalog after creating this order, click below to load them here.
               </p>
-              <button type="button" class="btn-light" *ngIf="item.testId" (click)="reloadOrderParameters()">
+              <button type="button" class="btn-light" *ngIf="item.testId && canUpdateLabOrder()" (click)="reloadOrderParameters()">
                 <i class="fa fa-refresh"></i> Load Parameters From Catalog
               </button>
               <p class="panel-empty-note" *ngIf="!item.testId">Use upload report instead for unstructured tests.</p>
             </div>
           </ng-template>
 
-          <div class="remarks-block">
+          <div class="remarks-block" *ngIf="canUpdateLabOrder() || canVerifyLabResults()">
             <label class="field-label" for="lab-remarks">Remarks</label>
-            <textarea id="lab-remarks" [(ngModel)]="remarks" rows="3" placeholder="Verification notes, manual review comments..."></textarea>
+            <textarea id="lab-remarks" [(ngModel)]="remarks" rows="3"
+              [disabled]="!canUpdateLabOrder() && !canVerifyLabResults()"
+              placeholder="Verification notes, manual review comments..."></textarea>
           </div>
 
-          <div class="panel-actions">
-            <button type="button" class="btn-light" [disabled]="saving" (click)="saveResults(false)">Save Draft</button>
-            <button type="button" class="btn-primary" [disabled]="saving" (click)="saveResults(true)">Send for Verification</button>
-            <button type="button" class="btn-verify" (click)="verifyItem()">Verify Result</button>
+          <div class="panel-actions" *ngIf="canUpdateLabOrder() || canVerifyLabResults()">
+            <button type="button" class="btn-light" *ngIf="canUpdateLabOrder()" [disabled]="saving" (click)="saveResults(false)">Save Draft</button>
+            <button
+              type="button"
+              class="btn-primary"
+              *ngIf="canUpdateLabOrder()"
+              [disabled]="saving || !canSendActiveItemForVerification()"
+              (click)="saveResults(true)">Send for Verification</button>
+            <button
+              type="button"
+              class="btn-verify"
+              *ngIf="canVerifyLabResults() && !isActiveItemVerified()"
+              [disabled]="saving || !canVerifyActiveItem()"
+              (click)="verifyItem()">Verify Result</button>
           </div>
+          <p class="verify-wait" *ngIf="resultGateHint()">
+            {{ resultGateHint() }}
+          </p>
+          <p class="workflow-help" *ngIf="canUpdateLabOrder() || canVerifyLabResults()">
+            <ng-container *ngIf="canUpdateLabOrder()">
+              <strong>Save Draft</strong> keeps values in processing.
+              <strong>Send for Verification</strong> marks this test ready for the verifier.
+            </ng-container>
+            <ng-container *ngIf="canVerifyLabResults()">
+              <strong>Verify Result</strong> is the final approval. The PDF report prints only after every test is verified.
+            </ng-container>
+          </p>
         </section>
 
         <section class="lab-panel comparison-panel">
@@ -255,14 +298,26 @@
       </div>
 
       <aside class="workspace-side">
-        <section class="lab-panel side-panel">
+        <section class="lab-panel side-panel" *ngIf="canUpdateLabOrder() || current.notes">
+          <div class="panel-head compact">
+            <h2>Report Notes</h2>
+          </div>
+          <p class="side-help">Printed on the verified report (separate from per-test remarks).</p>
+          <textarea [(ngModel)]="reportNotes" rows="4" [disabled]="!canUpdateLabOrder()"
+            placeholder="Fasting sample, clinical notes, extra report comments..."></textarea>
+          <button type="button" class="btn-light btn-block" *ngIf="canUpdateLabOrder()" [disabled]="saving" (click)="saveReportNotes()">
+            Save Notes
+          </button>
+        </section>
+
+        <section class="lab-panel side-panel" *ngIf="canUpdateLabOrder() || item.reportFiles?.length">
           <div class="panel-head compact">
             <h2>Upload Report</h2>
           </div>
-          <p class="side-help">PDF or image report URL for labs that do not use structured entry.</p>
-          <label class="field-label" for="report-url">Report File URL</label>
-          <input id="report-url" type="url" [(ngModel)]="uploadUrl" placeholder="https://.../report.pdf" />
-          <button type="button" class="btn-primary btn-block" [disabled]="saving" (click)="uploadReport()">Upload Report</button>
+          <p class="side-help" *ngIf="canUpdateLabOrder()">PDF or image report URL for labs that do not use structured entry.</p>
+          <label class="field-label" for="report-url" *ngIf="canUpdateLabOrder()">Report File URL</label>
+          <input id="report-url" *ngIf="canUpdateLabOrder()" type="url" [(ngModel)]="uploadUrl" placeholder="https://.../report.pdf" />
+          <button type="button" class="btn-primary btn-block" *ngIf="canUpdateLabOrder()" [disabled]="saving" (click)="uploadReport()">Upload Report</button>
           <div class="report-files" *ngIf="item.reportFiles?.length">
             <div class="report-file" *ngFor="let file of item.reportFiles">
               <a [href]="file.fileUrl" target="_blank" rel="noopener">{{ file.reportType || 'Report' }}</a>
@@ -271,7 +326,7 @@
           </div>
         </section>
 
-        <section class="lab-panel side-panel">
+        <section class="lab-panel side-panel" *ngIf="canUpdateLabOrder()">
           <div class="panel-head compact">
             <h2>Add Extra Tests</h2>
           </div>
@@ -298,12 +353,12 @@
             <h2>Workflow</h2>
           </div>
           <ol class="workflow-steps">
-            <li [class.done]="isStepDone('ordered')" [class.current]="current.status === 'ordered'">Ordered</li>
-            <li [class.done]="isStepDone('sample_collected')" [class.current]="current.status === 'sample_collected'">Sample Collected</li>
-            <li [class.done]="isStepDone('processing')" [class.current]="current.status === 'processing'">Processing</li>
-            <li [class.done]="isStepDone('result_entered')" [class.current]="current.status === 'result_entered'">Result Entered</li>
-            <li [class.done]="isStepDone('verified')" [class.current]="current.status === 'verified'">Verified</li>
-            <li [class.done]="isStepDone('completed')" [class.current]="current.status === 'completed'">Completed</li>
+            <li [class.done]="isStepDone('ordered')" [class.current]="isStepCurrent('ordered')">Ordered</li>
+            <li [class.done]="isStepDone('sample_collected')" [class.current]="isStepCurrent('sample_collected')">Sample Collected</li>
+            <li [class.done]="isStepDone('processing')" [class.current]="isStepCurrent('processing')">Processing</li>
+            <li [class.done]="isStepDone('result_entered')" [class.current]="isStepCurrent('result_entered')">Result Entered</li>
+            <li [class.done]="isStepDone('verified')" [class.current]="isStepCurrent('verified')">Verified</li>
+            <li [class.done]="isStepDone('completed')" [class.current]="isStepCurrent('completed')">Completed</li>
           </ol>
         </section>
       </aside>

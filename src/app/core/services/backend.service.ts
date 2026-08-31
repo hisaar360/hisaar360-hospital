@@ -1,8 +1,14 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-import { map, Observable, of } from 'rxjs';
+import { Injectable, inject } from '@angular/core';
+import { catchError, map, Observable, of, shareReplay, tap } from 'rxjs';
 import { CONFIG } from '../../../../config';
-import { normalizeAccessKey, readStoredPermissions } from '../../modules/auth/access-control';
+import { AuthService } from './auth.service';
+import {
+  isDoctorRole,
+  normalizeAccessKey,
+  readStoredPermissions,
+  readStoredRole,
+} from '../../modules/auth/access-control';
 import {
   ApiResponse,
   PaginatedResponse,
@@ -70,11 +76,48 @@ import {
   Warehouse,
 } from '../../shared/models/hospital.model';
 
+interface AvailableAppointmentSlotsResponse {
+  date: string;
+  durationMinutes: number;
+  slots: Array<{
+    startTime: string;
+    endTime: string;
+    durationMinutes: number;
+  }>;
+  reason?: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
 export class BackendService {
+  private readonly authService = inject(AuthService);
+  private readonly lookupCache = new Map<string, Observable<unknown>>();
+
   constructor(private http: HttpClient) { }
+
+  private lookupKey(name: string, params?: Record<string, unknown>): string {
+    return `${name}:${JSON.stringify(params || {})}`;
+  }
+
+  private cachedLookup<T>(key: string, factory: () => Observable<T>): Observable<T> {
+    const existing = this.lookupCache.get(key);
+    if (existing) {
+      return existing as Observable<T>;
+    }
+
+    const stream$ = factory().pipe(shareReplay({ bufferSize: 1, refCount: true }));
+    this.lookupCache.set(key, stream$);
+    return stream$;
+  }
+
+  private invalidateLookup(prefix: string): void {
+    for (const key of [...this.lookupCache.keys()]) {
+      if (key === prefix || key.startsWith(`${prefix}:`)) {
+        this.lookupCache.delete(key);
+      }
+    }
+  }
 
   private cleanParams(params?: Record<string, unknown>): HttpParams {
     let httpParams = new HttpParams();
@@ -96,8 +139,15 @@ export class BackendService {
     });
   }
 
-  private post<T>(url: string, body: unknown): Observable<ApiResponse<T>> {
-    return this.http.post<ApiResponse<T>>(url, this.cleanBody(body));
+  private post<T>(url: string, body: unknown, extraHeaders?: Record<string, string>): Observable<ApiResponse<T>> {
+    const headers = extraHeaders || this.idempotencyHeaders();
+    return this.http.post<ApiResponse<T>>(url, this.cleanBody(body), { headers });
+  }
+
+  private idempotencyHeaders(): Record<string, string> {
+    return {
+      'X-Idempotency-Key': `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    };
   }
 
   private patch<T>(url: string, body: unknown): Observable<ApiResponse<T>> {
@@ -221,7 +271,7 @@ export class BackendService {
   }
 
   getMe(): Observable<User> {
-    return this.get<User>(CONFIG.auth.me).pipe(map((response) => this.unwrapData(response)));
+    return this.authService.me() as Observable<User>;
   }
 
   updateMe(payload: {
@@ -268,12 +318,23 @@ export class BackendService {
   }
 
   getHospitalDashboardSummary(): Observable<DashboardSummary> {
+    if (!this.hasPermission('hospital_dashboard.read')) {
+      return of({} as DashboardSummary);
+    }
+
     return this.get<DashboardSummary>(CONFIG.hospitalDashboard.summary).pipe(
       map((response) => this.unwrapData(response))
     );
   }
 
   getDoctorDashboardSummary(): Observable<DashboardSummary> {
+    if (
+      !this.hasPermission('appointments.read') &&
+      !this.hasPermission('hospital_dashboard.read')
+    ) {
+      return of({} as DashboardSummary);
+    }
+
     return this.get<DashboardSummary>(CONFIG.hospitalDashboard.doctorSummary).pipe(
       map((response) => this.unwrapData(response))
     );
@@ -291,33 +352,100 @@ export class BackendService {
     return this.post(CONFIG.hospitalDashboard.doctorSummaryEmail, payload || {});
   }
 
+  private emptyListResult<T>(): ListResult<T> {
+    return {
+      items: [],
+      pagination: { page: 1, limit: 0, total: 0, totalPages: 0 },
+    };
+  }
+
+  private assignedHospital(): Hospital | null {
+    return (this.authService.getCurrentUser()?.hospital as Hospital | null) || null;
+  }
+
+  private selfDoctorAsList(): Observable<ListResult<Doctor>> {
+    const currentRole = this.authService.getCurrentUser()?.role?.name || readStoredRole();
+    if (!isDoctorRole(String(currentRole || ''))) {
+      return of(this.emptyListResult<Doctor>());
+    }
+
+    return this.getMyDoctorProfile().pipe(
+      map((item) => ({
+        items: item ? [item] : [],
+        pagination: { page: 1, limit: 1, total: item ? 1 : 0, totalPages: 1 },
+      })),
+      catchError(() => of(this.emptyListResult<Doctor>()))
+    );
+  }
+
   getHospitals(params?: Record<string, unknown>): Observable<ListResult<Hospital>> {
-    return this.get<PaginatedResponse<Hospital>>(CONFIG.hospitals, params).pipe(
-      map((response) => this.unwrapData(response))
+    if (!this.hasPermission('hospitals.read')) {
+      const hospital = this.assignedHospital();
+      return of({
+        items: hospital ? [hospital] : [],
+        pagination: {
+          page: 1,
+          limit: 1,
+          total: hospital ? 1 : 0,
+          totalPages: hospital ? 1 : 0,
+        },
+      });
+    }
+
+    return this.cachedLookup(this.lookupKey('hospitals', params), () =>
+      this.get<PaginatedResponse<Hospital>>(CONFIG.hospitals, params).pipe(
+        map((response) => this.unwrapData(response))
+      )
     );
   }
 
   getHospital(id: string): Observable<Hospital> {
+    if (!this.hasPermission('hospitals.read')) {
+      const hospital = this.assignedHospital();
+      if (hospital) {
+        return of(hospital);
+      }
+
+      return of({
+        _id: id,
+        name: '',
+        code: '',
+        status: 'active',
+      } as Hospital);
+    }
+
     return this.get<Hospital>(`${CONFIG.hospitals}/${id}`).pipe(
       map((response) => this.unwrapData(response))
     );
   }
 
   createHospital(payload: Record<string, unknown>): Observable<ApiResponse<Hospital>> {
-    return this.post<Hospital>(CONFIG.hospitals, payload);
+    return this.post<Hospital>(CONFIG.hospitals, payload).pipe(
+      tap(() => this.invalidateLookup('hospitals'))
+    );
   }
 
   updateHospital(id: string, payload: Record<string, unknown>): Observable<ApiResponse<Hospital>> {
-    return this.patch<Hospital>(`${CONFIG.hospitals}/${id}`, payload);
+    return this.patch<Hospital>(`${CONFIG.hospitals}/${id}`, payload).pipe(
+      tap(() => this.invalidateLookup('hospitals'))
+    );
   }
 
   deleteHospital(id: string): Observable<ApiResponse<Hospital>> {
-    return this.delete<Hospital>(`${CONFIG.hospitals}/${id}`);
+    return this.delete<Hospital>(`${CONFIG.hospitals}/${id}`).pipe(
+      tap(() => this.invalidateLookup('hospitals'))
+    );
   }
 
   getDepartments(params?: Record<string, unknown>): Observable<ListResult<Department>> {
-    return this.get<PaginatedResponse<Department>>(CONFIG.departments, params).pipe(
-      map((response) => this.unwrapData(response))
+    if (!this.hasPermission('departments.read')) {
+      return of(this.emptyListResult<Department>());
+    }
+
+    return this.cachedLookup(this.lookupKey('departments', params), () =>
+      this.get<PaginatedResponse<Department>>(CONFIG.departments, params).pipe(
+        map((response) => this.unwrapData(response))
+      )
     );
   }
 
@@ -328,24 +456,38 @@ export class BackendService {
   }
 
   createDepartment(payload: Partial<Department>): Observable<ApiResponse<Department>> {
-    return this.post<Department>(CONFIG.departments, payload);
+    return this.post<Department>(CONFIG.departments, payload).pipe(
+      tap(() => this.invalidateLookup('departments'))
+    );
   }
 
   updateDepartment(id: string, payload: Partial<Department>): Observable<ApiResponse<Department>> {
-    return this.patch<Department>(`${CONFIG.departments}/${id}`, payload);
+    return this.patch<Department>(`${CONFIG.departments}/${id}`, payload).pipe(
+      tap(() => this.invalidateLookup('departments'))
+    );
   }
 
   deleteDepartment(id: string): Observable<ApiResponse<Department>> {
-    return this.delete<Department>(`${CONFIG.departments}/${id}`);
+    return this.delete<Department>(`${CONFIG.departments}/${id}`).pipe(
+      tap(() => this.invalidateLookup('departments'))
+    );
   }
 
   getDoctors(params?: Record<string, unknown>): Observable<ListResult<Doctor>> {
+    if (!this.hasPermission('doctors.read')) {
+      return this.selfDoctorAsList();
+    }
+
     return this.get<PaginatedResponse<Doctor>>(CONFIG.doctors, params).pipe(
       map((response) => this.unwrapData(response))
     );
   }
 
   getDoctor(id: string): Observable<Doctor> {
+    if (!this.hasPermission('doctors.read')) {
+      return this.getMyDoctorProfile();
+    }
+
     return this.get<Doctor>(`${CONFIG.doctors}/${id}`).pipe(
       map((response) => this.unwrapData(response))
     );
@@ -355,6 +497,10 @@ export class BackendService {
     return this.get<Doctor>(`${CONFIG.doctors}/me`).pipe(
       map((response) => this.unwrapData(response))
     );
+  }
+
+  getAccessibleDoctors(params?: Record<string, unknown>): Observable<ListResult<Doctor>> {
+    return this.getDoctors(params);
   }
 
   createDoctor(payload: Record<string, unknown>): Observable<ApiResponse<Doctor>> {
@@ -369,8 +515,42 @@ export class BackendService {
     return this.patch<Doctor>(`${CONFIG.doctors}/me/prescription-template`, payload);
   }
 
+  updateMyDoctorSchedule(payload: Record<string, unknown>): Observable<ApiResponse<Doctor>> {
+    return this.patch<Doctor>(`${CONFIG.doctors}/me/schedule`, payload);
+  }
+
   deleteDoctor(id: string): Observable<ApiResponse<Doctor>> {
     return this.delete<Doctor>(`${CONFIG.doctors}/${id}`);
+  }
+
+  uploadDoctorPhoto(id: string, file: File): Observable<ApiResponse<Doctor>> {
+    const body = new FormData();
+    body.append('photo', file);
+    return this.http.post<ApiResponse<Doctor>>(`${CONFIG.doctors}/${id}/photo`, body);
+  }
+
+  deleteDoctorPhoto(id: string): Observable<ApiResponse<Doctor>> {
+    return this.delete<Doctor>(`${CONFIG.doctors}/${id}/photo`);
+  }
+
+  uploadMyDoctorPhoto(file: File): Observable<ApiResponse<Doctor>> {
+    const body = new FormData();
+    body.append('photo', file);
+    return this.http.post<ApiResponse<Doctor>>(`${CONFIG.doctors}/me/photo`, body);
+  }
+
+  deleteMyDoctorPhoto(): Observable<ApiResponse<Doctor>> {
+    return this.delete<Doctor>(`${CONFIG.doctors}/me/photo`);
+  }
+
+  uploadMyPhoto(file: File): Observable<ApiResponse<User>> {
+    const body = new FormData();
+    body.append('photo', file);
+    return this.http.post<ApiResponse<User>>(`${CONFIG.auth.me}/photo`, body);
+  }
+
+  deleteMyPhoto(): Observable<ApiResponse<User>> {
+    return this.delete<User>(`${CONFIG.auth.me}/photo`);
   }
 
   getDoctorPatients(id: string, params?: Record<string, unknown>): Observable<ListResult<Patient>> {
@@ -435,9 +615,47 @@ export class BackendService {
     );
   }
 
+  getPatientLabOrders(id: string): Observable<LabOrder[]> {
+    return this.get<LabOrder[]>(`${CONFIG.patients}/${id}/lab-orders`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
   getPatientHistoryRecords(params?: Record<string, unknown>): Observable<ListResult<PatientHistory>> {
     return this.get<PaginatedResponse<PatientHistory>>(CONFIG.patientHistory, params).pipe(
       map((response) => this.unwrapData(response))
+    );
+  }
+
+  getCareRecordsBootstrap(params?: Record<string, unknown>): Observable<{
+    history: ListResult<PatientHistory>;
+    patients: Patient[];
+    doctors: Doctor[];
+    appointments: Appointment[];
+    activeAllotments: RoomAllotment[];
+    permissions?: Record<string, boolean>;
+  }> {
+    return this.get<{
+      history: ListResult<PatientHistory> | PaginatedResponse<PatientHistory>;
+      patients: Patient[];
+      doctors: Doctor[];
+      appointments: Appointment[];
+      activeAllotments: RoomAllotment[];
+      permissions?: Record<string, boolean>;
+    }>(`${CONFIG.patientHistory}/bootstrap`, params).pipe(
+      map((response) => {
+        const data = this.unwrapData(response);
+        return {
+          history: this.unwrapListResult({
+            data: data.history,
+          } as ApiResponse<PaginatedResponse<PatientHistory>>),
+          patients: Array.isArray(data.patients) ? data.patients : [],
+          doctors: Array.isArray(data.doctors) ? data.doctors : [],
+          appointments: Array.isArray(data.appointments) ? data.appointments : [],
+          activeAllotments: Array.isArray(data.activeAllotments) ? data.activeAllotments : [],
+          permissions: data.permissions,
+        };
+      })
     );
   }
 
@@ -476,6 +694,17 @@ export class BackendService {
 
   getAppointmentCalendar(params?: Record<string, unknown>): Observable<Appointment[]> {
     return this.get<Appointment[]>(`${CONFIG.appointments}/calendar`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getAvailableAppointmentSlots(
+    params: { doctorId: string; date: string }
+  ): Observable<AvailableAppointmentSlotsResponse> {
+    return this.get<AvailableAppointmentSlotsResponse>(
+      `${CONFIG.appointments}/available-slots`,
+      params
+    ).pipe(
       map((response) => this.unwrapData(response))
     );
   }
@@ -608,6 +837,10 @@ export class BackendService {
     return this.post<LabOrder>(`${CONFIG.laboratory}/orders/${orderId}/items/${itemId}/verify`, payload);
   }
 
+  collectLabOrderPayment(orderId: string, payload: Record<string, unknown> = {}): Observable<ApiResponse<LabOrder>> {
+    return this.post<LabOrder>(`${CONFIG.laboratory}/orders/${orderId}/collect-payment`, payload);
+  }
+
   getPatientLabComparison(patientId: string, params?: Record<string, unknown>): Observable<LabComparisonRow[]> {
     return this.get<LabComparisonRow[]>(`${CONFIG.laboratory}/patients/${patientId}/comparison`, params).pipe(
       map((response) => this.unwrapData(response))
@@ -668,7 +901,7 @@ export class BackendService {
 
   getProducts(params?: Record<string, unknown>): Observable<ListResult<ProductCatalogItem>> {
     return this.get<PaginatedResponse<ProductCatalogItem>>(CONFIG.products, params).pipe(
-      map((response) => this.unwrapData(response))
+      map((response) => this.unwrapListResult<ProductCatalogItem>(response))
     );
   }
 
@@ -702,8 +935,12 @@ export class BackendService {
 
   getWarehouses(params?: Record<string, unknown>): Observable<ListResult<Warehouse>> {
     return this.get<PaginatedResponse<Warehouse>>(CONFIG.warehouses, params).pipe(
-      map((response) => this.unwrapData(response))
+      map((response) => this.unwrapListResult<Warehouse>(response))
     );
+  }
+
+  createWarehouse(payload: Record<string, unknown>): Observable<ApiResponse<Warehouse>> {
+    return this.post<Warehouse>(CONFIG.warehouses, payload);
   }
 
   getStockMovements(params?: Record<string, unknown>): Observable<ListResult<StockMovement>> {
@@ -898,21 +1135,29 @@ export class BackendService {
   }
 
   getHospitalWards(params?: Record<string, unknown>): Observable<ListResult<HospitalWard>> {
-    return this.get<PaginatedResponse<HospitalWard> | HospitalWard[]>(CONFIG.hospitalWards, params).pipe(
-      map((response) => this.unwrapListResult(response))
+    return this.cachedLookup(this.lookupKey('hospitalWards', params), () =>
+      this.get<PaginatedResponse<HospitalWard> | HospitalWard[]>(CONFIG.hospitalWards, params).pipe(
+        map((response) => this.unwrapListResult(response))
+      )
     );
   }
 
   createHospitalWard(payload: Record<string, unknown>): Observable<ApiResponse<HospitalWard>> {
-    return this.post<HospitalWard>(CONFIG.hospitalWards, payload);
+    return this.post<HospitalWard>(CONFIG.hospitalWards, payload).pipe(
+      tap(() => this.invalidateLookup('hospitalWards'))
+    );
   }
 
   updateHospitalWard(id: string, payload: Record<string, unknown>): Observable<ApiResponse<HospitalWard>> {
-    return this.patch<HospitalWard>(`${CONFIG.hospitalWards}/${id}`, payload);
+    return this.patch<HospitalWard>(`${CONFIG.hospitalWards}/${id}`, payload).pipe(
+      tap(() => this.invalidateLookup('hospitalWards'))
+    );
   }
 
   deleteHospitalWard(id: string): Observable<ApiResponse<HospitalWard>> {
-    return this.delete<HospitalWard>(`${CONFIG.hospitalWards}/${id}`);
+    return this.delete<HospitalWard>(`${CONFIG.hospitalWards}/${id}`).pipe(
+      tap(() => this.invalidateLookup('hospitalWards'))
+    );
   }
 
   getWardFloors(wardId: string, params?: Record<string, unknown>): Observable<ListResult<WardFloor>> {
@@ -1159,7 +1404,13 @@ export class BackendService {
   }
 
   getRoles(params?: Record<string, unknown>): Observable<Role[]> {
-    return this.get<Role[]>(CONFIG.roles, params).pipe(map((response) => this.unwrapData(response)));
+    if (!this.hasPermission('roles.read')) {
+      return of([]);
+    }
+
+    return this.cachedLookup(this.lookupKey('roles', params), () =>
+      this.get<Role[]>(CONFIG.roles, params).pipe(map((response) => this.unwrapData(response)))
+    );
   }
 
   getRole(): Observable<{ data: Role[] }> {
@@ -1167,7 +1418,7 @@ export class BackendService {
   }
 
   createRole(payload: Record<string, unknown>): Observable<ApiResponse<Role>> {
-    return this.post<Role>(CONFIG.roles, payload);
+    return this.post<Role>(CONFIG.roles, payload).pipe(tap(() => this.invalidateLookup('roles')));
   }
 
   updateRole(
@@ -1176,15 +1427,19 @@ export class BackendService {
     params?: Record<string, unknown>
   ): Observable<ApiResponse<Role>> {
     const url = params ? `${CONFIG.roles}/${id}?${this.cleanParams(params).toString()}` : `${CONFIG.roles}/${id}`;
-    return this.patch<Role>(url, payload);
+    return this.patch<Role>(url, payload).pipe(tap(() => this.invalidateLookup('roles')));
   }
 
   deleteRole(id: string, params?: Record<string, unknown>): Observable<ApiResponse<Role>> {
     const url = params ? `${CONFIG.roles}/${id}?${this.cleanParams(params).toString()}` : `${CONFIG.roles}/${id}`;
-    return this.delete<Role>(url);
+    return this.delete<Role>(url).pipe(tap(() => this.invalidateLookup('roles')));
   }
 
   getUsers(params?: Record<string, unknown>): Observable<User[]> {
+    if (!this.hasPermission('users.read')) {
+      return of([]);
+    }
+
     return this.get<User[]>(CONFIG.users, params).pipe(map((response) => this.unwrapData(response)));
   }
 
@@ -1230,38 +1485,344 @@ export class BackendService {
     return this.delete<User>(url);
   }
 
-  getAllNotes(): Observable<{ data: any[] }> {
-    return of({
-      data: JSON.parse(localStorage.getItem('mooli_notes') || '[]'),
-    });
+  uploadUserPhoto(id: string, file: File, params?: Record<string, unknown>): Observable<ApiResponse<User>> {
+    const body = new FormData();
+    body.append('photo', file);
+    const url = params
+      ? `${CONFIG.users}/${id}/photo?${this.cleanParams(params).toString()}`
+      : `${CONFIG.users}/${id}/photo`;
+    return this.http.post<ApiResponse<User>>(url, body);
   }
 
-  addNote(payload: Record<string, unknown>): Observable<{ message: string; data: any }> {
-    const notes = JSON.parse(localStorage.getItem('mooli_notes') || '[]') as any[];
-    const note = {
-      _id: String(Date.now()),
-      createdAt: new Date().toISOString(),
-      ...payload,
-    };
-
-    localStorage.setItem('mooli_notes', JSON.stringify([note, ...notes]));
-
-    return of({
-      message: 'Note added Successfully!',
-      data: note,
-    });
+  deleteUserPhoto(id: string, params?: Record<string, unknown>): Observable<ApiResponse<User>> {
+    const url = params
+      ? `${CONFIG.users}/${id}/photo?${this.cleanParams(params).toString()}`
+      : `${CONFIG.users}/${id}/photo`;
+    return this.delete<User>(url);
   }
 
-  deleteNote(id: string): Observable<{ message: string }> {
-    const notes = JSON.parse(localStorage.getItem('mooli_notes') || '[]') as any[];
-    localStorage.setItem(
-      'mooli_notes',
-      JSON.stringify(notes.filter((note) => note._id !== id))
+  getAccountsDashboard(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/dashboard`, params).pipe(
+      map((response) => this.unwrapData(response))
     );
+  }
 
-    return of({
-      message: 'Note deleted Successfully!',
-    });
+  getChartOfAccounts(params?: Record<string, unknown>): Observable<Array<Record<string, unknown>>> {
+    return this.get<Array<Record<string, unknown>>>(`${CONFIG.accounts}/chart-of-accounts`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getJournals(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/journals`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createJournal(payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.accounts}/journals`, payload);
+  }
+
+  getGeneralLedger(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/general-ledger`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getCashBook(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/cash-book`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getBankBook(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/bank-book`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getTrialBalance(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/trial-balance`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getProfitLoss(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/profit-loss`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getDailyCollections(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/daily-collections`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getDoctorPerformance(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/doctor-performance`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getReportDoctors(params?: Record<string, unknown>): Observable<Array<Record<string, unknown>>> {
+    return this.get<Array<Record<string, unknown>>>(`${CONFIG.accounts}/report-doctors`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getPatientProfitability(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/patient-profitability`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getWardAdmissionBill(admissionId: string): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.wardBilling}/admissions/${admissionId}/bill`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getWardDischargeStatement(admissionId: string): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.wardBilling}/admissions/${admissionId}/discharge-statement`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  collectWardPayment(admissionId: string, payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/admissions/${admissionId}/payments`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  collectWardSecurityDeposit(admissionId: string, payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/admissions/${admissionId}/security-deposit`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  addWardCharge(admissionId: string, payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/admissions/${admissionId}/charges`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listAdmissionRecommendations(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
+    return this.get<PaginatedResponse<Record<string, unknown>>>(`${CONFIG.wardBilling}/admission-recommendations`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createAdmissionRecommendation(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/admission-recommendations`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listWardDoctorVisits(admissionId: string): Observable<Array<Record<string, unknown>>> {
+    return this.get<Array<Record<string, unknown>>>(`${CONFIG.wardBilling}/admissions/${admissionId}/doctor-visits`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createWardDoctorVisit(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/doctor-visits`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  completeWardDoctorVisit(visitId: string): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/doctor-visits/${visitId}/complete`, {}).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listWardRoster(params?: Record<string, unknown>): Observable<Array<Record<string, unknown>>> {
+    return this.get<Array<Record<string, unknown>>>(`${CONFIG.wardBilling}/roster`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createWardRosterShift(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/roster`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listPharmacyWardSettlements(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
+    return this.get<PaginatedResponse<Record<string, unknown>>>(`${CONFIG.wardBilling}/pharmacy-settlements`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  verifyPharmacyWardSettlement(settlementId: string): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/pharmacy-settlements/${settlementId}/verify`, {}).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listWardMedicineRequests(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
+    return this.get<PaginatedResponse<Record<string, unknown>>>(`${CONFIG.wardBilling}/medicine-requests`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createWardMedicineRequest(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/medicine-requests`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  issueWardMedicineRequest(requestId: string, payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/medicine-requests/${requestId}/issue`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listWardProcedures(admissionId: string): Observable<Array<Record<string, unknown>>> {
+    return this.get<Array<Record<string, unknown>>>(`${CONFIG.wardBilling}/admissions/${admissionId}/procedures`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createWardProcedure(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/procedures`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  completeWardProcedure(procedureId: string): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/procedures/${procedureId}/complete`, {}).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  cancelWardProcedure(procedureId: string): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/procedures/${procedureId}/cancel`, {}).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listWardOperations(admissionId: string): Observable<Array<Record<string, unknown>>> {
+    return this.get<Array<Record<string, unknown>>>(`${CONFIG.wardBilling}/admissions/${admissionId}/operations`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createWardOperation(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/operations`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  completeWardOperation(operationId: string): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/operations/${operationId}/complete`, {}).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  cancelWardOperation(operationId: string): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/operations/${operationId}/cancel`, {}).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  updateWardRosterShift(shiftId: string, payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.patch<Record<string, unknown>>(`${CONFIG.wardBilling}/roster/${shiftId}`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getReceivables(params?: Record<string, unknown>): Observable<Array<Record<string, unknown>>> {
+    return this.get<Array<Record<string, unknown>>>(`${CONFIG.accounts}/receivables`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getPayables(params?: Record<string, unknown>): Observable<Array<Record<string, unknown>>> {
+    return this.get<Array<Record<string, unknown>>>(`${CONFIG.accounts}/payables`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getFinancialReconciliation(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/reconciliation`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getPurchases(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
+    return this.get<PaginatedResponse<Record<string, unknown>>>(CONFIG.purchases, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createPurchase(payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(CONFIG.purchases, payload);
+  }
+
+  getPurchaseById(id: string): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.purchases}/${id}`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  cancelPurchase(id: string, payload: Record<string, unknown> = {}): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.purchases}/${id}/cancel`, payload);
+  }
+
+  getPurchaseReturns(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
+    return this.get<PaginatedResponse<Record<string, unknown>>>(CONFIG.returns.purchases, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getInventory(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
+    return this.get<PaginatedResponse<Record<string, unknown>>>(CONFIG.inventory, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getWardRequisitions(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
+    return this.get<PaginatedResponse<Record<string, unknown>>>(`${CONFIG.ward}/requisitions`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createWardRequisition(payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.ward}/requisitions`, payload);
+  }
+
+  issueWardRequisition(id: string): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.ward}/requisitions/${id}/issue`, {});
+  }
+
+  consumeWardStock(payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.ward}/stock/consume`, payload);
+  }
+
+  reverseExpense(id: string, payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.expenses}/${id}/reverse`, payload);
+  }
+
+  receivePurchase(id: string, payload: Record<string, unknown> = {}): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.purchases}/${id}/receive`, payload);
+  }
+
+  getPharmacyDashboard(): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.sales}/dashboard`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getWardIo(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.ward}/io`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createWardIo(payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.ward}/io`, payload);
   }
 
   hasPermission(permission: string): boolean {

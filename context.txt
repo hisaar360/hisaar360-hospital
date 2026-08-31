@@ -1,99 +1,204 @@
 ================================================================================
-HISAAR360 HMS — PROJECT FLOW CONTEXT
+HISAAR360 HOSPITAL MANAGEMENT SYSTEM
+Frontend Application Context  |  Angular Hospital HMS Software
 ================================================================================
-Last updated: 2026-08-18
+Last updated: 2026-08-30
+Document type: Product architecture, UX, and engineering context
+Canonical product name: Hisaar360 Hospital Management System
+Short name: Hisaar360 HMS
+Platform: Hisaar360 (https://www.hisaar360.com)
 
-Product name (UI): Hisaar360 HMS / Mooli hospital admin
-Backend folder:   HMSBackend
-Frontend folder:  mooli
+TITLE
+  Hisaar360 Hospital Management System — Angular frontend for hospital OPD,
+  IPD, laboratory, pharmacy POS, ward care, and patient billing.
 
-Live API:  https://hmsbackend-faizan99904.fly.dev/api/v1
-Local BE:  http://localhost:3001  (npm run dev)
-Local FE:  http://localhost:4200  (ng serve)
-Auth:      Hisaar360 Central Auth (www.hisaar360.com) — JWT + SSO
-           Product code HSPTL0012 / key hsptl-hisaar-3299498
-Mongo DB:  hms  (MUST stay separate from RMS)
-Fly app:   hmsbackend-faizan99904
+META DESCRIPTION
+  Hisaar360 Hospital Management System is a multi-hospital HMS web application
+  for clinics, laboratories, and hospital groups. The frontend is an Angular 19
+  SPA that covers patient registration, doctor appointments, electronic
+  prescriptions, ward and bed management, laboratory orders and reports,
+  hospital pharmacy POS, encounter billing, invoices, roles, and audit logs.
+  Staff sign in through Hisaar360 Central Auth (SSO + JWT) and work against the
+  Hisaar360 Hospital Management System REST API.
 
-This file explains the CURRENT architecture and business flow of the two apps
-that work together. Other folders in this monorepo (POS, RMS, marquee, etc.)
-are separate products and are NOT part of this stack.
+PRIMARY KEYWORDS
+  Hisaar360 Hospital Management System, Hisaar360 HMS, hospital management
+  software, hospital information system, OPD appointment software, IPD ward
+  management, laboratory information system, hospital pharmacy POS, patient
+  billing software, electronic prescription, multi-hospital SaaS, Pakistan
+  hospital software, Hisaar360
 
-Copies of this file also live in:
-  HMSBackend/context.txt
-  mooli/context.txt
+RELATED TERMS
+  EMR lite, encounter ledger, room allotment, MAR, vitals, lab reports,
+  receptionist dashboard, doctor dashboard, cashier payments, JazzCash,
+  EasyPaisa, Central Auth SSO
+
+REPOSITORY
+  Frontend: hisaar360-hospital   (this folder)
+  Backend:  hisaar360-hospital-backend
+  Companion copies of product context:
+    hisaar360-hospital/context.txt
+    hisaar360-hospital-backend/context.txt
+
+RUNTIME
+  Local frontend:  http://localhost:4200   (npm start / ng serve)
+  Local API:       http://localhost:3001/api/v1
+  Live API:        https://hmsbackend-faizan99904.fly.dev/api/v1
+  Production auth: https://hisaar360.com/login
+  Local auth URL:  environment.authPortalLoginUrl
+  Auth:            Hisaar360 Central Auth — JWT + SSO
+                   Product code HSPTL0012 / key hsptl-hisaar-3299498
+  Mongo DB:        hms  (MUST stay separate from RMS)
+  Fly app:         hmsbackend-faizan99904
+
+This file is the frontend source of truth for how Hisaar360 Hospital
+Management System is structured, how screens map to APIs, and how clinical
+work actually flows. Other Hisaar360 products (POS, RMS, marquee, and
+similar) are separate and are not part of this hospital stack.
 
 
 ================================================================================
-1. WHAT THE PRODUCT DOES
+1. WHAT HISAAR360 HOSPITAL MANAGEMENT SYSTEM DOES
 ================================================================================
 
-Hospital Management System for a company that may own one or more hospitals.
+Hisaar360 Hospital Management System is hospital management software for a
+company that may own one hospital or many. Each hospital is a clinical site.
+Almost every clinical record is scoped by hospitalId. Super admins can work
+across hospitals; everyone else is limited to their assigned hospital.
 
 TWO product editions (from hospital/company subscriptionPlan):
 
-  A) HOSPITAL (default)
-     Full HMS: OPD, doctors, appointments, prescriptions, patients,
-     room/ward admission, laboratory, pharmacy POS, billing/ledger,
-     users/roles, dashboard, audit logs.
+  A) HOSPITAL (default full Hisaar360 HMS)
+     Outpatient (OPD) appointments, doctors, departments, patients,
+     electronic prescriptions, room and ward admission (IPD), nursing
+     (vitals, MAR, drips, I/O, handover), laboratory orders and reports,
+     hospital pharmacy POS and inventory, encounter billing and invoices,
+     users, roles, hospital dashboard, and audit logs.
 
   B) LABORATORY (lab / lab-only / pathology)
-     Lab-only UI + permission set: patients, lab catalog, lab orders,
-     results, users/roles, hospitals, settings. Dashboard, pharmacy,
-     ward, appointments, prescriptions are hidden.
+     Laboratory-only UI and permission set: patients, lab test catalog,
+     lab orders, sample collection, results, verification, users/roles,
+     hospitals, and settings. Dashboard, pharmacy, ward, appointments, and
+     prescriptions are hidden.
 
-Core clinical idea:
+PER-HOSPITAL MODULE TOGGLES (HMS only — not Central Auth / landing page):
+
+  Each Hospital document has enabledModules:
+    { pharmacy, laboratory, ward, clinical }.
+  Managed from HMS Add/Edit Hospital (create-hospital), PATCH /hospitals/:id,
+  landing onboarding, subscription create, or Manage Subscription Limits.
+
+    pharmacy    → /pharmacy/*, /pos-reports, pharmacy POS APIs
+    laboratory  → /laboratory/*, lab order APIs
+    ward        → /ward/*, /room-allotment/*, ward/rooms APIs
+    clinical    → doctors, appointments, prescriptions, departments,
+                  clinical-records, doctor-dashboard, hospital dashboard APIs
+
+  When a module is off:
+    - Backend authMiddleware clips related permissions after edition clip
+    - Backend rejects module API paths with 403 MODULE_DISABLED
+    - Frontend roleGuard blocks module routes
+    - Frontend permissionInterceptor blocks module API calls
+    - Left menu / header POS hide module navigation
+
+  Defaults:
+    Full hospital plan     → all four true
+    Laboratory Only plan   → laboratory only
+    Pharmacy Only plan     → pharmacy only
+    Small doctor setup     → clinical only (optional combo with pharmacy/lab)
+
+  After module changes, users must re-login (or force GET /auth/me) for
+  permission clipping and localStorage user.hospital.enabledModules to refresh.
+
+  Existing hospitals default to modulesEnforced=false → full module access (legacy).
+  New onboarding / Manage Limits stores subscription.metadata.enabledModules +
+  modulesEnforced=true; HMS applies policy only when modulesEnforced=true.
+
+  Source files:
+    Frontend: src/app/modules/auth/hospital-modules.ts
+    Backend:  src/common/utils/hospital-modules.js
+
+Core clinical idea of Hisaar360 Hospital Management System:
   Patient is the master record.
-  A visit/admission is an Encounter (OPD / admission / emergency / follow_up).
+  A visit or admission is an Encounter (OPD / admission / emergency / follow_up).
   Where a service is performed, a ledger charge is created.
-  Payments are collected separately by receptionist / cashier / accountant.
+  Payments are collected separately by receptionist, cashier, or accountant.
 
-Pharmacy inside HMS is the hospital pharmacy (POS + inventory), not a
-standalone RMS shop. It still uses POS-style collections (products, sales,
+The in-app pharmacy is the hospital pharmacy (POS + inventory), not a
+standalone retail shop. It uses POS-style collections (products, sales,
 inventory, register sessions) scoped by companyId.
 
 
 ================================================================================
-2. TECH STACK
+2. WHO USES THE FRONTEND
 ================================================================================
 
-BACKEND (HMSBackend)
-  - Node.js >= 18, Express 5, CommonJS
-  - MongoDB + Mongoose (replica set for pharmacy transactions)
-  - Zod request validation
-  - Redis (optional: session cache / JWT blacklist; prefix hms:)
-  - JWT: EdDSA (Ed25519) access tokens; optional legacy HS256
-  - Audience: hms-api
-  - Session policy: 10-min access token, 12-hour absolute session,
-    MAX_ACTIVE_SESSIONS_PER_USER = 1
-  - Layout: src/modules/<domain>/{routes,controller,service,model,validation}
-            src/common/{middlewares,utils,auth,enums}
-  - Deploy: Fly.io (hmsbackend-faizan99904)
+  Hospital Admin     hospital KPIs, master data, users, roles, settings
+  Doctor             doctor dashboard, own appointments, notes, prescriptions
+  Receptionist       patients, appointment calendar, allotments, payments
+  Accountant         invoices, encounter ledger, charge catalog, discounts
+  Pharmacy           prescription read + hospital pharmacy POS / stock
+  Laboratory         lab catalog, orders, samples, results, printed reports
+  Ward Admin         bed board, admissions, rooms, ward operations
+  Nurse              vitals, MAR, drips, I/O, handover, ward patient detail
+  Super Admin        wildcard * — all hospitals in the company
 
-FRONTEND (mooli)
-  - Angular 19 (standalone components)
+Default landing routes after login (access-control.ts):
+  laboratory edition              → /laboratory
+  Doctor                          → /doctor-dashboard
+  Ward Admin / Nurse              → /ward/dashboard
+  Receptionist                    → /appointments
+  else first matching permission  → else /settings
+
+
+================================================================================
+3. FRONTEND TECH STACK
+================================================================================
+
+Hisaar360 Hospital Management System frontend (hisaar360-hospital)
+  - Angular 19 standalone components
+  - Angular Router, HttpClient, Angular Material, ngx-bootstrap, ngx-toastr
+  - FullCalendar + angular-calendar for OPD scheduling
+  - ApexCharts for hospital dashboards
+  - html2canvas + jsPDF for prescriptions, lab reports, and invoices
+  - PWA / service worker for offline appointments, patients, Rx, pharmacy POS
   - Feature screens under src/app/modules/client/*
   - Auth under src/app/modules/auth/*
   - BackendService (src/app/core/services/backend.service.ts) → CONFIG.baseUrl
   - AuthService + authInterceptor (Bearer) + authGuard + roleGuard
-  - Print/PDF: html2canvas + jsPDF (prescriptions, lab reports, invoices)
-  - config.ts currently points at live Fly API by default
-    (localhost:3001 is commented)
+  - Page titles come from route data.title (browser / SEO document title)
+  - Environments:
+      src/environments/environment.ts       local API localhost:3001
+      src/environments/environment.prod.ts  relative /api/v1 + hisaar360.com login
+  - Endpoint map: config.ts (API_BASE_URL + CONFIG.*)
+  - Media URLs: resolveAssetUrl() in src/app/core/utils/asset.util.ts prefixes
+    /api/v1/media/... and /uploads/... with the API origin. Hospital logos, lab
+    reports, prescriptions, and pharmacy receipts use this helper.
+
+OBJECT STORAGE (backend; Angular only displays)
+  Switch:          mediaStorageType=s3 | local on the API .env
+  Display:         GET {apiOrigin}/api/v1/media/{key}
+  Database:        object keys / proxy paths — never signed S3 URLs
+  Images:          max 5 MB; backend compresses with sharp before upload
+  Do not use:      Cloudinary or Contabo for hospital logos or product images
+
+Recommended SEO title pattern for every product screen:
+  Hisaar360 Hospital Management System | <Screen name>
 
 
 ================================================================================
-3. HIGH-LEVEL REQUEST FLOW
+4. HIGH-LEVEL REQUEST FLOW
 ================================================================================
 
-  Browser (Angular SPA)
-       │  Hosted login at www.hisaar360.com  OR  /login/access?ssoCode=
+  Browser (Hisaar360 Hospital Management System Angular SPA)
+       │  Hosted login at hisaar360.com  OR  /login/access?ssoCode=
        │  Bearer JWT stored as localStorage "token"
        ▼
   GET/POST/PATCH/DELETE  /api/v1/<resource>
        │
        ▼
-  Express:
-       helmet → cors → json → requestLogger
+  Express backend (hisaar360-hospital-backend):
+       helmet → cors → compression → json → requestLogger
        authMiddleware (JWT + HmsUserProfile/User + subscription + edition)
        requirePermission / requireAnyPermission
        hospital-scope (hospitalId from user, unless wildcard superAdmin)
@@ -106,74 +211,29 @@ FRONTEND (mooli)
 
 
 SSO login path:
-  Central Auth issues a one-time ssoCode
+  Hisaar360 Central Auth issues a one-time ssoCode
     → POST /api/v1/auth/sso-login { code }
     → HMS verifies product (HSPTL0012 / hsptl-hisaar-3299498 / backend URL)
     → hydrates/creates HmsUserProfile + company + hospital roles
     → returns access + refresh tokens
 
 Local login still exists (POST /auth/login) for leftover User collection
-accounts, but hosted login is the default in production.
-
-
-================================================================================
-4. BACKEND LAYOUT
-================================================================================
-
-HMSBackend/
-  src/server.js, src/app.js
-  src/config/         env.js, redis.js
-  src/bootstrap/      platform super-admin ensure
-  src/common/
-    auth/             token + auth-context session
-    enums/            permissions.enum.js, hospital-audit-actions
-    middlewares/      auth, permission, error, not-found, platform-readonly
-    plugins/          central-company-scope
-    services/         session-cache, auth-context-cache
-    utils/            jwt, hospital-scope, product-edition, central-auth-client,
-                      serialize-user, pagination, mailer, cloudinary
-  src/modules/        one folder per API area
-  src/scripts/seed.js
-
-API mount (src/app.js) under /api/v1:
-
-  Clinical / hospital
-    /health
-    /auth
-    /hospitals, /departments, /doctors
-    /patients, /patient-history
-    /appointments
-    /prescriptions
-    /encounters          (+ ledger items, payments, charge-catalog, discharge)
-    /bills               (legacy; lab still syncs bills)
-    /rooms, /room-allotments
-    /hospital-wards      (ward master + floors)
-    /ward                (beds, activities, vitals, MAR, drips, orders)
-    /laboratory          (tests, orders, samples, results, settings)
-    /hospital-dashboard
-
-  Admin
-    /users, /roles, /companies, /audit-logs
-
-  Pharmacy / POS support (used by mooli pharmacy screens)
-    /categories, /products, /customers, /suppliers
-    /inventory, /stock-movements, /stores, /warehouses
-    /sales, /returns, /transfers
-    /payments, /expenses
-    /register-sessions
-    /reports
+accounts. Hosted Hisaar360 login is the default in production.
 
 
 ================================================================================
 5. FRONTEND LAYOUT
 ================================================================================
 
-mooli/src/app/
+hisaar360-hospital/src/app/
   app.routes.ts          authRoutes first, then clientRoutes
   config.ts              API_BASE_URL + CONFIG.* endpoint map
   core/
     services/auth.service.ts
-    services/backend.service.ts     all HTTP to HMS
+    services/backend.service.ts     all HTTP to Hisaar360 HMS
+    services/mooli-offline.service.ts
+      (legacy filename; IndexedDB outbox for patients, appointments,
+       prescriptions, and pharmacy sales — product name is Hisaar360 HMS)
     auth.interceptor.ts             Bearer token
     error.interceptor.ts
     loading.interceptor.ts
@@ -201,8 +261,8 @@ Typical screen pattern:
 Guards:
   - authGuard on the layout shell
   - roleGuard(permissions) per route (any[] or { any, all })
-  - hostedLoginGuard on /login/access (redirects to Central Auth unless
-    local login is enabled or ?ssoCode= is present)
+  - hostedLoginGuard on /login/access (redirects to Hisaar360 Central Auth
+    unless local login is enabled or ?ssoCode= is present)
 
 
 ================================================================================
@@ -211,7 +271,7 @@ Guards:
 
 COMPANY
   Tenant. Users, roles, pharmacy stock, and hospitals belong to a company.
-  Central Auth company is mirrored locally.
+  Hisaar360 Central Auth company is mirrored locally.
 
 HOSPITAL
   One clinical site under a company. Almost all clinical docs have hospitalId.
@@ -321,17 +381,17 @@ PHARMACY (POS collections, hospital-scoped company)
   Sales (incl. held carts, convert-to-sale, invoice)
   Sales returns, transfers, payments, expenses
   Register sessions (open/close cash drawer)
-  Pharmacy POS in mooli requires ALL of:
+  Pharmacy POS in Hisaar360 Hospital Management System requires ALL of:
     sales.create, sales.read, products.read,
     register_sessions.open, register_sessions.read, register_sessions.close
   Pharmacy sales do NOT currently auto-post to the encounter ledger
-  (docs list it as a next integration). Cashier can add manual ledger
+  (listed as a next integration). Cashier can add manual ledger
   items with sourceType=pharmacy if needed.
 
 USER vs HMS USER PROFILE
   User            — legacy local-login accounts
-  HmsUserProfile  — Central Auth operators (centralUserId, companyId, roleId,
-                    hospitalId, branch/warehouse access)
+  HmsUserProfile  — Hisaar360 Central Auth operators (centralUserId, companyId,
+                    roleId, hospitalId, branch/warehouse access)
   Auth middleware looks up profile first, then User.
   JWT userId is the profile _id (or legacy user _id).
 
@@ -341,12 +401,12 @@ ROLE
 
 
 ================================================================================
-7. BUSINESS FLOWS (HOW USERS WORK)
+7. BUSINESS FLOWS (HOW HOSPITAL STAFF WORK)
 ================================================================================
 
 --- 7.1 Master data first ------------------------------------------------------
 
-  1. Company exists (Central Auth / register-business / seed)
+  1. Company exists (Hisaar360 Central Auth / register-business / seed)
   2. Create Hospital
   3. Create Departments
   4. Create Doctors (optionally with login)
@@ -418,7 +478,7 @@ Landing for Ward Admin / Nurse: /ward/dashboard
     PATCH .../ledger-items/:itemId/cancel
   Rule: services post charges; cashier collects money separately.
 
---- 7.7 Pharmacy POS -----------------------------------------------------------
+--- 7.7 Hospital pharmacy POS --------------------------------------------------
 
   Open register session → POS sale (patient can be a pharmacy customer)
   → stock movement → optional sale return / transfer / expense
@@ -435,15 +495,15 @@ Landing for Ward Admin / Nurse: /ward/dashboard
 8. AUTH, ROLES, PERMISSIONS
 ================================================================================
 
-Login is primarily Central Auth, not isolated local passwords:
-  - User signs in at www.hisaar360.com
+Login is primarily Hisaar360 Central Auth, not isolated local passwords:
+  - User signs in at hisaar360.com
   - Frontend stores token, refresh_token, user, role, roleId, permissions
   - Every API call sends Authorization: Bearer <token>
   - Access token TTL ~10 minutes; AuthService.refreshSession() uses refresh token
   - Change password revokes session; user is sent back to hosted login
   - Single active session per user (new login kills the previous one)
 
-Default hospital role templates (src/modules/roles/hospital-role-templates.js)
+Default hospital role templates (backend hospital-role-templates.js)
 upserted per company:
 
   superAdmin      *  (all hospitals)
@@ -460,19 +520,12 @@ Laboratory edition templates (narrower):
   superAdmin, Hospital Admin, Laboratory
   Permissions clipped to LABORATORY_EDITION_PERMISSIONS.
 
-Frontend default routes (access-control.ts):
-  laboratory edition → /laboratory
-  Doctor             → /doctor-dashboard
-  Ward Admin / Nurse → /ward/dashboard
-  Receptionist       → /appointments
-  else first matching permission route, else /settings
-
-Hospital scope (src/common/utils/hospital-scope.js):
+Hospital scope (backend hospital-scope.js):
   - Non-superAdmin MUST have hospitalId
   - Queries always filter hospitalId
   - Doctor role additionally limited to assigned patients / own appointments
 
-Product edition (src/common/utils/product-edition.js):
+Product edition (backend product-edition.js):
   Plan aliases laboratory|lab|lab-only|pathology → LABORATORY
   Auth middleware filters permissions to the edition set.
 
@@ -494,6 +547,8 @@ Product edition (src/common/utils/product-edition.js):
   - Staff-like ward nurses are app Users with role Nurse; they are login users.
   - Wildcard '*' bypasses hospital scope — treat as platform super admin.
   - Laboratory edition must not expose pharmacy/ward/appointment menus.
+  - Always brand the product as Hisaar360 Hospital Management System.
+    Do not use the old template name in titles, copy, receipts, or docs.
 
 
 ================================================================================
@@ -508,7 +563,7 @@ Still alive:
   Lab syncLabBill() still upserts bills
   Frontend Payments/Invoices still use bills.read / bills.create
 
-Do not delete /bills until mooli invoice screens are fully on encounters.
+Do not delete /bills until invoice screens are fully on encounters.
 Encounter ledger permissions are separate:
   encounters.*, ledger_items.*, ledger_payments.*, charge_catalog.*
 Receptionist has encounters + ledger_payments but NOT ledger_items.create
@@ -520,75 +575,56 @@ Receptionist has encounters + ledger_payments but NOT ledger_items.create
 ================================================================================
 
 Backend:
-  cd HMSBackend
+  cd hisaar360-hospital-backend
   cp .env.example .env
-  # Mongo replica set, MONGODB_DB_NAME=hms, Central Auth URLs, JWT keys
+  # Mongo replica set, MONGODB_DB_NAME=hms, Hisaar360 Central Auth URLs, JWT keys
   npm install
   npm run dev            # PORT=3001
 
 Frontend:
-  cd mooli
+  cd hisaar360-hospital
   npm install
-  # Optionally point config.ts API_BASE_URL at http://localhost:3001/api/v1
+  # environment.ts already points API_BASE_URL at http://localhost:3001/api/v1
   npm start              # localhost:4200
 
 Health:
   GET /api/v1/health
 
 Seed:
-  npm run seed           # HMSBackend — demo hospital bootstrap (idempotent)
+  npm run seed           # backend — demo hospital bootstrap (idempotent)
 
 
 ================================================================================
-12. WHERE TO LOOK IN CODE (CHEAT SHEET)
+12. WHERE TO LOOK IN CODE (FRONTEND CHEAT SHEET)
 ================================================================================
 
-Backend mount:            HMSBackend/src/app.js
-Env:                      HMSBackend/src/config/env.js
-Auth JWT + SSO:           …/modules/auth/
-                          …/common/middlewares/auth.middleware.js
-                          …/common/utils/central-auth-client.js
-                          …/common/utils/central-product.js
-Permissions:              …/common/enums/permissions.enum.js
-Role templates:           …/modules/roles/hospital-role-templates.js
-Hospital scope:           …/common/utils/hospital-scope.js
-Product edition:          …/common/utils/product-edition.js
-Users:                    …/modules/users/user.service.js
-                          …/modules/users/hms-user-profile.service.js
-Patients:                 …/modules/patients/
-Doctors:                  …/modules/doctors/
-Appointments:             …/modules/appointments/
-Prescriptions:            …/modules/prescriptions/
-Encounters / ledger:      …/modules/encounters/encounter.service.js
-                          …/modules/encounters/ledger.service.js
-                          docs/encounter-ledger-workflow.md
-Bills (legacy):           …/modules/bills/
-Lab:                      …/modules/laboratory/lab.service.js
-                          (syncLabBill + syncLabLedgerItem)
-Rooms / allotments:       …/modules/rooms/, …/modules/room-allotments/
-Hospital wards:           …/modules/hospital-wards/
-Ward runtime:             …/modules/ward/
-Dashboard:                …/modules/hospital-dashboard/
-Pharmacy POS:             …/modules/sales/, inventory/, products/, …
-Hospital API list:        HMSBackend/docs/hospital-api-endpoints.md
-Split notes:              HMSBackend/SPLIT.md
+Frontend API map:         hisaar360-hospital/config.ts
+Environments:             src/environments/environment.ts
+                          src/environments/environment.prod.ts
+Routes:                   src/app/app.routes.ts
+                          src/app/modules/client/client.routes.ts
+Access / landing:         src/app/modules/auth/access-control.ts
+Edition:                  src/app/modules/auth/product-edition.ts
+HTTP client:              src/app/core/services/backend.service.ts
+Auth:                     src/app/core/services/auth.service.ts
+Offline outbox:           src/app/core/services/mooli-offline.service.ts
+Menu visibility:          src/app/modules/client/leftmenu/
+Models:                   src/app/shared/models/hospital.model.ts
+PWA / SW:                 src/manifest.webmanifest, src/service-worker.js
+Document titles:          client.routes.ts data.title + AppComponent Title service
 
-Frontend API map:         mooli/config.ts
-Routes:                   mooli/src/app/app.routes.ts
-                          mooli/src/app/modules/client/client.routes.ts
-Access / landing:         mooli/src/app/modules/auth/access-control.ts
-Edition:                  mooli/src/app/modules/auth/product-edition.ts
-HTTP client:              mooli/src/app/core/services/backend.service.ts
-Auth:                     mooli/src/app/core/services/auth.service.ts
-Menu visibility:          mooli/src/app/modules/client/leftmenu/
-Models:                   mooli/src/app/shared/models/hospital.model.ts
+Backend mount:            hisaar360-hospital-backend/src/app.js
+Hospital API list:        hisaar360-hospital-backend/docs/hospital-api-endpoints.md
+Encounter ledger:         hisaar360-hospital-backend/docs/encounter-ledger-workflow.md
+Split notes:              hisaar360-hospital-backend/SPLIT.md
 
 
 ================================================================================
-13. MENTAL MODEL (ONE DIAGRAM)
+13. MENTAL MODEL
 ================================================================================
 
-  Central Auth ──SSO/JWT──▶ mooli (Angular) ──HTTP──▶ HMSBackend ──▶ Mongo `hms`
+  Hisaar360 Central Auth ──SSO/JWT──▶ Hisaar360 Hospital Management System
+  (Angular SPA) ──HTTP──▶ hisaar360-hospital-backend ──▶ Mongo `hms`
 
   Company
     └── Hospital  (edition: hospital | laboratory)
@@ -602,19 +638,19 @@ Models:                   mooli/src/app/shared/models/hospital.model.ts
           │     │                         └── bed charges on discharge
           │     └── Encounter ledger ── charges + payments + balance
           ├── Wards / floors / rooms / ward beds · vitals · MAR · drips
-          └── Pharmacy POS (company inventory, not yet auto-ledger)
+          └── Hospital pharmacy POS (company inventory, not yet auto-ledger)
 
   Laboratory edition = same backend, clipped permissions + clipped Angular menu.
 
 
 ================================================================================
-14. UI / ROUTE MAP (MOOLI)
+14. UI / ROUTE MAP (HISAAR360 HOSPITAL MANAGEMENT SYSTEM)
 ================================================================================
 
 Auth
   /login/access          hosted login (SSO) or local if enabled
   /forgot-password
-  /signup                (legacy page; production uses Central Auth)
+  /signup                (legacy page; production uses Hisaar360 Central Auth)
 
 Clinical
   /dashboard             hospital admin KPIs
@@ -659,9 +695,38 @@ Admin
 
 Template leftovers still routed (wildcard * only): inbox, chat, charts,
 todo, filemanager, contacts, blog, social, covid-19, our-centers, our-staff.
-Do not treat those as product features unless asked to revive them.
+Do not treat those as Hisaar360 Hospital Management System product features
+unless asked to revive them.
 
 
 ================================================================================
-END OF CONTEXT
+15. SEO AND BRANDING RULES (FRONTEND)
+================================================================================
+
+Official name:     Hisaar360 Hospital Management System
+Acceptable short:  Hisaar360 HMS
+Never use:         Mooli, Mooli Hospital POS, or the old admin-template name
+                   in user-visible titles, receipts, PWA name, or docs.
+
+Page title formula (route data.title and <title> in index.html):
+  Hisaar360 Hospital Management System | Dashboard
+  Hisaar360 Hospital Management System | Appointments
+  Hisaar360 Hospital Management System | Patients
+  Hisaar360 Hospital Management System | Laboratory
+  Hisaar360 Hospital Management System | Pharmacy POS
+  Hisaar360 Hospital Management System | Patient Ledger
+  Hisaar360 Hospital Management System | Accounts
+  Hisaar360 Hospital Management System | Purchases
+
+PWA / manifest should describe the product as Hisaar360 Hospital Management
+System: offline-capable hospital appointments, prescriptions, patients, and
+hospital pharmacy POS.
+
+When writing UI copy, error toasts, print headers, or PDF letterheads, prefer
+the hospital/company name from the API, then fall back to
+"Hisaar360 Hospital Management System" — never the old template brand.
+
+
+================================================================================
+END OF CONTEXT — Hisaar360 Hospital Management System (Frontend)
 ================================================================================

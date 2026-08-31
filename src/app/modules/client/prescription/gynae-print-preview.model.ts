@@ -10,6 +10,7 @@ export type GynaePrintPreview = {
   hospitalAddress: string;
   hospitalLogoUrl: string;
   showHospitalLogo: boolean;
+  hospitalLogoScale: number;
   prescriptionNo: string;
   patientNo: string;
   date: string;

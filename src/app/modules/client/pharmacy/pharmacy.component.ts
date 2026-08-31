@@ -34,6 +34,7 @@ import {
   formatUrduQualification,
   stripDoctorPrefix,
 } from '../prescription/prescription-print-urdu';
+import { transliterateLatinToUrdu } from '../../../shared/utils/urdu-transliteration';
 
 interface PharmacyProductForm {
   name: string;
@@ -112,6 +113,8 @@ export class PharmacyComponent implements OnInit {
   productUnits = ['tablet', 'capsule', 'syrup', 'injection', 'drops', 'cream', 'ointment', 'inhaler', 'pcs'];
   strengthUnits = ['mg', 'ml', 'g', 'mcg', 'IU', '%', 'mg/ml', 'mg/5ml', 'mcg/ml'];
   productForm: PharmacyProductForm = this.getEmptyProductForm();
+  dashboard: Record<string, unknown> | null = null;
+  pharmacyKpiCards: Array<{ label: string; value: string | number }> = [];
   private readonly requiredPosPermissions = [
     'sales.create',
     'sales.read',
@@ -142,11 +145,8 @@ export class PharmacyComponent implements OnInit {
 
     this.loadPatients();
     this.loadDoctors();
-    this.refreshCurrentHospital();
     this.refreshCurrentUser();
-    this.loadStores();
-    this.loadCategories();
-    this.loadProducts();
+    this.loadPharmacyDashboard();
   }
 
   get canViewProducts(): boolean {
@@ -183,6 +183,32 @@ export class PharmacyComponent implements OnInit {
     return this.missingPosPermissions.length === 0;
   }
 
+  loadPharmacyDashboard(): void {
+    this.backend.getPharmacyDashboard().subscribe({
+      next: (data) => {
+        this.dashboard = data;
+        const money = (value: unknown) =>
+          typeof value === 'number' ? value.toLocaleString() : String(value ?? 0);
+        this.pharmacyKpiCards = [
+          { label: "Today's Sales", value: money(data['todaySales']) },
+          { label: 'Cash Collection', value: money(data['todayCashCollection']) },
+          { label: "Today's Returns", value: money(data['todayReturns']) },
+          { label: 'Counter Receivable', value: money(data['outstandingCounterReceivable']) },
+          { label: 'Low Stock', value: Number(data['lowStock'] ?? 0) },
+          { label: 'Expiring Soon', value: Number(data['expiringSoon'] ?? 0) },
+          { label: 'Out of Stock', value: Number(data['outOfStock'] ?? 0) },
+          { label: 'Pending Rx', value: Number(data['pendingPrescriptions'] ?? 0) },
+          { label: 'Open Register', value: data['openRegister'] ? 'Yes' : 'No' },
+          { label: 'Purchases Today', value: Number(data['purchasesToday'] ?? 0) },
+        ];
+      },
+      error: () => {
+        this.dashboard = null;
+        this.pharmacyKpiCards = [];
+      },
+    });
+  }
+
   get pharmacyPosHint(): string {
     if (this.canOpenPharmacyPos) {
       return 'POS is ready for this pharmacy user.';
@@ -203,6 +229,11 @@ export class PharmacyComponent implements OnInit {
   }
 
   loadDoctors(): void {
+    if (!this.backend.hasPermission('doctors.read')) {
+      this.doctors = [];
+      return;
+    }
+
     this.backend.getDoctors({ limit: 100, status: 'active' }).subscribe({
       next: (result) => {
         this.doctors = result.items;
@@ -230,6 +261,11 @@ export class PharmacyComponent implements OnInit {
   }
 
   loadPatients(): void {
+    if (!this.backend.hasPermission('patients.read')) {
+      this.patients = [];
+      return;
+    }
+
     this.backend.getPatients({ limit: 100, status: 'active' }).subscribe({
       next: (result) => (this.patients = result.items),
       error: () => (this.patients = []),
@@ -246,6 +282,10 @@ export class PharmacyComponent implements OnInit {
         if (user.storeId && !this.productForm.storeId) {
           this.productForm.storeId = user.storeId;
         }
+
+        this.currentHospitalId = user.hospitalId || this.currentHospitalId;
+        this.currentHospital = user.hospital || this.currentHospital;
+        this.refreshOpenViewPreview();
 
         this.loadStores();
         this.loadCategories();
@@ -787,7 +827,7 @@ export class PharmacyComponent implements OnInit {
         adjustmentType: 'SET',
         quantity: String(Math.floor(quantity)),
         reason: 'OPENING_STOCK',
-        note: 'Opening stock from Mooli pharmacy',
+        note: 'Opening stock from pharmacy',
       })
       .pipe(map(() => product));
   }
@@ -898,11 +938,14 @@ export class PharmacyComponent implements OnInit {
       doctorTitleEnglish: formatEnglishDoctorTitle(),
       doctorTitleUrdu: formatUrduDoctorTitle(),
       hospitalName: formatEnglishOrganizationName(hospitalName) || hospitalName,
-      hospitalNameUrdu: formatUrduOrganizationName(hospitalName) || hospitalName,
+      hospitalNameUrdu:
+        formatUrduOrganizationName(hospitalName, hospital?.nameUrdu) ||
+        transliterateLatinToUrdu(hospitalName),
       hospitalAddress: formatEnglishAddress(hospitalAddress),
       hospitalAddressUrdu: formatUrduAddress(hospitalAddress) || formatEnglishAddress(hospitalAddress),
       hospitalLogoUrl,
       showHospitalLogo: settings.showLogo !== false && Boolean(hospitalLogoUrl),
+      hospitalLogoScale: settings.logoScale,
       prescriptionRevisionNote: settings.revisionNote || '* Rx to be revised after Reports.',
       prescriptionFollowUpLine:
         settings.followUpLine || `For appointment and follow up, contact ${hospitalName}.`,
@@ -1098,6 +1141,7 @@ export class PharmacyComponent implements OnInit {
   private resolvePrescriptionSettings(hospital: Hospital | null): PrescriptionPrintSettings {
     return {
       showLogo: hospital?.prescriptionSettings?.showLogo !== false,
+      logoScale: Math.min(200, Math.max(50, Number(hospital?.prescriptionSettings?.logoScale) || 100)),
       revisionNote: hospital?.prescriptionSettings?.revisionNote || '* Rx to be revised after Reports.',
       followUpLine: hospital?.prescriptionSettings?.followUpLine || '',
       contactLine: hospital?.prescriptionSettings?.contactLine || '',

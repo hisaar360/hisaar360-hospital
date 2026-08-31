@@ -215,6 +215,7 @@
 }
 
 .storepos-invoice-grid {
+  align-items: start;
   background: #fff;
   border: 1px solid #d8e2e8;
   border-radius: 7px;
@@ -484,6 +485,30 @@
   font-weight: 700;
 }
 
+.storepos-product-cell .stock-warn,
+.storepos-product-cell .need-sub {
+  white-space: normal;
+}
+
+.storepos-product-cell .stock-warn {
+  color: #b45309;
+}
+
+.storepos-table-row.is-short {
+  background: #fff7ed;
+}
+
+.need-sub {
+  color: #64748b;
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.storepos-stock-cell.is-low {
+  color: #b45309;
+}
+
 .storepos-stock-cell {
   font-weight: 800;
   white-space: nowrap;
@@ -590,15 +615,24 @@
 }
 
 .unavailable-panel div {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
   padding: 6px 0;
+}
+
+.unavailable-panel span {
+  display: block;
+  font-weight: 800;
 }
 
 .unavailable-panel small {
   color: #9a3412;
+  display: block;
+}
+
+.unavailable-panel strong {
+  color: #7c2d12;
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
 }
 
 .storepos-catalog-panel {
@@ -713,6 +747,15 @@
   font-size: 10px;
   font-weight: 950;
   padding: 5px 8px;
+}
+
+.storepos-product-card.is-out-of-stock {
+  background: #f8fafc;
+  opacity: 0.72;
+}
+
+.storepos-product-card .stock-out {
+  color: #b91c1c;
 }
 
 .storepos-product-discount {

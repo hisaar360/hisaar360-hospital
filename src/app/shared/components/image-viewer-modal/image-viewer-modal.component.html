@@ -1,0 +1,9 @@
+<div class="image-viewer" *ngIf="open" (click)="close()" role="dialog" aria-modal="true">
+  <div class="image-viewer__dialog" (click)="$event.stopPropagation()">
+    <button type="button" class="image-viewer__close" (click)="close()" aria-label="Close image viewer">
+      <i class="fa fa-close"></i>
+    </button>
+    <img *ngIf="src" class="image-viewer__img" [src]="src" [alt]="alt" />
+    <p *ngIf="!src" class="image-viewer__empty">No image available</p>
+  </div>
+</div>

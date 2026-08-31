@@ -127,6 +127,25 @@ export class PharmacyPaymentsComponent implements OnInit {
     return item.title || item._id;
   }
 
+  referenceTypeLabel(type: string | null | undefined): string {
+    if (type === 'sale') {
+      return 'Sale';
+    }
+    if (type === 'sales_return') {
+      return 'Sales return';
+    }
+    if (type === 'expense') {
+      return 'Expense';
+    }
+    return type || '-';
+  }
+
+  referenceDocLabel(payment: Payment): string {
+    const note = String(payment.note || '');
+    const match = note.match(/\b(?:SAL|SRET|PUR|EXP|WRQ|TRF)-[A-Z0-9-]+\b/i);
+    return match ? match[0] : '';
+  }
+
   save(): void {
     if (!this.form.referenceId || Number(this.form.amount || 0) <= 0) {
       this.toastr.error('Reference and valid amount are required.');

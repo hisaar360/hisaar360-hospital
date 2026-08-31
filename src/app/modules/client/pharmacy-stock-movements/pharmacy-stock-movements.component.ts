@@ -6,7 +6,7 @@ import { ToastrService } from 'ngx-toastr';
 
 import { BackendService } from '../../../core/services/backend.service';
 import { StockMovement } from '../../../shared/models/hospital.model';
-import { formatCurrency, formatDateTime } from '../pharmacy-admin.utils';
+import { formatDateTime } from '../pharmacy-admin.utils';
 
 @Component({
   selector: 'app-pharmacy-stock-movements',
@@ -36,7 +36,7 @@ export class PharmacyStockMovementsComponent implements OnInit {
     this.loading = true;
     this.backend.getStockMovements({
       limit: 100,
-      referenceType: this.referenceType.trim() || undefined,
+      referenceType: this.referenceType || undefined,
       locationType: this.locationType || undefined,
       fromDate: this.fromDate ? new Date(`${this.fromDate}T00:00:00`).toISOString() : undefined,
       toDate: this.toDate ? new Date(`${this.toDate}T23:59:59`).toISOString() : undefined,
@@ -59,11 +59,66 @@ export class PharmacyStockMovementsComponent implements OnInit {
     this.loadMovements();
   }
 
-  currency(value: string | number | null | undefined): string {
-    return value === null || value === undefined || value === '' ? '-' : formatCurrency(value);
+  productName(movement: StockMovement): string {
+    return movement.product?.name || '-';
+  }
+
+  productSku(movement: StockMovement): string {
+    return movement.product?.sku || '';
+  }
+
+  locationLabel(movement: StockMovement): string {
+    const name = movement.location?.name;
+    if (name) {
+      return `${movement.locationType || 'location'} / ${name}`;
+    }
+    return `${movement.locationType || '-'} / ${movement.locationId || '-'}`;
+  }
+
+  qty(movement: StockMovement): string {
+    return this.numeric(movement.quantityChange ?? movement.qty ?? movement.quantity);
+  }
+
+  balance(movement: StockMovement): string {
+    return this.numeric(movement.stockAfter ?? movement.balanceQty);
   }
 
   dateTime(value: string | null | undefined): string {
     return formatDateTime(value);
+  }
+
+  referenceTypeLabel(type: string | null | undefined): string {
+    const labels: Record<string, string> = {
+      purchase: 'Purchase',
+      sale: 'Sale',
+      sales_return: 'Sales return',
+      purchase_return: 'Purchase return',
+      stock_transfer: 'Transfer',
+      adjustment: 'Adjustment',
+      opening_stock: 'Opening stock',
+      ward_requisition: 'Ward issue',
+    };
+    return (type && labels[type]) || type || '-';
+  }
+
+  movementTypeLabel(type: string | null | undefined): string {
+    if (!type) {
+      return '-';
+    }
+    return type.replace(/_/g, ' ').toLowerCase().replace(/^./, (letter) => letter.toUpperCase());
+  }
+
+  referenceDocLabel(movement: StockMovement): string {
+    const note = String(movement.note || '');
+    const match = note.match(/\b(?:SAL|SRET|PUR|TRF|WRQ|EXP)-[A-Z0-9-]+\b/i);
+    return match ? match[0] : '';
+  }
+
+  private numeric(value: string | number | null | undefined): string {
+    if (value === null || value === undefined || value === '') {
+      return '-';
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? String(parsed) : String(value);
   }
 }

@@ -6,6 +6,7 @@ import timeGridPlugin from '@fullcalendar/timegrid'; // Week/Day views
 import interactionPlugin from '@fullcalendar/interaction'; // For click/drag
 import { BackendService } from '../../../core/services/backend.service';
 import { Appointment } from '../../../shared/models/hospital.model';
+import { toCalendarYmd } from '../../../core/utils/calendar-date';
 
 @Component({
   selector: 'app-fullcalender',
@@ -35,18 +36,37 @@ export class FullcalenderComponent implements OnInit {
   }
 
   calendarOptions: CalendarOptions = {
-    initialView: 'dayGridMonth', // Default view
+    initialView: 'dayGridMonth',
+    height: 'auto',
     headerToolbar: {
-      left: 'prev,next today',
+      left: 'prev,next',
       center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay' // 3 view buttons
+      right: 'today',
     },
+    footerToolbar: {
+      center: 'dayGridMonth,timeGridWeek,timeGridDay',
+    },
+    buttonText: {
+      today: 'Today',
+      month: 'Month',
+      week: 'Week',
+      day: 'Day',
+    },
+    titleFormat: { year: 'numeric', month: 'short' },
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
     events: [],
-
-    editable: true,
-    selectable: true,
+    editable: false,
+    selectable: false,
     dayMaxEvents: true,
+    eventTextColor: '#ffffff',
+    eventColor: '#0f766e',
+    eventDisplay: 'block',
+    eventTimeFormat: {
+      hour: 'numeric',
+      minute: '2-digit',
+      meridiem: 'short',
+    },
+    displayEventTime: true,
     datesSet: (arg) => this.onDatesSet(arg),
   };
 
@@ -55,6 +75,14 @@ export class FullcalenderComponent implements OnInit {
   }
 
   loadAppointments(dateFrom?: string, dateTo?: string): void {
+    if (!this.backend.hasPermission('appointments.read')) {
+      this.calendarOptions = {
+        ...this.calendarOptions,
+        events: [],
+      };
+      return;
+    }
+
     const monthStart = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
     const monthEnd = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth() + 1, 0);
 
@@ -80,18 +108,21 @@ export class FullcalenderComponent implements OnInit {
   }
 
   toEventInput(appointment: Appointment): EventInput {
-    const day = appointment.appointmentDate.slice(0, 10);
+    const day = toCalendarYmd(appointment.appointmentDate);
     const patientName = appointment.patient
       ? `${appointment.patient.firstName} ${appointment.patient.lastName}`
       : 'Patient';
-    const doctorName = appointment.doctor?.name || 'Doctor';
+    const startTime = String(appointment.startTime || '').slice(0, 5);
+    const endTime = String(appointment.endTime || '').slice(0, 5);
 
     return {
       id: appointment._id,
-      title: `${patientName} with ${doctorName}`,
-      start: `${day}T${appointment.startTime}:00`,
-      end: `${day}T${appointment.endTime}:00`,
-      color: appointment.status === 'completed' ? '#019C9D' : '#003E86',
+      title: patientName,
+      start: startTime ? `${day}T${startTime}:00` : day,
+      end: endTime ? `${day}T${endTime}:00` : undefined,
+      backgroundColor: appointment.status === 'completed' ? '#0f766e' : '#0f766e',
+      borderColor: '#0f766e',
+      textColor: '#ffffff',
       extendedProps: {
         status: appointment.status,
         reason: appointment.reason,

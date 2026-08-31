@@ -12,6 +12,9 @@ import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { resolveAssetUrl } from '../../../core/utils/asset.util';
+import { toCalendarYmd, todayYmd } from '../../../core/utils/calendar-date';
 import { AppDialogService } from '../../../core/services/app-dialog.service';
 import { MooliOfflineService, MooliQueuedWork } from '../../../core/services/mooli-offline.service';
 import {
@@ -95,10 +98,15 @@ export class AppointmentComponent implements OnInit {
   addPatientModalOpen = false;
   bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
   visitType = 'Consultation';
+  submitAttempted = false;
+  serverAppointmentErrors: string[] = [];
   vitalsModalOpen = false;
   vitalsTrendModalOpen = false;
   vitalDisplayItems: VitalDisplayItem[] = [];
   vitalTrendVisits: VitalTrendVisit[] = [];
+  availableSlotOptions: Array<{ startTime: string; endTime: string; durationMinutes: number }> = [];
+  slotsLoading = false;
+  slotDurationMinutes = 15;
   readonly defaultVitalKeys = new Set(['bp', 'pulse', 'weight', 'temperature', 'spo2']);
   readonly defaultVitalLabels: Record<string, string> = {
     bp: 'BP',
@@ -112,6 +120,7 @@ export class AppointmentComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private backend: BackendService,
+    private authService: AuthService,
     readonly offline: MooliOfflineService,
     private toastr: ToastrService,
     private router: Router,
@@ -181,6 +190,19 @@ export class AppointmentComponent implements OnInit {
 
     this.vitalsGroup.valueChanges.subscribe(() => this.refreshVitalAnalytics());
     this.customVitals.valueChanges.subscribe(() => this.refreshVitalAnalytics());
+    this.appointmentForm.get('appointmentDate')?.valueChanges.subscribe(() => this.refreshAvailableSlots());
+    this.appointmentForm.get('startTime')?.valueChanges.subscribe((startTime: string) => {
+      if (!startTime) {
+        return;
+      }
+      if (this.editingId && this.appointmentForm.value.endTime) {
+        return;
+      }
+      this.appointmentForm.patchValue(
+        { endTime: this.addMinutesToTime(startTime, this.selectedSlotDurationMinutes) },
+        { emitEvent: false }
+      );
+    });
   }
 
   get vitalsGroup(): FormGroup {
@@ -350,7 +372,12 @@ export class AppointmentComponent implements OnInit {
   }
 
   loadHospitalProfile(): void {
-    if (!this.currentHospitalId) {
+    const storedHospital = this.authService.currentUser()?.hospital || null;
+    if (storedHospital) {
+      this.hospitalProfile = storedHospital as Hospital;
+    }
+
+    if (!this.currentHospitalId || !this.backend.hasPermission('hospitals.read')) {
       return;
     }
 
@@ -368,6 +395,96 @@ export class AppointmentComponent implements OnInit {
 
   get selectedDoctorConsultationFee(): number {
     return Number(this.selectedDoctor?.consultationFee || 0);
+  }
+
+  get selectedDoctorAvailableDaysLabel(): string {
+    const days = this.selectedDoctor?.availableDays || [];
+    if (!days.length) {
+      return 'Any day';
+    }
+    return days.map((day) => this.titleCase(String(day))).join(', ');
+  }
+
+  isSelectedDateAvailable(): boolean {
+    const ymd = this.selectedAppointmentYmd();
+    if (!ymd) {
+      return true;
+    }
+
+    const unavailable = (this.selectedDoctor?.unavailableDates || []).some(
+      (item) => String(item || '').slice(0, 10) === ymd
+    );
+    if (unavailable) {
+      return false;
+    }
+
+    const days = (this.selectedDoctor?.availableDays || []).map((day) => String(day).toLowerCase());
+    if (!days.length) {
+      return true;
+    }
+    const weekday = this.selectedAppointmentWeekdayKey();
+    return Boolean(weekday && days.includes(weekday));
+  }
+
+  get selectedAppointmentWeekdayLabel(): string {
+    const weekday = this.selectedAppointmentWeekdayKey();
+    return weekday ? this.titleCase(weekday) : '';
+  }
+
+  get appointmentSubmitErrors(): string[] {
+    if (!this.submitAttempted) {
+      return this.serverAppointmentErrors;
+    }
+    return [...this.collectAppointmentBlockingErrors(), ...this.serverAppointmentErrors];
+  }
+
+  showAppointmentError(controlName: string): boolean {
+    const control = this.appointmentForm.get(controlName);
+    return Boolean((this.submitAttempted || control?.touched) && control?.invalid);
+  }
+
+  showDateUnavailableError(): boolean {
+    return Boolean(
+      this.appointmentForm.value.doctorId &&
+        this.appointmentForm.value.appointmentDate &&
+        !this.isSelectedDateAvailable()
+    );
+  }
+
+  showTimeSlotError(): boolean {
+    return this.submitAttempted && this.isTimeSlotMissing();
+  }
+
+  showDiscountReasonError(): boolean {
+    const discount = Number(this.appointmentForm.value.discount || 0);
+    const reason = String(this.appointmentForm.value.discountReason || '').trim();
+    const control = this.appointmentForm.get('discountReason');
+    return discount > 0 && !reason && Boolean(this.submitAttempted || control?.touched);
+  }
+
+  isTimeSlotMissing(): boolean {
+    if (this.slotsLoading || !this.appointmentForm.value.doctorId || !this.isSelectedDateAvailable()) {
+      return false;
+    }
+    return this.timeSlots.length > 0 && !this.normalizeClockTime(this.appointmentForm.value.startTime);
+  }
+
+  private selectedAppointmentWeekdayKey(): string {
+    const ymd = this.selectedAppointmentYmd();
+    if (!ymd) {
+      return '';
+    }
+    return (
+      ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][
+        new Date(Number(ymd.slice(0, 4)), Number(ymd.slice(5, 7)) - 1, Number(ymd.slice(8, 10))).getDay()
+      ] || ''
+    );
+  }
+
+  private selectedAppointmentYmd(): string {
+    const raw = String(this.appointmentForm.value.appointmentDate || '');
+    const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+    return match ? match[1] : '';
   }
 
   get netConsultationFee(): number {
@@ -401,10 +518,13 @@ export class AppointmentComponent implements OnInit {
   }
 
   loadLookups(): void {
-    this.backend.getDoctors({ limit: 100, status: 'active' }).subscribe({
+    this.backend.getAccessibleDoctors({ limit: 100, status: 'active' }).subscribe({
       next: (result) => {
         this.doctors = result.items;
         void this.offline.cacheValue(this.doctorsCacheKey(), this.doctors);
+        if (this.doctors.length === 1 && !this.appointmentForm.value.doctorId) {
+          this.appointmentForm.patchValue({ doctorId: this.doctorBindingId(this.doctors[0]) });
+        }
         this.onDoctorChange();
       },
       error: () => {
@@ -465,47 +585,27 @@ export class AppointmentComponent implements OnInit {
   }
 
   submitAppointment(): void {
-    if (!this.editingId && !this.canCreateAppointment) {
-      return;
-    }
+    this.submitAttempted = true;
+    this.serverAppointmentErrors = [];
+    this.appointmentForm.markAllAsTouched();
 
-    if (this.editingId && !this.canUpdateAppointment) {
-      return;
-    }
-
-    if (!this.appointmentForm.value.patientId) {
-      this.appointmentForm.get('patientId')?.markAsTouched();
-      this.toastr.error('Search phone number and select a patient first');
-      return;
-    }
-
-    if (this.appointmentForm.invalid) {
-      this.appointmentForm.markAllAsTouched();
+    const blockingErrors = this.collectAppointmentBlockingErrors();
+    if (blockingErrors.length) {
+      this.scrollToAppointmentErrors();
+      this.toastr.error(blockingErrors[0]);
       return;
     }
 
     const value = this.appointmentForm.value;
-    if (value.startTime && value.endTime && value.startTime >= value.endTime) {
-      this.toastr.error('Start time must be before end time');
-      return;
-    }
-
+    const startTime = this.normalizeClockTime(value.startTime);
+    const endTime =
+      this.normalizeClockTime(value.endTime) ||
+      (startTime ? this.addMinutesToTime(startTime, this.selectedSlotDurationMinutes) : '');
     const selectedDoctor = this.findDoctorByUserId(value.doctorId);
     const paymentStatus = value.paymentStatus || 'unpaid';
     const consultationFee = Number(value.consultationFee || selectedDoctor?.consultationFee || 0);
     const discount = Number(value.discount || 0);
     const discountReason = String(value.discountReason || '').trim();
-
-    if (discount > consultationFee) {
-      this.toastr.error('Discount cannot be greater than consultation fee');
-      return;
-    }
-
-    if (discount > 0 && !discountReason) {
-      this.toastr.error('Please enter discount reason');
-      this.appointmentForm.get('discountReason')?.markAsTouched();
-      return;
-    }
 
     const vitals = this.buildVitalsPayload(
       value.vitals as Record<string, unknown>,
@@ -516,8 +616,8 @@ export class AppointmentComponent implements OnInit {
       doctorId: value.doctorId,
       departmentId: selectedDoctor?.departmentId || value.departmentId || undefined,
       appointmentDate: value.appointmentDate,
-      startTime: value.startTime,
-      endTime: value.endTime,
+      startTime,
+      endTime,
       reason: value.reason,
       consultationFee,
       discount,
@@ -574,7 +674,10 @@ export class AppointmentComponent implements OnInit {
           return;
         }
 
-        this.toastr.error(err?.error?.message || 'Something went wrong');
+        const apiErrors = this.appointmentApiErrorMessages(err);
+        this.serverAppointmentErrors = apiErrors;
+        this.scrollToAppointmentErrors();
+        this.toastr.error(apiErrors[0] || 'Unable to save appointment');
       },
     });
   }
@@ -585,6 +688,8 @@ export class AppointmentComponent implements OnInit {
     }
 
     this.editingId = appointment._id;
+    this.submitAttempted = false;
+    this.serverAppointmentErrors = [];
     this.selectedPatient = appointment.patient || null;
     this.patientPhone = appointment.patient?.phone || '';
     this.phoneMatchedPatients = appointment.patient ? [appointment.patient] : [];
@@ -735,6 +840,8 @@ export class AppointmentComponent implements OnInit {
 
   resetForm(): void {
     this.editingId = null;
+    this.submitAttempted = false;
+    this.serverAppointmentErrors = [];
     this.appointmentForm.reset({
       appointmentDate: this.todayValue(),
       consultationFee: 0,
@@ -788,15 +895,22 @@ export class AppointmentComponent implements OnInit {
     ).length;
   }
 
-  get timeSlots(): string[] {
-    const firstSlot = this.nextAvailableHalfHour(new Date());
+  get selectedSlotDurationMinutes(): number {
+    const minutes = Number(this.selectedDoctor?.slotDurationMinutes || this.slotDurationMinutes || 15);
+    return [5, 10, 15, 20, 30].includes(minutes) ? minutes : 15;
+  }
 
-    return Array.from({ length: 7 }, (_, index) => {
-      const slotDate = new Date(firstSlot);
-      slotDate.setMinutes(firstSlot.getMinutes() + index * 30);
+  get expectedVisitLabel(): string {
+    const start = this.formatClockTime(this.appointmentForm.value.startTime);
+    const end = this.formatClockTime(this.appointmentForm.value.endTime);
+    if (start === '-' || end === '-') {
+      return '';
+    }
+    return `${start} – ${end} (${this.selectedSlotDurationMinutes} min)`;
+  }
 
-      return this.formatTime(slotDate);
-    });
+  get timeSlots(): Array<{ startTime: string; endTime: string; durationMinutes: number }> {
+    return this.availableSlotOptions;
   }
 
   canSearchPatientPhone(): boolean {
@@ -905,7 +1019,9 @@ export class AppointmentComponent implements OnInit {
     this.patchDepartmentFromDoctor(this.appointmentForm.value.doctorId);
     const doctor = this.selectedDoctor;
     const consultationFee = Number(doctor?.consultationFee || 0);
+    this.slotDurationMinutes = this.selectedSlotDurationMinutes;
     this.appointmentForm.patchValue({ consultationFee });
+    this.refreshAvailableSlots();
   }
 
   onPaymentStatusChange(): void {
@@ -955,6 +1071,10 @@ export class AppointmentComponent implements OnInit {
     return value || 'Consultation';
   }
 
+  doctorBindingId(doctor: Doctor): string {
+    return String(doctor.userId || doctor.user?._id || '').trim();
+  }
+
   doctorOptionLabel(doctor: Doctor): string {
     const doctorName = doctor.user?.name || doctor.specialization || 'Doctor';
     const departmentName = doctor.department?.name || '';
@@ -962,15 +1082,22 @@ export class AppointmentComponent implements OnInit {
     return departmentName ? `${doctorName} - ${departmentName}` : doctorName;
   }
 
-  selectTimeSlot(slot: string): void {
+  selectTimeSlot(slot: { startTime: string; endTime: string; durationMinutes: number } | string): void {
+    const startTime = typeof slot === 'string' ? slot : slot.startTime;
+    const endTime =
+      typeof slot === 'string'
+        ? this.addMinutesToTime(slot, this.selectedSlotDurationMinutes)
+        : slot.endTime;
+    this.appointmentForm.get('endTime')?.markAsPristine();
     this.appointmentForm.patchValue({
-      startTime: slot,
-      endTime: this.nextHalfHour(slot),
+      startTime,
+      endTime,
     });
   }
 
-  isSelectedTimeSlot(slot: string): boolean {
-    return this.appointmentForm.value.startTime === slot;
+  isSelectedTimeSlot(slot: { startTime: string } | string): boolean {
+    const startTime = typeof slot === 'string' ? slot : slot.startTime;
+    return this.appointmentForm.value.startTime === startTime;
   }
 
   patientMeta(patient?: Patient | null): string {
@@ -1664,7 +1791,7 @@ export class AppointmentComponent implements OnInit {
       return false;
     }
 
-    const appointmentDate = appointment.appointmentDate.slice(0, 10);
+    const appointmentDate = toCalendarYmd(appointment.appointmentDate);
     if (this.dateFrom && appointmentDate < this.dateFrom) {
       return false;
     }
@@ -1717,26 +1844,42 @@ export class AppointmentComponent implements OnInit {
     return value.replace(/\D/g, '');
   }
 
-  private nextHalfHour(time: string): string {
-    const [hour, minute] = time.split(':').map(Number);
+  private addMinutesToTime(time: string, minutesToAdd: number): string {
+    const [hour, minute] = String(time || '').split(':').map(Number);
     const date = new Date();
     date.setHours(hour || 0, minute || 0, 0, 0);
-    date.setMinutes(date.getMinutes() + 30);
-    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    date.setMinutes(date.getMinutes() + minutesToAdd);
+    return this.formatTime(date);
   }
 
-  private nextAvailableHalfHour(date: Date): Date {
-    const nextSlot = new Date(date);
-    nextSlot.setSeconds(0, 0);
-
-    const minutes = nextSlot.getMinutes();
-    if (minutes < 30) {
-      nextSlot.setMinutes(30);
-    } else {
-      nextSlot.setHours(nextSlot.getHours() + 1, 0);
+  refreshAvailableSlots(): void {
+    const doctorId = String(this.appointmentForm.value.doctorId || '').trim();
+    const date = this.selectedAppointmentYmd();
+    if (!doctorId || !date) {
+      this.availableSlotOptions = [];
+      return;
     }
 
-    return nextSlot;
+    this.slotsLoading = true;
+    this.backend
+      .getAvailableAppointmentSlots({ doctorId, date })
+      .pipe(finalize(() => (this.slotsLoading = false)))
+      .subscribe({
+        next: (result) => {
+          this.slotDurationMinutes = Number(result.durationMinutes || 15);
+          const today = todayYmd();
+          const now = this.formatTime(new Date());
+          this.availableSlotOptions = (result.slots || []).filter((slot) => {
+            if (date !== today) {
+              return true;
+            }
+            return slot.startTime > now;
+          });
+        },
+        error: () => {
+          this.availableSlotOptions = [];
+        },
+      });
   }
 
   private formatTime(date: Date): string {
@@ -1744,13 +1887,11 @@ export class AppointmentComponent implements OnInit {
   }
 
   private dateOnly(value: string | Date): string {
-    const date = new Date(value);
+    return toCalendarYmd(value);
+  }
 
-    if (Number.isNaN(date.getTime())) {
-      return '';
-    }
-
-    return date.toISOString().slice(0, 10);
+  private todayValue(): string {
+    return todayYmd();
   }
 
   private ageLabel(dateOfBirth: string | null): string {
@@ -1779,17 +1920,125 @@ export class AppointmentComponent implements OnInit {
     return value.charAt(0).toUpperCase() + value.slice(1);
   }
 
-  private todayValue(): string {
-    const today = new Date();
-    return [
-      today.getFullYear(),
-      String(today.getMonth() + 1).padStart(2, '0'),
-      String(today.getDate()).padStart(2, '0'),
-    ].join('-');
+  collectAppointmentBlockingErrors(): string[] {
+    const errors: string[] = [];
+    const value = this.appointmentForm.value;
+    const startTime = this.normalizeClockTime(value.startTime);
+    const endTime = this.normalizeClockTime(value.endTime);
+    const discount = Number(value.discount || 0);
+    const consultationFee = Number(value.consultationFee || this.selectedDoctorConsultationFee || 0);
+    const discountReason = String(value.discountReason || '').trim();
+
+    if (!this.editingId && !this.canCreateAppointment) {
+      errors.push('You do not have permission to create appointments.');
+      return errors;
+    }
+
+    if (this.editingId && !this.canUpdateAppointment) {
+      errors.push('You do not have permission to update appointments.');
+      return errors;
+    }
+
+    if (!value.patientId) {
+      errors.push('Patient: search by mobile number, then tap Book on a patient.');
+    }
+
+    if (!this.doctors.length) {
+      errors.push('Doctor: no active doctors found. Add a doctor first.');
+    } else if (!value.doctorId) {
+      errors.push('Doctor: select a doctor.');
+    }
+
+    if (!value.appointmentDate) {
+      errors.push('Date: select an appointment date.');
+    } else if (value.doctorId && !this.isSelectedDateAvailable()) {
+      const weekday = this.selectedAppointmentWeekdayLabel;
+      const available = this.selectedDoctorAvailableDaysLabel;
+      errors.push(
+        weekday
+          ? `Date: doctor is not available on ${weekday}. Working days: ${available}.`
+          : `Date: doctor is not available on this date. Working days: ${available}.`
+      );
+    }
+
+    if (this.isTimeSlotMissing()) {
+      errors.push('Time: select an available time slot.');
+    } else if (startTime && endTime && startTime >= endTime) {
+      errors.push('Time: start time must be before end time.');
+    }
+
+    if (discount > consultationFee) {
+      errors.push('Discount: cannot be greater than the consultation fee.');
+    } else if (discount > 0 && !discountReason) {
+      errors.push('Discount reason: required when a discount is entered.');
+    }
+
+    if (this.appointmentForm.get('paymentStatus')?.invalid) {
+      errors.push('Payment status: select unpaid or paid.');
+    }
+
+    if (this.appointmentForm.get('status')?.invalid) {
+      errors.push('Status: select an appointment status.');
+    }
+
+    if (!errors.length && this.appointmentForm.invalid) {
+      errors.push('Please complete the required appointment fields.');
+    }
+
+    return errors;
+  }
+
+  private appointmentApiErrorMessages(err: unknown): string[] {
+    const body = (err as { error?: { message?: string; details?: unknown } })?.error;
+    const details = body?.details;
+    if (Array.isArray(details) && details.length) {
+      const messages = details
+        .map((item) => {
+          const row = item as { path?: string; message?: string };
+          const field = String(row.path || '')
+            .replace(/^body\./, '')
+            .trim();
+          const message = String(row.message || '').trim();
+          if (!message) {
+            return '';
+          }
+          return field ? `${field}: ${message}` : message;
+        })
+        .filter(Boolean);
+      if (messages.length) {
+        return messages;
+      }
+    }
+
+    return [body?.message || 'Unable to save appointment.'];
+  }
+
+  private scrollToAppointmentErrors(): void {
+    queueMicrotask(() => {
+      document.getElementById('appointment-form-errors')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
+  }
+
+  private normalizeClockTime(value?: string | null): string {
+    const match = String(value || '')
+      .trim()
+      .match(/^(\d{1,2}):([0-5]\d)/);
+    if (!match) {
+      return '';
+    }
+    return `${String(Number(match[1])).padStart(2, '0')}:${match[2]}`;
   }
 
   private findDoctorByUserId(userId?: string | null): Doctor | undefined {
-    return this.doctors.find((doctor) => doctor.userId === userId);
+    const target = String(userId || '').trim();
+    if (!target) {
+      return undefined;
+    }
+
+    return this.doctors.find((doctor) => this.doctorBindingId(doctor) === target);
   }
 
   private patchDepartmentFromDoctor(userId?: string | null): void {
@@ -1870,7 +2119,7 @@ export class AppointmentComponent implements OnInit {
       return '';
     }
 
-    return logoUrl.startsWith('data:image/') && logoUrl.length > 1000000 ? '' : logoUrl;
+    return resolveAssetUrl(logoUrl.startsWith('data:image/') && logoUrl.length > 1000000 ? '' : logoUrl);
   }
 
   private formatDoctorName(name: string): string {
@@ -2136,7 +2385,7 @@ export class AppointmentComponent implements OnInit {
               ${this.printableTokenDetailRow('Net Fee', token.netFee, 'fee')}
               ${this.printableTokenDetailRow('Payment', token.paymentStatus, 'payment')}
               ${this.printableTokenDetailRow('Date', token.appointmentDate, 'date')}
-              ${this.printableTokenDetailRow('Time', token.timeRange, 'time')}
+              ${this.printableTokenDetailRow('Expected time', token.timeRange, 'time')}
               ${this.printableTokenDetailRow('Printed At', token.printedAt, 'printed')}
             </div>
 
@@ -2234,7 +2483,7 @@ export class AppointmentComponent implements OnInit {
       `Net Fee: ${token.netFee}`,
       `Payment: ${token.paymentStatus}`,
       `Date: ${token.appointmentDate}`,
-      `Time: ${token.timeRange}`,
+      `Expected time: ${token.timeRange}`,
       `Status: ${token.status}`,
       '',
       'Please keep this token for your visit.',

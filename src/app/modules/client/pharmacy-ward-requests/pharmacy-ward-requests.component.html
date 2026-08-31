@@ -1,0 +1,106 @@
+<div id="main-content" class="modern-dashboard ward-page-shell">
+  <div class="container-fluid ward-page-container">
+    <div class="ward-page-header ward-page-header--compact">
+      <div class="ward-page-header__copy">
+        <h1>Pharmacy Ward Requests</h1>
+        <p>Review and issue medicines requested from ward admissions.</p>
+      </div>
+    </div>
+
+    <section class="ward-panel">
+      <div class="roster-filters">
+        <select [(ngModel)]="status" (change)="load()">
+          <option value="PENDING">Pending / Partial</option>
+          <option value="REQUESTED">Requested</option>
+          <option value="PARTIALLY_ISSUED">Partial</option>
+          <option value="ISSUED">Issued</option>
+          <option value="">All</option>
+        </select>
+        <input [(ngModel)]="wardLabel" placeholder="Ward" />
+        <input [(ngModel)]="patientId" placeholder="Patient ID" />
+        <input type="date" [(ngModel)]="fromDate" />
+        <input type="date" [(ngModel)]="toDate" />
+        <button class="btn btn-outline-primary btn-sm" (click)="load()">Refresh</button>
+      </div>
+
+      <div class="table-responsive" *ngIf="!loading; else loadingTpl">
+        <table class="table table-sm ward-table">
+          <thead>
+            <tr>
+              <th>Request No</th>
+              <th>Patient</th>
+              <th>Admission</th>
+              <th>Ward</th>
+              <th>Requested By</th>
+              <th>Requested At</th>
+              <th>Items</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of items">
+              <td>{{ row['requestNo'] }}</td>
+              <td>{{ patientName(row) }}</td>
+              <td>{{ row['admissionNo'] || '—' }}</td>
+              <td>{{ row['wardLabel'] || '—' }}</td>
+              <td>{{ requesterName(row) }}</td>
+              <td>{{ asDate(row['requestedAt']) | date:'short' }}</td>
+              <td>
+                <div *ngFor="let item of rowItems(row)">
+                  {{ item['productName'] }} — req {{ item['requestedQty'] }} / issued {{ item['issuedQty'] || 0 }}
+                </div>
+              </td>
+              <td>{{ row['status'] }}</td>
+              <td>
+                <button
+                  *ngIf="row['status'] !== 'ISSUED' && row['status'] !== 'CANCELLED'"
+                  class="btn btn-sm btn-primary"
+                  (click)="openIssue(row)"
+                >
+                  Issue
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="items.length === 0"><td colspan="9" class="text-muted">No ward medicine requests.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #loadingTpl><p class="text-muted">Loading requests...</p></ng-template>
+    </section>
+
+    <section class="ward-panel" *ngIf="selected">
+      <h3>Issue Request {{ selected['requestNo'] }}</h3>
+      <div class="roster-form">
+        <input [(ngModel)]="storeId" placeholder="Pharmacy store ID" />
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>Medicine</th><th>Requested</th><th>Issued</th><th>Remaining</th><th>Issue Qty</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let item of selectedItems()">
+              <td>{{ item['productName'] }}</td>
+              <td>{{ item['requestedQty'] }}</td>
+              <td>{{ item['issuedQty'] || 0 }}</td>
+              <td>{{ remainingQty(item) }}</td>
+              <td>
+                <input
+                  type="number"
+                  [disabled]="remainingQty(item) <= 0"
+                  [ngModel]="issueQtyFor(item)"
+                  (ngModelChange)="setIssueQty(item, $event)"
+                  [max]="remainingQty(item)"
+                  min="0"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="roster-form">
+        <button class="btn btn-primary btn-sm" (click)="issue()">Confirm Issue</button>
+        <button class="btn btn-outline-secondary btn-sm" (click)="selected = null">Cancel</button>
+      </div>
+    </section>
+  </div>
+</div>

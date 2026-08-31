@@ -1,0 +1,54 @@
+<div id="main-content" class="modern-dashboard pharmacy-page">
+  <div class="container-fluid">
+    <div class="accounts-header-card">
+      <div>
+        <h1>Ward Settlements</h1>
+        <p>Verify pharmacy amounts collected by Ward Reception at discharge.</p>
+      </div>
+    </div>
+
+    <div class="accounts-filter-card">
+      <select [(ngModel)]="settlementStatus" (change)="load()">
+        <option value="">All</option>
+        <option value="PENDING_SETTLEMENT">Pending</option>
+        <option value="SETTLED">Settled</option>
+        <option value="UNPAID">Unpaid</option>
+      </select>
+      <input [(ngModel)]="wardLabel" placeholder="Ward" />
+      <input type="date" [(ngModel)]="fromDate" />
+      <input type="date" [(ngModel)]="toDate" />
+      <button class="btn btn-primary" (click)="load()">Apply</button>
+    </div>
+
+    <div class="accounts-table-card" *ngIf="!loading; else loadingTpl">
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Date</th><th>Patient</th><th>Admission</th><th>Ward</th><th>Sale No</th>
+              <th>Amount</th><th>Patient Paid</th><th>Collected By</th><th>Status</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of items">
+              <td>{{ asDate(row['collectedAt'] || row['createdAt']) | date:'short' }}</td>
+              <td>{{ patientName(row) }}</td>
+              <td>{{ row['admissionNo'] || '—' }}</td>
+              <td>{{ row['wardLabel'] || '—' }}</td>
+              <td>{{ row['saleInvoiceNo'] || '—' }}</td>
+              <td>{{ money(row['pharmacyAmount']) }}</td>
+              <td>{{ row['patientPaymentStatus'] }}</td>
+              <td>{{ row['collectedByDepartment'] || '—' }}</td>
+              <td>{{ row['settlementStatus'] }}</td>
+              <td>
+                <button *ngIf="row['settlementStatus'] === 'PENDING_SETTLEMENT'" class="btn btn-sm btn-primary" (click)="verify(row)">Verify / Settle</button>
+              </td>
+            </tr>
+            <tr *ngIf="items.length === 0"><td colspan="10" class="text-muted">No settlement records found.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <ng-template #loadingTpl><p class="text-muted p-3">Loading settlements...</p></ng-template>
+  </div>
+</div>

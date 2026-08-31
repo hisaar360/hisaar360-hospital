@@ -109,15 +109,41 @@
                         </select>
                     </label>
                 </ng-template>
+                <label class="storepos-field">
+                    <span>Settlement</span>
+                    <select [(ngModel)]="settlementMode" (ngModelChange)="onSettlementModeChange()">
+                        <option value="COUNTER">Counter sale</option>
+                        <option value="ENCOUNTER">Hospital bill (encounter)</option>
+                    </select>
+                </label>
+                <label class="storepos-field" *ngIf="settlementMode === 'ENCOUNTER'">
+                    <span>Patient</span>
+                    <select [(ngModel)]="selectedPatientId" (ngModelChange)="onSettlementPatientChange()">
+                        <option value="">Select patient</option>
+                        <option *ngFor="let patient of patients" [value]="patient._id">
+                            {{ patient.firstName }} {{ patient.lastName }}
+                        </option>
+                    </select>
+                </label>
+                <label class="storepos-field" *ngIf="settlementMode === 'ENCOUNTER'">
+                    <span>Open encounter</span>
+                    <select [(ngModel)]="selectedEncounterId">
+                        <option value="">Select encounter</option>
+                        <option *ngFor="let encounter of openEncounters" [value]="encounter._id">
+                            {{ encounter.encounterNo }} · {{ encounter.type }} · {{ encounter.status }}
+                        </option>
+                    </select>
+                </label>
                 <div class="storepos-quick-discount">
                     <span>Bill Discount %</span>
-                    <div class="quick-discount-control">
+                    <div class="quick-discount-control"
+                        title="Applies only to medicines that allow discount. You can change the percentage.">
                         <input type="number" min="0" step="0.5" [(ngModel)]="customDiscountPercent"
-                            [disabled]="!hasDiscountEligibleBillLines" placeholder="10"
+                            placeholder="10"
                             (keydown.enter)="applyCustomPercentDiscount()" />
                         <b>%</b>
-                        <button type="button" [disabled]="!hasDiscountEligibleBillLines"
-                            title="Apply custom percent discount to eligible medicines"
+                        <button type="button"
+                            title="Apply this percent to medicines that allow discount"
                             (click)="applyCustomPercentDiscount()">
                             Apply
                         </button>
@@ -187,14 +213,22 @@
                     <div class="storepos-table-row" *ngFor="let line of billLines; let i = index" tabindex="0"
                         [attr.data-kb-cart-index]="i"
                         [class.keyboard-active]="keyboardZone === 'cart' && selectedCartIndex === i"
+                        [class.is-short]="lineIsShort(line)"
                         (focus)="setKeyboardZone('cart', i)">
                         <div class="storepos-product-cell">
                             <p>{{ productDisplay(line.product) }}</p>
                             <small>{{ line.product.sku || 'No SKU' }} · {{ line.sourceMedicineName }}</small>
+                            <small *ngIf="line.qtyBreakdown">Rx {{ line.qtyBreakdown }}</small>
+                            <small class="stock-warn" *ngIf="lineIsShort(line)">{{ stockShortageMessage(line) }}</small>
                         </div>
                         <span>{{ line.product.unit || 'unit' }}</span>
-                        <span>{{ line.requestedQty }}</span>
-                        <span class="storepos-stock-cell">{{ formatCompactNumber(line.availableQty) }}</span>
+                        <span>
+                            {{ line.requestedQty }}
+                            <small class="need-sub" *ngIf="line.qtyBreakdown">{{ line.qtyBreakdown }}</small>
+                        </span>
+                        <span class="storepos-stock-cell" [class.is-low]="line.availableQty < line.requestedQty">
+                            {{ formatCompactNumber(line.availableQty) }}
+                        </span>
                         <div class="qty-stepper">
                             <button type="button" data-kb-cart-cell (focus)="setCartCellFocus(i, 0)"
                                 (click)="decrementLineQty(i)">-</button>
@@ -232,10 +266,14 @@
                 </div>
 
                 <div class="unavailable-panel" *ngIf="unavailableMedicines.length">
-                    <h3>Unavailable from selected store</h3>
+                    <h3>Cannot dispense from this store</h3>
                     <div *ngFor="let item of unavailableMedicines">
-                        <span>{{ item.medicineName }}</span>
-                        <small>Need {{ item.requestedQty }} · {{ item.reason }}</small>
+                        <div>
+                            <span>{{ item.medicineName }}</span>
+                            <small>Need {{ item.requestedQty }}<ng-container *ngIf="item.qtyBreakdown"> · {{ item.qtyBreakdown }}</ng-container></small>
+                            <small>{{ item.reason }}</small>
+                            <strong>{{ item.patientMessage }}</strong>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -253,6 +291,7 @@
                     <button type="button" class="storepos-product-card" *ngFor="let product of filteredProducts(); let i = index"
                         [attr.data-kb-product-index]="i"
                         [class.keyboard-active]="keyboardZone === 'products' && selectedProductIndex === i"
+                        [class.is-out-of-stock]="isOutOfStock(product)"
                         (focus)="setKeyboardZone('products', i)" (click)="addProduct(product)">
                         <span><i class="fa fa-medkit"></i></span>
                         <div>
@@ -261,7 +300,7 @@
                             <small *ngIf="productBatchExpiryLabel(product)">
                             {{ productBatchExpiryLabel(product) }}
                             </small>
-                            <small>Stock {{ stockLabel(product) }}</small>
+                            <small [class.stock-out]="isOutOfStock(product)">Stock {{ stockLabel(product) }}</small>
                             <small>
                                 {{ product.sku || 'No SKU' }} · {{ product.brand || product.unit || 'General' }} ·
                                 <small class="storepos-product-discount">{{ productDiscountSummary(product) }}</small>
@@ -734,7 +773,7 @@
     </div>
 </div>
 
-<div class="modern-modal-backdrop" *ngIf="!registerOpened && !registerClosed">
+<div class="modern-modal-backdrop" *ngIf="!registerLoading && !storesLoading && !registerOpened && !registerClosed">
     <div class="modern-register-modal">
         <div class="modern-register-head">
             <div class="modern-register-badge">

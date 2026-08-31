@@ -4,7 +4,7 @@
 
     <header class="gynae-clinical-header">
       <div class="gynae-clinical-header-left">
-        <div class="gynae-clinical-doctor-mark">
+        <div class="gynae-clinical-doctor-mark" [class.has-logo]="preview.showHospitalLogo">
           <img *ngIf="preview.showHospitalLogo" [src]="preview.hospitalLogoUrl" [alt]="preview.hospitalName">
           <i *ngIf="!preview.showHospitalLogo" class="fa fa-female"></i>
         </div>

@@ -4,7 +4,7 @@
       <div class="row clearfix align-items-center">
         <div class="col-lg-7 col-md-12 col-sm-12">
           <h1>Audit Logs</h1>
-          <span>Sensitive hospital actions ka record — bills, lab, prescriptions, appointments, discharge, payments.</span>
+          <span>Record of sensitive hospital actions: bills, lab, prescriptions, appointments, discharge, and payments.</span>
         </div>
         <div class="col-lg-5 col-md-12 col-sm-12 text-lg-right">
           <button type="button" class="btn btn-primary" (click)="loadLogs(page)" [disabled]="loading">
@@ -19,7 +19,7 @@
       <div class="audit-filter-head">
         <div>
           <h2>Filters</h2>
-          <p>Module, action, user, aur date range se audit trail search karein.</p>
+          <p>Search the audit trail by module, action, user, and date range.</p>
         </div>
         <span class="permission-pill" *ngIf="canFilterByHospital">All hospitals</span>
         <span class="permission-pill" *ngIf="!canFilterByHospital">Hospital scoped</span>
@@ -48,7 +48,7 @@
           </select>
         </label>
 
-        <label>
+        <label *ngIf="canFilterByUser">
           <span>User</span>
           <select class="form-control" [(ngModel)]="userIdFilter">
             <option value="">All users</option>

@@ -6,8 +6,9 @@ import {
   LabResultParameter,
   User,
 } from '../../../shared/models/hospital.model';
+import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import { buildPreviousComparisonOrders, findHistoryPointForReport } from './lab-comparison.utils';
-import { getLabReportItems, resolveLabPrintDetails, resolveLabReportThemeColors } from './lab-print-details';
+import { getLabReportItems, resolveLabPrintDetails, resolveLabReportThemeColors, resolveLabReportDisclaimer, resolveLabSystemGeneratedLine, resolveLabReportSignatories } from './lab-print-details';
 
 export interface LabReportRow {
   itemId: string;
@@ -48,8 +49,6 @@ interface LabCellValue {
   statusKey: string;
 }
 
-type ReportUserRef = Pick<User, 'name' | 'email'> | null | undefined;
-
 const NA = 'Not Available';
 const EMPTY_CELL = '-';
 
@@ -75,8 +74,10 @@ export function buildLabOrderReportHtml(context: LabReportContext): string {
   const previousColumns = columns.filter((column) => !column.current);
   const latestPreviousOrderId = previousColumns[previousColumns.length - 1]?.orderId;
   const totalColumnCount = 3 + columns.length;
-  const reportCreatedBy = reportCreatorName(context);
   const theme = resolveLabReportThemeColors(context.hospital);
+  const signatories = resolveLabReportSignatories(context.hospital);
+  const disclaimer = resolveLabReportDisclaimer(context.hospital);
+  const systemGeneratedLine = resolveLabSystemGeneratedLine(context.hospital);
 
   return `<!doctype html>
 <html lang="en">
@@ -135,7 +136,7 @@ export function buildLabOrderReportHtml(context: LabReportContext): string {
         <div><span>Collection Date/Time:</span><strong>${escapeHtml(formatReportDate(collectionRaw))}</strong></div>
         <div><span>Processing Date/Time:</span><strong>${escapeHtml(formatReportDate(processingRaw))}</strong></div>
         <div><span>Reporting Date/Time:</span><strong>${escapeHtml(formatReportDate(reportingRaw))}</strong></div>
-        <div><span>Report Created By:</span><strong>${escapeHtml(reportCreatedBy)}</strong></div>
+        <div><span>Verification:</span><strong>Electronically verified</strong></div>
       </section>
 
       <main class="report-content">
@@ -160,33 +161,39 @@ export function buildLabOrderReportHtml(context: LabReportContext): string {
       </main>
 
       <footer class="signature-footer">
-        <div class="signature-grid">
-          <div class="signature-box">
-            <span></span>
-            <strong>Lab Technologist</strong>
-          </div>
-          <div class="signature-box">
-            <span></span>
-            <strong>Pathologist</strong>
-          </div>
-          <div class="signature-box">
-            <span></span>
-            <strong>Consultant</strong>
-          </div>
-          <div class="signature-box">
-            <span></span>
-            <strong>Verified By</strong>
-          </div>
+        ${signatoriesHtml(signatories)}
+        <div class="legal-footer">
+          <p class="system-line">${escapeHtml(systemGeneratedLine)}</p>
+          <p class="disclaimer">${escapeHtml(disclaimer)}</p>
+          <p>Result(s) relate only to the sample received. Clinical correlation is recommended.</p>
         </div>
         <div class="footer-meta">
-          <span>Report Created By: ${escapeHtml(reportCreatedBy)}</span>
-          <span>${escapeHtml(formatReportDate(new Date().toISOString()))}</span>
+          <span>${escapeHtml(labName)}</span>
+          <span>${escapeHtml(formatReportDate(new Date().toISOString()))} · 1/1</span>
         </div>
-        <p>Result(s) relate only to the sample received. Clinical correlation is recommended.</p>
       </footer>
     </div>
   </body>
 </html>`;
+}
+
+function signatoriesHtml(signatories: ReturnType<typeof resolveLabReportSignatories>): string {
+  if (!signatories.length) {
+    return '';
+  }
+
+  const columns = Math.min(Math.max(signatories.length, 1), 4);
+  return `<div class="signature-grid" style="grid-template-columns: repeat(${columns}, minmax(0, 1fr))">
+    ${signatories
+      .map(
+        (item) => `<div class="signature-box">
+        <strong>${escapeHtml(item.name)}</strong>
+        ${item.credentials ? `<em>${escapeHtml(item.credentials)}</em>` : ''}
+        ${item.title ? `<span class="signatory-title">${escapeHtml(item.title)}</span>` : ''}
+      </div>`
+      )
+      .join('')}
+  </div>`;
 }
 
 function collectReportSections(order: LabOrder): LabReportSection[] {
@@ -381,45 +388,6 @@ function abnormalSummaryHtml(rows: LabReportRow[]): string {
   </section>`;
 }
 
-function reportCreatorName(context: LabReportContext): string {
-  return (
-    userDisplayName(latestResultCreator(context.order)) ||
-    userDisplayName(context.order.createdBy) ||
-    userDisplayName(context.reportGeneratedBy) ||
-    NA
-  );
-}
-
-function latestResultCreator(order: LabOrder): ReportUserRef {
-  const events: Array<{ date?: string; user: ReportUserRef }> = [];
-
-  (order.items || []).forEach((item) => {
-    events.push({ date: item.resultEnteredAt, user: item.resultEnteredBy });
-
-    (item.reportFiles || []).forEach((file) => {
-      events.push({ date: file.reportDate, user: file.uploadedBy });
-    });
-  });
-
-  return (
-    events
-      .filter((event) => userDisplayName(event.user))
-      .sort((left, right) => dateValue(right.date) - dateValue(left.date))[0]?.user || null
-  );
-}
-
-function userDisplayName(user: ReportUserRef): string {
-  return String(user?.name || user?.email || '').trim();
-}
-
-function dateValue(value?: string | null): number {
-  if (!value) {
-    return 0;
-  }
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
-}
-
 function sectionTitle(item: LabOrderItem): string {
   const name = displayValue(item.testName);
   const shortCode = displayValue(item.shortCode);
@@ -430,7 +398,7 @@ function sectionTitle(item: LabOrderItem): string {
 }
 
 function brandMarkHtml(hospital: Hospital | null, labName: string): string {
-  const logoUrl = hospital?.logoUrl?.trim();
+  const logoUrl = resolveAssetUrl(hospital?.logoUrl?.trim());
   if (logoUrl) {
     return `<div class="brand-mark"><img src="${escapeAttribute(logoUrl)}" alt="${escapeAttribute(labName)} logo" /></div>`;
   }
@@ -1087,31 +1055,57 @@ function reportStyles(theme: { nameColor: string; borderColor: string }): string
       text-align: center;
     }
 
-    .signature-box span {
-      border-bottom: 1px solid #94a3b8;
+    .signature-box strong {
       display: block;
-      height: 20px;
-      margin-bottom: 5px;
+      font-size: 7.4px;
+    }
+
+    .signature-box em {
+      color: #475569;
+      display: block;
+      font-size: 6.4px;
+      font-style: normal;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .signatory-title {
+      color: #334155;
+      display: block;
+      font-size: 6.6px;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .legal-footer {
+      border-top: 1px solid #d7dee8;
+      margin-top: 14px;
+      padding-top: 8px;
+      text-align: center;
+    }
+
+    .legal-footer p {
+      color: #475569;
+      font-size: 6.9px;
+      line-height: 1.35;
+      margin: 0 0 3px;
+    }
+
+    .legal-footer .system-line,
+    .legal-footer .disclaimer {
+      color: #1f2a44;
+      font-weight: 800;
     }
 
     .footer-meta {
       align-items: center;
-      border-top: 1px solid #d7dee8;
       color: #475569;
       display: flex;
       font-size: 7px;
       font-weight: 700;
       justify-content: space-between;
-      margin-top: 16px;
-      padding-top: 6px;
-    }
-
-    .signature-footer p {
-      color: #64748b;
-      font-size: 6.9px;
-      line-height: 1.25;
-      margin: 4px 0 0;
-      text-align: center;
+      margin-top: 8px;
+      padding-top: 4px;
     }
 
     @media screen {

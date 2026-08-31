@@ -1,4 +1,4 @@
-@import './ward-shared.scss';
+@use './ward-shared.scss';
 
 .ward-dashboard-page {
   --ward-primary: #2563eb;
@@ -669,12 +669,6 @@
   line-height: 1.35;
 }
 
-.ward-monitor-grid--compact {
-  position: sticky;
-  bottom: 0;
-  z-index: 5;
-}
-
 .ward-link-btn {
   background: var(--ward-primary-soft);
   border: 0;
@@ -774,6 +768,16 @@
 }
 
 @media (max-width: 768px) {
+  .ward-dashboard-page {
+    overflow-x: hidden;
+  }
+
+  .ward-dashboard-kpis,
+  .ward-monitor-grid,
+  .ward-monitor-card,
+  .ward-kpi-card {
+    position: static;
+  }
   .ward-page-header--compact {
     align-items: start;
     flex-direction: column;

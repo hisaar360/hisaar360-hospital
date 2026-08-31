@@ -118,6 +118,7 @@
         ></iframe>
 
         <div class="prescription-print-host" #printContent
+          [style.--prescription-logo-scale]="preview.hospitalLogoScale / 100"
           [class.prescription-eye-sheet]="preview.specialtySection === 'eye'"
           *ngIf="!viewPhysioPreviewUrl && printPreviewData as preview">
           <ng-container *ngIf="usesGynaeWomensHealthPrint(preview)">

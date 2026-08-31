@@ -6,7 +6,11 @@
   --lab-line: #e5e7eb;
   --lab-panel: #fff;
   background: #fbfcfe;
+  box-sizing: border-box;
+  max-width: 100%;
   min-height: 100vh;
+  min-width: 0;
+  overflow-x: hidden;
   padding: 10px 12px !important;
 }
 
@@ -230,7 +234,9 @@
   background: var(--lab-panel);
   border: 1px solid var(--lab-line);
   border-radius: 8px;
+  max-width: 100%;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .lab-table {

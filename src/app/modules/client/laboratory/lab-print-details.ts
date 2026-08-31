@@ -1,4 +1,4 @@
-import { Hospital, LabOrder, LaboratoryPrintSettings } from '../../../shared/models/hospital.model';
+import { Hospital, LabOrder, LaboratoryPrintSettings, LabReportSignatory } from '../../../shared/models/hospital.model';
 
 export interface LabPrintDetails {
   name: string;
@@ -12,6 +12,21 @@ export interface LabPrintDetails {
 const DEFAULT_LAB_TAGLINE = 'Pathology & Diagnostic Laboratory';
 const DEFAULT_LAB_REPORT_NAME_COLOR = '#c92a2a';
 const DEFAULT_LAB_REPORT_BORDER_COLOR = '#c92a2a';
+export const DEFAULT_LAB_REPORT_DISCLAIMER = 'This report is not valid for court.';
+export const DEFAULT_LAB_SYSTEM_GENERATED_LINE =
+  'This is a system generated report. No signature is required.';
+export const DEFAULT_LAB_SIGNATORIES: LabReportSignatory[] = [
+  {
+    name: 'Dr. Ayesha Malik',
+    credentials: 'MBBS, FCPS (Chemical Pathology)',
+    title: 'Consultant Chemical Pathologist',
+  },
+  {
+    name: 'Dr. Usman Raza',
+    credentials: 'MBBS, MCPS, FCPS (Histopathology)',
+    title: 'Consultant Pathologist',
+  },
+];
 
 export function normalizeLabReportHexColor(
   value: string | null | undefined,
@@ -87,6 +102,36 @@ function laboratoryPrintDetails(
 
 export function hasCustomLabPrintDetails(hospital: Hospital | null): boolean {
   return hospital?.laboratorySettings?.useCustomDetails === true;
+}
+
+export function resolveLabReportDisclaimer(hospital: Hospital | null | undefined): string {
+  return (
+    hospital?.laboratorySettings?.reportDisclaimer?.trim() || DEFAULT_LAB_REPORT_DISCLAIMER
+  );
+}
+
+export function resolveLabSystemGeneratedLine(hospital: Hospital | null | undefined): string {
+  return (
+    hospital?.laboratorySettings?.systemGeneratedLine?.trim() ||
+    DEFAULT_LAB_SYSTEM_GENERATED_LINE
+  );
+}
+
+export function resolveLabReportSignatories(
+  hospital: Hospital | null | undefined
+): LabReportSignatory[] {
+  const stored = hospital?.laboratorySettings?.reportSignatories;
+  if (stored === undefined || stored === null) {
+    return DEFAULT_LAB_SIGNATORIES.map((item) => ({ ...item }));
+  }
+
+  return stored
+    .map((item) => ({
+      name: String(item?.name || '').trim(),
+      credentials: String(item?.credentials || '').trim(),
+      title: String(item?.title || '').trim(),
+    }))
+    .filter((item) => item.name);
 }
 
 export function resolveLabPrintDetails(

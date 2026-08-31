@@ -8,10 +8,12 @@ import { AppDialogService } from '../../../../core/services/app-dialog.service';
 import { BackendService } from '../../../../core/services/backend.service';
 import { clinicalDepartmentLabel } from '../../../../shared/catalogs/doctor-specialization.catalog';
 import { Department, Doctor } from '../../../../shared/models/hospital.model';
+import { ImageViewerModalComponent } from '../../../../shared/components/image-viewer-modal/image-viewer-modal.component';
+import { initialsFromName, resolveAssetUrl } from '../../../../core/utils/asset.util';
 
 @Component({
   selector: 'app-all-doctors',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, ImageViewerModalComponent],
   templateUrl: './all-doctors.component.html',
   styleUrl: './all-doctors.component.scss',
 })
@@ -25,6 +27,9 @@ export class AllDoctorsComponent implements OnInit {
   page = 1;
   limit = 10;
   totalPages = 0;
+  viewerOpen = false;
+  viewerSrc = '';
+  viewerAlt = 'Doctor photo';
 
   constructor(
     private backend: BackendService,
@@ -43,6 +48,11 @@ export class AllDoctorsComponent implements OnInit {
   }
 
   loadLookups(): void {
+    if (!this.can('departments.read')) {
+      this.departments = [];
+      return;
+    }
+
     this.backend.getDepartments({ limit: 100, status: 'active' }).subscribe({
       next: (result) => {
         this.departments = result.items;
@@ -121,5 +131,24 @@ export class AllDoctorsComponent implements OnInit {
 
   departmentLabel(doctor: Doctor): string {
     return clinicalDepartmentLabel(doctor.clinicalDepartment);
+  }
+
+  photoUrl(doctor: Doctor): string {
+    return resolveAssetUrl(doctor.photoUrl);
+  }
+
+  initials(doctor: Doctor): string {
+    return initialsFromName(doctor.user?.name);
+  }
+
+  openPhoto(doctor: Doctor, event?: Event): void {
+    event?.stopPropagation();
+    const url = this.photoUrl(doctor);
+    if (!url) {
+      return;
+    }
+    this.viewerSrc = url;
+    this.viewerAlt = doctor.user?.name || 'Doctor photo';
+    this.viewerOpen = true;
   }
 }

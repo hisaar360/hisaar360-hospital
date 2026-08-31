@@ -93,6 +93,56 @@
           </div>
         </div>
 
+        <div class="settings-section">
+          <div class="settings-section-head">
+            <i class="fa fa-file-text-o"></i>
+            <div>
+              <h2>Report Footer Text</h2>
+              <p>Shown at the bottom of every verified laboratory report.</p>
+            </div>
+          </div>
+          <div class="form-grid form-grid-basic">
+            <label class="form-field">
+              <span>System generated line</span>
+              <input type="text" [(ngModel)]="form.systemGeneratedLine" />
+            </label>
+            <label class="form-field">
+              <span>Court disclaimer</span>
+              <input type="text" [(ngModel)]="form.reportDisclaimer" />
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-head">
+            <i class="fa fa-user-md"></i>
+            <div>
+              <h2>Report Signatories</h2>
+              <p>Doctor names printed at the bottom of reports. Add, change, or remove them here.</p>
+            </div>
+          </div>
+          <div class="signatory-list">
+            <div class="signatory-row" *ngFor="let signatory of form.reportSignatories; let i = index">
+              <label class="form-field">
+                <span>Name</span>
+                <input type="text" [(ngModel)]="signatory.name" placeholder="Dr. Name" />
+              </label>
+              <label class="form-field">
+                <span>Credentials</span>
+                <input type="text" [(ngModel)]="signatory.credentials" placeholder="MBBS, FCPS" />
+              </label>
+              <label class="form-field">
+                <span>Title</span>
+                <input type="text" [(ngModel)]="signatory.title" placeholder="Consultant Pathologist" />
+              </label>
+              <button type="button" class="btn-light signatory-remove" (click)="removeSignatory(i)">Remove</button>
+            </div>
+            <button type="button" class="btn-light" (click)="addSignatory()">
+              <i class="fa fa-plus"></i> Add Doctor
+            </button>
+          </div>
+        </div>
+
         <div class="settings-actions">
           <button type="button" class="btn-primary" [disabled]="saving" (click)="saveSettings()">
             <i class="fa" [ngClass]="saving ? 'fa-spinner fa-spin' : 'fa-save'"></i>

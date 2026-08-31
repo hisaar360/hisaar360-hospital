@@ -10,6 +10,7 @@
     <table class="table w-full text-[12px]">
         <thead class="bg-white">
             <tr>
+                <th class="border px-2 py-1">Photo</th>
                 <th class="border px-2 py-1">Name</th>
                 <th class="border px-2 py-1">Email</th>
                 <th class="border px-2 py-1">Phone</th>
@@ -22,6 +23,12 @@
 
         <tbody *ngIf="filteredUsers().length > 0">
             <tr *ngFor="let user of filteredUsers()">
+                <td class="border px-2 py-1">
+                    <button type="button" class="staff-photo-thumb" (click)="openPhoto(user, $event)" [disabled]="!photoUrl(user)">
+                        <img *ngIf="photoUrl(user)" [src]="photoUrl(user)" alt="" loading="lazy" />
+                        <span *ngIf="!photoUrl(user)">{{ initials(user) }}</span>
+                    </button>
+                </td>
                 <td class="border px-2 py-1">{{ user.name }}</td>
                 <td class="border px-2 py-1">{{ user.email }}</td>
                 <td class="border px-2 py-1">{{ user.phone || '-' }}</td>
@@ -31,6 +38,7 @@
                 <td class="border px-2 py-1" style="text-align: center;">
                     <i *ngIf="canDeleteUser()" (click)="deleteUser(user._id)" class="text-red fa fa-trash"></i>
                     <i *ngIf="canUpdateUser()" (click)="editUser(user)" class="fa fa-pen m-l"></i>
+                    <i *ngIf="photoUrl(user)" (click)="openPhoto(user, $event)" class="fa fa-image m-l" title="View photo"></i>
                     <span *ngIf="!canDeleteUser() && !canUpdateUser()">-</span>
                 </td>
             </tr>
@@ -38,13 +46,20 @@
 
         <tbody *ngIf="!loading && filteredUsers().length === 0">
             <tr>
-                <td [attr.colspan]="canViewHospitalColumn ? 7 : 6" class="text-center py-2">No matching users found</td>
+                <td [attr.colspan]="canViewHospitalColumn ? 8 : 7" class="text-center py-2">No matching users found</td>
             </tr>
         </tbody>
         <tbody *ngIf="loading">
             <tr>
-                <td [attr.colspan]="canViewHospitalColumn ? 7 : 6" class="text-center py-2">Loading...</td>
+                <td [attr.colspan]="canViewHospitalColumn ? 8 : 7" class="text-center py-2">Loading...</td>
             </tr>
         </tbody>
     </table>
 </div>
+
+<app-image-viewer-modal
+    [open]="viewerOpen"
+    [src]="viewerSrc"
+    [alt]="viewerAlt"
+    (closed)="viewerOpen = false">
+</app-image-viewer-modal>

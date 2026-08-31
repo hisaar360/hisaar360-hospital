@@ -8,9 +8,13 @@ export type ClinicalDepartmentKey =
   | 'general_medical'
   | 'surgery'
   | 'women_child'
+  | 'pediatrics'
   | 'eye_ent_dental'
   | 'physiotherapy'
   | 'diagnostics'
+  | 'emergency_critical_care'
+  | 'anesthesia'
+  | 'oncology'
   | 'other_common';
 
 export interface ClinicalDepartmentOption {
@@ -28,11 +32,15 @@ export interface CatalogOption {
 export const CLINICAL_DEPARTMENTS: ClinicalDepartmentOption[] = [
   { key: 'general_medical', label: 'General / Medical' },
   { key: 'surgery', label: 'Surgery' },
-  { key: 'women_child', label: 'Women & Child' },
+  { key: 'women_child', label: 'Women & Child / OBS-Gynae' },
+  { key: 'pediatrics', label: 'Pediatrics' },
   { key: 'eye_ent_dental', label: 'Eye / ENT / Dental' },
-  { key: 'physiotherapy', label: 'Physiotherapy' },
-  { key: 'diagnostics', label: 'Diagnostics / Reports' },
-  { key: 'other_common', label: 'Other Common' },
+  { key: 'physiotherapy', label: 'Physiotherapy & Rehabilitation' },
+  { key: 'diagnostics', label: 'Diagnostics / Laboratory / Radiology' },
+  { key: 'emergency_critical_care', label: 'Emergency & Critical Care' },
+  { key: 'anesthesia', label: 'Anesthesia & Pain Management' },
+  { key: 'oncology', label: 'Oncology / Cancer Care' },
+  { key: 'other_common', label: 'Other / Allied Health' },
 ];
 
 const SPECIALIZATIONS: Record<ClinicalDepartmentKey, CatalogOption[]> = {
@@ -67,9 +75,18 @@ const SPECIALIZATIONS: Record<ClinicalDepartmentKey, CatalogOption[]> = {
   women_child: [
     { value: 'Gynecologist', specialtyTemplate: 'gynae' },
     { value: 'Obstetrician', specialtyTemplate: 'gynae' },
+    { value: 'Consultant Gynecologist / Obstetrician', specialtyTemplate: 'gynae' },
+    { value: 'Fertility Specialist', specialtyTemplate: 'gynae' },
+    { value: 'Maternal-Fetal Medicine Specialist', specialtyTemplate: 'gynae' },
+  ],
+  pediatrics: [
     { value: 'Pediatrician', specialtyTemplate: 'general' },
     { value: 'Neonatologist', specialtyTemplate: 'general' },
-    { value: 'Fertility Specialist', specialtyTemplate: 'gynae' },
+    { value: 'Pediatric Cardiologist', specialtyTemplate: 'general' },
+    { value: 'Pediatric Surgeon', specialtyTemplate: 'general' },
+    { value: 'Pediatric Neurologist', specialtyTemplate: 'general' },
+    { value: 'Pediatric Pulmonologist', specialtyTemplate: 'general' },
+    { value: 'Pediatric Endocrinologist', specialtyTemplate: 'general' },
   ],
   eye_ent_dental: [
     { value: 'Eye Specialist / Ophthalmologist', specialtyTemplate: 'eye' },
@@ -97,11 +114,33 @@ const SPECIALIZATIONS: Record<ClinicalDepartmentKey, CatalogOption[]> = {
   diagnostics: [
     { value: 'Radiologist', specialtyTemplate: 'radiology' },
     { value: 'Sonologist / Ultrasound Specialist', specialtyTemplate: 'ultrasound' },
+    { value: 'Interventional Radiologist', specialtyTemplate: 'radiology' },
     { value: 'Pathologist', specialtyTemplate: 'lab' },
     { value: 'Microbiologist', specialtyTemplate: 'lab' },
     { value: 'Hematologist', specialtyTemplate: 'lab' },
     { value: 'Biochemist', specialtyTemplate: 'lab' },
     { value: 'Lab Consultant', specialtyTemplate: 'lab' },
+    { value: 'Histopathologist', specialtyTemplate: 'lab' },
+  ],
+  emergency_critical_care: [
+    { value: 'Emergency Physician', specialtyTemplate: 'general' },
+    { value: 'Consultant Emergency Medicine', specialtyTemplate: 'general' },
+    { value: 'Intensivist / Critical Care Specialist', specialtyTemplate: 'general' },
+    { value: 'Trauma Surgeon', specialtyTemplate: 'general' },
+    { value: 'Accident & Emergency Specialist', specialtyTemplate: 'general' },
+  ],
+  anesthesia: [
+    { value: 'Anesthesiologist', specialtyTemplate: 'general' },
+    { value: 'Consultant Anesthesia', specialtyTemplate: 'general' },
+    { value: 'Pain Management Specialist', specialtyTemplate: 'general' },
+    { value: 'Cardiac Anesthesiologist', specialtyTemplate: 'general' },
+  ],
+  oncology: [
+    { value: 'Medical Oncologist', specialtyTemplate: 'general' },
+    { value: 'Radiation Oncologist', specialtyTemplate: 'general' },
+    { value: 'Clinical Oncologist', specialtyTemplate: 'general' },
+    { value: 'Surgical Oncologist', specialtyTemplate: 'general' },
+    { value: 'Hematologist-Oncologist', specialtyTemplate: 'general' },
   ],
   other_common: [
     { value: 'Nutritionist / Dietitian', specialtyTemplate: 'general' },
@@ -117,19 +156,25 @@ export const QUALIFICATION_OPTIONS: CatalogOption[] = [
   { value: 'MBBS' },
   { value: 'BDS' },
   { value: 'DPT' },
+  { value: 'DVM' },
   { value: 'FCPS' },
   { value: 'MCPS' },
   { value: 'FRCS' },
   { value: 'MRCP' },
+  { value: 'FRCR' },
   { value: 'MS' },
   { value: 'MD' },
+  { value: 'MRCS' },
   { value: 'DOMS' },
   { value: 'DLO' },
   { value: 'DCH' },
+  { value: 'DMRD' },
+  { value: 'DMRT' },
   { value: 'MDS' },
   { value: 'MPhil' },
   { value: 'PhD' },
   { value: 'Diploma' },
+  { value: 'Fellowship' },
 ];
 
 export const PRESCRIPTION_SPECIALTY_OPTIONS: Array<{ key: SpecialtyTemplateKey; label: string }> = [

@@ -1,0 +1,71 @@
+<div id="main-content" class="modern-dashboard ward-page-shell">
+  <div class="container-fluid ward-page-container">
+    <div class="ward-page-header ward-page-header--compact">
+      <div class="ward-page-header__copy">
+        <h1>Ward Duty Roster</h1>
+        <p>Calendar-based duty roster for ward staff.</p>
+      </div>
+      <div class="ward-page-header__actions">
+        <button class="btn btn-sm btn-outline-primary d-md-none" (click)="toggleMobileList()">
+          {{ mobileListMode ? 'Calendar' : 'Day List' }}
+        </button>
+        <button class="btn btn-sm btn-primary" (click)="showForm = true; editingId = ''">Add Shift</button>
+      </div>
+    </div>
+
+    <section class="ward-panel roster-filters-panel">
+      <div class="roster-filters">
+        <input [(ngModel)]="wardLabel" placeholder="Ward" />
+        <input [(ngModel)]="staffUserId" placeholder="Staff user ID" />
+        <select [(ngModel)]="staffRole">
+          <option value="">All roles</option>
+          <option value="Nurse">Nurse</option>
+          <option value="Ward Receptionist">Ward Receptionist</option>
+          <option value="Doctor">Doctor</option>
+        </select>
+        <select [(ngModel)]="shift">
+          <option value="">All shifts</option>
+          <option value="morning">Morning</option>
+          <option value="evening">Evening</option>
+          <option value="night">Night</option>
+          <option value="custom">Custom</option>
+        </select>
+        <button class="btn btn-outline-primary btn-sm" (click)="load()">Apply Filters</button>
+      </div>
+    </section>
+
+    <section class="ward-panel" *ngIf="showForm">
+      <h3>{{ editingId ? 'Edit Shift' : 'Create Shift' }}</h3>
+      <div class="roster-form">
+        <input [(ngModel)]="form.staffUserId" placeholder="Staff user ID" />
+        <input [(ngModel)]="form.staffRole" placeholder="Role" />
+        <input [(ngModel)]="form.wardLabel" placeholder="Ward" />
+        <input type="date" [(ngModel)]="form.rosterDate" />
+        <input [(ngModel)]="form.startTime" placeholder="Start HH:MM" />
+        <input [(ngModel)]="form.endTime" placeholder="End HH:MM" />
+        <select [(ngModel)]="form.shift">
+          <option value="morning">Morning</option>
+          <option value="evening">Evening</option>
+          <option value="night">Night</option>
+          <option value="custom">Custom</option>
+        </select>
+        <button class="btn btn-primary btn-sm" (click)="saveShift()">Save</button>
+        <button class="btn btn-outline-secondary btn-sm" (click)="showForm = false">Close</button>
+      </div>
+    </section>
+
+    <section class="ward-panel roster-calendar-panel" [class.d-none]="mobileListMode">
+      <full-calendar #calendar [options]="calendarOptions"></full-calendar>
+    </section>
+
+    <section class="ward-panel roster-mobile-list" *ngIf="mobileListMode">
+      <h3>{{ selectedDay | date:'fullDate' }}</h3>
+      <div class="roster-card" *ngFor="let row of selectedDayItems">
+        <strong>{{ staffName(row) }}</strong>
+        <div>{{ row['staffRole'] }} · {{ row['shift'] }}</div>
+        <div>{{ row['startTime'] }} - {{ row['endTime'] }} · {{ row['wardLabel'] || '—' }}</div>
+      </div>
+      <p *ngIf="selectedDayItems.length === 0" class="text-muted">No shifts on selected day.</p>
+    </section>
+  </div>
+</div>

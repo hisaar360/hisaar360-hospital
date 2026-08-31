@@ -1,9 +1,10 @@
 /* You can add global styles to this file, and also import other style files */
-@import "app/modules/client/prescription/prescription-print";
+@use "app/modules/client/prescription/prescription-print";
 
 html,
 body {
   height: 100%;
+  max-width: 100%;
 }
 
 html.pos-route-active,
@@ -3657,6 +3658,7 @@ select.form-control:not([size]):not([multiple]) {
   color: var(--primary-color);
 }
 .auth-main .auth_div {
+  position: relative;
   background-color: var(--card-color);
   width: 360px;
   z-index: 2;
@@ -3771,6 +3773,7 @@ select.form-control:not([size]):not([multiple]) {
   height: 100%;
   width: 90vw;
   z-index: 1;
+  pointer-events: none;
 }
 .animate_lines .line {
   position: absolute;
@@ -8068,7 +8071,22 @@ hr {
   line-height: 50px;
 }
 .top_counter .content {
-  height: 50px;
+  height: auto;
+  min-height: 50px;
+  overflow: hidden;
+  text-align: left;
+}
+.top_counter .content .text {
+  color: var(--font-888, #888);
+  display: block;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.top_counter .content .number {
+  display: block;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 4px 0 0;
 }
 .accordion.custom .card-header {
   background: transparent;
@@ -9818,6 +9836,153 @@ hr {
 }
 
 @media (max-width: 992px) {
+  .pharmacy-admin-page .pharmacy-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pharmacy-admin-page .pharmacy-filter-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Hide leftover vendor template customizer/notes if CSS remains after HTML removal */
+.themesetting,
+.sticky-note {
+  display: none !important;
+}
+
+html,
+body,
+#wrapper {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+#main-content,
+.container-fluid,
+.pharmacy-page,
+.appointments-page,
+.modern-dashboard,
+.accounts-page,
+.patient-payments-page {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.table-responsive {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media screen and (max-width: 1280px) {
+  #main-content {
+    width: 100% !important;
+    float: none;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .navbar-fixed-top {
+    width: 100% !important;
+    max-width: 100%;
+    margin: 0 !important;
+    left: 0;
+    right: 0;
+    box-sizing: border-box;
+  }
+}
+
+@media screen and (max-width: 991px) {
+  .navbar-fixed-top > .container-fluid {
+    max-width: 100%;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .navbar-fixed-top .navbar-left,
+  .navbar-fixed-top .navbar-right {
+    max-width: calc(100% - 8px);
+  }
+
+  .navbar-fixed-top .navbar-right {
+    justify-content: flex-end;
+  }
+
+  .container-fluid {
+    max-width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .row {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  [class*="col-"] {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .block-header h1,
+  .dashboard-hero__copy h1,
+  .pharmacy-hero-main h1 {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .block-header .text-lg-right,
+  .block-header .text-right,
+  .block-header .header-actions {
+    text-align: left !important;
+  }
+
+  .dashboard-hero {
+    padding: 16px;
+  }
+
+  .dashboard-hero__copy h1 {
+    font-size: 22px;
+  }
+
+  .dashboard-hero__actions {
+    width: 100%;
+  }
+
+  .dashboard-hero__actions .btn {
+    min-width: 0;
+  }
+
+  .pharmacy-hero,
+  .page-heading,
+  .pharmacy-filter-head,
+  .pharmacy-table-head,
+  .page-shell-card__head {
+    min-width: 0;
+  }
+
+  .table-responsive,
+  [class$="-table-wrap"],
+  [class*="-table-wrap"] {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media screen and (max-width: 575px) {
+  #main-content {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
   .pharmacy-admin-page .pharmacy-stats-grid,
   .pharmacy-admin-page .pharmacy-filter-grid {
     grid-template-columns: 1fr;

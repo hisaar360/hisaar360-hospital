@@ -4,10 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { WardDataService } from './services/ward-data.service';
+import { WardBillingPanelComponent } from './ward-billing-panel.component';
 import { WardPatient } from './ward-patient-list.models';
 import { WARD_PATIENT_SHIFT_OPTIONS } from './ward-patient-list.mock';
 import { WardModuleRow } from './ward-module.models';
-import { forkJoin } from 'rxjs';
 
 interface PatientDetailTab {
   key: string;
@@ -16,7 +16,7 @@ interface PatientDetailTab {
 
 @Component({
   selector: 'app-ward-patient-detail',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, WardBillingPanelComponent],
   templateUrl: './ward-patient-detail.component.html',
   styleUrl: './ward-patient-detail.component.scss',
 })
@@ -36,6 +36,14 @@ export class WardPatientDetailComponent implements OnInit {
   readonly shiftOptions = WARD_PATIENT_SHIFT_OPTIONS;
   readonly tabs: PatientDetailTab[] = [
     { key: 'overview', label: 'Overview' },
+    { key: 'billing', label: 'Billing' },
+    { key: 'payments', label: 'Payments' },
+    { key: 'medicines', label: 'Medicines' },
+    { key: 'procedures', label: 'Procedures' },
+    { key: 'operations', label: 'Operations' },
+    { key: 'doctor-visits', label: 'Doctor Visits' },
+    { key: 'discharge', label: 'Discharge Statement' },
+    { key: 'settlement', label: 'Settlement' },
     { key: 'vitals', label: 'Vitals' },
     { key: 'nursing', label: 'Nursing Notes' },
     { key: 'mar', label: 'Medication / MAR' },
@@ -62,17 +70,7 @@ export class WardPatientDetailComponent implements OnInit {
   ngOnInit(): void {
     const admissionId = this.route.snapshot.paramMap.get('admissionId') || '';
     this.loading = true;
-    const filters = { admissionId, patientId: this.patient?.patientId || '' };
-    forkJoin({
-      patient: this.wardData.loadPatientByAdmission(admissionId),
-      vitals: this.wardData.loadModuleRows('vitals', 'all', '', filters),
-      mar: this.wardData.loadModuleRows('mar', 'all', '', filters),
-      drips: this.wardData.loadModuleRows('drips-iv', 'all', '', filters),
-      nursing: this.wardData.loadModuleRows('nursing-care', 'all', '', filters),
-      orders: this.wardData.loadModuleRows('orders-services', 'all', '', filters),
-      io: this.wardData.loadModuleRows('io-chart', 'all', '', filters),
-      handover: this.wardData.loadModuleRows('shift-handover', 'all', '', filters),
-    }).subscribe({
+    this.wardData.loadPatientDetail(admissionId).subscribe({
       next: (data) => {
         this.patient = data.patient;
         this.vitalsRows = data.vitals;
@@ -153,6 +151,21 @@ export class WardPatientDetailComponent implements OnInit {
       ...this.ioRows,
       ...this.handoverRows,
     ].slice(0, 40);
+  }
+
+  get billingMode(): 'billing' | 'payments' | 'settlement' | 'medicines' | 'doctor-visits' | 'procedures' | 'operations' | 'discharge' {
+    if (
+      ['billing', 'payments', 'settlement', 'medicines', 'doctor-visits', 'procedures', 'operations', 'discharge'].includes(
+        this.activeTab
+      )
+    ) {
+      return this.activeTab as 'billing' | 'payments' | 'settlement' | 'medicines' | 'doctor-visits' | 'procedures' | 'operations' | 'discharge';
+    }
+    return 'billing';
+  }
+
+  get admissionId(): string {
+    return this.route.snapshot.paramMap.get('admissionId') || '';
   }
 
   navigate(path: string): void {

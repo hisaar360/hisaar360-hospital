@@ -10,13 +10,18 @@ import { ToastrService } from 'ngx-toastr';
 import { CommonModule } from '@angular/common';
 import { BackendService } from '../../../../core/services/backend.service';
 import { AuthService } from '../../../../core/services/auth.service';
-import { Router } from '@angular/router';
-import { debounceTime, distinctUntilChanged, finalize, Subject, takeUntil } from 'rxjs';
+import { ActivatedRoute, Router } from '@angular/router';
+import { debounceTime, distinctUntilChanged, finalize, of, Subject, switchMap, takeUntil } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { Hospital, Role, Store, User } from '../../../../shared/models/hospital.model';
+import { ProfilePhotoFieldComponent } from '../../../../shared/components/profile-photo-field/profile-photo-field.component';
+import { ImageViewerModalComponent } from '../../../../shared/components/image-viewer-modal/image-viewer-modal.component';
+import { resolveAssetUrl } from '../../../../core/utils/asset.util';
+import { isRoleAllowedByHospitalModules } from '../../../auth/hospital-modules';
 
 @Component({
   selector: 'app-create-user',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, ProfilePhotoFieldComponent, ImageViewerModalComponent],
   templateUrl: './create-user.component.html',
   styleUrl: './create-user.component.scss',
 })
@@ -40,7 +45,14 @@ export class CreateUserComponent implements OnInit, OnDestroy {
   storesLoading = false;
   storesError = '';
   saving = false;
+  userLoading = false;
   editingUser: User | null = null;
+  editingUserId = '';
+  pendingPhoto: File | null = null;
+  pendingPreviewUrl: string | null = null;
+  removeExistingPhoto = false;
+  photoUploadFailed = false;
+  viewerOpen = false;
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -48,14 +60,24 @@ export class CreateUserComponent implements OnInit, OnDestroy {
     private toast: ToastrService,
     private backend: BackendService,
     private authService: AuthService,
+    private route: ActivatedRoute,
     private router: Router
   ) {}
 
   ngOnInit(): void {
-    this.editingUser = history.state?.user || null;
+    const stateUser = (history.state?.user || null) as User | null;
+    this.editingUserId = this.route.snapshot.paramMap.get('id') || stateUser?._id || '';
+    this.editingUser =
+      stateUser && (!this.editingUserId || stateUser._id === this.editingUserId)
+        ? stateUser
+        : null;
     this.setLoggedInUser();
     this.initForm();
     this.validateEditingScope();
+
+    if (this.editingUserId) {
+      this.loadEditingUser(this.editingUserId);
+    }
 
     this.authService
       .me()
@@ -81,8 +103,68 @@ export class CreateUserComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.revokePendingPreview();
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  get displayPhotoUrl(): string | null {
+    return this.removeExistingPhoto ? null : this.editingUser?.photoUrl || null;
+  }
+
+  get viewerSrc(): string {
+    return this.pendingPreviewUrl || resolveAssetUrl(this.displayPhotoUrl);
+  }
+
+  onPhotoSelected(file: File | null): void {
+    this.revokePendingPreview();
+    this.pendingPhoto = file;
+    this.pendingPreviewUrl = file ? URL.createObjectURL(file) : null;
+    this.removeExistingPhoto = false;
+    this.photoUploadFailed = false;
+  }
+
+  onRemoveCurrentPhoto(): void {
+    this.revokePendingPreview();
+    this.pendingPhoto = null;
+    this.removeExistingPhoto = true;
+    this.photoUploadFailed = false;
+  }
+
+  retryPhotoUpload(): void {
+    const userId = this.editingUser?._id;
+    if (!userId || !this.pendingPhoto) {
+      return;
+    }
+
+    this.saving = true;
+    this.backend
+      .uploadUserPhoto(userId, this.pendingPhoto, { context: 'hospital' })
+      .pipe(finalize(() => (this.saving = false)))
+      .subscribe({
+        next: (resp) => {
+          this.photoUploadFailed = false;
+          this.pendingPhoto = null;
+          this.revokePendingPreview();
+          this.editingUser = resp.data || this.editingUser;
+          this.toast.success(resp.message || 'Staff photo uploaded successfully');
+          this.router.navigateByUrl('/users');
+        },
+        error: (err) => {
+          this.photoUploadFailed = true;
+          this.toast.error(
+            err?.error?.message ||
+              'User created successfully, but profile image upload failed. You can upload it from Edit User.'
+          );
+        },
+      });
+  }
+
+  private revokePendingPreview(): void {
+    if (this.pendingPreviewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(this.pendingPreviewUrl);
+    }
+    this.pendingPreviewUrl = null;
   }
 
   togglePasswordVisibility(field: 'password') {
@@ -93,19 +175,24 @@ export class CreateUserComponent implements OnInit, OnDestroy {
 
   initForm() {
     const hospitalId = this.canSelectHospital
-      ? this.editingUser?.hospitalId || ''
+      ? this.resolveId(this.editingUser?.hospitalId) || ''
       : this.currentHospitalId || '';
 
     this.userForm = this.fb.group({
       hospitalId: [hospitalId, Validators.required],
-      roleId: [this.editingUser?.roleId || '', Validators.required],
+      roleId: [this.resolveId(this.editingUser?.roleId) || '', Validators.required],
       name: [this.editingUser?.name || '', Validators.required],
       email: [this.editingUser?.email || '', [Validators.required, Validators.email]],
-      password: ['', this.editingUser ? [] : [Validators.required, Validators.minLength(8)]],
+      password: [
+        '',
+        this.editingUser
+          ? [Validators.minLength(8)]
+          : [Validators.required, Validators.minLength(8)],
+      ],
       phone: [this.editingUser?.phone || ''],
-      storeId: [this.editingUser?.storeId || ''],
+      storeId: [this.resolveId(this.editingUser?.storeId) || ''],
       status: [this.editingUser?.status || 'active', Validators.required],
-      isEmailVerified: [true],
+      isEmailVerified: [this.editingUser?.isEmailVerified ?? true],
     });
 
     if (!this.canSelectHospital) {
@@ -152,26 +239,62 @@ export class CreateUserComponent implements OnInit, OnDestroy {
       isEmailVerified: value.isEmailVerified,
     };
 
-    if (!this.editingUser) {
+    if (String(value.password || '').trim()) {
       payload['password'] = value.password;
     }
 
     this.saving = true;
+    const wasCreate = !this.editingUser;
     const request$ = this.editingUser
       ? this.backend.updateUser(this.editingUser._id, payload, { context: 'hospital' })
       : this.backend.createUser(payload);
 
-    request$.subscribe({
-      next: (resp) => {
-        this.saving = false;
-        this.toast.success(resp?.message || 'User saved successfully');
-        this.router.navigateByUrl('/users');
-      },
-      error: (err) => {
-        this.saving = false;
-        this.toast.error(err?.error?.message || 'Oops!');
-      },
-    });
+    request$
+      .pipe(
+        switchMap((resp) => {
+          const user = resp.data;
+          if (user) {
+            this.editingUser = user;
+          }
+
+          if (this.pendingPhoto && user?._id) {
+            return this.backend.uploadUserPhoto(user._id, this.pendingPhoto, { context: 'hospital' }).pipe(
+              switchMap((photoResp) => of({ resp, photoOk: true as const, photoResp })),
+              catchError(() => of({ resp, photoOk: false as const }))
+            );
+          }
+
+          if (this.removeExistingPhoto && user?._id) {
+            return this.backend.deleteUserPhoto(user._id, { context: 'hospital' }).pipe(
+              switchMap((photoResp) => of({ resp, photoOk: true as const, photoResp })),
+              catchError(() => of({ resp, photoOk: false as const }))
+            );
+          }
+
+          return of({ resp, photoOk: true as const });
+        }),
+        finalize(() => (this.saving = false))
+      )
+      .subscribe({
+        next: (result) => {
+          if (!result.photoOk && this.pendingPhoto) {
+            this.photoUploadFailed = true;
+            this.toast.success(result.resp?.message || 'User saved successfully');
+            this.toast.error(
+              wasCreate
+                ? 'User created successfully, but profile image upload failed. You can upload it from Edit User.'
+                : 'User updated, but profile image upload failed. You can retry from this page.'
+            );
+            return;
+          }
+
+          this.toast.success(result.resp?.message || 'User saved successfully');
+          this.router.navigateByUrl('/users');
+        },
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Unable to save user.');
+        },
+      });
   }
 
   get isSubmitDisabled(): boolean {
@@ -179,6 +302,7 @@ export class CreateUserComponent implements OnInit, OnDestroy {
       !this.userForm ||
       this.userForm.invalid ||
       this.saving ||
+      this.userLoading ||
       this.rolesLoading ||
       (this.canAssignPosStore && this.storesLoading) ||
       (this.canSelectHospital && this.hospitalsLoading) ||
@@ -212,10 +336,10 @@ export class CreateUserComponent implements OnInit, OnDestroy {
 
   private validateEditingScope(): void {
     if (
-      this.editingUser?.hospitalId &&
+      this.resolveId(this.editingUser?.hospitalId) &&
       this.currentHospitalId &&
       !this.canSelectHospital &&
-      this.editingUser.hospitalId !== this.currentHospitalId
+      this.resolveId(this.editingUser?.hospitalId) !== this.currentHospitalId
     ) {
       this.toast.error('You cannot edit a user from another hospital.');
       this.router.navigateByUrl('/users');
@@ -243,6 +367,7 @@ export class CreateUserComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (roles) => {
           this.roles = this.filterAssignableRoles(roles || []);
+          this.reconcileEditingRole();
 
           if (
             this.userForm.value.roleId &&
@@ -367,6 +492,10 @@ export class CreateUserComponent implements OnInit, OnDestroy {
         return false;
       }
 
+      if (!isRoleAllowedByHospitalModules(role)) {
+        return false;
+      }
+
       return true;
     });
   }
@@ -398,6 +527,80 @@ export class CreateUserComponent implements OnInit, OnDestroy {
     }
 
     return this.currentHospitalId || formHospitalId;
+  }
+
+  private loadEditingUser(userId: string): void {
+    this.userLoading = true;
+    this.backend
+      .getUser(userId, { context: 'hospital' })
+      .pipe(finalize(() => (this.userLoading = false)))
+      .subscribe({
+        next: (user) => {
+          this.editingUser = user;
+          this.editingUserId = user._id;
+          this.applyEditingUserToForm(user);
+          this.validateEditingScope();
+          this.loadRoles();
+          this.loadStores();
+        },
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Unable to load user details.');
+          this.router.navigateByUrl('/users');
+        },
+      });
+  }
+
+  private applyEditingUserToForm(user: User): void {
+    const hospitalId = this.resolveId(user.hospitalId || user.hospital?._id);
+    const passwordControl = this.userForm.get('password');
+    passwordControl?.setValidators([Validators.minLength(8)]);
+    passwordControl?.updateValueAndValidity({ emitEvent: false });
+
+    this.userForm.patchValue(
+      {
+        hospitalId: hospitalId || this.currentHospitalId || '',
+        roleId: this.resolveId(user.roleId),
+        name: user.name || '',
+        email: user.email || '',
+        password: '',
+        phone: user.phone || '',
+        storeId: this.resolveId(user.storeId),
+        status: user.status || 'active',
+        isEmailVerified: user.isEmailVerified ?? true,
+      },
+      { emitEvent: false }
+    );
+
+    if (!this.canSelectHospital) {
+      this.userForm.get('hospitalId')?.disable({ emitEvent: false });
+    }
+  }
+
+  private reconcileEditingRole(): void {
+    if (!this.editingUser || this.roles.length === 0) {
+      return;
+    }
+
+    const currentRoleId = this.resolveId(this.editingUser.roleId);
+    const exactRole = this.roles.find((role) => role._id === currentRoleId);
+    const roleName = this.editingUser.role?.name;
+    const equivalentRole = roleName
+      ? this.roles.find(
+          (role) => this.normalizeRoleName(role.name) === this.normalizeRoleName(roleName)
+        )
+      : null;
+    const selectedRole = exactRole || equivalentRole;
+
+    if (selectedRole) {
+      this.userForm.patchValue({ roleId: selectedRole._id }, { emitEvent: false });
+    }
+  }
+
+  private resolveId(value: unknown): string {
+    if (value && typeof value === 'object' && '_id' in value) {
+      return String((value as { _id?: unknown })._id || '');
+    }
+    return value ? String(value) : '';
   }
 
   onHospitalChange(): void {

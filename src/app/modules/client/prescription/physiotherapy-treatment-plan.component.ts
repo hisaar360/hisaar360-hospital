@@ -157,10 +157,11 @@ export class PhysiotherapyTreatmentPlanComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     const user = JSON.parse(localStorage.getItem('user') || 'null') as User | null;
     this.currentHospitalId = user?.hospitalId || null;
+    this.currentHospital = user?.hospital || null;
     this.currentUserId = user?._id || null;
     this.currentRole = String(localStorage.getItem('role') || user?.role?.name || '');
 
-    if (this.currentHospitalId) {
+    if (!this.currentHospital && this.currentHospitalId && this.backend.hasPermission('hospitals.read')) {
       this.backend.getHospital(this.currentHospitalId).subscribe({
         next: (hospital) => {
           this.currentHospital = hospital;
@@ -361,6 +362,18 @@ export class PhysiotherapyTreatmentPlanComponent implements OnInit, OnDestroy {
     return this.backend.hasPermission('prescriptions.create');
   }
 
+  canReadPrescriptions(): boolean {
+    return this.backend.hasPermission('prescriptions.read');
+  }
+
+  canReadPatients(): boolean {
+    return this.backend.hasPermission('patients.read');
+  }
+
+  canReadAppointments(): boolean {
+    return this.backend.hasPermission('appointments.read');
+  }
+
   canUpdate(): boolean {
     return this.backend.hasPermission('prescriptions.update');
   }
@@ -381,6 +394,13 @@ export class PhysiotherapyTreatmentPlanComponent implements OnInit, OnDestroy {
   }
 
   refreshAppointments(): void {
+    if (!this.canReadAppointments()) {
+      this.appointments = [];
+      this.visibleAppointments = [];
+      this.appointmentsLoading = false;
+      return;
+    }
+
     const appointmentDate = new Date().toISOString().slice(0, 10);
     this.appointmentsLoading = true;
     this.backend
@@ -932,7 +952,7 @@ export class PhysiotherapyTreatmentPlanComponent implements OnInit, OnDestroy {
   }
 
   private loadLookups(): void {
-    this.backend.getDoctors({ limit: 200, status: 'active' }).subscribe({
+    this.backend.getAccessibleDoctors({ limit: 200, status: 'active' }).subscribe({
       next: (result) => {
         this.doctors = result.items || [];
         const doctor = this.selectedDoctorProfile();
@@ -945,19 +965,28 @@ export class PhysiotherapyTreatmentPlanComponent implements OnInit, OnDestroy {
       },
     });
 
-    this.backend.getPatients({ limit: 100, status: 'active' }).subscribe({
-      next: (result) => {
-        this.patients = result.items || [];
-      },
-      error: () => {
-        this.patients = [];
-      },
-    });
+    if (this.canReadPatients()) {
+      this.backend.getPatients({ limit: 100, status: 'active' }).subscribe({
+        next: (result) => {
+          this.patients = result.items || [];
+        },
+        error: () => {
+          this.patients = [];
+        },
+      });
+    } else {
+      this.patients = [];
+    }
 
     this.refreshAppointments();
   }
 
   private loadPrescription(id: string, mode: string): void {
+    if (!this.canReadPrescriptions()) {
+      this.toastr.error('You do not have permission to view prescriptions.');
+      return;
+    }
+
     this.backend.getPrescription(id).subscribe({
       next: (prescription) => {
         if (prescription.specialtySection && prescription.specialtySection !== 'physiotherapy') {

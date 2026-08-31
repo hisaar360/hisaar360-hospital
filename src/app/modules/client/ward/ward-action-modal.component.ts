@@ -1,9 +1,20 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, Input, NgZone, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ToastrService } from 'ngx-toastr';
+import { forkJoin, of } from 'rxjs';
 import { WardModuleKey } from './ward-module.models';
 import { WardDataService } from './services/ward-data.service';
-import { Doctor, Patient, Prescription, Room } from '../../../shared/models/hospital.model';
+import {
+  Doctor,
+  HospitalWard,
+  Patient,
+  Prescription,
+  ProductCatalogItem,
+  Room,
+  RoomAllotment,
+  Store,
+} from '../../../shared/models/hospital.model';
 
 @Component({
   selector: 'app-ward-action-modal',
@@ -25,6 +36,10 @@ export class WardActionModalComponent implements OnChanges {
   rooms: Room[] = [];
   doctors: Doctor[] = [];
   prescriptions: Prescription[] = [];
+  allotments: RoomAllotment[] = [];
+  products: ProductCatalogItem[] = [];
+  stores: Store[] = [];
+  wards: HospitalWard[] = [];
 
   form: Record<string, string | number> = {
     admissionId: '',
@@ -47,6 +62,9 @@ export class WardActionModalComponent implements OnChanges {
     intake: '',
     output: '',
     balance: '',
+    direction: 'INTAKE',
+    ioCategory: 'Oral',
+    volumeMl: '',
     shift: 'day',
     orderName: '',
     orderType: 'lab',
@@ -60,6 +78,9 @@ export class WardActionModalComponent implements OnChanges {
     quantity: 0,
     reorderLevel: 5,
     location: 'Ward Store',
+    productId: '',
+    fromLocationId: '',
+    wardId: '',
     nurseName: '',
     patientsCount: 1,
     pendingCount: 0,
@@ -80,7 +101,12 @@ export class WardActionModalComponent implements OnChanges {
     doctorInformed: 'no',
   };
 
-  constructor(private wardData: WardDataService) {}
+  constructor(
+    private wardData: WardDataService,
+    private cdr: ChangeDetectorRef,
+    private zone: NgZone,
+    private toastr: ToastrService,
+  ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['open']?.currentValue) {
@@ -114,6 +140,10 @@ export class WardActionModalComponent implements OnChanges {
     return doctor.user?.name || doctor.specialization || doctor._id;
   }
 
+  productLabel(product: ProductCatalogItem): string {
+    return `${product.name}${product.sku ? ` (${product.sku})` : ''}`.trim();
+  }
+
   close(): void {
     this.closed.emit();
   }
@@ -125,38 +155,75 @@ export class WardActionModalComponent implements OnChanges {
 
     const payload = this.buildPayload();
     if (!payload) {
+      if (this.moduleKey === 'inventory') {
+        this.toastr.error('Select a product, store, ward, and quantity.');
+      }
       return;
     }
 
     this.saving = true;
     this.wardData.submitModuleAction(this.moduleKey, payload).subscribe({
-      next: () => {
+      next: () => this.zone.run(() => {
         this.saving = false;
         this.saved.emit();
         this.close();
-      },
-      error: () => {
+        this.cdr.detectChanges();
+      }),
+      error: (err) => this.zone.run(() => {
         this.saving = false;
-      },
+        this.toastr.error(err?.error?.message || 'Unable to save this ward entry.');
+        this.cdr.detectChanges();
+      }),
     });
+  }
+
+  onPatientChange(patientId: string | number): void {
+    this.form['patientId'] = patientId;
+    const match = this.allotments.find(
+      (allotment) =>
+        allotment.status === 'admitted' &&
+        String(allotment.patientId) === String(patientId)
+    );
+    this.form['admissionId'] = match?._id || '';
   }
 
   private loadOptions(): void {
     this.loading = true;
-    this.wardData.loadActionOptions().subscribe({
-      next: (bundle) => {
-        const admittedPatients = bundle.allotments
-          .filter((allotment) => allotment.status === 'admitted' && allotment.patient)
+    const inventory$ = this.moduleKey === 'inventory'
+      ? this.wardData.loadInventoryFormOptions()
+      : of({ products: [] as ProductCatalogItem[], stores: [] as Store[], wards: [] as HospitalWard[] });
+    forkJoin({
+      bundle: this.wardData.loadActionOptions(),
+      inventory: inventory$,
+    }).subscribe({
+      next: ({ bundle, inventory }) => this.zone.run(() => {
+        this.allotments = bundle.allotments.filter((allotment) => allotment.status === 'admitted');
+        const admittedPatients = this.allotments
+          .filter((allotment) => allotment.patient)
           .map((allotment) => allotment.patient as Patient);
         this.patients = admittedPatients.length ? admittedPatients : bundle.patients;
         this.rooms = bundle.rooms.filter((room) => room.status === 'available' || room.status === 'occupied');
         this.doctors = bundle.doctors;
         this.prescriptions = bundle.prescriptions;
+        this.products = inventory.products;
+        this.stores = inventory.stores;
+        this.wards = inventory.wards.filter((ward) => ward.status !== 'inactive');
+        if (!this.form['fromLocationId'] && this.stores.length === 1) {
+          this.form['fromLocationId'] = this.stores[0]._id;
+        }
+        if (!this.form['wardId'] && this.wards.length === 1) {
+          this.form['wardId'] = this.wards[0]._id;
+        }
+        if (admittedPatients.length === 1 && this.moduleKey !== 'admissions' && this.moduleKey !== 'inventory') {
+          this.onPatientChange(admittedPatients[0]._id);
+        }
         this.loading = false;
-      },
-      error: () => {
+        this.cdr.detectChanges();
+      }),
+      error: () => this.zone.run(() => {
         this.loading = false;
-      },
+        this.cdr.detectChanges();
+      }),
     });
   }
 
@@ -180,6 +247,50 @@ export class WardActionModalComponent implements OnChanges {
     this.form['location'] = 'Ward Store';
     this.form['reorderLevel'] = 5;
     this.form['patientsCount'] = 1;
+    this.form['direction'] = 'INTAKE';
+    this.form['ioCategory'] = 'Oral';
+    this.form['quantity'] = 1;
+  }
+
+  private compactValue(value: string | number | undefined): string | number | undefined {
+    if (value === '' || value === null || value === undefined) {
+      return undefined;
+    }
+    return value;
+  }
+
+  private celsiusTemperature(raw: string | number | undefined): string | undefined {
+    const text = String(raw ?? '').trim();
+    if (!text) {
+      return undefined;
+    }
+    const numeric = Number(text);
+    if (!Number.isFinite(numeric)) {
+      return text;
+    }
+    if (numeric > 45) {
+      return String(Math.round((((numeric - 32) * 5) / 9) * 10) / 10);
+    }
+    return String(numeric);
+  }
+
+  private buildVitalsPayload(): Record<string, unknown> {
+    const bp = String(this.form['bloodPressure'] || '').trim();
+    const match = bp.match(/^(\d{2,3})\s*\/\s*(\d{2,3})$/);
+    const systolic = this.compactValue(this.form['systolic']) ?? (match ? Number(match[1]) : undefined);
+    const diastolic = this.compactValue(this.form['diastolic']) ?? (match ? Number(match[2]) : undefined);
+    return {
+      bloodPressure: this.compactValue(this.form['bloodPressure']),
+      temperature: this.celsiusTemperature(this.form['temperature']),
+      pulse: this.compactValue(this.form['pulse']),
+      weight: this.compactValue(this.form['weight']),
+      spo2: this.compactValue(this.form['spo2']),
+      painScore: this.compactValue(this.form['painScore']),
+      respiratoryRate: this.compactValue(this.form['respiratoryRate']),
+      systolic,
+      diastolic,
+      bloodGlucose: this.compactValue(this.form['bloodGlucose']),
+    };
   }
 
   private buildPayload(): Record<string, unknown> | null {
@@ -236,30 +347,18 @@ export class WardActionModalComponent implements OnChanges {
           doctorId: this.form['doctorId'] || undefined,
           notes: this.form['notes'],
           shift: this.form['shift'],
-          vitals: {
-            bloodPressure: this.form['bloodPressure'],
-            temperature: this.form['temperature'],
-            pulse: this.form['pulse'],
-            weight: this.form['weight'],
-            spo2: this.form['spo2'] || undefined,
-            painScore: this.form['painScore'] || undefined,
-            respiratoryRate: this.form['respiratoryRate'] || undefined,
-            systolic: this.form['systolic'] || undefined,
-            diastolic: this.form['diastolic'] || undefined,
-            bloodGlucose: this.form['bloodGlucose'] || undefined,
-          },
+          vitals: this.buildVitalsPayload(),
         };
       case 'io-chart':
         if (!this.form['patientId']) return null;
         return {
           patientId: this.form['patientId'],
           admissionId: this.form['admissionId'] || undefined,
-          title: 'I/O Entry',
-          description: this.form['notes'],
+          direction: this.form['direction'] || 'INTAKE',
+          ioCategory: this.form['ioCategory'] || 'Other',
+          volumeMl: this.form['volumeMl'] || this.form['intake'] || this.form['output'],
           shift: this.form['shift'],
-          intake: this.form['intake'],
-          output: this.form['output'],
-          balance: this.form['balance'],
+          notes: this.form['notes'],
         };
       case 'orders-services':
         if (!this.form['patientId'] || !this.form['orderName']) return null;
@@ -291,14 +390,16 @@ export class WardActionModalComponent implements OnChanges {
           doctorInformed: this.form['doctorInformed'],
         };
       case 'inventory':
-        if (!this.form['title']) return null;
+        if (!this.form['productId'] || !this.form['wardId'] || !this.form['fromLocationId'] || Number(this.form['quantity']) <= 0) {
+          return null;
+        }
         return {
-          title: this.form['title'],
+          productId: this.form['productId'],
+          quantity: Number(this.form['quantity']),
+          wardId: this.form['wardId'],
+          fromLocationId: this.form['fromLocationId'],
+          fromLocationType: 'store',
           description: this.form['description'],
-          category: this.form['category'],
-          quantity: this.form['quantity'],
-          reorderLevel: this.form['reorderLevel'],
-          location: this.form['location'],
         };
       default:
         return null;

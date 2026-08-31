@@ -16,6 +16,14 @@ const MODULE_OPTIONS = [
   { value: 'encounters', label: 'Encounters' },
   { value: 'ledger', label: 'Ledger / Payments' },
   { value: 'room_allotments', label: 'Room Allotments' },
+  { value: 'ward', label: 'Ward' },
+  { value: 'sales', label: 'Pharmacy Sales' },
+  { value: 'purchases', label: 'Purchases' },
+  { value: 'transfers', label: 'Stock Transfers' },
+  { value: 'returns', label: 'Returns' },
+  { value: 'expenses', label: 'Expenses' },
+  { value: 'inventory', label: 'Inventory' },
+  { value: 'payments', label: 'Pharmacy Payments' },
 ];
 
 const ACTION_OPTIONS = [
@@ -36,6 +44,15 @@ const ACTION_OPTIONS = [
   { value: 'LEDGER_ITEM_CANCELLED', label: 'Ledger item cancelled' },
   { value: 'LEDGER_PAYMENT_RECORDED', label: 'Payment recorded' },
   { value: 'LEDGER_PAYMENT_DELETED', label: 'Payment deleted' },
+  { value: 'LEDGER_ITEM_CREATED', label: 'Ledger item created' },
+  { value: 'WARD_VITALS_RECORDED', label: 'Ward vitals recorded' },
+  { value: 'WARD_MAR_RECORDED', label: 'MAR recorded' },
+  { value: 'WARD_IO_RECORDED', label: 'I/O recorded' },
+  { value: 'SALE_CREATED', label: 'Sale created' },
+  { value: 'SALE_RETURNED', label: 'Sale returned' },
+  { value: 'PURCHASE_CREATED', label: 'Purchase created' },
+  { value: 'PURCHASE_RECEIVED', label: 'Purchase received' },
+  { value: 'EXPENSE_CREATED', label: 'Expense created' },
 ];
 
 @Component({
@@ -68,6 +85,7 @@ export class AuditLogsComponent implements OnInit {
   totalPages = 1;
 
   canFilterByHospital = false;
+  canFilterByUser = false;
 
   constructor(
     private backend: BackendService,
@@ -77,6 +95,7 @@ export class AuditLogsComponent implements OnInit {
   ngOnInit(): void {
     const permissions = readStoredPermissions();
     this.canFilterByHospital = permissions.includes('*');
+    this.canFilterByUser = this.backend.hasPermission('users.read');
     this.setDefaultDateRange();
     this.loadHospitals();
     this.loadUsers();
@@ -111,6 +130,11 @@ export class AuditLogsComponent implements OnInit {
   }
 
   loadUsers(): void {
+    if (!this.canFilterByUser) {
+      this.users = [];
+      return;
+    }
+
     this.backend.getUsers({ limit: 200 }).subscribe({
       next: (users) => {
         this.users = users || [];
@@ -144,7 +168,7 @@ export class AuditLogsComponent implements OnInit {
         },
         error: (err) => {
           this.logs = [];
-          this.toastr.error(err?.error?.message || 'Audit logs load nahi ho sake');
+          this.toastr.error(err?.error?.message || 'Unable to load audit logs.');
         },
       });
   }
@@ -218,7 +242,7 @@ export class AuditLogsComponent implements OnInit {
         },
         error: (err) => {
           this.detailOpen = false;
-          this.toastr.error(err?.error?.message || 'Audit log detail load nahi ho saka');
+          this.toastr.error(err?.error?.message || 'Unable to load audit log detail.');
         },
       });
   }

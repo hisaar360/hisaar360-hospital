@@ -16,7 +16,13 @@
             <div class="col-lg-4 col-md-12">
                 <div class="card">
                     <div class="body text-center">
-                        <img class="rounded-circle img-thumbnail" src="assets/images/user.png" width="120" alt="Doctor">
+                        <button type="button" class="doctor-profile-photo" (click)="openPhoto()" [disabled]="!photoUrl">
+                            <img *ngIf="photoUrl" class="rounded-circle img-thumbnail" [src]="photoUrl" width="120" height="120" alt="Doctor" loading="lazy">
+                            <span *ngIf="!photoUrl" class="doctor-profile-initials">{{ initials }}</span>
+                        </button>
+                        <div class="mt-2" *ngIf="photoUrl">
+                            <button type="button" class="btn btn-sm btn-link" (click)="openPhoto()">View Image</button>
+                        </div>
                         <h5 class="mt-3 mb-0">{{ doctor?.user?.name || '-' }}</h5>
                         <span class="text-muted">{{ doctor?.specialization || '-' }}</span>
                         <div class="mt-3">
@@ -54,7 +60,7 @@
         </div>
 
         <div class="row clearfix">
-            <div class="col-lg-6 col-md-12">
+            <div class="col-lg-6 col-md-12" *ngIf="can('patients.read')">
                 <div class="card">
                     <div class="header">
                         <h2>Assigned Patients</h2>
@@ -83,7 +89,7 @@
                 </div>
             </div>
 
-            <div class="col-lg-6 col-md-12">
+            <div class="col-lg-6 col-md-12" *ngIf="can('appointments.read')">
                 <div class="card">
                     <div class="header">
                         <h2>Appointments</h2>
@@ -116,3 +122,10 @@
         </div>
     </div>
 </div>
+
+<app-image-viewer-modal
+    [open]="viewerOpen"
+    [src]="photoUrl"
+    [alt]="doctor?.user?.name || 'Doctor photo'"
+    (closed)="viewerOpen = false">
+</app-image-viewer-modal>

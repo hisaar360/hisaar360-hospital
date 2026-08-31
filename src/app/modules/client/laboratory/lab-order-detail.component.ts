@@ -24,10 +24,15 @@ import {
   LabComparisonColumn,
 } from './lab-comparison.utils';
 import { printLabSampleLabels } from './lab-sample-label.builder';
+import { printLabInvoice } from './lab-order-invoice.builder';
 import {
   activeLabSamples,
   canEditLabOrder,
+  canVerifyLabItem,
+  hasLabItemResultData,
   hasPendingSampleCollection,
+  isLabItemVerified,
+  labItemVerifyBlockReason,
   sampleStatusLabel,
 } from './lab-order.utils';
 
@@ -46,6 +51,7 @@ export class LabOrderDetailComponent implements OnInit {
   saving = false;
   activeItemId = '';
   remarks = '';
+  reportNotes = '';
   uploadUrl = '';
   addonSearch = '';
   selectedAddonIds: string[] = [];
@@ -72,12 +78,14 @@ export class LabOrderDetailComponent implements OnInit {
         this.loadOrder(id);
       }
     });
-    this.backend.getLabTests({ limit: 100, isActive: true }).subscribe({
-      next: (result) => {
-        this.catalog = result.items;
-        this.refreshFilteredAddons();
-      },
-    });
+    if (this.canUpdateLabOrder() && this.backend.hasPermission('lab_tests.read')) {
+      this.backend.getLabTests({ limit: 100, isActive: true }).subscribe({
+        next: (result) => {
+          this.catalog = result.items;
+          this.refreshFilteredAddons();
+        },
+      });
+    }
   }
 
   loadOrder(id: string): void {
@@ -118,40 +126,23 @@ export class LabOrderDetailComponent implements OnInit {
   }
 
   loadHospital(hospitalId: string): void {
-    if (!hospitalId) {
-      return;
-    }
-
-    this.backend.getHospital(hospitalId).subscribe({
-      next: (hospital) => {
-        this.hospital = hospital;
+    this.backend.getLabSettings().subscribe({
+      next: (settings) => {
+        this.hospital = {
+          _id: hospitalId || settings.hospital._id || '',
+          name: settings.hospital.name,
+          code: '',
+          status: 'active',
+          phone: settings.hospital.phone,
+          email: settings.hospital.email,
+          address: settings.hospital.address,
+          city: settings.hospital.city,
+          logoUrl: settings.hospital.logoUrl,
+          laboratorySettings: settings.laboratorySettings,
+        };
       },
       error: () => {
         this.hospital = null;
-      },
-    });
-
-    this.backend.getLabSettings().subscribe({
-      next: (settings) => {
-        if (!this.hospital) {
-          this.hospital = {
-            _id: hospitalId,
-            name: settings.hospital.name,
-            code: '',
-            status: 'active',
-            phone: settings.hospital.phone,
-            email: settings.hospital.email,
-            address: settings.hospital.address,
-            city: settings.hospital.city,
-            laboratorySettings: settings.laboratorySettings,
-          };
-          return;
-        }
-
-        this.hospital = {
-          ...this.hospital,
-          laboratorySettings: settings.laboratorySettings,
-        };
       },
     });
   }
@@ -208,6 +199,7 @@ export class LabOrderDetailComponent implements OnInit {
       this.order?.items[0] ||
       null;
     this.remarks = this.activeItemSnapshot?.remarks || '';
+    this.reportNotes = this.order?.notes || '';
     this.refreshParameterGroups();
     this.refreshComparisonView();
   }
@@ -248,11 +240,99 @@ export class LabOrderDetailComponent implements OnInit {
   }
 
   canEditOrder(): boolean {
-    return canEditLabOrder(this.order);
+    return this.canUpdateLabOrder() && canEditLabOrder(this.order);
   }
 
   hasPendingSampleCollection(): boolean {
-    return hasPendingSampleCollection(this.order);
+    return this.canUpdateLabOrder() && hasPendingSampleCollection(this.order);
+  }
+
+  canUpdateLabOrder(): boolean {
+    return this.backend.hasPermission('lab_orders.update');
+  }
+
+  canCollectLabPayment(): boolean {
+    return this.backend.hasPermission('ledger_payments.create') || this.backend.hasPermission('bills.update_payment');
+  }
+
+  canPrintLabInvoice(): boolean {
+    return this.canCollectLabPayment();
+  }
+
+  canPrintSampleLabels(): boolean {
+    return this.canUpdateLabOrder() && this.activeSamples().length > 0;
+  }
+
+  canViewLabFinance(): boolean {
+    return (
+      this.canCollectLabPayment() ||
+      this.backend.hasPermission('ledger_payments.read') ||
+      this.backend.hasPermission('bills.read')
+    );
+  }
+
+  paymentStatusLabel(order: LabOrder | null | undefined): string {
+    if (!order) {
+      return 'UNPAID';
+    }
+    if (order.paymentStatus === 'paid') {
+      return 'PAID';
+    }
+    if (order.paymentStatus === 'partial') {
+      return 'PARTIAL';
+    }
+    const total = Number(order.totalAmount || 0);
+    const paid = Number(order.paidAmount || 0);
+    if (total <= 0) {
+      return 'NO CHARGE';
+    }
+    if (paid <= 0) {
+      return 'UNPAID';
+    }
+    if (paid >= total) {
+      return 'PAID';
+    }
+    return 'PARTIAL';
+  }
+
+  canVerifyLabResults(): boolean {
+    return this.backend.hasPermission('lab_results.verify');
+  }
+
+  canVerifyActiveItem(): boolean {
+    return this.canVerifyLabResults() && canVerifyLabItem(this.activeItem());
+  }
+
+  isActiveItemVerified(): boolean {
+    return isLabItemVerified(this.activeItem());
+  }
+
+  canSendActiveItemForVerification(): boolean {
+    return this.canUpdateLabOrder() && hasLabItemResultData(this.activeItem()) && !this.isActiveItemVerified();
+  }
+
+  activeItemVerifyHint(): string {
+    return labItemVerifyBlockReason(this.activeItem());
+  }
+
+  hasActiveItemResultData(): boolean {
+    return hasLabItemResultData(this.activeItem());
+  }
+
+  resultGateHint(): string {
+    if (this.isActiveItemVerified()) {
+      return '';
+    }
+
+    if (this.canVerifyActiveItem()) {
+      return '';
+    }
+
+    if (this.canUpdateLabOrder() && !this.hasActiveItemResultData()) {
+      return 'Enter all result values before sending for verification.';
+    }
+
+    return this.activeItemVerifyHint();
   }
 
   activeSamples(): LabSample[] {
@@ -281,7 +361,7 @@ export class LabOrderDetailComponent implements OnInit {
   }
 
   canRejectSample(sample: LabSample): boolean {
-    if (sample.status === 'rejected') {
+    if (!this.canUpdateLabOrder() || sample.status === 'rejected') {
       return false;
     }
 
@@ -324,7 +404,7 @@ export class LabOrderDetailComponent implements OnInit {
   }
 
   collectSample(): void {
-    if (!this.order) {
+    if (!this.order || !this.canUpdateLabOrder()) {
       return;
     }
 
@@ -335,7 +415,7 @@ export class LabOrderDetailComponent implements OnInit {
         this.refreshFilteredAddons();
         const labels = (this.order?.samples || []).filter((sample) => sample.status === 'collected');
         if (this.order && labels.length) {
-          printLabSampleLabels(this.order, labels);
+          printLabSampleLabels(this.order, labels, this.hospital);
         }
         this.toastr.success(`${labels.length || 1} sample label(s) ready.`);
       },
@@ -354,7 +434,7 @@ export class LabOrderDetailComponent implements OnInit {
       return;
     }
 
-    printLabSampleLabels(this.order, labels);
+    printLabSampleLabels(this.order, labels, this.hospital);
   }
 
   printSingleSampleLabel(sample: LabSample): void {
@@ -362,11 +442,66 @@ export class LabOrderDetailComponent implements OnInit {
       return;
     }
 
-    printLabSampleLabels(this.order, [sample]);
+    printLabSampleLabels(this.order, [sample], this.hospital);
+  }
+
+  printInvoice(): void {
+    if (!this.order) {
+      return;
+    }
+
+    if (!printLabInvoice(this.order, this.hospital)) {
+      this.toastr.error('Unable to open invoice print preview.');
+    }
+  }
+
+  saveReportNotes(): void {
+    if (!this.order || !this.canUpdateLabOrder()) {
+      return;
+    }
+
+    this.saving = true;
+    this.backend
+      .updateLabOrder(this.order._id, { notes: this.reportNotes.trim() })
+      .pipe(finalize(() => (this.saving = false)))
+      .subscribe({
+        next: (response) => {
+          this.order = response.data || this.order;
+          this.reportNotes = this.order?.notes || this.reportNotes;
+          this.toastr.success('Report notes saved.');
+        },
+        error: (err) => this.toastr.error(err?.error?.message || 'Unable to save notes.'),
+      });
+  }
+
+  collectRemainingPayment(): void {
+    if (!this.order || !this.canCollectLabPayment()) {
+      return;
+    }
+
+    const total = Number(this.order.totalAmount || 0);
+    if (total <= 0 || Number(this.order.balanceAmount || 0) <= 0) {
+      return;
+    }
+
+    this.saving = true;
+    this.backend
+      .collectLabOrderPayment(this.order._id, {
+        paidAmount: total,
+        paymentMethod: this.order.paymentMethod || 'cash',
+      })
+      .pipe(finalize(() => (this.saving = false)))
+      .subscribe({
+        next: (response) => {
+          this.order = response.data || this.order;
+          this.toastr.success('Payment recorded as received.');
+        },
+        error: (err) => this.toastr.error(err?.error?.message || 'Unable to record payment.'),
+      });
   }
 
   rejectSample(sample: LabSample): void {
-    if (!this.order) {
+    if (!this.order || !this.canUpdateLabOrder()) {
       return;
     }
 
@@ -389,7 +524,12 @@ export class LabOrderDetailComponent implements OnInit {
   saveResults(submitForVerification = false): void {
     const order = this.order;
     const item = this.activeItem();
-    if (!order || !item) {
+    if (!order || !item || !this.canUpdateLabOrder()) {
+      return;
+    }
+
+    if (submitForVerification && !hasLabItemResultData(item)) {
+      this.toastr.error('Enter all result values before sending for verification.');
       return;
     }
 
@@ -415,7 +555,7 @@ export class LabOrderDetailComponent implements OnInit {
   uploadReport(): void {
     const order = this.order;
     const item = this.activeItem();
-    if (!order || !item || !this.uploadUrl.trim()) {
+    if (!order || !item || !this.canUpdateLabOrder() || !this.uploadUrl.trim()) {
       this.toastr.error('Enter report file URL.');
       return;
     }
@@ -443,7 +583,8 @@ export class LabOrderDetailComponent implements OnInit {
   verifyItem(): void {
     const order = this.order;
     const item = this.activeItem();
-    if (!order || !item) {
+    if (!order || !item || !this.canVerifyActiveItem()) {
+      this.toastr.error(this.activeItemVerifyHint() || 'Results are not entered yet.');
       return;
     }
 
@@ -464,7 +605,7 @@ export class LabOrderDetailComponent implements OnInit {
   }
 
   addExtraTests(): void {
-    if (!this.order || this.selectedAddonIds.length === 0) {
+    if (!this.order || !this.canUpdateLabOrder() || this.selectedAddonIds.length === 0) {
       return;
     }
 
@@ -577,9 +718,18 @@ export class LabOrderDetailComponent implements OnInit {
   }
 
   isStepDone(step: LabOrderStatus): boolean {
-    const order = ['ordered', 'sample_collected', 'processing', 'result_entered', 'verified', 'completed'];
-    const current = this.order?.status || 'ordered';
-    return order.indexOf(step) <= order.indexOf(current);
+    const steps = ['ordered', 'sample_collected', 'processing', 'result_entered', 'verified', 'completed'];
+    const current = this.workflowStatus();
+    return steps.indexOf(step) <= steps.indexOf(current);
+  }
+
+  isStepCurrent(step: LabOrderStatus): boolean {
+    return this.workflowStatus() === step;
+  }
+
+  private workflowStatus(): LabOrderStatus {
+    const status = this.order?.status || 'ordered';
+    return status === 'verified' ? 'completed' : status;
   }
 
   statusClass(status?: string): string {

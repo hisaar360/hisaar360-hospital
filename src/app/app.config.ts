@@ -16,6 +16,7 @@ import {
 } from '@angular/common/http';
 import { authInterceptor } from './core/auth.interceptor';
 import { errorInterceptor } from './core/error.interceptor';
+import { permissionInterceptor } from './core/permission.interceptor';
 import { LoadingInterceptor } from './core/loading.interceptor';
 
 export const appConfig: ApplicationConfig = {
@@ -25,7 +26,7 @@ export const appConfig: ApplicationConfig = {
     provideAnimations(),
     importProvidersFrom(),
     provideHttpClient(
-      withInterceptors([authInterceptor, errorInterceptor]),
+      withInterceptors([permissionInterceptor, authInterceptor, errorInterceptor]),
       withInterceptorsFromDi()
     ),
     { provide: HTTP_INTERCEPTORS, useClass: LoadingInterceptor, multi: true },

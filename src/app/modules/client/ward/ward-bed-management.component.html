@@ -31,7 +31,7 @@
       </label>
       <label class="ward-filter ward-filter--compact">
         <span>Floor</span>
-        <select [(ngModel)]="filters.gallery" (ngModelChange)="selectedRoomId = filteredRooms[0]?.id || ''">
+        <select [(ngModel)]="filters.gallery" (ngModelChange)="selectedRoomId = filteredRooms.length ? filteredRooms[0].id : ''">
           <option value="" *ngIf="!galleryOptions.length">No floors yet</option>
           <option *ngFor="let gallery of galleryOptions" [value]="gallery.id">{{ gallery.label }}</option>
         </select>

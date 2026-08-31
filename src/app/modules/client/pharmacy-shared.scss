@@ -6,7 +6,10 @@
   --pharmacy-line: #e2e8f0;
   --pharmacy-panel: #fff;
   background: #fbfcfe;
+  box-sizing: border-box;
+  max-width: 100%;
   min-height: 100vh;
+  overflow-x: hidden;
   padding: 10px 12px !important;
 }
 
@@ -106,6 +109,21 @@
 .pharmacy-status-pill.status-open {
   background: #eff6ff;
   color: #1d4ed8;
+}
+
+.pharmacy-status-pill.status-received,
+.pharmacy-status-pill.status-paid {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.pharmacy-status-pill.status-draft,
+.pharmacy-status-pill.status-ordered,
+.pharmacy-status-pill.status-unpaid,
+.pharmacy-status-pill.status-partial,
+.pharmacy-status-pill.status-partially-received {
+  background: #fff7ed;
+  color: #c2410c;
 }
 
 .pharmacy-modal-backdrop {

@@ -24,6 +24,7 @@ export interface PrescriptionPrintPreviewData {
   hospitalAddressUrdu: string;
   hospitalLogoUrl: string;
   showHospitalLogo: boolean;
+  hospitalLogoScale: number;
   prescriptionRevisionNote: string;
   prescriptionFollowUpLine: string;
   prescriptionFooterLines: string[];

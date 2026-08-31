@@ -18,7 +18,17 @@
       <div class="pharmacy-filter-grid">
         <label>
           <span>Reference Type</span>
-          <input class="form-control" [(ngModel)]="referenceType" />
+          <select class="form-select" [(ngModel)]="referenceType">
+            <option value="">All</option>
+            <option value="purchase">Purchase</option>
+            <option value="sale">Sale</option>
+            <option value="sales_return">Sales return</option>
+            <option value="purchase_return">Purchase return</option>
+            <option value="stock_transfer">Transfer</option>
+            <option value="adjustment">Adjustment</option>
+            <option value="opening_stock">Opening stock</option>
+            <option value="ward_requisition">Ward issue</option>
+          </select>
         </label>
 
         <label>
@@ -27,6 +37,7 @@
             <option value="">All</option>
             <option value="store">Store</option>
             <option value="warehouse">Warehouse</option>
+            <option value="ward">Ward</option>
           </select>
         </label>
 
@@ -63,12 +74,12 @@
             <thead>
               <tr>
                 <th>When</th>
+                <th>Medicine</th>
                 <th>Reference</th>
                 <th>Movement</th>
                 <th>Location</th>
                 <th>Quantity</th>
                 <th>Balance</th>
-                <th>Unit Cost</th>
                 <th>Note</th>
               </tr>
             </thead>
@@ -76,14 +87,17 @@
               <tr *ngFor="let movement of movements">
                 <td>{{ dateTime(movement.createdAt) }}</td>
                 <td>
-                  <div class="fw-semibold">{{ movement.referenceType || '-' }}</div>
-                  <small class="text-muted">{{ movement.referenceId || '-' }}</small>
+                  <div class="fw-semibold">{{ productName(movement) }}</div>
+                  <small class="text-muted">{{ productSku(movement) }}</small>
                 </td>
-                <td>{{ movement.movementType || '-' }}</td>
-                <td>{{ movement.locationType || '-' }} / {{ movement.locationId || '-' }}</td>
-                <td>{{ movement.qty ?? movement.quantity ?? '-' }}</td>
-                <td>{{ movement.balanceQty ?? '-' }}</td>
-                <td>{{ currency(movement.unitCost) }}</td>
+                <td>
+                  <div class="fw-semibold">{{ referenceTypeLabel(movement.referenceType) }}</div>
+                  <small class="text-muted" *ngIf="referenceDocLabel(movement)">{{ referenceDocLabel(movement) }}</small>
+                </td>
+                <td>{{ movementTypeLabel(movement.movementType) }}</td>
+                <td>{{ locationLabel(movement) }}</td>
+                <td>{{ qty(movement) }}</td>
+                <td>{{ balance(movement) }}</td>
                 <td>{{ movement.note || '-' }}</td>
               </tr>
             </tbody>

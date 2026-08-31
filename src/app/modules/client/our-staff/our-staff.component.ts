@@ -8,10 +8,12 @@ import { catchError } from 'rxjs/operators';
 import { User } from '../../../shared/models/hospital.model';
 import { WardDataService } from '../ward/services/ward-data.service';
 import { WardPatient } from '../ward/ward-patient-list.models';
+import { ImageViewerModalComponent } from '../../../shared/components/image-viewer-modal/image-viewer-modal.component';
+import { initialsFromName, resolveAssetUrl } from '../../../core/utils/asset.util';
 
 @Component({
   selector: 'app-our-staff',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ImageViewerModalComponent],
   templateUrl: './our-staff.component.html',
   styleUrl: './our-staff.component.scss'
 })
@@ -25,6 +27,9 @@ export class OurStaffComponent implements OnInit {
   contextAdmissionId = '';
   contextPatientId = '';
   contextPatient: WardPatient | null = null;
+  viewerOpen = false;
+  viewerSrc = '';
+  viewerAlt = 'Staff photo';
 
   constructor(
     private wardData: WardDataService,
@@ -132,11 +137,31 @@ export class OurStaffComponent implements OnInit {
   }
 
   isNurse(user: User): boolean {
-    return /nurse|nursing/i.test(user.role?.name || user.name || '');
+    const roleName = String(user.role?.name || '').trim().toLowerCase();
+    return roleName === 'nurse' || roleName === 'staff nurse' || roleName === 'ward admin';
   }
 
   trackUser(_index: number, user: User): string {
     return user._id;
+  }
+
+  photoUrl(user: User): string {
+    return resolveAssetUrl(user.photoUrl);
+  }
+
+  initials(user: User): string {
+    return initialsFromName(user.name);
+  }
+
+  openPhoto(user: User, event?: Event): void {
+    event?.stopPropagation();
+    const url = this.photoUrl(user);
+    if (!url) {
+      return;
+    }
+    this.viewerSrc = url;
+    this.viewerAlt = user.name || 'Staff photo';
+    this.viewerOpen = true;
   }
 
   private syncContextPatient(): void {

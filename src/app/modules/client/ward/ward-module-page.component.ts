@@ -237,6 +237,10 @@ export class WardModulePageComponent implements OnInit {
       items.push({ id: 'administer-mar', label: 'Record Administration' });
     }
 
+    if (this.config.key === 'inventory' && String(row.cells['status'] || '').toLowerCase() === 'requested' && row.id) {
+      items.push({ id: 'issue-requisition', label: 'Issue from store' });
+    }
+
     if (patientId) {
       items.push({ id: 'mar', label: 'View MAR' });
       if (this.config.key !== 'vitals') {
@@ -325,6 +329,15 @@ export class WardModulePageComponent implements OnInit {
         break;
       case 'administer-mar':
         this.primaryAction();
+        break;
+      case 'issue-requisition':
+        this.wardData.issueWardRequisition(row.id).subscribe({
+          next: () => {
+            this.toastr.success('Requisition issued to ward.');
+            this.refreshRows();
+          },
+          error: (err) => this.toastr.error(err?.error?.message || 'Failed to issue requisition.'),
+        });
         break;
     }
     this.cdr.markForCheck();

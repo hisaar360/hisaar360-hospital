@@ -47,7 +47,7 @@
         <label>
           <span>Store</span>
           <select class="form-select" [(ngModel)]="storeId" (ngModelChange)="loadInventory()">
-            <option value="">Assigned / default store</option>
+            <option value="">All stores</option>
             <option *ngFor="let store of stores" [value]="store._id">{{ store.name }}</option>
           </select>
         </label>
@@ -61,7 +61,7 @@
         </label>
 
         <div class="pharmacy-filter-actions">
-          <button class="btn btn-outline-primary" type="button" (click)="applyFilters()">Apply</button>
+          <button class="btn btn-outline-primary" type="button" (click)="loadInventory()">Apply</button>
           <button class="btn btn-outline-secondary" type="button" (click)="search=''; lowStockOnly=false; applyFilters()">Reset</button>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, finalize, map, shareReplay, tap, throwError } from 'rxjs';
+import { Observable, finalize, map, of, shareReplay, tap, throwError } from 'rxjs';
 
 import { CONFIG } from '../../../../config';
 import {
@@ -34,12 +34,21 @@ export class AuthService {
   );
 
   private refreshInFlight$: Observable<string> | null = null;
+  private meInFlight$: Observable<any> | null = null;
+  private expiryTimer: ReturnType<typeof setTimeout> | null = null;
+  private hostedLoginRedirectInFlight = false;
+  private readonly HOSTED_LOGIN_URL =
+    'https://hisaar-landing-page-main-eight.vercel.app/login';
 
   readonly currentUser = this.userSignal.asReadonly();
   readonly tokenPayload = this.tokenPayloadSignal.asReadonly();
   readonly isAuthenticated = computed(
     () => this.hasToken() && Boolean(this.userSignal())
   );
+
+  constructor() {
+    this.scheduleAccessTokenWatch();
+  }
 
   login(email: string, password: string): Observable<any> {
     return this.http
@@ -100,12 +109,29 @@ export class AuthService {
     return this.refreshInFlight$;
   }
 
-  me(): Observable<any> {
-    return this.http.get<ApiEnvelope<any>>(CONFIG.auth.me).pipe(
-      tap((response) => {
-        this.setCurrentUser(response?.data ?? response);
-      })
+  me(options?: { force?: boolean }): Observable<any> {
+    if (!options?.force) {
+      const existing = this.userSignal();
+      if (existing) {
+        return of(existing);
+      }
+      if (this.meInFlight$) {
+        return this.meInFlight$;
+      }
+    }
+
+    this.meInFlight$ = this.http.get<ApiEnvelope<any>>(CONFIG.auth.me).pipe(
+      map((response) => response?.data ?? response),
+      tap((user) => {
+        this.setCurrentUser(user);
+      }),
+      finalize(() => {
+        this.meInFlight$ = null;
+      }),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
+
+    return this.meInFlight$;
   }
 
   logout(): void {
@@ -121,12 +147,12 @@ export class AuthService {
     }
 
     this.clearSession();
-    this.redirectToHostedLogin();
+    this.redirectToHostedLogin({ forceHosted: true });
   }
 
   handleAuthFailure(): void {
     this.clearSession();
-    this.redirectToHostedLogin();
+    this.redirectToHostedLogin({ forceHosted: true });
   }
 
   changePassword(payload: {
@@ -145,13 +171,18 @@ export class AuthService {
     this.handleAuthFailure();
   }
 
-  redirectToHostedLogin(): void {
-    if (this.shouldUseLocalLogin()) {
+  redirectToHostedLogin(options?: { forceHosted?: boolean }): void {
+    if (this.hostedLoginRedirectInFlight) {
+      return;
+    }
+    this.hostedLoginRedirectInFlight = true;
+
+    if (!options?.forceHosted && this.shouldUseLocalLogin()) {
       window.location.replace(this.localLoginUrl());
       return;
     }
 
-    window.location.replace(CONFIG.authPortalLoginUrl);
+    window.location.replace(CONFIG.authPortalLoginUrl || this.HOSTED_LOGIN_URL);
   }
 
   shouldUseLocalLogin(): boolean {
@@ -179,6 +210,61 @@ export class AuthService {
   saveToken(token: string): void {
     localStorage.setItem(CONFIG.storage.token, token);
     this.tokenPayloadSignal.set(this.decodeToken(token));
+    this.scheduleAccessTokenWatch();
+  }
+
+  isAccessTokenExpired(skewSeconds = 5): boolean {
+    const expMs = this.getAccessTokenExpiryMs();
+    if (!expMs) {
+      return !this.hasToken();
+    }
+    return Date.now() >= expMs - skewSeconds * 1000;
+  }
+
+  getAccessTokenExpiryMs(): number | null {
+    const exp = Number(this.tokenPayloadSignal()?.exp || this.decodeToken(this.getToken())?.exp);
+    if (!Number.isFinite(exp) || exp <= 0) {
+      return null;
+    }
+    return exp * 1000;
+  }
+
+  private clearAccessTokenWatch(): void {
+    if (this.expiryTimer) {
+      clearTimeout(this.expiryTimer);
+      this.expiryTimer = null;
+    }
+  }
+
+  private scheduleAccessTokenWatch(): void {
+    this.clearAccessTokenWatch();
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const token = this.getToken();
+    if (!token) {
+      return;
+    }
+
+    const expMs = this.getAccessTokenExpiryMs();
+    if (!expMs) {
+      return;
+    }
+
+    const refreshLeadMs = 30_000;
+    const delay = Math.max(0, expMs - Date.now() - refreshLeadMs);
+
+    this.expiryTimer = setTimeout(() => {
+      if (this.hasRefreshToken()) {
+        this.refreshSession().subscribe({
+          next: () => undefined,
+          error: () => this.handleAuthFailure(),
+        });
+        return;
+      }
+      this.handleAuthFailure();
+    }, delay);
   }
 
   getToken(): string | null {
@@ -279,6 +365,9 @@ export class AuthService {
 
     this.userSignal.set(null);
     this.tokenPayloadSignal.set(null);
+    this.meInFlight$ = null;
+    this.refreshInFlight$ = null;
+    this.clearAccessTokenWatch();
   }
 
   private persistAuthResponse(data: AuthPayload | null | undefined): void {

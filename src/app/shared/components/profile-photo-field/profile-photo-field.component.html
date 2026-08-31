@@ -1,0 +1,49 @@
+<div class="profile-photo-field">
+  <label class="profile-photo-field__label">{{ label }}</label>
+  <div class="profile-photo-field__row">
+    <button
+      type="button"
+      class="profile-photo-field__avatar"
+      [disabled]="!hasImage"
+      (click)="requestView()"
+      [attr.aria-label]="hasImage ? 'View image' : 'No image selected'"
+    >
+      <img *ngIf="hasImage" [src]="displayUrl" alt="" loading="lazy" />
+      <span *ngIf="!hasImage">{{ initials }}</span>
+    </button>
+    <div class="profile-photo-field__actions">
+      <label class="btn btn-default btn-sm mb-0" [class.disabled]="disabled || uploading">
+        {{ selectedFile || currentUrl ? 'Replace' : 'Choose Image' }}
+        <input type="file" [accept]="accept" (change)="onFileInput($event)" [disabled]="disabled || uploading" hidden />
+      </label>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        *ngIf="selectedFile"
+        (click)="clearSelected()"
+        [disabled]="disabled || uploading"
+      >
+        Remove selected
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-danger"
+        *ngIf="!selectedFile && currentUrl"
+        (click)="requestRemove()"
+        [disabled]="disabled || uploading"
+      >
+        Remove
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-link"
+        *ngIf="hasImage"
+        (click)="requestView()"
+      >
+        View Image
+      </button>
+      <small class="text-muted d-block">JPG, JPEG, PNG, or WEBP. Max 5 MB.</small>
+      <small class="text-danger d-block" *ngIf="error">{{ error }}</small>
+    </div>
+  </div>
+</div>

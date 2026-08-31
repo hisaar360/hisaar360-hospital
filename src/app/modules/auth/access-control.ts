@@ -14,7 +14,10 @@ type RouteAccess = {
 
 const DEFAULT_ROUTE_ACCESS: RouteAccess[] = [
   { path: '/dashboard', access: ['hospital_dashboard.read'] },
-  { path: '/settings', access: [] },
+  { path: '/accounts/dashboard', access: ['accounts.read', 'accounts.reports.read'] },
+  { path: '/laboratory', access: ['lab_orders.read'] },
+  { path: '/laboratory/catalog', access: ['lab_tests.read'] },
+  { path: '/pharmacy', access: ['products.read'] },
   { path: '/appointments', access: ['appointments.read'] },
   { path: '/patients/all-patients', access: ['patients.read'] },
   {
@@ -34,7 +37,7 @@ const DEFAULT_ROUTE_ACCESS: RouteAccess[] = [
     path: '/clinical-records',
     access: ['patients_history.read', 'patients_history.create'],
   },
-  { path: '/pharmacy', access: ['products.read'] },
+  { path: '/pharmacy/purchases', access: ['purchases.read'] },
   {
     path: '/prescriptions',
     access: ['prescriptions.read', 'prescriptions.create'],
@@ -58,16 +61,12 @@ const DEFAULT_ROUTE_ACCESS: RouteAccess[] = [
     },
   },
   {
-    path: '/laboratory',
-    access: ['lab_orders.read', 'lab_tests.read', 'patients_history.read'],
-  },
-  {
     path: '/laboratory/create-order',
-    access: ['lab_orders.create', 'patients_history.create'],
+    access: ['lab_orders.create'],
   },
   {
     path: '/laboratory/catalog',
-    access: ['lab_tests.read', 'patients_history.read'],
+    access: ['lab_tests.read'],
   },
   {
     path: '/laboratory/settings',
@@ -75,27 +74,28 @@ const DEFAULT_ROUTE_ACCESS: RouteAccess[] = [
   },
   {
     path: '/laboratory/created-reports',
-    access: ['lab_orders.read', 'lab_tests.read', 'patients_history.read'],
+    access: ['lab_orders.read'],
   },
   {
     path: '/laboratory/records',
-    access: ['patients_history.read'],
+    access: ['lab_orders.read'],
   },
   {
     path: '/ward/bed-management',
-    access: { any: ['ward.read', 'patients_history.read', 'room_allotments.read'] },
+    access: ['ward.read'],
   },
   {
     path: '/ward/dashboard',
-    access: { any: ['ward.read', 'patients_history.read', 'room_allotments.read'] },
+    access: ['ward.read'],
   },
   {
     path: '/ward-admin',
-    access: { any: ['ward.read', 'patients_history.read'] },
+    access: ['ward.read'],
   },
   { path: '/users', access: ['users.read'] },
   { path: '/hospitals', access: ['hospitals.read'] },
   { path: '/roles', access: ['roles.read'] },
+  { path: '/settings', access: [] },
 ];
 
 export const normalizeAccessKey = (value: string) =>
@@ -115,8 +115,10 @@ export const isDoctorRole = (role: string): boolean =>
 export const isWardAdminRole = (role: string): boolean =>
   normalizeAccessKey(role) === 'wardadmin';
 
-export const isNurseRole = (role: string): boolean =>
-  normalizeAccessKey(role) === 'nurse';
+export const isNurseRole = (role: string): boolean => {
+  const normalized = normalizeAccessKey(role);
+  return normalized === 'nurse' || normalized === 'staffnurse';
+};
 
 export const isReceptionRole = (role: string): boolean => {
   const normalized = normalizeAccessKey(role);
@@ -168,19 +170,26 @@ export const hasRouteAccess = (
   return passesAny && passesAll;
 };
 
+export const hasPermission = (
+  permission: string,
+  permissions: string[] = readStoredPermissions()
+): boolean => hasRouteAccess([permission], permissions);
+
 export const resolveDefaultRoute = (
   permissions: string[],
   role = readStoredRole()
 ): string => {
   if (isCurrentLaboratoryEdition()) {
-    if (
-      hasRouteAccess(
-        ['lab_orders.read', 'lab_tests.read', 'patients_history.read'],
-        permissions
-      ) ||
-      permissions.includes('*')
-    ) {
+    if (hasRouteAccess(['lab_orders.read'], permissions) || permissions.includes('*')) {
       return '/laboratory';
+    }
+
+    if (hasRouteAccess(['lab_tests.read'], permissions)) {
+      return '/laboratory/catalog';
+    }
+
+    if (hasRouteAccess(['accounts.read', 'accounts.reports.read'], permissions)) {
+      return '/accounts/dashboard';
     }
 
     if (hasRouteAccess(['patients.read'], permissions)) {

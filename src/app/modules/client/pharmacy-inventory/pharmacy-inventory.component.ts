@@ -38,7 +38,6 @@ export class PharmacyInventoryComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadStores();
-    this.loadInventory();
   }
 
   get totalUnits(): number {
@@ -59,19 +58,29 @@ export class PharmacyInventoryComponent implements OnInit {
 
   loadStores(): void {
     if (!this.backend.hasPermission('stores.read')) {
+      this.loadInventory();
       return;
     }
 
     this.backend.getStores({ limit: 100, isActive: true }).subscribe({
-      next: (result) => (this.stores = result.items),
-      error: () => (this.stores = []),
+      next: (result) => {
+        this.stores = result.items || [];
+        if (!this.storeId && this.stores[0]?._id) {
+          this.storeId = this.stores[0]._id;
+        }
+        this.loadInventory();
+      },
+      error: () => {
+        this.stores = [];
+        this.loadInventory();
+      },
     });
   }
 
   loadInventory(): void {
     this.loading = true;
     this.backend.getProducts({
-      limit: 200,
+      limit: 100,
       isActive: true,
       storeId: this.storeId || undefined,
     })

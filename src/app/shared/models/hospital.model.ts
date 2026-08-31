@@ -44,6 +44,8 @@ export interface Role {
 export interface User {
   _id: string;
   companyId?: string;
+  centralUserId?: string | null;
+  centralCompanyId?: string | null;
   hospitalId?: string | null;
   hospital?: Hospital | null;
   storeId?: string | null;
@@ -53,15 +55,25 @@ export interface User {
   email: string;
   phone?: string | null;
   status?: string;
+  isEmailVerified?: boolean;
   role?: Role | null;
+  photoKey?: string | null;
+  photoUrl?: string | null;
 }
 
 export interface PrescriptionPrintSettings {
   showLogo: boolean;
+  logoScale: number;
   revisionNote?: string | null;
   followUpLine?: string | null;
   contactLine?: string | null;
   footerLines: string[];
+}
+
+export interface LabReportSignatory {
+  name: string;
+  credentials?: string | null;
+  title?: string | null;
 }
 
 export interface LaboratoryPrintSettings {
@@ -74,15 +86,20 @@ export interface LaboratoryPrintSettings {
   tagline?: string | null;
   reportNameColor?: string | null;
   reportBorderColor?: string | null;
+  reportDisclaimer?: string | null;
+  systemGeneratedLine?: string | null;
+  reportSignatories?: LabReportSignatory[];
 }
 
 export interface LabSettingsResponse {
   hospital: {
+    _id?: string;
     name: string;
     phone: string;
     email: string;
     address: string;
     city: string;
+    logoUrl?: string | null;
   };
   laboratorySettings: LaboratoryPrintSettings;
 }
@@ -164,9 +181,17 @@ export interface Category {
   isActive?: boolean;
 }
 
+export interface HospitalEnabledModules {
+  pharmacy: boolean;
+  laboratory: boolean;
+  ward: boolean;
+  clinical: boolean;
+}
+
 export interface Hospital {
   _id: string;
   name: string;
+  nameUrdu?: string | null;
   code: string;
   email?: string | null;
   phone?: string | null;
@@ -177,6 +202,8 @@ export interface Hospital {
   status: Status;
   subscriptionPlan?: string | null;
   productEdition?: 'hospital' | 'laboratory' | string | null;
+  enabledModules?: HospitalEnabledModules | null;
+  modulesEnforced?: boolean;
   prescriptionSettings?: PrescriptionPrintSettings | null;
   laboratorySettings?: LaboratoryPrintSettings | null;
 }
@@ -206,7 +233,11 @@ export interface Doctor {
   prescriptionSpecialtyTemplate?: PrescriptionSpecialtyTemplate;
   availableDays?: string[];
   availableSlots?: Array<{ day: string; startTime: string; endTime: string }>;
+  slotDurationMinutes?: number;
+  unavailableDates?: string[];
   status: Status;
+  photoKey?: string | null;
+  photoUrl?: string | null;
 }
 
 export interface Patient {
@@ -521,6 +552,7 @@ export interface LabOrder {
   patient?: Patient | null;
   prescriptionId?: string | null;
   appointmentId?: string | null;
+  encounterId?: string | null;
   source: LabOrderSource;
   doctorId?: string | null;
   doctor?: User | null;
@@ -530,6 +562,10 @@ export interface LabOrder {
   totalAmount: number;
   paidAmount: number;
   paymentMethod?: string;
+  paymentStatus?: 'unpaid' | 'partial' | 'paid';
+  receivedById?: string | null;
+  receivedBy?: User | null;
+  paidAt?: string | null;
   balanceAmount: number;
   sampleCollectionAt?: string;
   notes?: string;
@@ -953,6 +989,12 @@ export interface CreateSalePayload {
   paymentMethod?: SalePaymentMethod;
   paymentReferenceNo?: string;
   note?: string;
+  settlementMode?: 'COUNTER' | 'ENCOUNTER';
+  patientId?: string;
+  encounterId?: string;
+  hospitalId?: string;
+  prescriptionId?: string;
+  attributedDoctorId?: string;
 }
 
 export interface CreateSaleResponse {
@@ -1006,6 +1048,7 @@ export interface SalesReturn {
   _id: string;
   companyId?: string;
   saleId: string;
+  invoiceNo?: string | null;
   storeId: string;
   customerId?: string | null;
   returnNo: string;
@@ -1108,8 +1151,12 @@ export interface StockMovement {
   locationType?: 'store' | 'warehouse';
   locationId?: string;
   movementType?: string;
+  reason?: string;
   referenceType?: string;
   referenceId?: string;
+  quantityChange?: number | string;
+  stockBefore?: number | string;
+  stockAfter?: number | string;
   qty?: number | string;
   quantity?: number | string;
   balanceQty?: number | string;
@@ -1117,6 +1164,19 @@ export interface StockMovement {
   note?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  product?: {
+    _id?: string;
+    name?: string;
+    sku?: string;
+    barcode?: string | null;
+    unit?: string;
+  } | null;
+  location?: {
+    _id?: string;
+    type?: string;
+    name?: string;
+    code?: string;
+  } | null;
   [key: string]: unknown;
 }
 

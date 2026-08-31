@@ -12,6 +12,75 @@
       </div>
     </header>
 
+    <div class="pharmacy-filter-card" *ngIf="canCreate">
+      <div class="pharmacy-filter-head">
+        <div>
+          <h2>Create Transfer</h2>
+          <p>Move received warehouse stock into a pharmacy store, or transfer between stores.</p>
+        </div>
+      </div>
+      <div class="pharmacy-filter-grid">
+        <label>
+          <span>From</span>
+          <select class="form-select" [(ngModel)]="fromLocationType">
+            <option value="warehouse">Warehouse</option>
+            <option value="store">Store</option>
+          </select>
+        </label>
+        <label>
+          <span>From location</span>
+          <select class="form-select" [(ngModel)]="fromLocationId">
+            <option value="">Select</option>
+            <ng-container *ngIf="fromLocationType === 'warehouse'">
+              <option *ngFor="let warehouse of warehouses" [value]="warehouse._id">{{ warehouse.name }}</option>
+            </ng-container>
+            <ng-container *ngIf="fromLocationType === 'store'">
+              <option *ngFor="let store of stores" [value]="store._id">{{ store.name }}</option>
+            </ng-container>
+          </select>
+        </label>
+        <label>
+          <span>To</span>
+          <select class="form-select" [(ngModel)]="toLocationType">
+            <option value="store">Store</option>
+            <option value="warehouse">Warehouse</option>
+          </select>
+        </label>
+        <label>
+          <span>To location</span>
+          <select class="form-select" [(ngModel)]="toLocationId">
+            <option value="">Select</option>
+            <ng-container *ngIf="toLocationType === 'store'">
+              <option *ngFor="let store of stores" [value]="store._id">{{ store.name }}</option>
+            </ng-container>
+            <ng-container *ngIf="toLocationType === 'warehouse'">
+              <option *ngFor="let warehouse of warehouses" [value]="warehouse._id">{{ warehouse.name }}</option>
+            </ng-container>
+          </select>
+        </label>
+        <label>
+          <span>Product</span>
+          <select class="form-select" [(ngModel)]="productId">
+            <option value="">Select product</option>
+            <option *ngFor="let product of products" [value]="product._id">{{ product.name }} ({{ product.sku }})</option>
+          </select>
+        </label>
+        <label>
+          <span>Qty</span>
+          <input class="form-control" type="number" min="1" [(ngModel)]="qty" />
+        </label>
+        <label>
+          <span>Note</span>
+          <input class="form-control" type="text" [(ngModel)]="note" placeholder="Optional" />
+        </label>
+        <div class="pharmacy-filter-actions">
+          <button class="btn btn-primary" type="button" [disabled]="creating" (click)="createTransfer()">
+            {{ creating ? 'Creating...' : 'Create Transfer' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="pharmacy-filter-card">
       <div class="pharmacy-filter-head">
         <div>
@@ -95,8 +164,8 @@
                   <div class="fw-semibold">{{ transfer.transferNo }}</div>
                   <small class="text-muted" *ngIf="transfer.note">{{ transfer.note }}</small>
                 </td>
-                <td>{{ storeName(transfer.fromLocationId, transfer.fromLocationType) }}</td>
-                <td>{{ storeName(transfer.toLocationId, transfer.toLocationType) }}</td>
+                <td>{{ locationName(transfer.fromLocationId, transfer.fromLocationType) }}</td>
+                <td>{{ locationName(transfer.toLocationId, transfer.toLocationType) }}</td>
                 <td>{{ itemCount(transfer) }}</td>
                 <td><span [ngClass]="statusClass(transfer.status)">{{ transfer.status }}</span></td>
                 <td>{{ dateTime(transfer.createdAt) }}</td>

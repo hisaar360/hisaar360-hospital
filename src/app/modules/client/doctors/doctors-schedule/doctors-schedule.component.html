@@ -1,128 +1,93 @@
 <div id="main-content">
-
-    <div class="container-fluid">
-        <!-- Page header section  -->
-        <div class="block-header">
-            <div class="row clearfix">
-                <div class="col-lg-4 col-md-12 col-sm-12">
-                    <h1>Hi, Welcomeback!</h1>
-                    <span>JustDo Doctor schedule,</span>
-                </div>
-                <div class="col-xl-8 col-md-12 col-sm-12 text-md-right">
-                    <div
-                        class="d-flex align-items-center justify-content-md-end mt-4 mt-md-0 flex-wrap vivify pullUp delay-550">
-                        <div class="border-right pr-4 mr-4 mb-3 mb-xl-0 hidden-xs">
-                            <p class="text-muted mb-1">Travel</p>
-                            <h5 class="mb-0">12</h5>
-                        </div>
-                        <div class="border-right pr-4 mr-4 mb-3 mb-xl-0">
-                            <p class="text-muted mb-1">Important</p>
-                            <h5 class="mb-0">13</h5>
-                        </div>
-                        <div class="pr-4 mb-3 mb-xl-0">
-                            <p class="text-muted mb-1">Work</p>
-                            <h5 class="mb-0">25</h5>
-                        </div>
-                    </div>
-                </div>
-            </div>
+  <div class="container-fluid">
+    <div class="block-header">
+      <div class="row clearfix">
+        <div class="col-lg-8 col-md-12">
+          <h1>Doctor Schedule</h1>
+          <span>Set working hours day by day, mark leave dates, and review booked appointments.</span>
         </div>
-
-        <div class="row clearfix">
-            <div class="col-md-12 social">
-                <div class="card">
-                    <div class="profile-header d-flex justify-content-between justify-content-center theme-bg gradient">
-                        <div class="d-flex">
-                            <div class="mr-3">
-                                <img src="assets/images/user.png" class="rounded" alt="">
-                            </div>
-                            <div class="details">
-                                <h5 class="mb-0">Dr. Alan Green</h5>
-                                <span class="text-light">Gynaecologist</span>
-                                <p class="mb-0">795 Folsom Ave, Suite 600 San Francisco, 94107</p>
-                            </div>
-                        </div>
-                        <div>
-                            <button class="btn btn-default btn-sm">View Profile</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12">
-                <nav class="navbar  navbar-expand-lg page_menu">
-                    <a class="navbar-brand" href="#">M.</a>
-                    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown"
-                        aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
-                        <i class="fa fa-bars text-muted"></i>
-                    </button>
-                    <div class="collapse navbar-collapse" id="navbarNavDropdown">
-                        <ul   class="navbar-nav d-flex mr-auto">
-                            <li class="nav-item active"><a class="nav-link" [routerLink]="['/doctors-schedule']"
-                                    href="javascript:void(0)">Calendar</a></li>
-                            <li class="nav-item"><a class="nav-link" [routerLink]="['/doctorschedule/events']"
-                                    href="javascript:void(0)">Events</a></li>
-                            <li class="nav-item"><a class="nav-link" href="javascript:void(0)">Campaign</a></li>
-                            <li class="nav-item"><a class="nav-link" href="javascript:void(0)">Conference</a></li>
-                        </ul>
-                        <div class="ml-auto">
-                            <a [routerLink]="['/settings']" href="javascript:void(0)"
-                                class="btn btn-default">Settings</a>
-                            <button type="button" class="btn btn-secondary ml-1">Add
-                                New Event</button>
-                        </div>
-                    </div>
-                </nav>
-            </div>
-            <div class="col-12">
-                <div class="card">
-                    <div class="body">
-                        <app-fullcalender></app-fullcalender>
-                    </div>
-                </div>
-            </div>
+        <div class="col-lg-4 col-md-12 text-md-right">
+          <a class="btn btn-default" *ngIf="showAllDoctorsLink" [routerLink]="['/all-doctors']">All Doctors</a>
+          <a class="btn btn-primary ml-1" [routerLink]="['/appointments']">Appointments</a>
         </div>
+      </div>
     </div>
+
+    <div class="card" *ngIf="loading">
+      <div class="body">Loading schedule...</div>
+    </div>
+
+    <div class="card" *ngIf="!loading && selectedDoctor">
+      <div class="body">
+        <label class="d-block mb-3" *ngIf="canPickDoctor">
+          <span>Doctor</span>
+          <select class="form-control" [(ngModel)]="selectedDoctorId" (ngModelChange)="onDoctorChange()">
+            <option *ngFor="let doctor of doctors" [value]="doctor._id">
+              {{ doctor.user?.name || doctor.specialization || doctor._id }}
+            </option>
+          </select>
+        </label>
+
+        <p class="mb-1" *ngIf="!canPickDoctor">
+          <strong>{{ selectedDoctor.user?.name || selectedDoctor.specialization || 'Doctor' }}</strong>
+        </p>
+        <p class="mb-1"><strong>Working days:</strong> {{ days(selectedDoctor) }}</p>
+        <p class="mb-1"><strong>Hours:</strong> {{ slots(selectedDoctor) }}</p>
+        <p class="mb-3"><strong>Upcoming appointments:</strong> {{ appointments.length }}</p>
+
+        <div class="schedule-editor" *ngIf="canEditSelected">
+          <h5>Weekly hours</h5>
+          <p class="text-muted small">Select working days and set start and end time for each day.</p>
+          <label class="slot-duration-field">
+            <span>Minutes per patient</span>
+            <select class="form-control" [(ngModel)]="slotDurationMinutes" name="slotDurationMinutes">
+              <option *ngFor="let minutes of slotDurationOptions" [ngValue]="minutes">
+                {{ minutes }} minutes
+              </option>
+            </select>
+            <small>Open appointment slots are created from working hours using this duration.</small>
+          </label>
+          <div class="day-hours-row" *ngFor="let day of weekDays">
+            <label class="fancy-checkbox mb-0 day-hours-day">
+              <input type="checkbox" [(ngModel)]="dayHours[day].enabled" [name]="'day-' + day">
+              <span class="text-capitalize">{{ day }}</span>
+            </label>
+            <div class="day-hours-times">
+              <input class="form-control" type="time" [(ngModel)]="dayHours[day].startTime" [name]="'start-' + day"
+                [disabled]="!dayHours[day].enabled">
+              <span class="day-hours-sep">to</span>
+              <input class="form-control" type="time" [(ngModel)]="dayHours[day].endTime" [name]="'end-' + day"
+                [disabled]="!dayHours[day].enabled">
+            </div>
+          </div>
+
+          <h5 class="mt-4">Unavailable dates</h5>
+          <p class="text-muted small">Patients cannot book appointments on these dates.</p>
+          <div class="leave-row">
+            <input class="form-control" type="date" [(ngModel)]="leaveDate" name="leaveDate">
+            <button type="button" class="btn btn-default" (click)="addLeaveDate()">Add date</button>
+          </div>
+          <div class="leave-chips" *ngIf="unavailableDates.length">
+            <span class="leave-chip" *ngFor="let ymd of unavailableDates">
+              {{ ymd }}
+              <button type="button" (click)="removeLeaveDate(ymd)" aria-label="Remove date">&times;</button>
+            </span>
+          </div>
+          <p class="text-muted small mb-0" *ngIf="!unavailableDates.length">No leave dates set.</p>
+
+          <div class="mt-4">
+            <button type="button" class="btn btn-primary" (click)="saveSchedule()" [disabled]="saving">
+              {{ saving ? 'Saving...' : 'Save schedule' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" *ngIf="!loading">
+      <div class="body">
+        <app-fullcalender></app-fullcalender>
+      </div>
+    </div>
+  </div>
 </div>
-
-
-<ng-template #template>
-    <div class="modal-header">
-        <h5 class="modal-title" id="defaultModalLabel">Add Event</h5>
-    </div>
-    <div class="modal-body">
-        <div class="row">
-            <div class="col-lg-6 col-md-12">
-                <div class="form-group c_form_group">
-                    <label>Event Title</label>
-                    <div class="form-line">
-                        <input type="text" class="form-control" placeholder="Event Title">
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-6 col-md-12">
-                <div class="form-group c_form_group">
-                    <label>Select event date</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="icon-calendar"></i></span>
-                        </div>
-                        <input data-provide="datepicker" data-date-autoclose="true" class="form-control"
-                            placeholder="Event Date" bsDatepicker>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-12 col-md-12">
-                <div class="form-group c_form_group">
-                    <label>Description</label>
-                    <div class="form-line">
-                        <textarea rows="4" class="form-control no-resize" placeholder="Event Description..."></textarea>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-default">Close</button>
-        <button type="button" class="btn btn-dark">Add</button>
-    </div>
-</ng-template>

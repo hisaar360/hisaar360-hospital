@@ -7,8 +7,8 @@
       </div>
       <div class="lab-heading-actions catalog-heading-actions">
         <a class="btn-light" routerLink="/laboratory"><i class="fa fa-arrow-left"></i> Dashboard</a>
-        <button type="button" class="btn-light" (click)="seedDefaults()">Seed Defaults</button>
-        <button type="button" class="btn-primary" (click)="openFormModal()">
+        <button type="button" class="btn-light" *ngIf="canCreateTest()" (click)="seedDefaults()">Seed Defaults</button>
+        <button type="button" class="btn-primary" *ngIf="canCreateTest()" (click)="openFormModal()">
           <i class="fa fa-plus"></i> Add New Test
         </button>
       </div>
@@ -40,7 +40,7 @@
             <th>TAT</th>
             <th>Parameters</th>
             <th>Status</th>
-            <th>Actions</th>
+            <th *ngIf="canUpdateTest()">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -58,7 +58,7 @@
                 {{ test.isActive ? 'Active' : 'Inactive' }}
               </span>
             </td>
-            <td data-label="Actions" class="lab-actions">
+            <td data-label="Actions" class="lab-actions" *ngIf="canUpdateTest()">
               <button type="button" class="btn-light btn-sm" (click)="openEditModal(test)">
                 <i class="fa fa-pencil"></i>
                 <span>Edit</span>
@@ -66,10 +66,10 @@
             </td>
           </tr>
           <tr *ngIf="loading">
-            <td colspan="10" class="lab-empty"><i class="fa fa-spinner fa-spin"></i> Loading catalog...</td>
+            <td [attr.colspan]="canUpdateTest() ? 10 : 9" class="lab-empty"><i class="fa fa-spinner fa-spin"></i> Loading catalog...</td>
           </tr>
           <tr *ngIf="!loading && tests.length === 0">
-            <td colspan="10" class="lab-empty">No tests in catalog.</td>
+            <td [attr.colspan]="canUpdateTest() ? 10 : 9" class="lab-empty">No tests in catalog.</td>
           </tr>
         </tbody>
       </table>

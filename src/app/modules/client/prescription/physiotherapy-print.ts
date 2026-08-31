@@ -23,6 +23,7 @@ export function buildPhysiotherapyPrintHtml(
   const hospitalEmail = hospital?.email || '-';
   const hospitalAddress = [hospital?.address, hospital?.city, hospital?.country].filter(Boolean).join(', ') || '-';
   const hospitalLogoUrl = safeLogoUrl(hospital?.logoUrl);
+  const hospitalLogoScale = Math.min(200, Math.max(50, Number(hospital?.prescriptionSettings?.logoScale) || 100));
   const patientName = `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || '-';
   const patientAge = getPatientAgeYears(patient.dateOfBirth || null);
   const visitDate = formatPrintDate(prescription.createdAt || new Date().toISOString());
@@ -127,10 +128,13 @@ export function buildPhysiotherapyPrintHtml(
       padding-bottom: 10px;
     }
     .brand img {
+      background: transparent;
       display: block;
       max-height: 52px;
       max-width: 150px;
       object-fit: contain;
+      transform: scale(${hospitalLogoScale / 100});
+      transform-origin: left center;
     }
     .brand-fallback strong {
       color: ${NAVY};

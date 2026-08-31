@@ -155,11 +155,11 @@
             <button type="button" class="btn-light" [disabled]="!offline.online() || offline.syncing() || offline.pendingCount() === 0" (click)="syncOfflineWork()">
               Sync
             </button>
-            <button type="button" class="btn-light" [disabled]="sendingDaySummary" (click)="sendDoctorDaySummaryEmail()">
+            <button *ngIf="canSendDoctorDaySummary" type="button" class="btn-light" [disabled]="sendingDaySummary" (click)="sendDoctorDaySummaryEmail()">
               <i class="fa" [ngClass]="sendingDaySummary ? 'fa-spinner fa-spin' : 'fa-envelope'"></i>
               {{ sendingDaySummary ? 'Sending...' : 'Email Day Summary' }}
             </button>
-            <a class="btn-light" routerLink="/prescriptions/created">Created Prescriptions</a>
+            <a *ngIf="canReadPrescriptions" class="btn-light" routerLink="/prescriptions/created">Created Prescriptions</a>
             <button type="button" class="btn-light theme-select-btn" (click)="openPrescriptionThemeModal()">
               <i class="fa fa-paint-brush"></i>
               Theme: {{ activePrescriptionTemplateLabel }}
@@ -172,6 +172,28 @@
             </button>
           </div>
         </div>
+
+        <section
+          #saveValidationSummary
+          class="prescription-save-validation"
+          *ngIf="saveValidationMessages.length"
+          role="alert"
+          aria-live="assertive"
+          tabindex="-1">
+          <div class="prescription-save-validation__icon" aria-hidden="true">
+            <i class="fa fa-exclamation-triangle"></i>
+          </div>
+          <div class="prescription-save-validation__content">
+            <strong>Prescription could not be saved</strong>
+            <span>Please fix the following before trying again:</span>
+            <ul>
+              <li *ngFor="let message of saveValidationMessages">{{ message }}</li>
+            </ul>
+          </div>
+          <button type="button" (click)="dismissSaveValidation()" aria-label="Dismiss validation message">
+            &times;
+          </button>
+        </section>
 
         <div class="consultation-grid" [class.consultation-grid-gynae]="isGynaeDoctor()">
           <label>
@@ -1325,7 +1347,7 @@
             <div class="section-heading">
               <h3>Medicines</h3>
               <div class="medicine-heading-actions">
-                <button type="button" (click)="openDoctorMedicineModal()">+ Add Doctor Medicine</button>
+                <button *ngIf="canCreatePrescriptions" type="button" (click)="openDoctorMedicineModal()">+ Add Doctor Medicine</button>
                 <button type="button" (click)="addMedicineFromShortcut()"
                   [title]="'Add medicine row (' + addMedicineShortcutLabel() + ')'">
                   + Add Medicine
@@ -1472,7 +1494,7 @@
                         <button type="button" title="Edit medicine" (click)="focusMedicineRow(i)">
                           <i class="fa fa-pen"></i>
                         </button>
-                        <button type="button" title="Save doctor medicine" (click)="openDoctorMedicineModal(i)">
+                        <button *ngIf="canCreatePrescriptions" type="button" title="Save doctor medicine" (click)="openDoctorMedicineModal(i)">
                           <i class="fa fa-book-medical"></i>
                         </button>
                         <button type="button" title="Duplicate medicine" (click)="duplicateMedicine(i)">
@@ -1704,7 +1726,7 @@
       <div class="medicine-library-footer">
         <span *ngIf="medicineLibraryLoading">Loading medicines...</span>
         <div>
-          <button type="button" class="btn-light" (click)="saveDoctorMedicine(false)" [disabled]="savingDoctorMedicine">
+          <button type="button" class="btn-primary" (click)="saveDoctorMedicine(false)" [disabled]="savingDoctorMedicine">
             Save Medicine
           </button>
           <button type="submit" class="btn-primary" [disabled]="savingDoctorMedicine">
@@ -1840,6 +1862,7 @@
       <div class="print-preview-scroll">
         <div class="print-preview-loading" *ngIf="printPreviewLoading">Loading prescription preview...</div>
         <div class="prescription-print-host" #printContent
+          [style.--prescription-logo-scale]="preview.hospitalLogoScale / 100"
           [class.prescription-eye-sheet]="preview.specialtySection === 'eye'"
           *ngIf="!printPreviewLoading && printPreviewData as preview">
           <ng-container *ngIf="usesGynaeWomensHealthPrint(preview)">
@@ -2755,6 +2778,7 @@
         <button type="button" class="modal-close-btn" (click)="closeVitalsModal()">&times;</button>
       </div>
 
+      <div class="vitals-modal-body">
       <div class="vitals-modal-grid">
         <label><span>Weight</span><input formControlName="weight" placeholder="12 Kg" /></label>
         <label><span>Height</span><input formControlName="height" placeholder="95 cm" /></label>
@@ -2796,8 +2820,9 @@
           </div>
         </div>
       </div>
+      </div>
 
-      <div class="medicine-library-footer">
+      <div class="medicine-library-footer vitals-modal-footer">
         <div>
           <button type="button" class="btn-light" (click)="closeVitalsModal()">Cancel</button>
           <button type="submit" class="btn-primary">Save Vitals</button>

@@ -265,9 +265,20 @@ export class CreatedLabReportsComponent implements OnInit, OnDestroy {
   }
 
   private loadHospital(): void {
-    this.backend.getMe().subscribe({
-      next: (user) => {
-        this.hospital = user.hospital || null;
+    this.backend.getLabSettings().subscribe({
+      next: (settings) => {
+        this.hospital = {
+          _id: settings.hospital._id || '',
+          name: settings.hospital.name,
+          code: '',
+          status: 'active',
+          phone: settings.hospital.phone,
+          email: settings.hospital.email,
+          address: settings.hospital.address,
+          city: settings.hospital.city,
+          logoUrl: settings.hospital.logoUrl,
+          laboratorySettings: settings.laboratorySettings,
+        };
       },
       error: () => undefined,
     });

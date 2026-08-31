@@ -92,6 +92,40 @@
                     </div>
 
                     <div class="allotment-field">
+                        <label for="admissionReason">Admission Reason</label>
+                        <input id="admissionReason" class="allotment-input" type="text" formControlName="admissionReason" />
+                    </div>
+
+                    <div class="allotment-grid-2">
+                        <div class="allotment-field">
+                            <label for="advanceAmount">Admission Advance</label>
+                            <input id="advanceAmount" class="allotment-input" type="number" formControlName="advanceAmount" min="0" />
+                        </div>
+                        <div class="allotment-field">
+                            <label for="advanceMethod">Advance Method</label>
+                            <select id="advanceMethod" class="allotment-input allotment-select" formControlName="advanceMethod">
+                                <option value="cash">Cash</option>
+                                <option value="bank">Bank</option>
+                                <option value="card">Card</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="allotment-grid-2">
+                        <div class="allotment-field">
+                            <label for="securityAmount">Security / Deposit</label>
+                            <input id="securityAmount" class="allotment-input" type="number" formControlName="securityAmount" min="0" />
+                        </div>
+                        <div class="allotment-field">
+                            <label for="securityMethod">Security Method</label>
+                            <select id="securityMethod" class="allotment-input allotment-select" formControlName="securityMethod">
+                                <option value="cash">Cash</option>
+                                <option value="bank">Bank</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="allotment-field">
                         <label for="admittedAt">Admitted At</label>
                         <input id="admittedAt" class="allotment-input allotment-input--datetime" type="datetime-local"
                             formControlName="admittedAt" />

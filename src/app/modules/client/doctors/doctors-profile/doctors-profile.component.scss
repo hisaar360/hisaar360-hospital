@@ -28,6 +28,31 @@
   display: flex;
 }
 
+.doctor-profile-photo {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.doctor-profile-photo img {
+  height: 120px;
+  object-fit: cover;
+  width: 120px;
+}
+
+.doctor-profile-initials {
+  align-items: center;
+  background: #e2e8f0;
+  border-radius: 50%;
+  color: #334155;
+  display: inline-flex;
+  font-size: 32px;
+  font-weight: 700;
+  height: 120px;
+  justify-content: center;
+  width: 120px;
+}
+
 .fancy-radio input[type="radio"] + span i {
   display: inline-block;
   vertical-align: middle;

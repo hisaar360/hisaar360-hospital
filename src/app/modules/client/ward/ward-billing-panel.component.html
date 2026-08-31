@@ -1,0 +1,257 @@
+<div class="ward-billing-panel" *ngIf="!loading; else loadingTpl">
+  <div class="ward-billing-kpis" *ngIf="mode === 'billing' || mode === 'payments' || mode === 'settlement'">
+    <div class="ward-billing-kpi"><span>Total Charges</span><strong>{{ money(summary['netPayable']) }}</strong></div>
+    <div class="ward-billing-kpi"><span>Paid</span><strong>{{ money(summary['totalPaid']) }}</strong></div>
+    <div class="ward-billing-kpi"><span>Security Held</span><strong>{{ money(summary['securityDepositHeld']) }}</strong></div>
+    <div class="ward-billing-kpi"><span>Outstanding</span><strong>{{ money(summary['outstandingBalance'] ?? summary['balance']) }}</strong></div>
+    <div class="ward-billing-kpi"><span>Advance Credit</span><strong>{{ money(summary['advanceCreditBalance']) }}</strong></div>
+    <div class="ward-billing-kpi"><span>Pending Pharmacy Settlement</span><strong>{{ money(summary['pendingPharmacySettlement']) }}</strong></div>
+  </div>
+
+  <ng-container [ngSwitch]="mode">
+    <div *ngSwitchCase="'billing'">
+      <div class="ward-billing-form">
+        <h4>Add Ward Charge</h4>
+        <div class="ward-billing-form__row">
+          <input [(ngModel)]="chargeForm.title" placeholder="Charge description" />
+          <input type="number" [(ngModel)]="chargeForm.rate" placeholder="Rate" />
+          <button type="button" class="btn btn-primary btn-sm" (click)="addCharge()">Add Charge</button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm ward-table">
+          <thead><tr><th>Date</th><th>Item</th><th>Category</th><th>Qty</th><th>Rate</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let item of ledgerItems">
+              <td>{{ asDate(item['createdAt']) | date:'short' }}</td>
+              <td>{{ item['title'] }}</td>
+              <td>{{ item['category'] || item['sourceType'] }}</td>
+              <td>{{ item['qty'] }}</td>
+              <td>{{ money(item['rate']) }}</td>
+              <td>{{ money(item['netAmount'] || item['amount']) }}</td>
+              <td>{{ item['status'] }}</td>
+            </tr>
+            <tr *ngIf="ledgerItems.length === 0"><td colspan="7" class="text-muted">No charges yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div *ngSwitchCase="'payments'">
+      <div class="ward-billing-form">
+        <h4>Collect Payment</h4>
+        <div class="ward-billing-form__row">
+          <input type="number" [(ngModel)]="paymentForm.amount" placeholder="Amount" />
+          <select [(ngModel)]="paymentForm.method"><option value="cash">Cash</option><option value="bank">Bank</option><option value="card">Card</option></select>
+          <select [(ngModel)]="paymentForm.type"><option value="partial">Partial</option><option value="final">Final</option><option value="advance">Advance</option></select>
+          <button type="button" class="btn btn-primary btn-sm" (click)="collectPayment()">Collect</button>
+        </div>
+      </div>
+      <div class="ward-billing-form">
+        <h4>Security / Deposit</h4>
+        <div class="ward-billing-form__row">
+          <input type="number" [(ngModel)]="securityForm.amount" placeholder="Security amount" />
+          <select [(ngModel)]="securityForm.method"><option value="cash">Cash</option><option value="bank">Bank</option></select>
+          <button type="button" class="btn btn-outline-primary btn-sm" (click)="collectSecurity()">Collect Security</button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm ward-table">
+          <thead><tr><th>Receipt</th><th>Date</th><th>Type</th><th>Method</th><th>Amount</th><th>Note</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let payment of ledgerPayments">
+              <td>{{ payment['paymentNo'] }}</td>
+              <td>{{ asDate(payment['createdAt']) | date:'short' }}</td>
+              <td>{{ payment['type'] }}</td>
+              <td>{{ payment['method'] }}</td>
+              <td>{{ money(payment['amount']) }}</td>
+              <td>{{ payment['note'] }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div *ngSwitchCase="'settlement'">
+      <div class="table-responsive">
+        <table class="table table-sm ward-table">
+          <thead><tr><th>Sale</th><th>Amount</th><th>Patient Paid</th><th>Collected By</th><th>Internal Settlement</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let row of settlements">
+              <td>{{ row['saleInvoiceNo'] || '—' }}</td>
+              <td>{{ money(row['pharmacyAmount']) }}</td>
+              <td>{{ row['patientPaymentStatus'] }}</td>
+              <td>{{ row['collectedByDepartment'] || '—' }}</td>
+              <td><span [ngClass]="settlementClass(row['settlementStatus'])">{{ row['settlementStatus'] }}</span></td>
+            </tr>
+            <tr *ngIf="settlements.length === 0"><td colspan="5" class="text-muted">No pharmacy settlement records.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div *ngSwitchCase="'medicines'">
+      <div class="ward-billing-form">
+        <h4>Create Medicine Request</h4>
+        <div class="ward-billing-form__row">
+          <input [(ngModel)]="medicineForm.productId" placeholder="Product ID" />
+          <input type="number" [(ngModel)]="medicineForm.requestedQty" placeholder="Qty" />
+          <input [(ngModel)]="medicineForm.notes" placeholder="Notes" />
+          <button type="button" class="btn btn-primary btn-sm" (click)="createMedicineRequest()">Request</button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm ward-table">
+          <thead><tr><th>Request No</th><th>Date</th><th>Items</th><th>Status</th><th>Sales</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let row of medicineRequests">
+              <td>{{ row['requestNo'] }}</td>
+              <td>{{ asDate(row['requestedAt']) | date:'short' }}</td>
+              <td>
+                <div *ngFor="let item of requestItems(row)">
+                  {{ item['productName'] }} — req {{ item['requestedQty'] }} / issued {{ item['issuedQty'] || 0 }}
+                </div>
+              </td>
+              <td>{{ row['status'] }}</td>
+              <td>{{ saleCount(row) }}</td>
+            </tr>
+            <tr *ngIf="medicineRequests.length === 0"><td colspan="5" class="text-muted">No medicine requests yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h4 class="mt-3">Pharmacy Charges</h4>
+      <div class="table-responsive">
+        <table class="table table-sm ward-table">
+          <thead><tr><th>Date</th><th>Medicine Charge</th><th>Amount</th><th>Sale Ref</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let item of ledgerItems">
+              <ng-container *ngIf="item['sourceType'] === 'pharmacy'">
+                <td>{{ asDate(item['createdAt']) | date:'short' }}</td>
+                <td>{{ item['title'] }}</td>
+                <td>{{ money(item['netAmount'] || item['amount']) }}</td>
+                <td>{{ item['sourceId'] }}</td>
+              </ng-container>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div *ngSwitchCase="'procedures'">
+      <div class="ward-billing-form">
+        <h4>Schedule Procedure</h4>
+        <div class="ward-billing-form__row">
+          <input [(ngModel)]="procedureForm.procedureName" placeholder="Procedure name" />
+          <input [(ngModel)]="procedureForm.procedureType" placeholder="Type" />
+          <input type="number" [(ngModel)]="procedureForm.rate" placeholder="Rate" />
+          <input type="number" [(ngModel)]="procedureForm.qty" placeholder="Qty" />
+          <button type="button" class="btn btn-primary btn-sm" (click)="createProcedure()">Schedule</button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm ward-table">
+          <thead><tr><th>No</th><th>Name</th><th>Rate</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr *ngFor="let row of procedures">
+              <td>{{ row['procedureNo'] }}</td>
+              <td>{{ row['procedureName'] }}</td>
+              <td>{{ money(row['amount']) }}</td>
+              <td>{{ row['status'] }}</td>
+              <td>
+                <button *ngIf="row['status'] === 'SCHEDULED'" class="btn btn-sm btn-outline-primary" (click)="completeProcedure(asId(row['_id']))">Complete</button>
+                <button *ngIf="row['status'] === 'SCHEDULED'" class="btn btn-sm btn-outline-secondary" (click)="cancelProcedure(asId(row['_id']))">Cancel</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div *ngSwitchCase="'operations'">
+      <div class="ward-billing-form">
+        <h4>Schedule Operation</h4>
+        <div class="ward-billing-form__row">
+          <input [(ngModel)]="operationForm.operationName" placeholder="Operation name" />
+          <input [(ngModel)]="operationForm.otRoom" placeholder="OT Room" />
+          <input type="number" [(ngModel)]="operationForm.baseCharge" placeholder="Base charge" />
+          <button type="button" class="btn btn-primary btn-sm" (click)="createOperation()">Schedule</button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm ward-table">
+          <thead><tr><th>No</th><th>Name</th><th>Charge</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr *ngFor="let row of operations">
+              <td>{{ row['operationNo'] }}</td>
+              <td>{{ row['operationName'] }}</td>
+              <td>{{ money(row['totalCharge']) }}</td>
+              <td>{{ row['status'] }}</td>
+              <td>
+                <button *ngIf="row['status'] === 'SCHEDULED'" class="btn btn-sm btn-outline-primary" (click)="completeOperation(asId(row['_id']))">Complete</button>
+                <button *ngIf="row['status'] === 'SCHEDULED'" class="btn btn-sm btn-outline-secondary" (click)="cancelOperation(asId(row['_id']))">Cancel</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div *ngSwitchCase="'discharge'" class="ward-discharge-statement">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Final Discharge Statement</h4>
+        <button class="btn btn-sm btn-outline-primary" (click)="printDischarge()">Print</button>
+      </div>
+      <div class="ward-summary-grid">
+        <div><span>Gross Charges</span><strong>{{ money(dischargeStatement['grossCharges']) }}</strong></div>
+        <div><span>Discount</span><strong>{{ money(dischargeStatement['totalDiscount']) }}</strong></div>
+        <div><span>Net Charges</span><strong>{{ money(dischargeStatement['netCharges']) }}</strong></div>
+        <div><span>Previous Payments</span><strong>{{ money(dischargeStatement['previousPayments']) }}</strong></div>
+        <div><span>Advance Credit</span><strong>{{ money(dischargeStatement['advanceCreditBalance']) }}</strong></div>
+        <div><span>Security Held</span><strong>{{ money(dischargeStatement['securityAvailable']) }}</strong></div>
+        <div><span>Balance Due</span><strong>{{ money(dischargeStatement['balanceDue']) }}</strong></div>
+        <div><span>Refund Due</span><strong>{{ money(dischargeStatement['patientRefundDue']) }}</strong></div>
+      </div>
+      <h5 class="mt-3">Pharmacy Settlement</h5>
+      <p>
+        Pharmacy Charges: {{ money(pharmacySettlement()['pharmacyCharges']) }} ·
+        Pending: {{ pharmacySettlement()['pendingCount'] || 0 }} ·
+        Settled: {{ pharmacySettlement()['settledCount'] || 0 }}
+      </p>
+    </div>
+
+    <div *ngSwitchCase="'doctor-visits'">
+      <div class="ward-billing-form">
+        <h4>Schedule Doctor Visit</h4>
+        <div class="ward-billing-form__row">
+          <input [(ngModel)]="visitForm.doctorId" placeholder="Doctor profile ID" />
+          <select [(ngModel)]="visitForm.visitType">
+            <option value="regular_round">Regular Round</option>
+            <option value="consultant">Consultant</option>
+            <option value="emergency">Emergency</option>
+            <option value="follow_up">Follow-up</option>
+          </select>
+          <input type="number" [(ngModel)]="visitForm.fee" placeholder="Fee" />
+          <button type="button" class="btn btn-primary btn-sm" (click)="createVisit()">Schedule</button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm ward-table">
+          <thead><tr><th>Date</th><th>Type</th><th>Fee</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr *ngFor="let visit of doctorVisits">
+              <td>{{ asDate(visit['visitDate']) | date:'shortDate' }} {{ visit['visitTime'] }}</td>
+              <td>{{ visit['visitType'] }}</td>
+              <td>{{ money(visit['fee']) }}</td>
+              <td>{{ visit['status'] }}</td>
+              <td><button *ngIf="visit['status'] !== 'completed'" class="btn btn-sm btn-outline-primary" (click)="completeVisit(asId(visit['_id']))">Complete</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </ng-container>
+</div>
+
+<ng-template #loadingTpl>
+  <div class="ward-billing-loading">Loading billing data...</div>
+</ng-template>

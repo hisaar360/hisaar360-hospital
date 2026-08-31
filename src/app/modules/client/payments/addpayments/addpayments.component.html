@@ -1,98 +1,128 @@
-<div id="main-content">
-    <div class="container-fluid">
-        <div class="block-header">
-            <div class="row clearfix">
-                <div class="col-lg-4 col-md-12 col-sm-12">
-                    <h1>Add Invoice</h1>
-                    <span>Create hospital bill</span>
-                </div>
-            </div>
+<div id="main-content" class="pharmacy-page">
+  <div class="pharmacy-shell pharmacy-admin-page">
+    <header class="pharmacy-hero">
+      <div class="pharmacy-hero-main">
+        <a class="pharmacy-back-link" routerLink="/payments/invoices">&larr; Back to Invoices</a>
+        <h1>Add Invoice</h1>
+        <p>Create a hospital bill. Encounter charges and collections stay on Patient Ledger.</p>
+      </div>
+      <div class="pharmacy-hero-actions">
+        <a class="btn btn-default" routerLink="/payments">Patient Payments</a>
+        <a class="btn btn-outline-primary" routerLink="/payments/ledger">Patient Ledger</a>
+      </div>
+    </header>
+
+    <form [formGroup]="billForm" (ngSubmit)="submitBill()">
+      <div class="pharmacy-filter-card">
+        <div class="pharmacy-filter-head">
+          <div>
+            <h2>Patient</h2>
+            <p>Select the patient. Appointment is optional and limited to that patient.</p>
+          </div>
         </div>
-
-        <div class="row clearfix">
-            <div class="col-sm-12">
-                <div class="card">
-                    <div class="body">
-                        <form [formGroup]="billForm" (ngSubmit)="submitBill()">
-                            <div class="form-group row">
-                                <label class="col-sm-2 col-form-label">Patient Information</label>
-                                <div class="col-md-6 col-sm-10">
-                                    <div class="form-group">
-                                        <select class="form-control" formControlName="patientId">
-                                            <option value="">Select patient</option>
-                                            <option *ngFor="let patient of patients" [value]="patient._id">{{ patientName(patient) }}</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <select class="form-control" formControlName="appointmentId">
-                                            <option value="">Optional appointment</option>
-                                            <option *ngFor="let appointment of appointments" [value]="appointment._id">
-                                                {{ appointment.appointmentNo }} - {{ appointment.appointmentDate | date:'mediumDate' }}
-                                            </option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="form-group row mt-5">
-                                <label class="col-sm-2 col-form-label">Bill Items</label>
-                                <div class="col-md-8 col-sm-10">
-                                    <div formArrayName="items">
-                                        <div class="row mb-2" *ngFor="let item of items.controls; let i = index" [formGroupName]="i">
-                                            <div class="col-md-5">
-                                                <input class="form-control" placeholder="Description" formControlName="description">
-                                            </div>
-                                            <div class="col-md-2">
-                                                <input class="form-control" type="number" placeholder="Qty" formControlName="quantity">
-                                            </div>
-                                            <div class="col-md-3">
-                                                <input class="form-control" type="number" placeholder="Unit price" formControlName="unitPrice">
-                                            </div>
-                                            <div class="col-md-2">
-                                                <button type="button" class="btn btn-danger btn-block" (click)="removeItem(i)">Remove</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <button type="button" class="btn btn-default" (click)="addItem()">Add Item</button>
-                                </div>
-                            </div>
-
-                            <div class="form-group row mt-5">
-                                <label class="col-sm-2 col-form-label">Payment Information</label>
-                                <div class="col-md-6 col-sm-10">
-                                    <div class="row">
-                                        <div class="col-md-4 form-group">
-                                            <label>Discount</label>
-                                            <input type="number" class="form-control" formControlName="discount">
-                                        </div>
-                                        <div class="col-md-4 form-group">
-                                            <label>Tax</label>
-                                            <input type="number" class="form-control" formControlName="tax">
-                                        </div>
-                                        <div class="col-md-4 form-group">
-                                            <label>Paid Amount</label>
-                                            <input type="number" class="form-control" formControlName="paidAmount">
-                                        </div>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Payment Method</label>
-                                        <select class="form-control" formControlName="paymentMethod">
-                                            <option *ngFor="let method of paymentMethods" [value]="method">{{ method }}</option>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <strong>Subtotal:</strong> {{ subtotal() }} |
-                                        <strong>Grand Total:</strong> {{ grandTotal() }}
-                                    </div>
-                                    <button class="subscribe btn btn-primary btn-block" type="submit" [disabled]="saving">
-                                        {{ saving ? 'Saving...' : 'Confirm' }}
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
+        <div class="pharmacy-filter-grid">
+          <label>
+            <span>Patient</span>
+            <select class="form-select" formControlName="patientId">
+              <option value="">Select patient</option>
+              <option *ngFor="let patient of patients" [value]="patient._id">{{ patientName(patient) }}</option>
+            </select>
+          </label>
+          <label>
+            <span>Appointment (optional)</span>
+            <select class="form-select" formControlName="appointmentId">
+              <option value="">No appointment</option>
+              <option *ngFor="let appointment of filteredAppointments()" [value]="appointment._id">
+                {{ appointment.appointmentNo }} · {{ appointment.appointmentDate | date:'mediumDate' }}
+              </option>
+            </select>
+          </label>
         </div>
-    </div>
+      </div>
+
+      <div class="pharmacy-table-card">
+        <div class="pharmacy-table-head">
+          <div>
+            <h2>Bill Items</h2>
+            <p>Description, quantity, and unit price for each charge line.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive" formArrayName="items">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Qty</th>
+                  <th>Unit price</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of items.controls; let i = index" [formGroupName]="i">
+                  <td><input class="form-control" placeholder="Consultation, dressing..." formControlName="description" /></td>
+                  <td><input class="form-control" type="number" min="1" formControlName="quantity" /></td>
+                  <td><input class="form-control" type="number" min="0" formControlName="unitPrice" /></td>
+                  <td class="text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItem(i)" [disabled]="items.length === 1">Remove</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <button type="button" class="btn btn-default mt-2" (click)="addItem()">Add item</button>
+        </div>
+      </div>
+
+      <div class="pharmacy-summary-card">
+        <div class="pharmacy-table-head">
+          <div>
+            <h2>Payment</h2>
+            <p>Discount, tax, and optional payment recorded with this bill.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="pharmacy-filter-grid">
+            <label>
+              <span>Discount</span>
+              <input class="form-control" type="number" min="0" formControlName="discount" />
+            </label>
+            <label>
+              <span>Tax</span>
+              <input class="form-control" type="number" min="0" formControlName="tax" />
+            </label>
+            <label>
+              <span>Paid amount</span>
+              <input class="form-control" type="number" min="0" formControlName="paidAmount" />
+            </label>
+            <label>
+              <span>Payment method</span>
+              <select class="form-select" formControlName="paymentMethod">
+                <option *ngFor="let method of paymentMethods" [value]="method">{{ method }}</option>
+              </select>
+            </label>
+          </div>
+          <div class="pharmacy-stats-grid mt-3">
+            <article class="pharmacy-stat-card">
+              <span>Subtotal</span>
+              <strong>{{ subtotal() | number:'1.0-0' }}</strong>
+            </article>
+            <article class="pharmacy-stat-card">
+              <span>Grand Total</span>
+              <strong>{{ grandTotal() | number:'1.0-0' }}</strong>
+            </article>
+            <article class="pharmacy-stat-card">
+              <span>Balance</span>
+              <strong>{{ remaining() | number:'1.0-0' }}</strong>
+            </article>
+          </div>
+          <div class="mt-3">
+            <button class="btn btn-primary" type="submit" [disabled]="saving">
+              {{ saving ? 'Saving...' : 'Save Invoice' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
 </div>

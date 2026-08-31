@@ -5,7 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
-import { LabDashboardStats, LabOrder, LabOrderStatus, User } from '../../../shared/models/hospital.model';
+import { LabDashboardStats, LabOrder, LabOrderStatus, Hospital, User } from '../../../shared/models/hospital.model';
 import { printLabSampleLabels } from './lab-sample-label.builder';
 import { canEditLabOrder, hasPendingSampleCollection } from './lab-order.utils';
 
@@ -39,6 +39,7 @@ export class LabDashboardComponent implements OnInit, OnDestroy {
   totalPages = 0;
   totalOrders = 0;
   lastLoadError = '';
+  hospital: Hospital | null = null;
   private searchDebounceId: ReturnType<typeof setTimeout> | null = null;
 
   readonly tabs: Array<{ key: LabTab; label: string }> = [
@@ -58,6 +59,7 @@ export class LabDashboardComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.loadHospital();
     this.loadDashboard();
   }
 
@@ -65,6 +67,28 @@ export class LabDashboardComponent implements OnInit, OnDestroy {
     if (this.searchDebounceId) {
       clearTimeout(this.searchDebounceId);
     }
+  }
+
+  private loadHospital(): void {
+    this.backend.getLabSettings().subscribe({
+      next: (settings) => {
+        this.hospital = {
+          _id: settings.hospital._id || '',
+          name: settings.hospital.name,
+          code: '',
+          status: 'active',
+          phone: settings.hospital.phone,
+          email: settings.hospital.email,
+          address: settings.hospital.address,
+          city: settings.hospital.city,
+          logoUrl: settings.hospital.logoUrl,
+          laboratorySettings: settings.laboratorySettings,
+        };
+      },
+      error: () => {
+        this.hospital = null;
+      },
+    });
   }
 
   loadDashboard(): void {
@@ -208,11 +232,40 @@ export class LabDashboardComponent implements OnInit, OnDestroy {
   }
 
   canEditOrder(order: LabOrder): boolean {
-    return canEditLabOrder(order);
+    return this.backend.hasPermission('lab_orders.update') && canEditLabOrder(order);
   }
 
   canCollectSample(order: LabOrder): boolean {
-    return hasPendingSampleCollection(order);
+    return (
+      this.backend.hasPermission('lab_orders.update') && hasPendingSampleCollection(order)
+    );
+  }
+
+  canViewLabOrders(): boolean {
+    return this.backend.hasPermission('lab_orders.read');
+  }
+
+  canCreateLabOrder(): boolean {
+    return this.backend.hasPermission('lab_orders.create');
+  }
+
+  canViewLabCatalog(): boolean {
+    return (
+      this.backend.hasPermission('lab_tests.create') ||
+      this.backend.hasPermission('lab_tests.update') ||
+      (this.backend.hasPermission('lab_tests.read') && this.backend.hasPermission('lab_orders.create'))
+    );
+  }
+
+  canManageLabSettings(): boolean {
+    return this.backend.hasPermission('lab_tests.update');
+  }
+
+  canViewLabCollections(): boolean {
+    return (
+      this.backend.hasPermission('ledger_payments.read') ||
+      this.backend.hasPermission('bills.read')
+    );
   }
 
   editOrder(order: LabOrder, event: Event): void {
@@ -228,6 +281,10 @@ export class LabDashboardComponent implements OnInit, OnDestroy {
 
   collectSample(order: LabOrder, event: Event): void {
     event.stopPropagation();
+    if (!this.backend.hasPermission('lab_orders.update')) {
+      return;
+    }
+
     const orderId = this.orderId(order);
     if (!orderId) {
       this.toastr.error('Unable to collect sample because the lab order ID is missing.');
@@ -240,7 +297,7 @@ export class LabDashboardComponent implements OnInit, OnDestroy {
         if (updated) {
           const labels = (updated.samples || []).filter((sample) => sample.status === 'collected');
           if (labels.length) {
-            printLabSampleLabels(updated, labels);
+            printLabSampleLabels(updated, labels, this.hospital);
           }
         }
         this.toastr.success('Sample collected and labels sent to print.');

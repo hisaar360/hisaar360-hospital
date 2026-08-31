@@ -1,0 +1,204 @@
+<div id="main-content" class="accounts-page pharmacy-page">
+  <div class="pharmacy-shell accounts-shell">
+    <header class="pharmacy-hero accounts-hero">
+      <div class="pharmacy-hero-main">
+        <h1>Doctor Performance</h1>
+        <p>Consultation, laboratory, and pharmacy performance for the selected doctor.</p>
+      </div>
+    </header>
+
+    <nav class="accounts-nav-tabs" aria-label="Accounts reports">
+      <a
+        *ngFor="let tab of accountsNav"
+        class="accounts-nav-tab"
+        [class.active]="isNavActive(tab.route)"
+        [routerLink]="['/accounts', tab.route]"
+      >
+        {{ tab.label }}
+      </a>
+      <button class="accounts-nav-tab is-action" type="button" (click)="printPage()">Print</button>
+    </nav>
+
+    <section class="accounts-filter-card">
+      <div class="accounts-filter-head">
+        <div>
+          <h2>Filters</h2>
+          <p>Select doctor and date range for consultation, lab, and pharmacy performance.</p>
+        </div>
+      </div>
+
+      <div class="accounts-filter-grid">
+        <label>
+          <span class="accounts-field-label">Doctor</span>
+          <select
+            class="form-control"
+            [(ngModel)]="selectedDoctorId"
+            (ngModelChange)="onDoctorChange()"
+            [disabled]="doctorsLoading || !doctors.length"
+          >
+            <option *ngIf="doctorsLoading" value="">Loading doctors...</option>
+            <option *ngIf="!doctorsLoading && !doctors.length" value="">No active doctors found</option>
+            <option *ngFor="let doctor of doctors" [value]="doctor.userId">
+              {{ doctorLabel(doctor) }}
+            </option>
+          </select>
+          <small *ngIf="doctorsLoadError" class="text-danger">{{ doctorsLoadError }}</small>
+        </label>
+
+        <label>
+          <span class="accounts-field-label">From date</span>
+          <input class="form-control" type="date" [(ngModel)]="fromDate" (ngModelChange)="onManualDateChange()" />
+        </label>
+
+        <label>
+          <span class="accounts-field-label">To date</span>
+          <input class="form-control" type="date" [(ngModel)]="toDate" (ngModelChange)="onManualDateChange()" />
+        </label>
+
+        <div class="accounts-filter-actions">
+          <div class="accounts-preset-row">
+            <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'today'" type="button" (click)="applyDatePreset('today')">Today</button>
+            <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'week'" type="button" (click)="applyDatePreset('week')">7 Days</button>
+            <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'month'" type="button" (click)="applyDatePreset('month')">This Month</button>
+          </div>
+          <button class="btn btn-primary" type="button" (click)="load()" [disabled]="loading">
+            {{ loading ? 'Loading...' : 'Apply' }}
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <div *ngIf="loading" class="accounts-loading">
+      <i class="fa fa-spinner fa-spin"></i>
+      Loading report...
+    </div>
+
+    <section *ngIf="!loading" class="accounts-panel">
+      <div class="accounts-panel-head">
+        <div>
+          <h3>{{ asRecord('doctor')['name'] || 'Doctor performance' }}</h3>
+          <p>
+            {{ asDate(asRecord('period')['fromDate']) | date:'mediumDate' }} -
+            {{ asDate(asRecord('period')['toDate']) | date:'mediumDate' }}
+          </p>
+        </div>
+      </div>
+
+      <div class="accounts-summary-grid accounts-summary-grid--doctor">
+        <div
+          *ngFor="let card of doctorKpiCardsList"
+          class="accounts-kpi-card accounts-kpi-card--doctor"
+          [ngClass]="['tone-' + card.tone, card.highlight ? 'is-highlight' : '']"
+        >
+          <div class="accounts-kpi-card__icon"><i class="fa" [ngClass]="card.icon"></i></div>
+          <div class="accounts-kpi-card__body">
+            <small>{{ card.label }}</small>
+            <h4>{{ card.money ? money(card.value) : card.value }}</h4>
+          </div>
+        </div>
+      </div>
+
+      <div class="accounts-panel-head">
+        <div>
+          <h3>Period breakdown</h3>
+          <p>Daily, weekly, and monthly totals for this doctor.</p>
+        </div>
+      </div>
+      <div class="accounts-segment">
+        <button class="accounts-segment-btn" [class.active]="breakdownTab === 'daily'" type="button" (click)="setBreakdownTab('daily')">Daily</button>
+        <button class="accounts-segment-btn" [class.active]="breakdownTab === 'weekly'" type="button" (click)="setBreakdownTab('weekly')">Weekly</button>
+        <button class="accounts-segment-btn" [class.active]="breakdownTab === 'monthly'" type="button" (click)="setBreakdownTab('monthly')">Monthly</button>
+      </div>
+      <div class="accounts-table-wrap">
+        <table class="table table-sm accounts-table">
+          <thead>
+            <tr>
+              <th>Period</th><th>Consultation</th><th>Lab</th><th>Pharmacy</th><th>Profit</th><th>Gross</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of breakdownRowsList">
+              <td>{{ row['period'] }}</td>
+              <td>{{ money(row['consultationFees']) }}</td>
+              <td>{{ money(row['labRevenue']) }}</td>
+              <td>{{ money(row['pharmacyRevenue']) }}</td>
+              <td>{{ money(row['pharmacyProfit']) }}</td>
+              <td>{{ money(row['grossCollected']) }}</td>
+            </tr>
+            <tr *ngIf="!breakdownRowsList.length" class="accounts-empty-row">
+              <td colspan="6">No breakdown rows for this period.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="accounts-panel-head">
+        <div>
+          <h3>Detailed activity</h3>
+          <p>Appointments, lab tests, pharmacy sales, and prescriptions.</p>
+        </div>
+      </div>
+      <div class="accounts-segment">
+        <button class="accounts-segment-btn" [class.active]="detailTab === 'appointments'" type="button" (click)="setDetailTab('appointments')">Appointments</button>
+        <button class="accounts-segment-btn" [class.active]="detailTab === 'lab'" type="button" (click)="setDetailTab('lab')">Lab tests</button>
+        <button class="accounts-segment-btn" [class.active]="detailTab === 'pharmacy'" type="button" (click)="setDetailTab('pharmacy')">Pharmacy sales</button>
+        <button class="accounts-segment-btn" [class.active]="detailTab === 'prescriptions'" type="button" (click)="setDetailTab('prescriptions')">Prescriptions</button>
+      </div>
+      <div class="accounts-table-wrap">
+        <table class="table table-sm accounts-table">
+          <thead>
+            <tr *ngIf="detailTab === 'appointments'">
+              <th>Date</th><th>Patient</th><th>Fee</th><th>Net</th><th>Status</th>
+            </tr>
+            <tr *ngIf="detailTab === 'lab'">
+              <th>Date</th><th>Order</th><th>Patient</th><th>Paid</th><th>Tests</th>
+            </tr>
+            <tr *ngIf="detailTab === 'pharmacy'">
+              <th>Date</th><th>Invoice</th><th>Patient</th><th>Revenue</th><th>Profit</th>
+            </tr>
+            <tr *ngIf="detailTab === 'prescriptions'">
+              <th>Date</th><th>Patient</th><th>Diagnosis</th><th>Meds</th><th>Lab tests</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of detailRowsList">
+              <ng-container [ngSwitch]="detailTab">
+                <ng-container *ngSwitchCase="'appointments'">
+                  <td>{{ asDate(row['date']) | date:'mediumDate' }}</td>
+                  <td>{{ row['patientName'] }}</td>
+                  <td>{{ money(row['consultationFee']) }}</td>
+                  <td>{{ money(row['netFee']) }}</td>
+                  <td>{{ row['paymentStatus'] }}</td>
+                </ng-container>
+                <ng-container *ngSwitchCase="'lab'">
+                  <td>{{ asDate(row['date']) | date:'mediumDate' }}</td>
+                  <td>{{ row['orderNo'] }}</td>
+                  <td>{{ row['patientName'] }}</td>
+                  <td>{{ money(row['paidAmount']) }}</td>
+                  <td>{{ formatTests(row['tests']) }}</td>
+                </ng-container>
+                <ng-container *ngSwitchCase="'pharmacy'">
+                  <td>{{ asDate(row['date']) | date:'mediumDate' }}</td>
+                  <td>{{ row['invoiceNo'] }}</td>
+                  <td>{{ row['patientName'] }}</td>
+                  <td>{{ money(row['revenue']) }}</td>
+                  <td>{{ money(row['profit']) }}</td>
+                </ng-container>
+                <ng-container *ngSwitchCase="'prescriptions'">
+                  <td>{{ asDate(row['date']) | date:'mediumDate' }}</td>
+                  <td>{{ row['patientName'] }}</td>
+                  <td>{{ row['diagnosis'] }}</td>
+                  <td>{{ row['medicineCount'] }}</td>
+                  <td>{{ row['labTestCount'] }}</td>
+                </ng-container>
+              </ng-container>
+            </tr>
+            <tr *ngIf="!detailRowsList.length" class="accounts-empty-row">
+              <td colspan="5">No records for this tab.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>

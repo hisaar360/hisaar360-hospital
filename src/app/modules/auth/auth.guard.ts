@@ -21,6 +21,11 @@ export const authGuard: CanActivateFn = (_route, state) => {
     return false;
   }
 
+  if (authService.isAccessTokenExpired() && !authService.hasRefreshToken()) {
+    authService.handleAuthFailure();
+    return false;
+  }
+
   if (authService.getCurrentUser()) {
     return true;
   }

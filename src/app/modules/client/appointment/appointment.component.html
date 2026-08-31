@@ -30,7 +30,7 @@
         <div>
           <p>Total Appointments Today</p>
           <strong>{{ totalAppointmentsToday }}</strong>
-          <small>+12% vs yesterday</small>
+          <small>Booked for today</small>
         </div>
       </div>
       <div class="stat-card stat-amber">
@@ -67,13 +67,20 @@
           <h2>{{ editingId ? 'Edit Appointment' : 'Create Appointment' }}</h2>
         </div>
 
-        <form [formGroup]="appointmentForm" (ngSubmit)="submitAppointment()">
+        <form [formGroup]="appointmentForm" (ngSubmit)="submitAppointment()" novalidate>
+          <div class="form-error-banner" id="appointment-form-errors" *ngIf="appointmentSubmitErrors.length">
+            <strong>Cannot save appointment</strong>
+            <ul>
+              <li *ngFor="let error of appointmentSubmitErrors">{{ error }}</li>
+            </ul>
+          </div>
+
           <div class="form-step">
             <span>1. Find Patient</span>
           </div>
 
-          <label class="field-label">Mobile Number</label>
-          <div class="phone-search">
+          <label class="field-label">Mobile Number *</label>
+          <div class="phone-search" [class.is-invalid]="showAppointmentError('patientId')">
             <input type="tel" name="patientPhone" [(ngModel)]="patientPhone" [ngModelOptions]="{ standalone: true }"
               placeholder="03004444444" (keydown.enter)="$event.preventDefault(); lookupPatientsByPhone()" />
             <button type="button" [disabled]="!canSearchPatientPhone()" (click)="lookupPatientsByPhone()">
@@ -157,8 +164,8 @@
           </div>
 
           <div class="field-error"
-            *ngIf="appointmentForm.get('patientId')?.touched && appointmentForm.get('patientId')?.invalid">
-            Select a patient from phone search results.
+            *ngIf="showAppointmentError('patientId')">
+            Patient is required. Search by mobile number, then tap Book.
           </div>
 
           <div class="form-step details-step">
@@ -166,14 +173,18 @@
           </div>
 
           <div class="form-grid">
-            <label>
+            <label [class.is-invalid]="showAppointmentError('doctorId')">
               <span>Doctor *</span>
               <select formControlName="doctorId" (change)="onDoctorChange()">
                 <option value="">Select doctor</option>
-                <option *ngFor="let doctor of doctors" [value]="doctor.userId">
+                <option *ngFor="let doctor of doctors" [value]="doctorBindingId(doctor)">
                   {{ doctorOptionLabel(doctor) }}
                 </option>
               </select>
+              <small class="field-error"
+                *ngIf="showAppointmentError('doctorId')">
+                Select a doctor.
+              </small>
             </label>
             <div class="consultation-fee-card" *ngIf="appointmentForm.value.doctorId">
               <span>Consultation Fee</span>
@@ -183,18 +194,34 @@
               <span>Discount (PKR)</span>
               <input type="number" min="0" formControlName="discount" />
             </label>
-            <label class="wide" *ngIf="(appointmentForm.value.discount || 0) > 0">
+            <label class="wide" *ngIf="(appointmentForm.value.discount || 0) > 0"
+              [class.is-invalid]="showDiscountReasonError()">
               <span>Discount Reason *</span>
               <input type="text" formControlName="discountReason" maxlength="500"
                 placeholder="e.g. Staff discount, senior citizen, referral" />
+              <small class="field-error" *ngIf="showDiscountReasonError()">
+                Enter a discount reason.
+              </small>
             </label>
             <div class="consultation-fee-card net-fee-card" *ngIf="appointmentForm.value.doctorId">
               <span>Net Fee</span>
               <strong>{{ formatConsultationFee(netConsultationFee) }}</strong>
             </div>
-            <label>
+            <label [class.is-invalid]="showAppointmentError('appointmentDate') || showDateUnavailableError()">
               <span>Date *</span>
-              <input type="date" formControlName="appointmentDate" />
+              <input type="date" formControlName="appointmentDate" (change)="refreshAvailableSlots()" />
+              <small class="text-muted d-block" *ngIf="appointmentForm.value.doctorId">
+                Available days: {{ selectedDoctorAvailableDaysLabel }}
+              </small>
+              <small class="field-error"
+                *ngIf="showAppointmentError('appointmentDate')">
+                Select an appointment date.
+              </small>
+              <small class="field-error"
+                *ngIf="showDateUnavailableError()">
+                Doctor is not available on {{ selectedAppointmentWeekdayLabel || 'this date' }}.
+                Working days: {{ selectedDoctorAvailableDaysLabel }}.
+              </small>
             </label>
             <label>
               <span>Visit Type *</span>
@@ -214,11 +241,14 @@
             </label>
             <label>
               <span>Start Time</span>
-              <input type="time" formControlName="startTime" />
+              <input type="time" step="60" formControlName="startTime" />
             </label>
             <label>
               <span>End Time</span>
-              <input type="time" formControlName="endTime" />
+              <input type="time" step="60" formControlName="endTime" />
+              <small class="status-hint" *ngIf="expectedVisitLabel">
+                Expected time: {{ expectedVisitLabel }}
+              </small>
             </label>
             <label>
               <span>Status *</span>
@@ -235,12 +265,21 @@
             </label>
           </div>
 
-          <div class="slot-row">
-            <span>Available Time Slots</span>
+          <div class="slot-row" [class.is-invalid]="showTimeSlotError()">
+            <span>Available Time Slots {{ timeSlots.length ? '*' : '' }}</span>
+            <small class="slot-hint" *ngIf="appointmentForm.value.doctorId">
+              {{ selectedSlotDurationMinutes }} minutes per patient
+            </small>
+            <p class="slot-empty" *ngIf="!slotsLoading && appointmentForm.value.doctorId && !timeSlots.length">
+              No open slots for this date. Choose another date or check the doctor's working hours.
+            </p>
+            <p class="field-error" *ngIf="showTimeSlotError()">
+              Select a time slot to continue.
+            </p>
             <div>
               <button type="button" *ngFor="let slot of timeSlots" [class.active]="isSelectedTimeSlot(slot)"
                 (click)="selectTimeSlot(slot)">
-                {{ slot }}
+                {{ formatClockTime(slot.startTime) }}
               </button>
             </div>
           </div>
@@ -308,7 +347,7 @@
 
           <div class="form-actions">
             <button class="btn-light" type="button" (click)="resetForm()">Cancel</button>
-            <button class="btn-confirm" type="submit" [disabled]="saving">
+            <button class="btn-confirm" type="button" [disabled]="saving" (click)="submitAppointment()">
               <i class="fa fa-calendar-check-o"></i>
               {{ saving ? 'Saving...' : editingId ? 'Update Appointment' : 'Confirm Appointment' }}
             </button>
@@ -329,7 +368,7 @@
         </div>
 
         <div class="filters-row">
-          <select [ngModel]="status" (ngModelChange)="status = $event; applyAppointmentFilters()">
+          <select [ngModel]="status" [ngModelOptions]="{ standalone: true }" (ngModelChange)="status = $event; applyAppointmentFilters()">
             <option value="">All Status</option>
             <option value="pending">Pending</option>
             <option value="confirmed">Confirmed</option>
@@ -337,8 +376,8 @@
             <option value="cancelled">Cancelled</option>
             <option value="no_show">No show</option>
           </select>
-          <input type="date" [(ngModel)]="dateFrom" />
-          <input type="date" [(ngModel)]="dateTo" />
+          <input type="date" [(ngModel)]="dateFrom" [ngModelOptions]="{ standalone: true }" />
+          <input type="date" [(ngModel)]="dateTo" [ngModelOptions]="{ standalone: true }" />
           <button type="button" (click)="applyAppointmentFilters()">
             <i class="fa fa-filter"></i>
             Filter
@@ -376,8 +415,7 @@
                   </div>
                 </td>
                 <td>
-                  <div class="person-cell">
-                    <span class="avatar avatar-doctor">{{ initials(appointment.doctor?.name) }}</span>
+                  <div class="person-cell person-cell-plain">
                     <div>
                       <strong>{{ appointment.doctor?.name || '-' }}</strong>
                       <small>{{ visitTypeLabel(appointment.visitType) }}</small>
@@ -390,6 +428,7 @@
                 <td class="discount-reason-cell" [title]="discountReasonLabel(appointment)">{{ discountReasonLabel(appointment) }}</td>
                 <td class="payment-cell">
                   <select class="inline-payment-select" [ngModel]="appointment.paymentStatus || 'unpaid'"
+                    [ngModelOptions]="{ standalone: true }"
                     (ngModelChange)="changeAppointmentPaymentStatus(appointment, $event)"
                     (click)="$event.stopPropagation()"
                     [disabled]="!canUpdateAppointment || isAppointmentUpdating(appointment._id)"
@@ -401,6 +440,7 @@
                 </td>
                 <td class="status-cell">
                   <select class="inline-status-select" [ngModel]="appointment.status"
+                    [ngModelOptions]="{ standalone: true }"
                     (ngModelChange)="changeAppointmentStatus(appointment, $event)"
                     (click)="$event.stopPropagation()"
                     [disabled]="!canUpdateAppointmentStatus || isAppointmentUpdating(appointment._id)"

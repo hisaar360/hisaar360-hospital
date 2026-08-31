@@ -23,6 +23,13 @@
             [queryParams]="{ patientId: patient._id, doctorId: patient.assignedDoctorId }">
             Prescriptions
           </a>
+          <a
+            class="btn btn-primary ml-2"
+            *ngIf="patient && canCreatePrescription()"
+            [routerLink]="['/prescriptions']"
+            [queryParams]="prescriptionQueryParams()">
+            New Prescription
+          </a>
         </div>
       </div>
     </div>
@@ -57,6 +64,10 @@
               <div class="summary-item">
                 <span>Prescriptions</span>
                 <strong>{{ prescriptions.length }}</strong>
+              </div>
+              <div class="summary-item">
+                <span>Lab Reports</span>
+                <strong>{{ labOrders.length }}</strong>
               </div>
               <div class="summary-item">
                 <span>Bills</span>
@@ -175,6 +186,64 @@
           <tbody *ngIf="!canOpenPrescriptions()">
             <tr>
               <td colspan="6" class="text-center text-muted">You do not have permission to view prescriptions.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="record-section card" *ngIf="patient || loading">
+      <div class="header section-header">
+        <div>
+          <h2>Laboratory Reports</h2>
+          <span>Lab tests ordered for this patient. View verified reports and write a follow-up prescription.</span>
+        </div>
+      </div>
+      <div class="body table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Order No</th>
+              <th>Date</th>
+              <th>Doctor</th>
+              <th>Tests</th>
+              <th>Status</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="labOrdersLoading">
+              <td colspan="6" class="text-center text-muted">Loading laboratory reports...</td>
+            </tr>
+            <tr *ngFor="let order of labOrders">
+              <td>{{ order.orderNo }}</td>
+              <td>{{ order.createdAt | date:'mediumDate' }}</td>
+              <td>{{ order.doctor?.name || '-' }}</td>
+              <td>{{ labTestsSummary(order) }}</td>
+              <td>
+                <span class="badge" [class.badge-success]="canPrintLabReport(order)" [class.badge-info]="!canPrintLabReport(order)">
+                  {{ labOrderStatusLabel(order) }}
+                </span>
+              </td>
+              <td class="text-right lab-order-actions">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-default mr-1"
+                  [disabled]="!canPrintLabReport(order) || isLabReportLoading(order)"
+                  (click)="printLabReport(order)">
+                  {{ isLabReportLoading(order) ? 'Opening...' : 'View Report' }}
+                </button>
+                <a
+                  class="btn btn-sm btn-primary"
+                  *ngIf="canCreatePrescription()"
+                  [routerLink]="['/prescriptions']"
+                  [queryParams]="prescriptionQueryParams(order)">
+                  New Prescription
+                </a>
+              </td>
+            </tr>
+            <tr *ngIf="!labOrdersLoading && labOrders.length === 0">
+              <td colspan="6" class="text-center text-muted">No laboratory orders found for this patient.</td>
             </tr>
           </tbody>
         </table>

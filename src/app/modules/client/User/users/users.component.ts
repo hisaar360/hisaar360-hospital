@@ -6,11 +6,13 @@ import { ToastrService } from 'ngx-toastr';
 import { AppDialogService } from '../../../../core/services/app-dialog.service';
 import { BackendService } from '../../../../core/services/backend.service';
 import { User } from '../../../../shared/models/hospital.model';
+import { ImageViewerModalComponent } from '../../../../shared/components/image-viewer-modal/image-viewer-modal.component';
+import { initialsFromName, resolveAssetUrl } from '../../../../core/utils/asset.util';
 
 @Component({
   selector: 'app-users',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, ImageViewerModalComponent],
   templateUrl: './users.component.html',
   styleUrl: './users.component.scss',
 })
@@ -19,6 +21,9 @@ export class UsersComponent implements OnInit {
   search = '';
   loading = false;
   permissions = JSON.parse(localStorage.getItem('permissions') || '[]') as string[];
+  viewerOpen = false;
+  viewerSrc = '';
+  viewerAlt = 'Staff photo';
 
   constructor(
     private backend: BackendService,
@@ -107,7 +112,26 @@ export class UsersComponent implements OnInit {
       return;
     }
 
-    this.router.navigate(['/create-user'], { state: { user } });
+    this.router.navigate(['/users', user._id, 'edit'], { state: { user } });
+  }
+
+  photoUrl(user: User): string {
+    return resolveAssetUrl(user.photoUrl);
+  }
+
+  initials(user: User): string {
+    return initialsFromName(user.name);
+  }
+
+  openPhoto(user: User, event?: Event): void {
+    event?.stopPropagation();
+    const url = this.photoUrl(user);
+    if (!url) {
+      return;
+    }
+    this.viewerSrc = url;
+    this.viewerAlt = user.name || 'Staff photo';
+    this.viewerOpen = true;
   }
 
   private hasPermission(permission: string): boolean {

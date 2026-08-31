@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { forkJoin, map, Observable, of, switchMap } from 'rxjs';
+import { forkJoin, map, Observable, of, switchMap, timeout } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { BackendService } from '../../../../core/services/backend.service';
 import {
@@ -14,6 +14,8 @@ import {
   HospitalWard,
   WardFloor,
   ListResult,
+  ProductCatalogItem,
+  Store,
   User,
 } from '../../../../shared/models/hospital.model';
 import { WardBedRecord, WardGalleryOption, WardRoomRecord } from '../ward-bed-management.models';
@@ -107,7 +109,10 @@ export class WardDataService {
   }
 
   private safeList<T>(request: Observable<ListResult<T>>): Observable<ListResult<T>> {
-    return request.pipe(catchError(() => of(this.emptyList<T>())));
+    return request.pipe(
+      timeout(12000),
+      catchError(() => of(this.emptyList<T>()))
+    );
   }
 
   loadClinicalBundle(): Observable<WardClinicalBundle> {
@@ -347,63 +352,72 @@ export class WardDataService {
 
   loadDashboard(wardFilter = ''): Observable<WardDashboardData> {
     return forkJoin({
-      bundle: this.loadClinicalBundle(),
+      summary: this.backend.getWardDashboard().pipe(catchError(() => of({} as Record<string, unknown>))),
+      allotments: this.safeList(this.backend.getRoomAllotments({ limit: 100, status: 'admitted' })),
+      rooms: this.safeList(this.backend.getRooms({ limit: 100 })),
       hospitalWards: this.safeList(this.backend.getHospitalWards({ limit: 100 })),
+      wardBeds: this.safeList(this.backend.getWardBeds({ limit: 100 })),
     }).pipe(
-      map(({ bundle, hospitalWards }) => {
-        const wards = normalizeHospitalWardRecords(hospitalWards.items);
-        const allRooms = bundle.rooms;
-        const allAllotments = bundle.allotments;
+      map((result) => {
+        const wards = normalizeHospitalWardRecords(result.hospitalWards.items);
+        const allRooms = result.rooms.items;
+        const allAllotments = result.allotments.items;
         const scopedRooms = wardFilter
           ? allRooms.filter((room) => matchesWardFilter(room, wardFilter, wards))
           : allRooms;
         const scopedAllotments = wardFilter
           ? allAllotments.filter((item) => matchesWardFilter(item.room, wardFilter, wards))
           : allAllotments;
-        const admittedCount = scopedAllotments.filter((item) => item.status === 'admitted').length;
+        const summary = ((result.summary as Record<string, unknown>)['summary'] || {}) as Record<string, number>;
         const bundleContext = {
-          doctors: bundle.doctors,
-          history: bundle.history,
-          prescriptions: bundle.prescriptions,
-          encounters: bundle.encounters,
-          labOrders: bundle.labOrders,
-          activities: bundle.activities,
+          doctors: [],
+          history: [],
+          prescriptions: [],
+          encounters: [],
+          labOrders: [],
+          activities: [],
         };
-
         const dashboardRooms = wardFilter ? scopedRooms : allRooms;
         const dashboardAllotments = wardFilter ? scopedAllotments : allAllotments;
         const dashboardRoomIds = new Set(dashboardRooms.map((room) => String(room._id)));
-        const dashboardWardBeds = bundle.wardBeds.filter((bed) =>
+        const dashboardWardBeds = result.wardBeds.items.filter((bed) =>
           dashboardRoomIds.has(normalizeEntityId(bed['roomId']) || normalizeEntityId((bed['room'] as Record<string, unknown> | undefined)?.['_id']))
         );
-
+        const kpiValue = (key: string, fallback: number) => Number(summary[key] ?? fallback);
         return {
-          kpiCards: buildDashboardKpis(dashboardRooms, dashboardAllotments, bundleContext, dashboardWardBeds),
+          kpiCards: [
+            { key: 'occupied', label: 'Occupied Beds', value: kpiValue('occupiedBeds', dashboardAllotments.length), icon: 'fa-bed', tone: 'blue', route: '/ward/bed-management' },
+            { key: 'available', label: 'Available Beds', value: kpiValue('availableBeds', 0), icon: 'fa-check', tone: 'green', route: '/ward/bed-management' },
+            { key: 'occupancy', label: 'Occupancy', value: kpiValue('occupancyPercent', 0), percent: kpiValue('occupancyPercent', 0), icon: 'fa-pie-chart', tone: 'purple', route: '/ward/reports' },
+            { key: 'admissions', label: 'Admissions Today', value: kpiValue('admissionsToday', 0), icon: 'fa-user-plus', tone: 'teal', route: '/ward/admissions' },
+            { key: 'discharges', label: 'Discharges Today', value: kpiValue('dischargesToday', 0), icon: 'fa-sign-out', tone: 'amber', route: '/ward/admissions' },
+            { key: 'orders', label: 'Pending Orders', value: kpiValue('pendingOrders', 0), icon: 'fa-list', tone: 'red', route: '/ward/orders-services' },
+            { key: 'mar', label: 'MAR Overdue', value: kpiValue('medicationOverdue', 0), icon: 'fa-medkit', tone: 'red', route: '/ward/mar' },
+            { key: 'unassigned', label: 'Unassigned', value: kpiValue('patientsWithoutNurse', 0), icon: 'fa-user', tone: 'amber', route: '/ward/nurses-staff' },
+          ],
           bedSections: buildDashboardSections(dashboardRooms, dashboardAllotments, wards, bundleContext, dashboardWardBeds),
           todaySummary: [
-            { label: 'Admitted Patients', value: admittedCount, route: '/ward/patient-list' },
-            { label: 'Medicine Due', value: bundle.prescriptions.reduce((total, item) => total + (item.medicines?.length || 0), 0), route: '/ward/mar' },
-            { label: 'Running Drips', value: bundle.prescriptions.flatMap((item) => item.ivFluids || []).filter((fluid) => fluid.status === 'running').length, route: '/ward/drips-iv' },
-            { label: 'Lab Orders', value: bundle.labOrders.length, route: '/ward/orders-services' },
+            { label: 'Admitted Patients', value: kpiValue('myActivePatients', dashboardAllotments.length), route: '/ward/patient-list' },
+            { label: 'Admissions Today', value: kpiValue('admissionsToday', 0), route: '/ward/admissions' },
+            { label: 'Transfers Today', value: kpiValue('transfersToday', 0), route: '/ward/reports' },
+            { label: 'Discharges Today', value: kpiValue('dischargesToday', 0), route: '/ward/admissions' },
           ],
-          todayAlerts: buildDashboardAlerts(bundleContext, scopedAllotments),
-          nursingTasks: buildDashboardTasks(bundleContext, scopedAllotments),
+          todayAlerts: [],
+          nursingTasks: [],
           nursingSummary: [
-            { label: 'Medicine Due', value: bundle.prescriptions.reduce((total, item) => total + (item.medicines?.length || 0), 0), tone: 'amber', route: '/ward/mar' },
-            { label: 'Vitals Overdue', value: scopedAllotments.filter((item) => item.status === 'admitted').reduce((total, allotment) => total + (bundle.history.some((record) => record.patientId === allotment.patientId && record.vitals) ? 0 : 1), 0), tone: 'red', route: '/ward/vitals' },
-            { label: 'Nursing Notes', value: bundle.history.length, tone: 'green', route: '/ward/nursing-care' },
-            { label: 'Drips Running', value: bundle.prescriptions.flatMap((item) => item.ivFluids || []).filter((fluid) => fluid.status === 'running').length, tone: 'purple', route: '/ward/drips-iv' },
+            { label: 'Pending Handovers', value: kpiValue('pendingHandovers', 0), tone: 'amber', route: '/ward/shift-handover' },
+            { label: 'Pending Orders', value: kpiValue('pendingOrders', 0), tone: 'red', route: '/ward/orders-services' },
+            { label: 'MAR Recorded', value: kpiValue('medicationRecorded', 0), tone: 'green', route: '/ward/mar' },
+            { label: 'MAR Overdue', value: kpiValue('medicationOverdue', 0), tone: 'red', route: '/ward/mar' },
           ],
           monitoringCards: [
-            { key: 'admissions', label: 'Admitted Patients', value: admittedCount, actionLabel: 'View List', route: '/ward/patient-list', icon: 'fa-user-plus', tone: 'blue' },
-            { key: 'medications', label: 'Medication Due', value: bundle.prescriptions.reduce((total, item) => total + (item.medicines?.length || 0), 0), actionLabel: 'Open MAR', route: '/ward/mar', icon: 'fa-medkit', tone: 'green' },
-            { key: 'vitals', label: 'Vitals Due', value: scopedAllotments.filter((item) => item.status === 'admitted').reduce((total, allotment) => total + (bundle.history.some((record) => record.patientId === allotment.patientId && record.vitals) ? 0 : 1), 0), actionLabel: 'Add Vitals', route: '/ward/vitals', icon: 'fa-heartbeat', tone: 'teal' },
-            { key: 'drips', label: 'Drips Running', value: bundle.prescriptions.flatMap((item) => item.ivFluids || []).filter((fluid) => fluid.status === 'running').length, actionLabel: 'View Drips', route: '/ward/drips-iv', icon: 'fa-tint', tone: 'blue' },
-            { key: 'tasks', label: 'Nursing Notes', value: bundle.history.length, actionLabel: 'Open Notes', route: '/ward/nursing-care', icon: 'fa-sticky-note', tone: 'amber' },
-            { key: 'alerts', label: 'Shift Handover', value: bundle.activities.filter((item) => item.activityType === 'handover').length, actionLabel: 'Open Handover', route: '/ward/shift-handover', icon: 'fa-exchange', tone: 'red' },
+            { key: 'admissions', label: 'Admitted Patients', value: kpiValue('myActivePatients', dashboardAllotments.length), actionLabel: 'View List', route: '/ward/patient-list', icon: 'fa-user-plus', tone: 'blue' },
+            { key: 'occupancy', label: 'Occupancy', value: kpiValue('occupancyPercent', 0), actionLabel: 'Beds', route: '/ward/bed-management', icon: 'fa-bed', tone: 'green' },
+            { key: 'orders', label: 'Pending Orders', value: kpiValue('pendingOrders', 0), actionLabel: 'Open Orders', route: '/ward/orders-services', icon: 'fa-list', tone: 'teal' },
+            { key: 'alerts', label: 'Unassigned Nurses', value: kpiValue('patientsWithoutNurse', 0), actionLabel: 'Assign', route: '/ward/nurses-staff', icon: 'fa-exclamation-triangle', tone: 'red' },
           ],
           wardOptions: getWardOptionsFromRooms(allRooms, wards),
-        };
+        } as WardDashboardData;
       })
     );
   }
@@ -414,8 +428,132 @@ export class WardDataService {
     search: string,
     filters: WardModuleFilters = {}
   ): Observable<WardModuleRow[]> {
+    if (moduleKey === 'io-chart') {
+      return forkJoin({
+        io: this.backend.getWardIo({ limit: 200, ...filters }),
+        patients: this.safeList(this.backend.getPatients({ limit: 100 })),
+      }).pipe(
+        map(({ io, patients }) => {
+          const nameById = new Map(
+            patients.items.map((patient) => [
+              String(patient._id),
+              `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || patient.patientNo || '',
+            ])
+          );
+          const items = ((io['items'] as Array<Record<string, unknown>>) || []) as Array<Record<string, unknown>>;
+          return items.map((entry) => {
+            const direction = String(entry['direction'] || '');
+            const volume = String(entry['volumeMl'] || 0);
+            const rawPatientId = entry['patientId'];
+            const patientId =
+              rawPatientId && typeof rawPatientId === 'object'
+                ? String((rawPatientId as { _id?: string })._id || '')
+                : String(rawPatientId || '');
+            const patient = entry['patient'] as { name?: string; firstName?: string; lastName?: string } | undefined;
+            const patientName =
+              String(entry['patientName'] || '').trim() ||
+              String(patient?.name || '').trim() ||
+              `${patient?.firstName || ''} ${patient?.lastName || ''}`.trim() ||
+              nameById.get(patientId) ||
+              '';
+            return {
+              id: String(entry['_id']),
+              cells: {
+                patient: patientName || '—',
+                intake: direction === 'INTAKE' ? volume : '0',
+                output: direction === 'OUTPUT' ? volume : '0',
+                balance: '',
+                shift: String(entry['shift'] || ''),
+                status: 'Recorded',
+                _tab: String(entry['shift'] || 'all'),
+              },
+              badgeTone: { status: 'completed' },
+              meta: {
+                patientId,
+                admissionId: String(entry['admissionId'] || ''),
+              },
+            } as WardModuleRow;
+          });
+        }),
+        catchError(() => this.loadClinicalBundle().pipe(
+          map((bundle) => this.rowsFromClinicalBundle(bundle, moduleKey, tab, search, filters))
+        ))
+      );
+    }
+
+    if (moduleKey === 'inventory') {
+      return forkJoin({
+        inventory: this.backend.getInventory({ locationType: 'ward', limit: 100 }).pipe(
+          catchError(() => of({ items: [] as Array<Record<string, unknown>> }))
+        ),
+        requisitions: this.backend.getWardRequisitions({ limit: 100 }).pipe(
+          catchError(() => of({ items: [] as Array<Record<string, unknown>> }))
+        ),
+        wards: this.backend.getHospitalWards({ limit: 100 }).pipe(
+          catchError(() => of({ items: [] as HospitalWard[], pagination: { page: 1, limit: 0, total: 0, totalPages: 0 } }))
+        ),
+      }).pipe(
+        map(({ inventory, requisitions, wards }) => {
+          const wardNameById = new Map(
+            (wards.items || []).map((ward) => [String(ward._id), ward.name])
+          );
+          const stockRows = (inventory.items || []).map((item) => {
+            const product = item['product'] as { name?: string } | undefined;
+            const location = item['location'] as { name?: string } | undefined;
+            return {
+              id: String(item['_id']),
+              cells: {
+                item: String(item['productName'] || product?.name || item['name'] || item['productId'] || 'Stock'),
+                category: String(item['locationType'] || 'ward'),
+                stock: String(item['availableQuantity'] || item['quantity'] || item['qty'] || 0),
+                reorder: String(item['reorderLevel'] || '—'),
+                location: String(item['locationName'] || location?.name || item['locationId'] || 'Ward'),
+                status: Number(item['availableQuantity'] || item['quantity'] || 0) <= 0 ? 'Out' : 'In stock',
+                _tab: 'stock',
+              },
+              badgeTone: { status: Number(item['availableQuantity'] || item['quantity'] || 0) <= 0 ? 'red' : 'completed' },
+            };
+          });
+          const reqRows = (requisitions.items || []).map((item) => {
+            const status = String(item['status'] || 'requested');
+            const wardRef = item['wardId'] as { _id?: string; name?: string } | string | undefined;
+            const wardId = typeof wardRef === 'object' && wardRef ? String(wardRef._id || '') : String(wardRef || '');
+            const wardName =
+              String(item['wardName'] || '').trim() ||
+              (typeof wardRef === 'object' ? String(wardRef?.name || '') : '') ||
+              wardNameById.get(wardId) ||
+              wardId;
+            return {
+              id: String(item['_id']),
+              cells: {
+                item: String(item['requisitionNo'] || 'WRQ'),
+                category: 'Requisition',
+                stock: String(((item['items'] as unknown[]) || []).length),
+                reorder: '—',
+                location: wardName,
+                status,
+                _tab: 'req',
+              },
+              badgeTone: { status: status === 'issued' || status === 'received' ? 'completed' : 'pending' },
+            };
+          });
+          return [...stockRows, ...reqRows] as WardModuleRow[];
+        })
+      );
+    }
+
     return this.loadClinicalBundle().pipe(
-      map((bundle) => {
+      map((bundle) => this.rowsFromClinicalBundle(bundle, moduleKey, tab, search, filters))
+    );
+  }
+
+  rowsFromClinicalBundle(
+    bundle: WardClinicalBundle,
+    moduleKey: WardModuleKey,
+    tab: string,
+    search: string,
+    filters: WardModuleFilters = {}
+  ): WardModuleRow[] {
         let rows: WardModuleRow[] = [];
         const roomById = new Map(bundle.rooms.map((room) => [String(room._id), room]));
         const enrichedAllotments = bundle.allotments.map((allotment) => ({
@@ -526,6 +664,57 @@ export class WardDataService {
           }
           return Object.values(row.cells).join(' ').toLowerCase().includes(normalizedSearch);
         });
+  }
+
+  loadPatientDetail(admissionId: string): Observable<{
+    patient: WardPatient | null;
+    vitals: WardModuleRow[];
+    mar: WardModuleRow[];
+    drips: WardModuleRow[];
+    nursing: WardModuleRow[];
+    orders: WardModuleRow[];
+    io: WardModuleRow[];
+    handover: WardModuleRow[];
+  }> {
+    return this.loadClinicalBundle().pipe(
+      switchMap((bundle) => {
+        const fromList = bundle.allotments.find((item) => String(item._id) === String(admissionId));
+        const allotment$ = fromList
+          ? of(fromList)
+          : this.backend.getRoomAllotment(admissionId).pipe(catchError(() => of(null)));
+
+        return allotment$.pipe(
+          map((allotment) => {
+            const roomById = new Map(bundle.rooms.map((room) => [String(room._id), room]));
+            const enriched = allotment
+              ? {
+                  ...allotment,
+                  room: roomById.get(String(allotment.roomId)) || allotment.room || null,
+                }
+              : null;
+            const patient = enriched
+              ? mapAllotmentToWardPatient(
+                  enriched,
+                  bundle.doctors,
+                  bundle.history,
+                  bundle.prescriptions,
+                  bundle.encounters,
+                  bundle.hospitalWards
+                )
+              : null;
+            const filters = { admissionId, patientId: patient?.patientId || '' };
+            return {
+              patient,
+              vitals: this.rowsFromClinicalBundle(bundle, 'vitals', 'all', '', filters),
+              mar: this.rowsFromClinicalBundle(bundle, 'mar', 'all', '', filters),
+              drips: this.rowsFromClinicalBundle(bundle, 'drips-iv', 'all', '', filters),
+              nursing: this.rowsFromClinicalBundle(bundle, 'nursing-care', 'all', '', filters),
+              orders: this.rowsFromClinicalBundle(bundle, 'orders-services', 'all', '', filters),
+              io: this.rowsFromClinicalBundle(bundle, 'io-chart', 'all', '', filters),
+              handover: this.rowsFromClinicalBundle(bundle, 'shift-handover', 'all', '', filters),
+            };
+          })
+        );
       })
     );
   }
@@ -557,7 +746,42 @@ export class WardDataService {
   }
 
   loadActionOptions(): Observable<WardClinicalBundle> {
-    return this.loadClinicalBundle();
+    return forkJoin({
+      allotments: this.safeList(this.backend.getRoomAllotments({ status: 'admitted', limit: 100 })),
+      rooms: this.safeList(this.backend.getRooms({ limit: 100 })),
+      doctors: this.safeList(this.backend.getDoctors({ limit: 100 })),
+      patients: this.safeList(this.backend.getPatients({ limit: 100 })),
+      prescriptions: this.safeList(this.backend.getPrescriptions({ limit: 100 })),
+    }).pipe(
+      map((result) => ({
+        allotments: result.allotments.items,
+        rooms: result.rooms.items,
+        hospitalWards: [],
+        doctors: result.doctors.items,
+        patients: result.patients.items,
+        history: [],
+        prescriptions: result.prescriptions.items,
+        encounters: [],
+        labOrders: [],
+        activities: [],
+        wardBeds: [],
+      })),
+      catchError(() =>
+        of({
+          allotments: [],
+          rooms: [],
+          hospitalWards: [],
+          doctors: [],
+          patients: [],
+          history: [],
+          prescriptions: [],
+          encounters: [],
+          labOrders: [],
+          activities: [],
+          wardBeds: [],
+        })
+      )
+    );
   }
 
   loadPatientVitalsTimeline(patientId: string): Observable<WardVitalTimelineEntry[]> {
@@ -606,6 +830,27 @@ export class WardDataService {
     );
   }
 
+  loadInventoryFormOptions(): Observable<{
+    products: ProductCatalogItem[];
+    stores: Store[];
+    wards: HospitalWard[];
+  }> {
+    return forkJoin({
+      products: this.backend.getProducts({ limit: 200, isActive: true }).pipe(
+        map((result) => result.items || []),
+        catchError(() => of([] as ProductCatalogItem[]))
+      ),
+      stores: this.backend.getStores({ limit: 100, isActive: true }).pipe(
+        map((result) => result.items || []),
+        catchError(() => of([] as Store[]))
+      ),
+      wards: this.backend.getHospitalWards({ limit: 100 }).pipe(
+        map((result) => result.items || []),
+        catchError(() => of([] as HospitalWard[]))
+      ),
+    });
+  }
+
   submitModuleAction(moduleKey: WardModuleKey, payload: Record<string, unknown>): Observable<unknown> {
     switch (moduleKey) {
       case 'admissions':
@@ -631,19 +876,14 @@ export class WardDataService {
       case 'vitals':
         return this.backend.recordWardVitals(payload);
       case 'io-chart':
-        return this.backend.createWardActivity({
-          activityType: 'io_entry',
+        return this.backend.createWardIo({
           patientId: payload['patientId'],
           admissionId: payload['admissionId'] || undefined,
-          title: payload['title'] || 'I/O Entry',
-          description: payload['description'] || undefined,
+          direction: payload['direction'] || (Number(payload['intake'] || 0) > 0 ? 'INTAKE' : 'OUTPUT'),
+          category: payload['ioCategory'] || payload['category'] || 'Other',
+          volumeMl: payload['volumeMl'] || payload['intake'] || payload['output'] || 0,
           shift: payload['shift'] || undefined,
-          status: 'completed',
-          metadata: {
-            intake: payload['intake'],
-            output: payload['output'],
-            balance: payload['balance'],
-          },
+          notes: payload['notes'] || payload['description'] || '',
         });
       case 'orders-services':
         return this.backend.createWardOrder(payload);
@@ -669,17 +909,26 @@ export class WardDataService {
           },
         });
       case 'inventory':
-        return this.backend.createWardActivity({
-          activityType: 'inventory',
-          title: payload['title'],
-          description: payload['description'],
-          status: 'completed',
-          metadata: {
-            category: payload['category'],
-            quantity: payload['quantity'],
-            reorderLevel: payload['reorderLevel'],
-            location: payload['location'],
-          },
+        if (payload['productId'] && payload['wardId'] && payload['fromLocationId']) {
+          return this.backend.createWardRequisition({
+            wardId: payload['wardId'],
+            fromLocationType: payload['fromLocationType'] || 'store',
+            fromLocationId: payload['fromLocationId'],
+            notes: payload['notes'] || payload['description'] || '',
+            items: [
+              {
+                productId: payload['productId'],
+                requestedQty: payload['quantity'] || payload['qty'] || 1,
+              },
+            ],
+          });
+        }
+        return this.backend.consumeWardStock({
+          productId: payload['productId'],
+          wardId: payload['wardId'] || payload['location'],
+          quantity: payload['quantity'],
+          reason: payload['category'] === 'Damage' ? 'WARD_DAMAGE' : 'WARD_CONSUME',
+          notes: payload['description'],
         });
       default:
         return this.backend.createWardActivity(payload);
@@ -688,6 +937,10 @@ export class WardDataService {
 
   createWardBed(payload: Record<string, unknown>) {
     return this.backend.createWardBed(payload);
+  }
+
+  issueWardRequisition(id: string) {
+    return this.backend.issueWardRequisition(id);
   }
 
   updateWardBed(id: string, payload: Record<string, unknown>) {

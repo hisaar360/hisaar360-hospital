@@ -1,61 +1,99 @@
-<div id="main-content">
-    <div class="container-fluid">
-        <div class="block-header">
-            <div class="row clearfix">
-                <div class="col-lg-4 col-md-12 col-sm-12">
-                    <h1>Invoice Detail</h1>
-                    <span>{{ bill?.billNo || 'Loading invoice' }}</span>
-                </div>
-                <div class="col-lg-8 col-md-12 col-sm-12 text-lg-right">
-                    <a class="btn btn-default" [routerLink]="['/payments/invoices']">Back to Invoices</a>
-                </div>
-            </div>
-        </div>
-
-        <div class="row clearfix">
-            <div class="col-sm-12">
-                <div class="card">
-                    <div class="body">
-                        <div *ngIf="loading" class="text-muted">Loading...</div>
-                        <div *ngIf="!loading && bill">
-                            <div class="row mb-4">
-                                <div class="col-md-6">
-                                    <h5>{{ bill.billNo }}</h5>
-                                    <p class="mb-1">Patient: {{ patientName() }}</p>
-                                    <p class="mb-1">Status: {{ bill.paymentStatus }}</p>
-                                </div>
-                                <div class="col-md-6 text-md-right">
-                                    <p class="mb-1">Grand Total: {{ bill.grandTotal }}</p>
-                                    <p class="mb-1">Paid: {{ bill.paidAmount }}</p>
-                                    <p class="mb-1">Due: {{ bill.dueAmount }}</p>
-                                </div>
-                            </div>
-
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Description</th>
-                                            <th>Qty</th>
-                                            <th>Unit Price</th>
-                                            <th>Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr *ngFor="let item of bill.items">
-                                            <td>{{ item.description }}</td>
-                                            <td>{{ item.quantity }}</td>
-                                            <td>{{ item.unitPrice }}</td>
-                                            <td>{{ item.total || item.quantity * item.unitPrice }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div *ngIf="!loading && !bill" class="text-muted">Invoice not found</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+<div id="main-content" class="pharmacy-page">
+  <div class="pharmacy-shell pharmacy-admin-page">
+    <div class="pharmacy-loading" *ngIf="loading && !bill">
+      <i class="fa fa-spinner fa-spin"></i> Loading invoice...
     </div>
+
+    <div class="pharmacy-empty-state" *ngIf="!loading && !bill">
+      Invoice not found.
+      <a class="pharmacy-back-link" routerLink="/payments/invoices">Back to Invoices</a>
+    </div>
+
+    <ng-container *ngIf="bill as current">
+      <header class="pharmacy-hero">
+        <div class="pharmacy-hero-main">
+          <a class="pharmacy-back-link" routerLink="/payments/invoices">&larr; Back to Invoices</a>
+          <h1>{{ current.billNo }}</h1>
+          <p>{{ patientName() }} · {{ current.sourceNo || current.sourceType || 'Manual bill' }}</p>
+          <span class="pharmacy-status-pill" [ngClass]="'status-' + current.paymentStatus">
+            {{ current.paymentStatus }}
+          </span>
+        </div>
+        <div class="pharmacy-hero-actions">
+          <a class="btn btn-default" routerLink="/payments">Patient Payments</a>
+          <a class="btn btn-outline-primary" routerLink="/payments/invoices">All Invoices</a>
+        </div>
+      </header>
+
+      <div class="pharmacy-stats-grid">
+        <article class="pharmacy-stat-card">
+          <span>Grand Total</span>
+          <strong>{{ current.grandTotal | number:'1.0-0' }}</strong>
+        </article>
+        <article class="pharmacy-stat-card">
+          <span>Paid</span>
+          <strong>{{ current.paidAmount | number:'1.0-0' }}</strong>
+        </article>
+        <article class="pharmacy-stat-card">
+          <span>Due</span>
+          <strong>{{ current.dueAmount | number:'1.0-0' }}</strong>
+        </article>
+        <article class="pharmacy-stat-card">
+          <span>Method</span>
+          <strong>{{ current.paymentMethod || '—' }}</strong>
+        </article>
+      </div>
+
+      <div class="pharmacy-summary-card">
+        <div class="pharmacy-table-head">
+          <div>
+            <h2>Invoice Summary</h2>
+            <p>Patient, source document, and totals for this bill.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-4">
+            <div class="col-md-4"><strong>Patient</strong><div>{{ patientName() }}</div></div>
+            <div class="col-md-4"><strong>Source</strong><div>{{ current.sourceNo || current.sourceType || '—' }}</div></div>
+            <div class="col-md-4"><strong>Created</strong><div>{{ current.createdAt | date:'medium' }}</div></div>
+            <div class="col-md-4"><strong>Subtotal</strong><div>{{ current.subtotal | number:'1.0-0' }}</div></div>
+            <div class="col-md-4"><strong>Discount</strong><div>{{ current.discount | number:'1.0-0' }}</div></div>
+            <div class="col-md-4"><strong>Tax</strong><div>{{ current.tax | number:'1.0-0' }}</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pharmacy-table-card">
+        <div class="pharmacy-table-head">
+          <div>
+            <h2>Bill Items</h2>
+            <p>{{ current.items.length }} charge lines on this invoice.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="pharmacy-empty-state" *ngIf="!current.items.length">No items on this invoice.</div>
+          <div class="table-responsive" *ngIf="current.items.length">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Qty</th>
+                  <th>Unit Price</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of current.items">
+                  <td class="fw-semibold">{{ item.description }}</td>
+                  <td>{{ item.quantity }}</td>
+                  <td>{{ item.unitPrice | number:'1.0-0' }}</td>
+                  <td>{{ (item.total || item.quantity * item.unitPrice) | number:'1.0-0' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </div>
 </div>

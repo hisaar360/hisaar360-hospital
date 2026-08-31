@@ -19,7 +19,7 @@
         <label>
           <span>Store</span>
           <select class="form-select" [(ngModel)]="storeId">
-            <option value="">Assigned / default store</option>
+            <option value="">All stores</option>
             <option *ngFor="let store of stores" [value]="store._id">{{ store.name }}</option>
           </select>
         </label>

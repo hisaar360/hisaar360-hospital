@@ -1,0 +1,322 @@
+<div id="main-content" class="accounts-page pharmacy-page">
+  <div class="pharmacy-shell accounts-shell">
+    <header class="pharmacy-hero accounts-hero">
+      <div class="pharmacy-hero-main">
+        <h1>{{ title }}</h1>
+        <p>Hospital general ledger is the financial source of truth. Patient balances remain on Encounter Ledger.</p>
+      </div>
+    </header>
+
+    <nav class="accounts-nav-tabs" aria-label="Accounts reports">
+      <a
+        *ngFor="let tab of accountsNav"
+        class="accounts-nav-tab"
+        [class.active]="isNavActive(tab.route)"
+        [routerLink]="['/accounts', tab.route]"
+      >
+        {{ tab.label }}
+      </a>
+      <button class="accounts-nav-tab is-action" type="button" (click)="printPage()">Print</button>
+    </nav>
+
+    <section class="accounts-filter-card">
+      <div class="accounts-filter-head">
+        <div>
+          <h2>Filters</h2>
+          <p>Set date range and search, then apply to refresh this report.</p>
+        </div>
+      </div>
+
+      <div class="accounts-filter-grid">
+        <label>
+          <span class="accounts-field-label">From date</span>
+          <input class="form-control" type="date" [(ngModel)]="fromDate" (ngModelChange)="onManualDateChange()" />
+        </label>
+
+        <label>
+          <span class="accounts-field-label">To date</span>
+          <input class="form-control" type="date" [(ngModel)]="toDate" (ngModelChange)="onManualDateChange()" />
+        </label>
+
+        <label *ngIf="view === 'general-ledger'">
+          <span class="accounts-field-label">Account</span>
+          <select class="form-control" [(ngModel)]="accountCode" (ngModelChange)="load()">
+            <option *ngFor="let account of accounts" [value]="account['code']">
+              {{ account['code'] }} · {{ account['name'] }}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          <span class="accounts-field-label">Search</span>
+          <input class="form-control" type="text" [(ngModel)]="search" placeholder="Search" />
+        </label>
+
+        <div class="accounts-filter-actions">
+          <button class="btn btn-primary" type="button" (click)="load()" [disabled]="loading">
+            {{ loading ? 'Loading...' : 'Apply' }}
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <div *ngIf="loading" class="accounts-loading">
+      <i class="fa fa-spinner fa-spin"></i>
+      Loading report...
+    </div>
+
+    <section *ngIf="!loading && view === 'dashboard'" class="accounts-panel">
+      <div class="accounts-summary-grid accounts-summary-grid--dashboard">
+        <div
+          *ngFor="let card of dashboardKpiCardsList"
+          class="accounts-kpi-card"
+          [class]="'accounts-kpi-card tone-' + card.tone"
+        >
+          <div class="accounts-kpi-card__icon"><i class="fa" [ngClass]="card.icon"></i></div>
+          <div class="accounts-kpi-card__body">
+            <small>{{ card.label }}</small>
+            <h4>{{ card.money ? money(card.value) : card.value }}</h4>
+            <span>{{ card.hint }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="accounts-shortcuts">
+        <a routerLink="/accounts/general-ledger" class="accounts-shortcut">General Ledger</a>
+        <a routerLink="/accounts/cash-book" class="accounts-shortcut">Cash Book</a>
+        <a routerLink="/accounts/bank-book" class="accounts-shortcut">Bank Book</a>
+        <a routerLink="/accounts/daily-collections" class="accounts-shortcut">Collections</a>
+        <a routerLink="/accounts/reconciliation" class="accounts-shortcut">Reconciliation</a>
+      </div>
+    </section>
+
+    <section *ngIf="!loading && (view === 'cash-book' || view === 'bank-book')" class="accounts-panel">
+      <div class="accounts-panel-head">
+        <div>
+          <h3>{{ view === 'cash-book' ? 'Cash Book' : 'Bank Book' }}</h3>
+          <p>Posted journal lines for account {{ view === 'cash-book' ? '1000 Cash' : '1020 Bank' }}.</p>
+        </div>
+      </div>
+      <div class="accounts-summary-grid accounts-summary-grid--ledger">
+        <div
+          *ngFor="let card of ledgerSummaryCardsList"
+          class="accounts-kpi-card accounts-kpi-card--compact"
+          [class]="'accounts-kpi-card tone-' + card.tone"
+        >
+          <div class="accounts-kpi-card__icon"><i class="fa" [ngClass]="card.icon"></i></div>
+          <div class="accounts-kpi-card__body">
+            <small>{{ card.label }}</small>
+            <h4>{{ money(card.value) }}</h4>
+            <span>{{ card.hint }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section *ngIf="!loading && view === 'patient-profitability'" class="accounts-panel">
+      <div class="accounts-summary-grid">
+        <div class="accounts-summary-tile is-highlight">
+          <small>Gross Patient Revenue</small>
+          <h4>{{ money(asRecord('totals')['grossPatientRevenue']) }}</h4>
+        </div>
+        <div class="accounts-summary-tile">
+          <small>Known Direct Cost</small>
+          <h4>{{ money(asRecord('totals')['knownDirectCost']) }}</h4>
+        </div>
+        <div class="accounts-summary-tile is-highlight">
+          <small>Gross Contribution</small>
+          <h4>{{ money(asRecord('totals')['grossContribution']) }}</h4>
+        </div>
+        <div class="accounts-summary-tile">
+          <small>Collected</small>
+          <h4>{{ money(asRecord('totals')['collected']) }}</h4>
+        </div>
+        <div class="accounts-summary-tile">
+          <small>Outstanding</small>
+          <h4>{{ money(asRecord('totals')['outstanding']) }}</h4>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table accounts-table">
+          <thead>
+            <tr>
+              <th>Encounter</th><th>Patient</th><th>Type</th><th>Revenue</th><th>Known Cost</th><th>Contribution</th><th>Collected</th><th>Outstanding</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of asArray('rows')">
+              <td>{{ row['encounterNo'] }}</td>
+              <td>{{ asRecordValue(row['patient'])['firstName'] }} {{ asRecordValue(row['patient'])['lastName'] }}</td>
+              <td>{{ row['encounterType'] }}</td>
+              <td>{{ money(row['grossPatientRevenue']) }}</td>
+              <td>{{ money(row['knownDirectCost']) }}</td>
+              <td>{{ money(row['grossContribution']) }}</td>
+              <td>{{ money(row['collected']) }}</td>
+              <td>{{ money(row['outstanding']) }}</td>
+            </tr>
+            <tr *ngIf="!asArray('rows').length" class="accounts-empty-row"><td colspan="8">No encounter profitability rows for this filter.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section *ngIf="!loading && view === 'profit-loss'" class="accounts-panel">
+      <div class="accounts-summary-grid">
+        <div *ngFor="let card of [
+          { label: 'Consultations', value: asRecord('revenue')['consultations'], highlight: false },
+          { label: 'Laboratory', value: asRecord('revenue')['laboratory'], highlight: false },
+          { label: 'Pharmacy', value: asRecord('revenue')['pharmacy'], highlight: false },
+          { label: 'Gross revenue', value: asRecord('revenue')['grossRevenue'], highlight: true },
+          { label: 'COGS', value: asRecord('expenses')['cogs'], highlight: false },
+          { label: 'Operating expense', value: asRecord('expenses')['operatingExpense'], highlight: false },
+          { label: 'Gross profit', value: data['grossProfit'], highlight: true },
+          { label: 'Net profit', value: data['netProfit'], highlight: true }
+        ]" class="accounts-summary-tile" [class.is-highlight]="card.highlight">
+          <small>{{ card.label }}</small>
+          <h4>{{ money(card.value) }}</h4>
+        </div>
+      </div>
+    </section>
+
+    <section *ngIf="!loading && view === 'daily-collections'" class="accounts-panel">
+      <div class="accounts-summary-grid">
+        <div *ngFor="let card of [
+          { label: 'OPD', value: data['opd'] },
+          { label: 'IPD', value: data['ipd'] },
+          { label: 'Lab', value: data['lab'] },
+          { label: 'Pharmacy counter', value: data['pharmacyCounter'] },
+          { label: 'Refunds', value: data['refunds'] },
+          { label: 'Expenses', value: data['expenses'] },
+          { label: 'Cash', value: data['cashTotal'] },
+          { label: 'Net cash movement', value: data['netCashMovement'], highlight: true }
+        ]" class="accounts-summary-tile" [class.is-highlight]="card.highlight">
+          <small>{{ card.label }}</small>
+          <h4>{{ money(card.value) }}</h4>
+        </div>
+      </div>
+    </section>
+
+    <section *ngIf="!loading && view === 'general-ledger' && data['account']" class="accounts-panel">
+      <div class="accounts-summary-grid accounts-summary-grid--ledger">
+        <div
+          *ngFor="let card of ledgerSummaryCardsList"
+          class="accounts-kpi-card accounts-kpi-card--compact"
+          [class]="'accounts-kpi-card tone-' + card.tone"
+        >
+          <div class="accounts-kpi-card__icon"><i class="fa" [ngClass]="card.icon"></i></div>
+          <div class="accounts-kpi-card__body">
+            <small>{{ card.label }}</small>
+            <h4>{{ money(card.value) }}</h4>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section *ngIf="!loading && view === 'general-ledger' && !data['account']" class="accounts-panel">
+      <div class="accounts-empty-state">
+        <i class="fa fa-book"></i>
+        <p>Select an account and date range, then Apply to view the general ledger.</p>
+      </div>
+    </section>
+
+    <section *ngIf="!loading && view === 'cash-book' && !asArray('lines').length && data['openingBalance'] == null" class="accounts-panel">
+      <div class="accounts-empty-state">
+        <i class="fa fa-money"></i>
+        <p>No cash transactions in this period. Cash collections appear here after patient payments and counter pharmacy receipts post to GL.</p>
+      </div>
+    </section>
+
+    <section *ngIf="!loading && view === 'bank-book' && !asArray('lines').length && data['openingBalance'] == null" class="accounts-panel">
+      <div class="accounts-empty-state">
+        <i class="fa fa-university"></i>
+        <p>No bank transactions in this period. Bank payments post here when payment method is bank/online/check.</p>
+      </div>
+    </section>
+
+    <section *ngIf="!loading && view === 'trial-balance'" class="accounts-panel">
+      <div class="accounts-summary-grid">
+        <div *ngFor="let card of [
+          { label: 'Total debit', value: asRecord('totals')['closingDebit'] },
+          { label: 'Total credit', value: asRecord('totals')['closingCredit'] },
+          { label: 'Period debit', value: asRecord('totals')['periodDebit'] },
+          { label: 'Balanced', value: data['balanced'], highlight: true }
+        ]" class="accounts-summary-tile" [class.is-highlight]="card.highlight">
+          <small>{{ card.label }}</small>
+          <h4>{{ card.label === 'Balanced' ? (card.value ? 'Yes' : 'No') : money(card.value) }}</h4>
+        </div>
+      </div>
+      <p *ngIf="data['integrityWarning']" class="text-danger px-3 pb-3">{{ data['integrityWarning'] }}</p>
+    </section>
+
+    <section *ngIf="view === 'journal'" class="accounts-panel">
+      <div class="accounts-panel-head">
+        <div>
+          <h3>Manual journal</h3>
+          <p>Post a balanced double-entry journal voucher.</p>
+        </div>
+      </div>
+      <div class="accounts-filter-grid">
+        <label>
+          <span class="accounts-field-label">Description</span>
+          <input class="form-control" [(ngModel)]="journalDescription" placeholder="Description" />
+        </label>
+        <label>
+          <span class="accounts-field-label">Reason</span>
+          <input class="form-control" [(ngModel)]="journalReason" placeholder="Reason" />
+        </label>
+      </div>
+      <div class="accounts-table-wrap">
+        <table class="table table-sm accounts-table">
+          <thead><tr><th>Account</th><th>Debit</th><th>Credit</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let line of journalLines">
+              <td><input class="form-control" [(ngModel)]="line.accountCode" /></td>
+              <td><input class="form-control" type="number" [(ngModel)]="line.debit" /></td>
+              <td><input class="form-control" type="number" [(ngModel)]="line.credit" /></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="px-3 pb-3">
+        <button class="btn btn-primary" type="button" (click)="postJournal()" [disabled]="saving">
+          Post journal
+        </button>
+      </div>
+    </section>
+
+    <section
+      *ngIf="!loading && (asArray('items').length || asArray('rows').length || asArray('lines').length || asArray('findings').length)"
+      class="accounts-panel"
+    >
+      <div class="accounts-table-wrap">
+        <table class="table table-hover accounts-table">
+          <tbody>
+            <tr *ngFor="let row of asArray('items')">
+              <td>{{ displayCell(row, ['journalNo', 'invoiceNo', 'encounterNo', 'purchaseNo', 'code', 'patientName', 'action', 'title', 'date', '_id']) }}</td>
+              <td>{{ displayCell(row, ['description', 'name', 'title', 'supplierName', 'patientName', 'module', 'category']) }}</td>
+              <td>{{ displayCell(row, ['totalDebit', 'debit', 'total', 'amount', 'balance', 'paidAmount']) }}</td>
+              <td>{{ displayCell(row, ['status', 'accountType', 'ageBucket', 'paymentMethod', 'severity']) }}</td>
+            </tr>
+            <tr *ngFor="let row of asArray('rows')">
+              <td>{{ row['code'] }}</td>
+              <td>{{ row['name'] }}</td>
+              <td>{{ row['closingDebit'] }}</td>
+              <td>{{ row['closingCredit'] }}</td>
+            </tr>
+            <tr *ngFor="let row of asArray('lines')">
+              <td>{{ row['date'] }}</td>
+              <td>{{ row['journalNo'] || row['description'] }}</td>
+              <td>{{ row['debit'] }}</td>
+              <td>{{ row['credit'] }} / {{ row['runningBalance'] }}</td>
+            </tr>
+            <tr *ngFor="let row of asArray('findings')">
+              <td>{{ row['code'] }}</td>
+              <td>{{ row['severity'] }}</td>
+              <td>{{ row['count'] }}</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>

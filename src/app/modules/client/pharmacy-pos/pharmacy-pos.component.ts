@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
+import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import {
   MooliOfflineService,
   MooliQueuedWork,
@@ -19,8 +20,9 @@ import {
   CreateSalesReturnPayload,
   CreateSalePayload,
   HeldSale,
+  Encounter,
+  Patient,
   Prescription,
-  PrescriptionMedicine,
   ProductDiscountType,
   ProductCatalogItem,
   RegisterSession,
@@ -32,6 +34,8 @@ import {
   User,
 } from '../../../shared/models/hospital.model';
 
+import { prescriptionDispenseQty } from './prescription-dispense-qty';
+
 interface PharmacyBillLine {
   sourceMedicineName: string;
   product: ProductCatalogItem;
@@ -42,12 +46,16 @@ interface PharmacyBillLine {
   discount: number;
   discountInput: number;
   discountType: ProductDiscountType;
+  qtyBreakdown?: string;
+  shortBy?: number;
 }
 
 interface UnavailableMedicine {
   medicineName: string;
   requestedQty: number;
   reason: string;
+  patientMessage: string;
+  qtyBreakdown?: string;
 }
 
 interface ReceiptPreviewLine {
@@ -133,13 +141,19 @@ export class PharmacyPosComponent implements OnInit {
   prescription: Prescription | null = null;
   selectedStoreId = '';
   selectedCustomerId = '';
+  settlementMode: 'COUNTER' | 'ENCOUNTER' = 'COUNTER';
+  selectedPatientId = '';
+  selectedEncounterId = '';
+  patients: Patient[] = [];
+  openEncounters: Encounter[] = [];
+  encountersLoading = false;
   prescriptionId = '';
   productSearch = '';
   paymentMethod: PharmacyPosPaymentMethod = 'cash';
   paidAmount = '0';
   cashReceivedAmount = '0';
   customDiscountPercent = '10';
-  storesLoading = false;
+  storesLoading = true;
   productsLoading = false;
   prescriptionLoading = false;
   saleSaving = false;
@@ -148,7 +162,7 @@ export class PharmacyPosComponent implements OnInit {
   registerOpened = false;
   registerOpening = false;
   registerClosed = false;
-  registerLoading = false;
+  registerLoading = true;
   closeRegisterOpen = false;
   closeRegisterSaving = false;
   saleHistoryOpen = false;
@@ -267,6 +281,7 @@ export class PharmacyPosComponent implements OnInit {
     this.loadCompanyProfile();
     this.loadShortcutBindings();
     this.loadCustomers();
+    this.loadPatients();
     this.route.queryParamMap.subscribe((params) => {
       this.prescriptionId = params.get('prescriptionId') || '';
       this.selectedStoreId =
@@ -409,12 +424,6 @@ export class PharmacyPosComponent implements OnInit {
       !this.saleSaving &&
       this.billLines.some((line) => line.billQty > 0) &&
       !!this.currentStoreId()
-    );
-  }
-
-  get hasDiscountEligibleBillLines(): boolean {
-    return this.billLines.some(
-      (line) => line.billQty > 0 && line.product.discountEligible,
     );
   }
 
@@ -606,7 +615,7 @@ export class PharmacyPosComponent implements OnInit {
   receiptBrandTitle(receipt: ReceiptPreviewData | null | undefined): string {
     const letterhead = this.activeReceiptLetterhead(receipt);
     return (
-      letterhead?.brandTitle?.trim() || receipt?.companyName || 'Mooli Pharmacy'
+      letterhead?.brandTitle?.trim() || receipt?.companyName || 'Hisaar360 Pharmacy'
     );
   }
 
@@ -687,7 +696,7 @@ export class PharmacyPosComponent implements OnInit {
     const letterhead = this.activeReceiptLetterhead(receipt);
     return (
       letterhead?.footerTitle?.trim() ||
-      `Thank you for trusting ${receipt?.companyName || 'Mooli Pharmacy'}.`
+      `Thank you for trusting ${receipt?.companyName || 'Hisaar360 Pharmacy'}.`
     );
   }
 
@@ -709,7 +718,7 @@ export class PharmacyPosComponent implements OnInit {
       return '';
     }
 
-    return letterhead.logoUrl?.trim() || receipt?.companyLogoUrl || '';
+    return resolveAssetUrl(letterhead.logoUrl?.trim() || receipt?.companyLogoUrl || '');
   }
 
   loadStores(): void {
@@ -801,6 +810,13 @@ export class PharmacyPosComponent implements OnInit {
             prescription,
           );
           this.rebuildPrescriptionBill();
+          const prescriptionPatientId = String(prescription.patientId || '').trim();
+          if (prescriptionPatientId) {
+            this.selectedPatientId = prescriptionPatientId;
+            if (this.settlementMode === 'ENCOUNTER') {
+              this.onSettlementPatientChange();
+            }
+          }
         },
         error: (err) => {
           void this.loadCachedPrescription(id, err);
@@ -825,7 +841,9 @@ export class PharmacyPosComponent implements OnInit {
         }
       },
       error: () => {
-        // Cached session data is enough to keep the POS page usable.
+        if (!this.stores.length) {
+          this.loadStores();
+        }
       },
     });
   }
@@ -836,6 +854,9 @@ export class PharmacyPosComponent implements OnInit {
       this.registerSession = null;
       this.registerOpened = false;
       this.registerClosed = false;
+      if (!this.storesLoading) {
+        this.registerLoading = false;
+      }
       return;
     }
 
@@ -904,9 +925,6 @@ export class PharmacyPosComponent implements OnInit {
         error: (err) => {
           this.registerOpened = false;
           this.registerClosed = false;
-          if (err?.status === 403) {
-            return;
-          }
           this.toastr.error(err?.error?.message || 'Unable to open register.');
         },
       });
@@ -991,9 +1009,6 @@ export class PharmacyPosComponent implements OnInit {
           this.showPosMessage('Register closed successfully.', 'success');
         },
         error: (err) => {
-          if (err?.status === 403) {
-            return;
-          }
           this.toastr.error(err?.error?.message || 'Unable to close register.');
         },
       });
@@ -1046,6 +1061,10 @@ export class PharmacyPosComponent implements OnInit {
     this.unavailableMedicines = [];
     this.prescription = null;
     this.selectedCustomerId = '';
+    this.settlementMode = 'COUNTER';
+    this.selectedPatientId = '';
+    this.selectedEncounterId = '';
+    this.openEncounters = [];
     this.prescriptionId = '';
     this.saleInvoiceNo = '';
     this.productSearch = '';
@@ -1385,7 +1404,20 @@ export class PharmacyPosComponent implements OnInit {
     this.productSearch = '';
     this.selectedProductIndex = 0;
 
+    if (availableQty <= 0) {
+      this.toastr.warning(
+        `${this.productDisplay(product)} is out of stock. Tell the patient it is not available in this store.`,
+      );
+      return;
+    }
+
     if (existing) {
+      if (existing.billQty >= availableQty) {
+        this.toastr.warning(
+          `Only ${availableQty} in stock for ${this.productDisplay(product)}. Tell the patient the rest is not available.`,
+        );
+        return;
+      }
       existing.billQty = Math.min(
         existing.billQty + 1,
         Math.max(availableQty, 0),
@@ -1400,7 +1432,7 @@ export class PharmacyPosComponent implements OnInit {
       sourceMedicineName: product.name,
       product,
       requestedQty: 1,
-      billQty: availableQty > 0 ? 1 : 0,
+      billQty: 1,
       availableQty,
       unitPrice: this.productPrice(product),
       discount: 0,
@@ -1420,6 +1452,11 @@ export class PharmacyPosComponent implements OnInit {
   incrementLineQty(index: number): void {
     const line = this.billLines[index];
     if (!line) {
+      return;
+    }
+
+    if (line.billQty >= Math.max(line.availableQty, 0)) {
+      this.toastr.warning(this.stockShortageMessage(line));
       return;
     }
 
@@ -1594,6 +1631,9 @@ export class PharmacyPosComponent implements OnInit {
     }
 
     this.refreshPaidAmount();
+    this.toastr.success(
+      `Applied ${requestedPercent}% to ${appliedCount} medicine(s) that allow discount.`,
+    );
   }
 
   confirmBilling(): void {
@@ -1630,8 +1670,17 @@ export class PharmacyPosComponent implements OnInit {
       return;
     }
 
+    if (this.settlementMode === 'ENCOUNTER') {
+      if (!this.selectedPatientId || !this.selectedEncounterId) {
+        this.toastr.error(
+          'No open encounter exists for this patient. Use Counter Sale or create/open the appropriate clinical encounter first.',
+        );
+        return;
+      }
+    }
+
     const paidAmount =
-      this.paymentMethod === 'credit'
+      this.settlementMode === 'ENCOUNTER' || this.paymentMethod === 'credit'
         ? 0
         : this.normalizeMoneyInput(this.paidAmount, this.subtotal);
 
@@ -1644,10 +1693,17 @@ export class PharmacyPosComponent implements OnInit {
       items: saleItems,
       paidAmount,
       paymentMethod:
-        this.paymentMethod === 'credit' ? undefined : this.paymentMethod,
+        this.settlementMode === 'ENCOUNTER' || this.paymentMethod === 'credit'
+          ? undefined
+          : this.paymentMethod,
       note: this.prescription
-        ? `Mooli pharmacy bill for prescription ${this.prescription._id}`
-        : 'Mooli pharmacy POS bill',
+        ? `Pharmacy bill for prescription ${this.prescription._id}`
+        : 'Pharmacy POS bill',
+      settlementMode: this.settlementMode,
+      patientId: this.settlementMode === 'ENCOUNTER' ? this.selectedPatientId : undefined,
+      encounterId: this.settlementMode === 'ENCOUNTER' ? this.selectedEncounterId : undefined,
+      prescriptionId: this.prescription?._id || this.prescriptionId || undefined,
+      attributedDoctorId: this.prescription?.doctorId || undefined,
     };
 
     if (!this.offline.online()) {
@@ -1683,6 +1739,9 @@ export class PharmacyPosComponent implements OnInit {
           }
 
           if (err?.status === 403) {
+            this.toastr.error(
+              err?.error?.message || 'You do not have permission to complete this sale.',
+            );
             return;
           }
 
@@ -1723,7 +1782,7 @@ export class PharmacyPosComponent implements OnInit {
         items,
       note: this.prescription
         ? `Held pharmacy bill for prescription ${this.prescription._id}`
-        : 'Held Mooli pharmacy POS bill',
+        : 'Held pharmacy POS bill',
     };
 
     this.saleSaving = true;
@@ -1885,7 +1944,29 @@ export class PharmacyPosComponent implements OnInit {
   }
 
   stockLabel(product: ProductCatalogItem): string {
-    return this.formatCompactNumber(this.productAvailableQty(product));
+    const qty = this.productAvailableQty(product);
+    return qty > 0 ? this.formatCompactNumber(qty) : 'Out of stock';
+  }
+
+  isOutOfStock(product: ProductCatalogItem): boolean {
+    return this.productAvailableQty(product) <= 0;
+  }
+
+  lineIsShort(line: PharmacyBillLine): boolean {
+    return Number(line.requestedQty || 0) > Number(line.billQty || 0);
+  }
+
+  stockShortageMessage(line: PharmacyBillLine): string {
+    const need = Number(line.requestedQty || 0);
+    const stock = Number(line.availableQty || 0);
+    if (stock <= 0) {
+      return `Out of stock. Tell the patient ${line.sourceMedicineName} is not available in this store.`;
+    }
+    const shortBy = Math.max(need - stock, 0);
+    if (shortBy > 0) {
+      return `Need ${need}, only ${stock} in stock. Tell the patient ${shortBy} cannot be dispensed today.`;
+    }
+    return `Only ${stock} in stock for this medicine.`;
   }
 
   formatCurrency(value: unknown): string {
@@ -1957,7 +2038,7 @@ export class PharmacyPosComponent implements OnInit {
     return {
       reference: 'Preview',
       saleDate: new Date().toISOString(),
-      companyName: this.companyProfile?.name || 'Mooli Pharmacy',
+      companyName: this.companyProfile?.name || 'Hisaar360 Pharmacy',
       companyAddress: this.currentCompanyAddress(),
       companyPhone: this.companyProfile?.phone || '',
       companyEmail: this.companyProfile?.email || '',
@@ -2019,7 +2100,7 @@ export class PharmacyPosComponent implements OnInit {
     return {
       reference: sale.invoiceNo || sale._id,
       saleDate: sale.saleDate || sale.createdAt || new Date().toISOString(),
-      companyName: this.companyProfile?.name || 'Mooli Pharmacy',
+      companyName: this.companyProfile?.name || 'Hisaar360 Pharmacy',
       companyAddress: this.currentCompanyAddress(),
       companyPhone: this.companyProfile?.phone || '',
       companyEmail: this.companyProfile?.email || '',
@@ -2467,7 +2548,7 @@ export class PharmacyPosComponent implements OnInit {
       paidAmount: String(receipt.paidAmount),
       paymentStatus: receipt.paymentStatus as Sale['paymentStatus'],
       status: 'completed',
-      note: payload.note || 'Offline Mooli pharmacy POS bill',
+      note: payload.note || 'Offline pharmacy POS bill',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -2519,7 +2600,7 @@ export class PharmacyPosComponent implements OnInit {
       paymentStatus:
         paidAmount >= total ? 'paid' : paidAmount > 0 ? 'partial' : 'unpaid',
       status: 'completed',
-      note: payload.note || 'Offline Mooli pharmacy POS bill',
+      note: payload.note || 'Offline pharmacy POS bill',
       createdAt: entry.createdAt,
       updatedAt: entry.createdAt,
       };
@@ -2538,6 +2619,56 @@ export class PharmacyPosComponent implements OnInit {
       error: () => {
         this.customers = [];
       },
+    });
+  }
+
+  onSettlementModeChange(): void {
+    this.selectedEncounterId = '';
+    this.openEncounters = [];
+    if (this.settlementMode === 'ENCOUNTER') {
+      this.loadPatients();
+      if (this.selectedPatientId) {
+        this.onSettlementPatientChange();
+      }
+    }
+  }
+
+  onSettlementPatientChange(): void {
+    this.selectedEncounterId = '';
+    this.openEncounters = [];
+    if (!this.selectedPatientId) {
+      return;
+    }
+    this.encountersLoading = true;
+    this.backend
+      .getEncounters({ patientId: this.selectedPatientId, limit: 50 })
+      .pipe(finalize(() => (this.encountersLoading = false)))
+      .subscribe({
+        next: (result) => {
+          this.openEncounters = result.items.filter((encounter) =>
+            ['open', 'admitted', 'ready_for_discharge'].includes(encounter.status),
+          );
+          if (this.openEncounters.length === 1) {
+            this.selectedEncounterId = this.openEncounters[0]._id;
+          } else if (!this.openEncounters.length) {
+            this.toastr.warning(
+              'No open encounter exists for this patient. Use Counter Sale or create/open the appropriate clinical encounter first.',
+            );
+          }
+        },
+        error: () => {
+          this.openEncounters = [];
+        },
+      });
+  }
+
+  private loadPatients(): void {
+    if (!this.backend.hasPermission('patients.read')) {
+      return;
+    }
+    this.backend.getPatients({ limit: 100 }).subscribe({
+      next: (result) => (this.patients = result.items),
+      error: () => (this.patients = []),
     });
   }
 
@@ -2611,14 +2742,17 @@ export class PharmacyPosComponent implements OnInit {
     const unavailable: UnavailableMedicine[] = [];
 
     for (const medicine of this.prescription.medicines || []) {
-      const requestedQty = this.requestedMedicineQty(medicine);
+      const dispense = prescriptionDispenseQty(medicine);
+      const requestedQty = dispense.quantity;
       const product = this.findProductForMedicine(medicine.name);
 
       if (!product) {
         unavailable.push({
           medicineName: medicine.name,
           requestedQty,
+          qtyBreakdown: dispense.breakdown,
           reason: 'No matching product in selected store',
+          patientMessage: `Tell the patient: ${medicine.name} is not available in this store.`,
         });
         continue;
       }
@@ -2628,17 +2762,22 @@ export class PharmacyPosComponent implements OnInit {
         unavailable.push({
           medicineName: medicine.name,
           requestedQty,
-          reason: 'Matched product has no available stock',
+          qtyBreakdown: dispense.breakdown,
+          reason: 'Out of stock in selected store',
+          patientMessage: `Tell the patient: ${medicine.name} is out of stock right now.`,
         });
         continue;
       }
 
+      const billQty = Math.min(requestedQty, availableQty);
       lines.push({
         sourceMedicineName: medicine.name,
         product,
         requestedQty,
-        billQty: Math.min(requestedQty, availableQty),
+        billQty,
         availableQty,
+        qtyBreakdown: dispense.breakdown,
+        shortBy: Math.max(requestedQty - billQty, 0),
         unitPrice: this.productPrice(product),
         discount: 0,
         discountInput: 0,
@@ -2675,44 +2814,6 @@ export class PharmacyPosComponent implements OnInit {
         (a, b) => this.productAvailableQty(b) - this.productAvailableQty(a),
       )[0] || null
     );
-  }
-
-  private requestedMedicineQty(medicine: PrescriptionMedicine): number {
-    const slots: Array<'morning' | 'noon' | 'evening' | 'night'> = [
-      'morning',
-      'noon',
-      'evening',
-      'night',
-    ];
-    const total = slots.reduce((sum, slot) => {
-      const doseKey = `${slot}Dose` as
-        | 'morningDose'
-        | 'noonDose'
-        | 'eveningDose'
-        | 'nightDose';
-      const doseValue = this.parseDoseAmount(medicine[doseKey]);
-
-      if (doseValue > 0) {
-        return sum + doseValue;
-      }
-
-      return medicine[slot] ? sum + 1 : sum;
-    }, 0);
-
-    return total > 0 ? total : 1;
-  }
-
-  private parseDoseAmount(value: unknown): number {
-    const text = String(value || '').trim();
-    const fraction = text.match(/(\d+)\s*\/\s*(\d+)/);
-    if (fraction) {
-      const numerator = Number(fraction[1]);
-      const denominator = Number(fraction[2]);
-      return denominator > 0 ? numerator / denominator : 0;
-    }
-
-    const decimal = text.match(/\d+(?:\.\d+)?/);
-    return decimal ? Number(decimal[0]) : 0;
   }
 
   productAvailableQty(product: ProductCatalogItem): number {
@@ -3809,7 +3910,8 @@ export class PharmacyPosComponent implements OnInit {
       target?.isContentEditable ||
       tagName === 'textarea' ||
       tagName === 'button' ||
-      tagName === 'a'
+      tagName === 'a' ||
+      (this.saleReturnOpen && (tagName === 'input' || tagName === 'select'))
     ) {
       return false;
     }

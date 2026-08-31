@@ -179,6 +179,19 @@ const transliterateToken = (token: string): string => {
   return result;
 };
 
+export const transliterateLatinToUrdu = (value?: string | null): string => {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  return raw
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(transliterateToken)
+    .join(' ');
+};
+
 export const transliterateDoctorNameToUrdu = (
   value?: string | null
 ): string => {

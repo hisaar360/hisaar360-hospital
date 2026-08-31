@@ -1,4 +1,4 @@
-@import './lab-dashboard.component.scss';
+@use './lab-dashboard.component.scss';
 
 .settings-page {
   --lab-teal: #019c9d;
@@ -425,12 +425,32 @@
   font-style: italic;
 }
 
+.signatory-list {
+  display: grid;
+  gap: 12px;
+}
+
+.signatory-row {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1.2fr 1.2fr 1fr auto;
+}
+
+.signatory-remove {
+  height: 38px;
+}
+
 @media (max-width: 1024px) {
   .settings-info-cards {
     grid-template-columns: 1fr;
   }
 
   .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .signatory-row {
     grid-template-columns: 1fr;
   }
 }

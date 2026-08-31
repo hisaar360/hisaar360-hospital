@@ -1,4 +1,4 @@
-@import './lab-dashboard.component.scss';
+@use './lab-dashboard.component.scss';
 
 .lab-form-shell {
   max-width: 1180px;
@@ -269,8 +269,65 @@
   padding: 10px;
 }
 
+.billing-hint {
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0 0 4px;
+}
+
+.payment-received {
+  align-items: center;
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+}
+
+.payment-received input {
+  min-height: auto;
+}
+
+.invoice-status {
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 6px 8px;
+}
+
+.invoice-status[data-status='PAID'] {
+  background: #ecfdf3;
+  color: #166534;
+}
+
+.invoice-status[data-status='PARTIAL'] {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.invoice-status[data-status='UNPAID'] {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.invoice-status[data-status='NO CHARGE'] {
+  background: #f8fafc;
+  color: #334155;
+}
+
 .payment-box .balance strong {
   color: #b91c1c;
+}
+
+.encounter-hint {
+  color: var(--lab-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.encounter-hint.is-attached {
+  color: var(--lab-ink);
+  font-weight: 600;
 }
 
 .summary-actions {

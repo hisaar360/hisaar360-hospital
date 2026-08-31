@@ -2,8 +2,8 @@
     <div class="pharmacy-shell">
         <header class="pharmacy-hero">
             <div class="pharmacy-hero-main">
-                <h1>Pharmacy Queue</h1>
-                <p>Review doctor prescriptions and match them with POS medicine stock</p>
+                <h1>Pharmacy Dashboard</h1>
+                <p>Today's sales, stock alerts, pending prescriptions, and POS fulfillment</p>
             </div>
             <div class="pharmacy-hero-actions">
                 <a class="btn btn-primary mr-2" [routerLink]="['/pharmacy/products']">
@@ -13,11 +13,20 @@
                 <button type="button" class="btn btn-success mr-2" *ngIf="canOpenPharmacyPos"
                     (click)="openPharmacyPos()">
                     <i class="fa fa-shopping-cart"></i>
-                    Open Mooli POS
+                    Open POS
                 </button>
                 <a class="btn btn-default" [routerLink]="['/prescriptions']">Prescriptions</a>
             </div>
         </header>
+
+        <div class="row clearfix pharmacy-kpi-row" *ngIf="dashboard">
+            <div class="col-md-3 col-sm-6" *ngFor="let card of pharmacyKpiCards">
+                <div class="pharmacy-kpi-card">
+                    <small>{{ card.label }}</small>
+                    <h4>{{ card.value }}</h4>
+                </div>
+            </div>
+        </div>
 
         <div class="row clearfix">
             <div class="col-12">

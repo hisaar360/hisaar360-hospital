@@ -13,6 +13,14 @@ import { ToastrService } from 'ngx-toastr';
 
 import { AppDialogService } from '../../../core/services/app-dialog.service';
 import { BackendService } from '../../../core/services/backend.service';
+import { isCurrentLaboratoryEdition } from '../../auth/product-edition';
+import {
+  isClinicalModuleEnabled,
+  isLaboratoryModuleEnabled,
+  isPharmacyModuleEnabled,
+  isRoleAllowedByHospitalModules,
+  isWardModuleEnabled,
+} from '../../auth/hospital-modules';
 import { Hospital, Role, User } from '../../../shared/models/hospital.model';
 
 interface PermissionGroup {
@@ -145,6 +153,22 @@ export class RolesComponent implements OnInit {
         { key: 'bills.create', label: 'Create Bills' },
         { key: 'bills.read', label: 'View Bills' },
         { key: 'bills.update_payment', label: 'Update Bill Payments' },
+        { key: 'encounters.create', label: 'Create Visit / Encounter' },
+        { key: 'encounters.read', label: 'View Visit / Encounter' },
+        { key: 'ledger_payments.create', label: 'Collect Ledger Payments' },
+        { key: 'ledger_payments.read', label: 'View Ledger Payments' },
+      ],
+    },
+    {
+      title: 'Laboratory',
+      permissions: [
+        { key: 'lab_tests.read', label: 'View Test Catalog' },
+        { key: 'lab_tests.create', label: 'Create Tests' },
+        { key: 'lab_tests.update', label: 'Update Tests' },
+        { key: 'lab_orders.read', label: 'View Lab Orders' },
+        { key: 'lab_orders.create', label: 'Create Lab Orders' },
+        { key: 'lab_orders.update', label: 'Update Orders / Enter Results / Collect Payment' },
+        { key: 'lab_results.verify', label: 'Verify Results (Pathologist)' },
       ],
     },
     {
@@ -206,6 +230,34 @@ export class RolesComponent implements OnInit {
 
   can(permission: string): boolean {
     return this.backend.hasPermission(permission);
+  }
+
+  get visiblePermissionGroups(): PermissionGroup[] {
+    const moduleGroupTitles: Record<string, () => boolean> = {
+      'Hospital Dashboard': isClinicalModuleEnabled,
+      Departments: isClinicalModuleEnabled,
+      Doctors: isClinicalModuleEnabled,
+      'Patient History': isClinicalModuleEnabled,
+      Appointments: isClinicalModuleEnabled,
+      Prescriptions: isClinicalModuleEnabled,
+      'Pharmacy / POS': isPharmacyModuleEnabled,
+      'POS Reports': isPharmacyModuleEnabled,
+      Laboratory: isLaboratoryModuleEnabled,
+      Rooms: isWardModuleEnabled,
+      'Room Allotments': isWardModuleEnabled,
+    };
+
+    let groups = this.permissionGroups.filter((group) => {
+      const moduleCheck = moduleGroupTitles[group.title];
+      return moduleCheck ? moduleCheck() : true;
+    });
+
+    if (!isCurrentLaboratoryEdition()) {
+      return groups;
+    }
+
+    const allowed = new Set(['Patients', 'Laboratory', 'Billing', 'Administration']);
+    return groups.filter((group) => allowed.has(group.title));
   }
 
   loadRoles(): void {
@@ -395,7 +447,7 @@ export class RolesComponent implements OnInit {
   }
 
   visibleRoles(): Role[] {
-    return this.roles;
+    return this.roles.filter((role) => isRoleAllowedByHospitalModules(role));
   }
 
   onHospitalChange(): void {

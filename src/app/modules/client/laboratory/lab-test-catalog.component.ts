@@ -65,6 +65,18 @@ export class LabTestCatalogComponent implements OnInit, OnDestroy {
     document.body.style.overflow = '';
   }
 
+  canCreateTest(): boolean {
+    return this.backend.hasPermission('lab_tests.create');
+  }
+
+  canUpdateTest(): boolean {
+    return this.backend.hasPermission('lab_tests.update');
+  }
+
+  canManageCatalog(): boolean {
+    return this.canCreateTest() || this.canUpdateTest();
+  }
+
   emptyForm() {
     return {
       name: '',
@@ -106,6 +118,9 @@ export class LabTestCatalogComponent implements OnInit, OnDestroy {
   }
 
   openFormModal(): void {
+    if (!this.canCreateTest()) {
+      return;
+    }
     this.isEditMode = false;
     this.editingTestId = '';
     this.form = this.emptyForm();
@@ -116,6 +131,9 @@ export class LabTestCatalogComponent implements OnInit, OnDestroy {
   }
 
   openEditModal(test: LabTestCatalogRow): void {
+    if (!this.canUpdateTest()) {
+      return;
+    }
     this.isEditMode = true;
     this.editingTestId = test._id;
     this.form = this.testToForm(test);
@@ -269,6 +287,9 @@ export class LabTestCatalogComponent implements OnInit, OnDestroy {
   }
 
   seedDefaults(): void {
+    if (!this.canCreateTest()) {
+      return;
+    }
     this.backend.seedDefaultLabTests().subscribe({
       next: (response) => {
         this.toastr.success(`${response.data?.seeded || 0} default tests seeded.`);

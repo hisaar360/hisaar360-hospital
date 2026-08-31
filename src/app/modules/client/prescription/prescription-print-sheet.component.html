@@ -1,4 +1,5 @@
 <section class="prescription-print-sheet" #printContent
+  [style.--prescription-logo-scale]="preview.hospitalLogoScale / 100"
   [ngClass]="'prescription-template-' + template"
   *ngIf="preview">
           <ng-container *ngIf="template === 'clinical-blue'; else themedPrescriptionLayout">

@@ -4,7 +4,7 @@
       <div class="row clearfix align-items-center">
         <div class="col-lg-6 col-md-12">
           <h1>Patient Payments</h1>
-          <span>Patient number, name, phone — paid, discount, remaining aur service breakdown</span>
+          <span>Patient number, name, phone, paid, discount, remaining, and service breakdown</span>
         </div>
         <div class="col-lg-6 col-md-12 text-lg-right header-actions">
           <a routerLink="/payments/ledger" class="btn btn-default mr-2">
@@ -35,7 +35,7 @@
               <div class="filter-toggle">
                 <label class="toggle-label">
                   <input type="checkbox" [(ngModel)]="hasBalanceOnly" (change)="applyFilters()" />
-                  Sirf remaining balance wale
+                  Outstanding balance only
                 </label>
               </div>
               <div class="filter-action">

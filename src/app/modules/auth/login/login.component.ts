@@ -92,9 +92,9 @@ export class LoginComponent implements OnInit, OnDestroy {
     this.authService
       .login(this.loginForm.value.email, this.loginForm.value.password)
       .subscribe({
-        next: (response) => {
+        next: () => {
           this.loading = false;
-          this.toaster.success(response?.message || 'Login Successfully');
+          this.toaster.success(this.welcomeMessage());
         },
         error: (err) => {
           this.loading = false;
@@ -112,9 +112,9 @@ export class LoginComponent implements OnInit, OnDestroy {
     this.ssoLoading = true;
 
     this.authService.ssoLogin(this.ssoCode).subscribe({
-      next: (response) => {
+      next: () => {
         this.ssoLoading = false;
-        this.toaster.success(response?.message || 'SSO login successful');
+        this.toaster.success(this.welcomeMessage());
       },
       error: (err) => {
         this.ssoLoading = false;
@@ -132,5 +132,10 @@ export class LoginComponent implements OnInit, OnDestroy {
         }
       },
     });
+  }
+
+  private welcomeMessage(): string {
+    const name = String(this.authService.getCurrentUser()?.name || '').trim();
+    return name ? `Welcome, ${name}` : 'Welcome';
   }
 }

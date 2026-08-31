@@ -61,4 +61,9 @@ export class PharmacyRegisterSessionDetailComponent implements OnInit {
   dateTime(value: string | null | undefined): string {
     return formatDateTime(value);
   }
+
+  cashierName(detail: RegisterSessionDetail): string {
+    const cashier = detail.registerSession.cashier;
+    return cashier?.name || cashier?.email || 'Unknown cashier';
+  }
 }

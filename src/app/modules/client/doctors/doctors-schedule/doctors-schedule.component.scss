@@ -1,0 +1,106 @@
+.schedule-editor {
+  border-top: 1px solid #e5e7eb;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.schedule-editor h5 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.slot-duration-field {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 16px;
+  max-width: 280px;
+}
+
+.slot-duration-field span {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.slot-duration-field small {
+  color: #64748b;
+}
+
+.day-hours-row {
+  align-items: center;
+  display: grid;
+  gap: 8px 12px;
+  grid-template-columns: minmax(110px, 140px) minmax(0, 1fr);
+  margin-bottom: 10px;
+}
+
+.day-hours-times {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  min-width: 0;
+}
+
+.day-hours-times .form-control {
+  font-size: 16px;
+  min-height: 40px;
+  min-width: 0;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+.day-hours-times input[type='time']::-webkit-calendar-picker-indicator {
+  margin: 0;
+  width: 16px;
+}
+
+.day-hours-sep {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.leave-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.leave-row .form-control {
+  flex: 1 1 180px;
+  min-height: 40px;
+}
+
+.leave-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.leave-chip {
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 6px;
+  padding: 4px 10px;
+}
+
+.leave-chip button {
+  background: transparent;
+  border: 0;
+  color: #64748b;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+}
+
+@media (max-width: 575.98px) {
+  .day-hours-row {
+    grid-template-columns: 1fr;
+  }
+}

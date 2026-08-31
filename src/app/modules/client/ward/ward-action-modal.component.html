@@ -45,7 +45,7 @@
         <label><span>Patient</span><select [(ngModel)]="form['patientId']"><option value="">Select patient</option><option *ngFor="let patient of patients" [value]="patient._id">{{ patientLabel(patient) }}</option></select></label>
         <div class="ward-modal__grid">
           <label><span>BP</span><input [(ngModel)]="form['bloodPressure']" placeholder="120/80" /></label>
-          <label><span>Temp</span><input [(ngModel)]="form['temperature']" placeholder="98.6" /></label>
+          <label><span>Temp (°C)</span><input [(ngModel)]="form['temperature']" placeholder="36.8" /></label>
           <label><span>Pulse</span><input [(ngModel)]="form['pulse']" placeholder="78" /></label>
           <label><span>Weight</span><input [(ngModel)]="form['weight']" placeholder="12 kg" /></label>
           <label><span>SpO2</span><input type="number" min="0" max="100" [(ngModel)]="form['spo2']" placeholder="98" /></label>
@@ -59,11 +59,26 @@
       </ng-container>
 
       <ng-container *ngSwitchCase="'io-chart'">
-        <label><span>Patient</span><select [(ngModel)]="form['patientId']"><option value="">Select patient</option><option *ngFor="let patient of patients" [value]="patient._id">{{ patientLabel(patient) }}</option></select></label>
+        <label><span>Patient</span><select [(ngModel)]="form['patientId']" (ngModelChange)="onPatientChange($event)"><option value="">Select patient</option><option *ngFor="let patient of patients" [value]="patient._id">{{ patientLabel(patient) }}</option></select></label>
         <div class="ward-modal__grid">
-          <label><span>Intake (ml)</span><input type="number" [(ngModel)]="form['intake']" /></label>
-          <label><span>Output (ml)</span><input type="number" [(ngModel)]="form['output']" /></label>
-          <label><span>Balance</span><input [(ngModel)]="form['balance']" /></label>
+          <label><span>Direction</span>
+            <select [(ngModel)]="form['direction']">
+              <option value="INTAKE">Intake</option>
+              <option value="OUTPUT">Output</option>
+            </select>
+          </label>
+          <label><span>Category</span>
+            <select [(ngModel)]="form['ioCategory']">
+              <option value="Oral">Oral</option>
+              <option value="IV">IV</option>
+              <option value="NG">NG</option>
+              <option value="Urine">Urine</option>
+              <option value="Drain">Drain</option>
+              <option value="Vomiting">Vomiting</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+          <label><span>Volume (ml)</span><input type="number" [(ngModel)]="form['volumeMl']" /></label>
           <label><span>Shift</span><select [(ngModel)]="form['shift']"><option *ngFor="let shift of shiftOptions" [value]="shift.value">{{ shift.label }}</option></select></label>
         </div>
         <label><span>Notes</span><textarea [(ngModel)]="form['notes']" rows="2"></textarea></label>
@@ -95,13 +110,28 @@
       </ng-container>
 
       <ng-container *ngSwitchCase="'inventory'">
-        <label><span>Item Name</span><input [(ngModel)]="form['title']" /></label>
-        <label><span>Category</span><input [(ngModel)]="form['category']" /></label>
-        <div class="ward-modal__grid">
-          <label><span>Quantity</span><input type="number" [(ngModel)]="form['quantity']" /></label>
-          <label><span>Reorder Level</span><input type="number" [(ngModel)]="form['reorderLevel']" /></label>
-        </div>
-        <label><span>Location</span><input [(ngModel)]="form['location']" /></label>
+        <label>
+          <span>Product</span>
+          <select [(ngModel)]="form['productId']">
+            <option value="">Select product</option>
+            <option *ngFor="let product of products" [value]="product._id">{{ productLabel(product) }}</option>
+          </select>
+        </label>
+        <label>
+          <span>From store</span>
+          <select [(ngModel)]="form['fromLocationId']">
+            <option value="">Select store</option>
+            <option *ngFor="let store of stores" [value]="store._id">{{ store.name }}</option>
+          </select>
+        </label>
+        <label>
+          <span>Ward</span>
+          <select [(ngModel)]="form['wardId']">
+            <option value="">Select ward</option>
+            <option *ngFor="let ward of wards" [value]="ward._id">{{ ward.name }}</option>
+          </select>
+        </label>
+        <label><span>Quantity</span><input type="number" min="1" [(ngModel)]="form['quantity']" /></label>
         <label><span>Notes</span><textarea [(ngModel)]="form['description']" rows="2"></textarea></label>
       </ng-container>
     </div>

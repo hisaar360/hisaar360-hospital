@@ -1,4 +1,4 @@
-@import '../pharmacy-shared.scss';
+@use '../pharmacy-shared.scss';
 
 .pharmacy-products-page {
   color: #172033;
@@ -119,7 +119,9 @@
 }
 
 .product-table {
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .product-row {

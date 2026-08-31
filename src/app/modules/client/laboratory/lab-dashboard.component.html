@@ -9,10 +9,10 @@
         </p>
       </div>
       <div class="lab-heading-actions">
-        <a class="btn-light" routerLink="/laboratory/created-reports">Created Reports</a>
-        <a class="btn-light" routerLink="/laboratory/catalog">Test Catalog</a>
-        <a class="btn-light" routerLink="/laboratory/settings">Lab Print Details</a>
-        <a class="btn-primary" routerLink="/laboratory/create-order">Create Lab Order</a>
+        <a class="btn-light" *ngIf="canViewLabOrders()" routerLink="/laboratory/created-reports">Created Reports</a>
+        <a class="btn-light" *ngIf="canViewLabCatalog()" routerLink="/laboratory/catalog">Test Catalog</a>
+        <a class="btn-light" *ngIf="canManageLabSettings()" routerLink="/laboratory/settings">Lab Print Details</a>
+        <a class="btn-primary" *ngIf="canCreateLabOrder()" routerLink="/laboratory/create-order">Create Lab Order</a>
       </div>
     </div>
 
@@ -22,9 +22,9 @@
       <article><strong>{{ stats.resultPending }}</strong><span>Result Pending</span></article>
       <article><strong>{{ stats.readyToVerify }}</strong><span>Ready to Verify</span></article>
       <article><strong>{{ stats.completedToday }}</strong><span>Completed Today</span></article>
-      <article><strong>Rs. {{ (stats.todayCollected || 0) | number:'1.0-0' }}</strong><span>Collected Today</span></article>
-      <article><strong>Rs. {{ (stats.totalCollected || 0) | number:'1.0-0' }}</strong><span>Total Lab Collection</span></article>
-      <article><strong>Rs. {{ (stats.outstandingAmount || 0) | number:'1.0-0' }}</strong><span>Outstanding</span></article>
+      <article *ngIf="canViewLabCollections()"><strong>Rs. {{ (stats.todayCollected || 0) | number:'1.0-0' }}</strong><span>Collected Today</span></article>
+      <article *ngIf="canViewLabCollections()"><strong>Rs. {{ (stats.totalCollected || 0) | number:'1.0-0' }}</strong><span>Total Lab Collection</span></article>
+      <article *ngIf="canViewLabCollections()"><strong>Rs. {{ (stats.outstandingAmount || 0) | number:'1.0-0' }}</strong><span>Outstanding</span></article>
     </div>
 
     <div class="lab-filter-bar">

@@ -73,9 +73,6 @@
 .icon-menu {
   font-family: "Nunito", sans-serif;
 }
-::ng-deep.sticky-note {
-  z-index: 13 !important;
-}
 
 .dropdown-toggle::after {
   display: none;
@@ -92,8 +89,4 @@ ul li a:hover {
 
 .theme-bg.gradient {
   background: linear-gradient(45deg, #019C9D, #003E86) !important;
-}
-
-.note-body .card {
-  display: inline-block !important;
 }

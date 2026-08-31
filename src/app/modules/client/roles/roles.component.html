@@ -4,7 +4,10 @@
       <div class="row clearfix">
         <div class="col-lg-8 col-md-12 col-sm-12">
           <h1>Hospital Roles</h1>
-          <span>Manage hospital permissions, including pharmacy POS dispense access.</span>
+          <span>
+            Default laboratory roles are created automatically (Laboratory Admin, Pathologist, Lab Technician,
+            Lab Receptionist, and Laboratory). Create a custom role if one or two people should run the whole lab.
+          </span>
         </div>
       </div>
     </div>
@@ -65,7 +68,7 @@
               </div>
 
               <div class="permission-groups">
-                <div class="permission-group" *ngFor="let group of permissionGroups">
+                <div class="permission-group" *ngFor="let group of visiblePermissionGroups">
                   <div class="permission-group__header">
                     <h6>{{ group.title }}</h6>
                   </div>
@@ -141,7 +144,7 @@
 
                 <div class="role-pill-card__actions">
                   <button class="btn btn-sm btn-default mr-1" *ngIf="can('roles.update')" (click)="editRole(role)"
-                    [disabled]="role.permissions?.includes('*')">
+                    [disabled]="role.permissions.includes('*')">
                     Edit
                   </button>
                   <button class="btn btn-sm btn-danger" *ngIf="can('roles.delete')" (click)="deleteRole(role)"

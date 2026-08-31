@@ -427,3 +427,48 @@
   font-size: 11px;
   padding: 6px 10px;
 }
+
+.day-hours-list {
+  display: grid;
+  gap: 10px;
+}
+
+.day-hours-row {
+  align-items: center;
+  display: grid;
+  gap: 8px 12px;
+  grid-template-columns: minmax(110px, 140px) minmax(0, 1fr);
+}
+
+.day-hours-times {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  min-width: 0;
+}
+
+.day-hours-times .form-control {
+  font-size: 16px;
+  min-height: 40px;
+  min-width: 0;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+.day-hours-times input[type='time']::-webkit-calendar-picker-indicator {
+  margin: 0;
+  width: 16px;
+}
+
+.day-hours-sep {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 575.98px) {
+  .day-hours-row {
+    grid-template-columns: 1fr;
+  }
+}

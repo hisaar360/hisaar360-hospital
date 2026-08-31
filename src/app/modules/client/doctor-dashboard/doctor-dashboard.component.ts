@@ -1,4 +1,4 @@
-import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { CommonModule, CurrencyPipe } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NgApexchartsModule } from 'ng-apexcharts';
@@ -38,7 +38,7 @@ type BarChartOptions = {
 @Component({
   selector: 'app-doctor-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, NgApexchartsModule, DatePipe, CurrencyPipe],
+  imports: [CommonModule, RouterLink, NgApexchartsModule, CurrencyPipe],
   templateUrl: './doctor-dashboard.component.html',
   styleUrl: './doctor-dashboard.component.scss',
 })
@@ -59,7 +59,7 @@ export class DoctorDashboardComponent implements OnInit {
   summary: DashboardSummary = this.emptySummary();
   currentUserName = 'Doctor';
 
-  statCards: Array<{ label: string; value: string | number; hint: string; icon: string; tone: string }> = [];
+  statCards: Array<{ label: string; value: string | number; hint: string; icon: string; tone: string; isCurrency?: boolean }> = [];
   quickLinks: Array<{ label: string; route: string; icon: string; visible: boolean }> = [];
 
   appointmentDonut: DonutChartOptions = this.buildDonutChart(this.emptyBreakdown());
@@ -80,6 +80,10 @@ export class DoctorDashboardComponent implements OnInit {
     return isDoctorRole(localStorage.getItem('role') || '');
   }
 
+  greetingName(): string {
+    return this.isDoctor ? `Dr. ${this.currentUserName}` : this.currentUserName;
+  }
+
   loadSummary(): void {
     this.loading = true;
 
@@ -94,7 +98,7 @@ export class DoctorDashboardComponent implements OnInit {
         error: (err) => {
           this.summary = this.emptySummary();
           this.syncDashboardState();
-          this.toastr.error(err?.error?.message || 'Dashboard load nahi ho saka');
+          this.toastr.error(err?.error?.message || 'Unable to load dashboard.');
         },
       });
   }
@@ -189,6 +193,7 @@ export class DoctorDashboardComponent implements OnInit {
         hint: 'Paid consultations',
         icon: 'fa-money',
         tone: 'tone-navy',
+        isCurrency: true,
       },
     ];
 

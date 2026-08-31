@@ -13,7 +13,7 @@
     <ng-container *ngIf="page.isFirstPage">
       <header class="gynae-wh-header">
         <div class="gynae-wh-brand">
-          <div class="gynae-wh-logo">
+          <div class="gynae-wh-logo" [class.has-logo]="preview.showHospitalLogo">
             <img *ngIf="preview.showHospitalLogo" [src]="preview.hospitalLogoUrl" [alt]="preview.hospitalName">
             <i *ngIf="!preview.showHospitalLogo" class="fa fa-heartbeat"></i>
           </div>

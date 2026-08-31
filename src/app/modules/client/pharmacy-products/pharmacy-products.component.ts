@@ -95,9 +95,6 @@ export class PharmacyProductsComponent implements OnInit {
     });
 
     this.refreshCurrentUser();
-    this.loadStores();
-    this.loadCategories();
-    this.loadProducts();
   }
 
   get canViewProducts(): boolean {
@@ -168,7 +165,6 @@ export class PharmacyProductsComponent implements OnInit {
 
         this.loadStores();
         this.loadCategories();
-        this.loadProducts();
       },
       error: () => {
         // Use cached session data if profile refresh fails.
@@ -228,6 +224,7 @@ export class PharmacyProductsComponent implements OnInit {
       if (user?.storeId && !this.productForm.storeId) {
         this.productForm.storeId = user.storeId;
       }
+      this.loadProducts();
       return;
     }
 
@@ -248,9 +245,11 @@ export class PharmacyProductsComponent implements OnInit {
           if (!this.productForm.storeId) {
             this.productForm.storeId = assignedStoreId || fallbackStoreId;
           }
+          this.loadProducts();
         },
         error: () => {
           this.stores = [];
+          this.loadProducts();
         },
       });
   }
@@ -474,7 +473,7 @@ export class PharmacyProductsComponent implements OnInit {
               storeId,
               openingStock,
               'OPENING_STOCK',
-              'Opening stock from Mooli product management',
+              'Opening stock from product management',
             );
           }
 
@@ -484,7 +483,7 @@ export class PharmacyProductsComponent implements OnInit {
                 storeId,
                 openingStock,
                 'MANUAL_ADJUSTMENT',
-                'Stock update from Mooli product management',
+                'Stock update from product management',
               )
             : of(response.data);
         }),

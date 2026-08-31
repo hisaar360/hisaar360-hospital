@@ -1,4 +1,4 @@
-@import './lab-dashboard.component.scss';
+@use './lab-dashboard.component.scss';
 
 :host {
   display: block;
@@ -116,6 +116,18 @@
 .summary-card small {
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.summary-card[data-pay='PAID'] {
+  border-color: #86efac;
+}
+
+.summary-card[data-pay='UNPAID'] {
+  border-color: #fca5a5;
+}
+
+.summary-card[data-pay='PARTIAL'] {
+  border-color: #fdba74;
 }
 
 .summary-label {
@@ -489,6 +501,7 @@
 }
 
 .remarks-block textarea,
+.side-panel textarea,
 .side-panel input[type='url'],
 .addon-search {
   background: #fff;
@@ -505,10 +518,22 @@
   resize: vertical;
 }
 
+.side-panel textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
 .panel-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.workflow-help {
+  color: var(--lab-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 8px 0 0;
 }
 
 .btn-verify {
@@ -521,6 +546,22 @@
   font-weight: 700;
   min-height: 34px;
   padding: 0 12px;
+}
+
+.btn-verify:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.verify-wait {
+  background: #fff7ed;
+  border-radius: 6px;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 8px 0 0;
+  padding: 8px 10px;
 }
 
 .btn-block {

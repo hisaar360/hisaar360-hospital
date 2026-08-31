@@ -5,8 +5,14 @@ import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
-import { LabSettingsResponse, LaboratoryPrintSettings } from '../../../shared/models/hospital.model';
-import { resolveLabPrintDetails, normalizeLabReportHexColor } from './lab-print-details';
+import { LabSettingsResponse, LaboratoryPrintSettings, LabReportSignatory } from '../../../shared/models/hospital.model';
+import {
+  resolveLabPrintDetails,
+  normalizeLabReportHexColor,
+  DEFAULT_LAB_SIGNATORIES,
+  DEFAULT_LAB_REPORT_DISCLAIMER,
+  DEFAULT_LAB_SYSTEM_GENERATED_LINE,
+} from './lab-print-details';
 
 @Component({
   selector: 'app-lab-settings',
@@ -50,6 +56,13 @@ export class LabSettingsComponent implements OnInit {
               response.laboratorySettings?.reportBorderColor,
               '#c92a2a'
             ),
+            reportDisclaimer:
+              response.laboratorySettings?.reportDisclaimer || DEFAULT_LAB_REPORT_DISCLAIMER,
+            systemGeneratedLine:
+              response.laboratorySettings?.systemGeneratedLine || DEFAULT_LAB_SYSTEM_GENERATED_LINE,
+            reportSignatories: this.cloneSignatories(
+              response.laboratorySettings?.reportSignatories || DEFAULT_LAB_SIGNATORIES
+            ),
           };
         },
         error: (err) => this.toastr.error(err?.error?.message || 'Unable to load laboratory settings.'),
@@ -69,6 +82,10 @@ export class LabSettingsComponent implements OnInit {
         tagline: this.form.tagline?.trim() || 'Pathology & Diagnostic Laboratory',
         reportNameColor: normalizeLabReportHexColor(this.form.reportNameColor),
         reportBorderColor: normalizeLabReportHexColor(this.form.reportBorderColor, '#c92a2a'),
+        reportDisclaimer: this.form.reportDisclaimer?.trim() || DEFAULT_LAB_REPORT_DISCLAIMER,
+        systemGeneratedLine:
+          this.form.systemGeneratedLine?.trim() || DEFAULT_LAB_SYSTEM_GENERATED_LINE,
+        reportSignatories: this.normalizedSignatories(),
       })
       .pipe(finalize(() => (this.saving = false)))
       .subscribe({
@@ -84,6 +101,14 @@ export class LabSettingsComponent implements OnInit {
               reportBorderColor: normalizeLabReportHexColor(
                 response.data.laboratorySettings.reportBorderColor,
                 '#c92a2a'
+              ),
+              reportDisclaimer:
+                response.data.laboratorySettings.reportDisclaimer || DEFAULT_LAB_REPORT_DISCLAIMER,
+              systemGeneratedLine:
+                response.data.laboratorySettings.systemGeneratedLine ||
+                DEFAULT_LAB_SYSTEM_GENERATED_LINE,
+              reportSignatories: this.cloneSignatories(
+                response.data.laboratorySettings.reportSignatories || []
               ),
             };
           }
@@ -136,6 +161,29 @@ export class LabSettingsComponent implements OnInit {
     return normalizeLabReportHexColor(this.form.reportBorderColor, '#c92a2a');
   }
 
+  addSignatory(): void {
+    this.form.reportSignatories = [
+      ...(this.form.reportSignatories || []),
+      { name: '', credentials: '', title: '' },
+    ];
+  }
+
+  removeSignatory(index: number): void {
+    this.form.reportSignatories = (this.form.reportSignatories || []).filter((_, i) => i !== index);
+  }
+
+  private cloneSignatories(items: LabReportSignatory[]): LabReportSignatory[] {
+    return (items || []).map((item) => ({
+      name: item.name || '',
+      credentials: item.credentials || '',
+      title: item.title || '',
+    }));
+  }
+
+  private normalizedSignatories(): LabReportSignatory[] {
+    return this.cloneSignatories(this.form.reportSignatories || []).filter((item) => item.name.trim());
+  }
+
   private emptyForm(): LaboratoryPrintSettings {
     return {
       useCustomDetails: false,
@@ -147,6 +195,9 @@ export class LabSettingsComponent implements OnInit {
       tagline: 'Pathology & Diagnostic Laboratory',
       reportNameColor: '#c92a2a',
       reportBorderColor: '#c92a2a',
+      reportDisclaimer: DEFAULT_LAB_REPORT_DISCLAIMER,
+      systemGeneratedLine: DEFAULT_LAB_SYSTEM_GENERATED_LINE,
+      reportSignatories: this.cloneSignatories(DEFAULT_LAB_SIGNATORIES),
     };
   }
 }

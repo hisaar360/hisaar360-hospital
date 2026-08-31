@@ -50,7 +50,7 @@
             <div class="col-md-4"><strong>Status</strong><div>{{ current.registerSession.status }}</div></div>
             <div class="col-md-4"><strong>Opened At</strong><div>{{ dateTime(current.registerSession.openedAt) }}</div></div>
             <div class="col-md-4"><strong>Closed At</strong><div>{{ dateTime(current.registerSession.closedAt) }}</div></div>
-            <div class="col-md-4"><strong>Cashier</strong><div>{{ current.registerSession.cashier?.name || current.registerSession.cashierId }}</div></div>
+            <div class="col-md-4"><strong>Cashier</strong><div>{{ cashierName(current) }}</div></div>
             <div class="col-md-4"><strong>Closing Amount</strong><div>{{ currency(current.registerSession.closingAmount) }}</div></div>
             <div class="col-md-4"><strong>Cash Difference</strong><div>{{ currency(current.registerSession.cashDifference) }}</div></div>
           </div>

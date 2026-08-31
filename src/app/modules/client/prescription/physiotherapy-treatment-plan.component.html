@@ -58,7 +58,7 @@
             </p>
           </div>
           <div class="header-actions">
-            <a class="btn-light" routerLink="/prescriptions/created">Created Prescriptions</a>
+            <a *ngIf="canReadPrescriptions()" class="btn-light" routerLink="/prescriptions/created">Created Prescriptions</a>
             <button type="button" class="btn-light" [disabled]="saving" (click)="submitPlan(false)">Save Draft</button>
             <button type="button" class="btn-primary" [disabled]="saving" (click)="submitPlan(true)">
               <i class="fa fa-print"></i> {{ saving ? 'Saving...' : 'Save &amp; Print' }}

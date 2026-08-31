@@ -12,6 +12,8 @@ const LABORATORY_PLAN_ALIASES = new Set([
 const LABORATORY_ROUTE_PREFIXES = [
   '/laboratory',
   '/patients',
+  '/accounts',
+  '/payments',
   '/users',
   '/roles',
   '/settings',

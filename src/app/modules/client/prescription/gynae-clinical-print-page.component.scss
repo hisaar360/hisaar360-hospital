@@ -80,6 +80,19 @@
   width: 100%;
 }
 
+.gynae-clinical-doctor-mark.has-logo {
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
+
+.gynae-clinical-doctor-mark.has-logo img {
+  background: transparent;
+  object-fit: contain;
+  transform: scale(var(--prescription-logo-scale, 1));
+  transform-origin: center;
+}
+
 .gynae-clinical-doctor-mark i {
   font-size: 10mm;
 }

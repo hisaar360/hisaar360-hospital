@@ -17,11 +17,11 @@
                 <div class="card">
                     <div class="body">
                         <div class="row mb-3">
-                            <div class="col-md-5">
+                            <div [class]="can('departments.read') ? 'col-md-5' : 'col-md-8'">
                                 <input class="form-control" [(ngModel)]="search" placeholder="Search doctors"
                                     (keyup.enter)="page = 1; loadDoctors()">
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-3" *ngIf="can('departments.read')">
                                 <select class="form-control" [(ngModel)]="departmentId" (change)="page = 1; loadDoctors()">
                                     <option value="">All departments</option>
                                     <option *ngFor="let department of departments" [value]="department._id">
@@ -45,6 +45,7 @@
                             <table class="table table-hover js-basic-example dataTable">
                                 <thead>
                                     <tr>
+                                        <th>Photo</th>
                                         <th>Name</th>
                                         <th>Email</th>
                                         <th>Department</th>
@@ -57,6 +58,12 @@
                                 </thead>
                                 <tbody>
                                     <tr *ngFor="let doctor of doctors">
+                                        <td>
+                                            <button type="button" class="doctor-photo-thumb" (click)="openPhoto(doctor, $event)" [disabled]="!photoUrl(doctor)">
+                                                <img *ngIf="photoUrl(doctor)" [src]="photoUrl(doctor)" alt="" loading="lazy" />
+                                                <span *ngIf="!photoUrl(doctor)">{{ initials(doctor) }}</span>
+                                            </button>
+                                        </td>
                                         <td>{{ doctor.user?.name || '-' }}</td>
                                         <td>{{ doctor.user?.email || '-' }}</td>
                                         <td>{{ departmentLabel(doctor) }}</td>
@@ -71,6 +78,7 @@
                                         </td>
                                         <td class="text-right">
                                             <a class="btn btn-sm btn-default mr-1" [routerLink]="['/doctors-profile', doctor._id]">View</a>
+                                            <button class="btn btn-sm btn-default mr-1" *ngIf="photoUrl(doctor)" (click)="openPhoto(doctor, $event)">View Photo</button>
                                             <button class="btn btn-sm btn-primary mr-1" *ngIf="can('doctors.update')"
                                                 (click)="editDoctor(doctor)">Edit</button>
                                             <button class="btn btn-sm btn-danger" *ngIf="can('doctors.delete')"
@@ -78,10 +86,10 @@
                                         </td>
                                     </tr>
                                     <tr *ngIf="!loading && doctors.length === 0">
-                                        <td colspan="8" class="text-center text-muted">No doctors found</td>
+                                        <td colspan="9" class="text-center text-muted">No doctors found</td>
                                     </tr>
                                     <tr *ngIf="loading">
-                                        <td colspan="8" class="text-center text-muted">Loading...</td>
+                                        <td colspan="9" class="text-center text-muted">Loading...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -99,3 +107,10 @@
         </div>
     </div>
 </div>
+
+<app-image-viewer-modal
+    [open]="viewerOpen"
+    [src]="viewerSrc"
+    [alt]="viewerAlt"
+    (closed)="viewerOpen = false">
+</app-image-viewer-modal>

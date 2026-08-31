@@ -85,7 +85,7 @@ export class DashboardComponent implements OnInit {
         error: (err) => {
           this.summary = this.emptySummary();
           this.syncDashboardState();
-          this.toastr.error(err?.error?.message || 'Dashboard load nahi ho saka');
+          this.toastr.error(err?.error?.message || 'Unable to load dashboard.');
         },
       });
   }
@@ -123,7 +123,7 @@ export class DashboardComponent implements OnInit {
       { label: "Today's Appointments", value: this.summary.todayAppointments, hint: 'Scheduled today', icon: 'fa-calendar', tone: 'tone-green' },
       { label: 'Lab Tests Today', value: this.summary.todayLabOrders || 0, hint: 'New lab orders', icon: 'fa-flask', tone: 'tone-purple' },
       { label: 'Prescriptions Today', value: this.summary.todayPrescriptions || 0, hint: 'Created today', icon: 'fa-file-text-o', tone: 'tone-amber' },
-      { label: "Today's Revenue", value: this.summary.todayRevenue || 0, hint: 'Bills collected today', icon: 'fa-money', tone: 'tone-navy', isCurrency: true },
+      { label: "Today's Revenue", value: this.summary.todayRevenue || 0, hint: 'GL posted revenue today', icon: 'fa-money', tone: 'tone-navy', isCurrency: true },
     ];
 
     this.todayDonut = this.buildDonutChart(today);

@@ -41,7 +41,7 @@ export class HospitalsComponent implements OnInit {
       error: (err) => {
         this.loading = false;
         this.hospitals = [];
-        this.toast.error(err?.error?.message || 'Hospitals load nahi ho sake');
+        this.toast.error(err?.error?.message || 'Unable to load hospitals.');
       },
     });
   }
@@ -105,7 +105,7 @@ export class HospitalsComponent implements OnInit {
         this.loadHospitals();
       },
       error: (err) => {
-        this.toast.error(err?.error?.message || 'Hospital delete nahi ho saka');
+        this.toast.error(err?.error?.message || 'Unable to delete hospital.');
       },
     });
   }

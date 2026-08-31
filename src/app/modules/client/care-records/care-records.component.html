@@ -14,6 +14,30 @@
             </div>
         </div>
 
+        <!-- Page loading / error -->
+        <div class="row mb-3" *ngIf="loading && !bootstrapped">
+            <div class="col-12">
+                <div class="card shadow-sm rounded">
+                    <div class="body p-4 text-center text-muted">
+                        <i class="fa fa-spinner fa-spin mr-2"></i>
+                        Loading care records...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-3" *ngIf="loadError && !loading && !bootstrapped">
+            <div class="col-12">
+                <div class="card shadow-sm rounded border-danger">
+                    <div class="body p-4 text-center">
+                        <p class="text-danger mb-3">{{ loadError }}</p>
+                        <button class="btn btn-primary" type="button" (click)="loadPageBootstrap()">Retry</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <ng-container *ngIf="bootstrapped || (!loading && !loadError)">
         <!-- Ward Current Patients -->
         <div class="row mb-3" *ngIf="recordType === 'ward'">
             <div class="col-12">
@@ -223,5 +247,6 @@
                 </div>
             </div>
         </div>
+        </ng-container>
     </div>
 </div>

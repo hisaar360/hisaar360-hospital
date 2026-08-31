@@ -6,8 +6,9 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { Router } from '@angular/router';
-import { debounceTime, distinctUntilChanged, finalize, Subject, takeUntil } from 'rxjs';
+import { Router, RouterLink } from '@angular/router';
+import { debounceTime, distinctUntilChanged, finalize, of, Subject, switchMap, takeUntil } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../core/services/backend.service';
 import {
@@ -33,10 +34,13 @@ import {
   User,
 } from '../../../../shared/models/hospital.model';
 import { transliterateDoctorNameToUrdu } from '../../../../shared/utils/urdu-transliteration';
+import { ProfilePhotoFieldComponent } from '../../../../shared/components/profile-photo-field/profile-photo-field.component';
+import { ImageViewerModalComponent } from '../../../../shared/components/image-viewer-modal/image-viewer-modal.component';
+import { resolveAssetUrl } from '../../../../core/utils/asset.util';
 
 @Component({
   selector: 'app-add-doctors',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, ProfilePhotoFieldComponent, ImageViewerModalComponent],
   templateUrl: './add-doctors.component.html',
   styleUrl: './add-doctors.component.scss',
 })
@@ -53,6 +57,11 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
 
   saving = false;
   autoUrduName = true;
+  pendingPhoto: File | null = null;
+  pendingPreviewUrl: string | null = null;
+  removeExistingPhoto = false;
+  photoUploadFailed = false;
+  viewerOpen = false;
   specializationSearch = '';
   qualificationSearch = '';
   specializationDropdownOpen = false;
@@ -71,6 +80,7 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
 
   days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
   selectedDays: string[] = [];
+  dayHours: Record<string, { startTime: string; endTime: string }> = {};
   readonly prescriptionTemplates: Array<{
     id: PrescriptionTemplate;
     name: string;
@@ -134,12 +144,10 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
       qualificationCustom: [''],
       experienceYears: [0],
       consultationFee: [0, [Validators.required, Validators.min(0)]],
+      slotDurationMinutes: [15, Validators.required],
       prescriptionSpecialtyMode: [AUTO_PRESCRIPTION_SPECIALTY, Validators.required],
       prescriptionSpecialtyTemplate: ['general' as PrescriptionSpecialtyTemplate],
       prescriptionTemplate: ['classic' as PrescriptionTemplate, Validators.required],
-      slotDay: ['monday'],
-      startTime: ['09:00'],
-      endTime: ['13:00'],
       status: ['active', Validators.required],
     });
   }
@@ -154,8 +162,68 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.revokePendingPreview();
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  get displayPhotoUrl(): string | null {
+    return this.removeExistingPhoto ? null : this.editingDoctor?.photoUrl || null;
+  }
+
+  get viewerSrc(): string {
+    return this.pendingPreviewUrl || resolveAssetUrl(this.displayPhotoUrl);
+  }
+
+  onPhotoSelected(file: File | null): void {
+    this.revokePendingPreview();
+    this.pendingPhoto = file;
+    this.pendingPreviewUrl = file ? URL.createObjectURL(file) : null;
+    this.removeExistingPhoto = false;
+    this.photoUploadFailed = false;
+  }
+
+  onRemoveCurrentPhoto(): void {
+    this.revokePendingPreview();
+    this.pendingPhoto = null;
+    this.removeExistingPhoto = true;
+    this.photoUploadFailed = false;
+  }
+
+  retryPhotoUpload(): void {
+    const doctorId = this.editingDoctor?._id;
+    if (!doctorId || !this.pendingPhoto) {
+      return;
+    }
+
+    this.saving = true;
+    this.backend
+      .uploadDoctorPhoto(doctorId, this.pendingPhoto)
+      .pipe(finalize(() => (this.saving = false)))
+      .subscribe({
+        next: (response) => {
+          this.photoUploadFailed = false;
+          this.pendingPhoto = null;
+          this.revokePendingPreview();
+          this.editingDoctor = response.data || this.editingDoctor;
+          this.toastr.success(response.message || 'Doctor photo uploaded successfully');
+          this.router.navigateByUrl('/all-doctors');
+        },
+        error: (err) => {
+          this.photoUploadFailed = true;
+          this.toastr.error(
+            err?.error?.message ||
+              'Doctor created successfully, but profile image upload failed. You can upload it from Edit Doctor.'
+          );
+        },
+      });
+  }
+
+  private revokePendingPreview(): void {
+    if (this.pendingPreviewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(this.pendingPreviewUrl);
+    }
+    this.pendingPreviewUrl = null;
   }
 
   get showCustomSpecialization(): boolean {
@@ -233,6 +301,11 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
   }
 
   loadDepartments(): void {
+    if (!this.backend.hasPermission('departments.read')) {
+      this.departments = [];
+      return;
+    }
+
     const hospitalId = this.doctorForm.value.hospitalId || this.currentHospitalId || this.editingDoctor?.hospitalId;
 
     this.backend
@@ -387,6 +460,45 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
       : this.selectedDays.filter((item) => item !== day);
 
     this.selectedDays = this.normalizeDays(nextDays);
+    if (checked && !this.dayHours[day]) {
+      this.dayHours[day] = this.defaultDayHours();
+    }
+  }
+
+  dayStart(day: string): string {
+    return this.dayHours[day]?.startTime || '09:00';
+  }
+
+  dayEnd(day: string): string {
+    return this.dayHours[day]?.endTime || '17:00';
+  }
+
+  setDayStart(day: string, event: Event): void {
+    const startTime = (event.target as HTMLInputElement).value || '09:00';
+    this.dayHours[day] = {
+      startTime,
+      endTime: this.dayEnd(day),
+    };
+  }
+
+  setDayEnd(day: string, event: Event): void {
+    const endTime = (event.target as HTMLInputElement).value || '17:00';
+    this.dayHours[day] = {
+      startTime: this.dayStart(day),
+      endTime,
+    };
+  }
+
+  private defaultDayHours(): { startTime: string; endTime: string } {
+    return { startTime: '09:00', endTime: '17:00' };
+  }
+
+  private buildAvailableSlots(): Array<{ day: string; startTime: string; endTime: string }> {
+    return this.normalizeDays(this.selectedDays).map((day) => ({
+      day,
+      startTime: this.dayStart(day),
+      endTime: this.dayEnd(day),
+    }));
   }
 
   isDaySelected(day: string): boolean {
@@ -423,6 +535,12 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const invalidSlot = this.buildAvailableSlots().find((slot) => slot.startTime >= slot.endTime);
+    if (invalidSlot) {
+      this.toastr.error(`End time must be after start time on ${invalidSlot.day}.`);
+      return;
+    }
+
     const value = this.doctorForm.value;
     const hospitalId = value.hospitalId || this.currentHospitalId;
     const specialization = this.resolvedSpecialization();
@@ -439,19 +557,11 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
       qualification,
       experienceYears: Number(value.experienceYears || 0),
       consultationFee: Number(value.consultationFee || 0),
+      slotDurationMinutes: Number(value.slotDurationMinutes || 15),
       prescriptionTemplate: value.prescriptionTemplate || 'classic',
       prescriptionSpecialtyTemplate: this.resolvedPrescriptionSpecialtyTemplate(),
       availableDays: this.normalizeDays(this.selectedDays),
-      availableSlots:
-        value.startTime && value.endTime
-          ? [
-              {
-                day: value.slotDay,
-                startTime: value.startTime,
-                endTime: value.endTime,
-              },
-            ]
-          : [],
+      availableSlots: this.buildAvailableSlots(),
       status: value.status,
     };
 
@@ -461,16 +571,58 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
     }
 
     this.saving = true;
+    const wasCreate = !this.editingDoctor;
 
     const request$ = this.editingDoctor
       ? this.backend.updateDoctor(this.editingDoctor._id, payload)
       : this.backend.createDoctor(payload);
 
     request$
-      .pipe(finalize(() => (this.saving = false)))
+      .pipe(
+        switchMap((response) => {
+          const doctor = response.data;
+          if (doctor) {
+            this.editingDoctor = doctor;
+          }
+
+          if (this.pendingPhoto && doctor?._id) {
+            return this.backend.uploadDoctorPhoto(doctor._id, this.pendingPhoto).pipe(
+              switchMap((photoResponse) => of({ response, photoOk: true as const, photoResponse })),
+              catchError((photoErr) =>
+                of({
+                  response,
+                  photoOk: false as const,
+                  photoErr,
+                })
+              )
+            );
+          }
+
+          if (this.removeExistingPhoto && doctor?._id) {
+            return this.backend.deleteDoctorPhoto(doctor._id).pipe(
+              switchMap((photoResponse) => of({ response, photoOk: true as const, photoResponse })),
+              catchError(() => of({ response, photoOk: false as const }))
+            );
+          }
+
+          return of({ response, photoOk: true as const });
+        }),
+        finalize(() => (this.saving = false))
+      )
       .subscribe({
-        next: (response) => {
-          this.toastr.success(response.message);
+        next: (result) => {
+          if (!result.photoOk && this.pendingPhoto) {
+            this.photoUploadFailed = true;
+            this.toastr.success(result.response.message || 'Doctor saved successfully');
+            this.toastr.error(
+              wasCreate
+                ? 'Doctor created successfully, but profile image upload failed. You can upload it from Edit Doctor.'
+                : 'Doctor updated, but profile image upload failed. You can retry from this page.'
+            );
+            return;
+          }
+
+          this.toastr.success(result.response.message);
           this.router.navigateByUrl('/all-doctors');
         },
         error: (err) => {
@@ -492,7 +644,22 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
     }
 
     this.selectedDays = this.normalizeDays(this.editingDoctor.availableDays || []);
-    const primarySlot = this.editingDoctor.availableSlots?.[0];
+    this.dayHours = {};
+    (this.editingDoctor.availableSlots || []).forEach((slot) => {
+      const day = String(slot.day || '').toLowerCase();
+      if (!day) {
+        return;
+      }
+      this.dayHours[day] = {
+        startTime: slot.startTime || '09:00',
+        endTime: slot.endTime || '17:00',
+      };
+    });
+    this.selectedDays.forEach((day) => {
+      if (!this.dayHours[day]) {
+        this.dayHours[day] = this.defaultDayHours();
+      }
+    });
     const specialization = String(this.editingDoctor.specialization || '').trim();
     const qualification = String(this.editingDoctor.qualification || '').trim();
     const clinicalDepartment =
@@ -533,12 +700,10 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
       qualificationCustom: qualificationMatch ? '' : qualification,
       experienceYears: this.editingDoctor.experienceYears || 0,
       consultationFee: this.editingDoctor.consultationFee || 0,
+      slotDurationMinutes: this.editingDoctor.slotDurationMinutes || 15,
       prescriptionSpecialtyMode: manualPrescriptionSpecialty ? 'manual' : AUTO_PRESCRIPTION_SPECIALTY,
       prescriptionSpecialtyTemplate: storedTemplate,
       prescriptionTemplate: this.editingDoctor.prescriptionTemplate || 'classic',
-      slotDay: primarySlot?.day || this.selectedDays[0] || 'monday',
-      startTime: primarySlot?.startTime || '09:00',
-      endTime: primarySlot?.endTime || '13:00',
       status: this.editingDoctor.status || 'active',
     });
 

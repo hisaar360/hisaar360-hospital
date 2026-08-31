@@ -15,6 +15,26 @@
                     <div class="body">
                         <form [formGroup]="userForm" (ngSubmit)="submitForm()">
                             <div class="row clearfix">
+                                <div class="col-sm-12">
+                                    <app-profile-photo-field
+                                        label="Staff Photo"
+                                        [currentUrl]="displayPhotoUrl"
+                                        [personName]="userForm.get('name')?.value"
+                                        [disabled]="saving"
+                                        [uploading]="saving"
+                                        (fileSelected)="onPhotoSelected($event)"
+                                        (removeCurrent)="onRemoveCurrentPhoto()"
+                                        (viewImage)="viewerOpen = true">
+                                    </app-profile-photo-field>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-primary mb-3"
+                                        *ngIf="photoUploadFailed && pendingPhoto"
+                                        (click)="retryPhotoUpload()"
+                                        [disabled]="saving">
+                                        Retry image upload
+                                    </button>
+                                </div>
                                 <div class="col-sm-6" *ngIf="!canSelectHospital">
                                     <div class="form-group">
                                         <label>Hospital</label>
@@ -75,9 +95,9 @@
                                     </div>
                                 </div>
 
-                                <div class="col-sm-6" *ngIf="!editingUser">
+                                <div class="col-sm-6" *ngIf="!editingUser?.centralUserId">
                                     <div class="form-group">
-                                        <label>Password <span class="text-danger">*</span></label>
+                                        <label>{{ editingUser ? 'New Password' : 'Password' }} <span class="text-danger" *ngIf="!editingUser">*</span></label>
                                         <div class="input-group flex">
                                             <input class="form-control" [type]="showPassword ? 'text' : 'password'"
                                                 formControlName="password" />
@@ -89,6 +109,9 @@
                                         <small class="text-danger"
                                             *ngIf="userForm.get('password')?.touched && userForm.get('password')?.invalid">
                                             Password minimum 8 characters required
+                                        </small>
+                                        <small class="text-muted" *ngIf="editingUser">
+                                            Leave blank to keep the current password. Enter 8+ characters to reset it.
                                         </small>
                                     </div>
                                 </div>
@@ -115,6 +138,10 @@
                                         <small class="text-muted form-hint"
                                             *ngIf="!rolesLoading && !rolesError && isHospitalAdminUser">
                                             Hospital Admin users cannot create another Hospital Admin user.
+                                        </small>
+                                        <small class="text-muted form-hint" *ngIf="!rolesLoading && !rolesError">
+                                            Laboratory doctors (pathologists) are Users with the Pathologist role, not clinical Add Doctor.
+                                            Laboratory Admin can also create a custom role if one or two people should run the whole lab.
                                         </small>
                                         <small class="text-danger form-hint"
                                             *ngIf="userForm.get('roleId')?.touched && userForm.get('roleId')?.invalid">
@@ -175,3 +202,10 @@
         </div>
     </div>
 </div>
+
+<app-image-viewer-modal
+    [open]="viewerOpen"
+    [src]="viewerSrc"
+    alt="Staff photo"
+    (closed)="viewerOpen = false">
+</app-image-viewer-modal>

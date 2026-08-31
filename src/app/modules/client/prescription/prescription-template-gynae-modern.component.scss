@@ -89,6 +89,19 @@
   width: 100%;
 }
 
+.gynae-modern-prescription .gm-logo.has-logo {
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
+
+.gynae-modern-prescription .gm-logo.has-logo img {
+  background: transparent;
+  object-fit: contain;
+  transform: scale(var(--prescription-logo-scale, 1));
+  transform-origin: center;
+}
+
 .gynae-modern-prescription .gm-logo i {
   font-size: 8mm;
 }

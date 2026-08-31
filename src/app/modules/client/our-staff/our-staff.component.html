@@ -91,7 +91,10 @@
             >
               <td>
                 <div class="ward-staff-primary-cell">
-                  <span class="ward-staff-avatar">{{ (user.name || '?').charAt(0) }}</span>
+                  <span class="ward-staff-avatar" (click)="openPhoto(user, $event)">
+                    <img *ngIf="photoUrl(user)" [src]="photoUrl(user)" alt="" loading="lazy" />
+                    <ng-container *ngIf="!photoUrl(user)">{{ initials(user) }}</ng-container>
+                  </span>
                   <span class="ward-staff-name">
                     <strong>{{ user.name }}</strong>
                     <span>{{ user.email }}</span>
@@ -122,3 +125,10 @@
     </section>
   </div>
 </div>
+
+<app-image-viewer-modal
+  [open]="viewerOpen"
+  [src]="viewerSrc"
+  [alt]="viewerAlt"
+  (closed)="viewerOpen = false">
+</app-image-viewer-modal>

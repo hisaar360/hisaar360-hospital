@@ -4,7 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../core/services/backend.service';
-import { Bill } from '../../../../shared/models/hospital.model';
+import { Bill, Patient } from '../../../../shared/models/hospital.model';
 
 @Component({
   selector: 'app-patient-invoices',
@@ -14,6 +14,7 @@ import { Bill } from '../../../../shared/models/hospital.model';
 })
 export class PatientInvoicesComponent implements OnInit {
   bills: Bill[] = [];
+  patient: Patient | null = null;
   loading = false;
   patientId = '';
 
@@ -26,8 +27,23 @@ export class PatientInvoicesComponent implements OnInit {
   ngOnInit(): void {
     this.patientId = this.route.snapshot.paramMap.get('id') || '';
     if (this.patientId) {
+      this.loadPatient();
       this.loadBills();
     }
+  }
+
+  patientName(): string {
+    if (!this.patient) {
+      return '';
+    }
+    return `${this.patient.firstName || ''} ${this.patient.lastName || ''}`.trim();
+  }
+
+  loadPatient(): void {
+    this.backend.getPatientProfile(this.patientId).subscribe({
+      next: (patient) => (this.patient = patient),
+      error: () => (this.patient = null),
+    });
   }
 
   loadBills(): void {

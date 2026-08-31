@@ -1,4 +1,4 @@
-import { transliterateDoctorNameToUrdu } from '../../../shared/utils/urdu-transliteration';
+import { transliterateDoctorNameToUrdu, transliterateLatinToUrdu } from '../../../shared/utils/urdu-transliteration';
 
 const URDU_WORD_MAP: Record<string, string> = {
   dr: 'ڈاکٹر',
@@ -11,6 +11,7 @@ const URDU_WORD_MAP: Record<string, string> = {
   city: 'سٹی',
   care: 'کیئر',
   demo: 'ڈیمو',
+  medicare: 'میڈی کیئر',
   medilink: 'میڈی لنک',
   main: 'مین',
   boulevard: 'بلیوارڈ',
@@ -36,6 +37,7 @@ const URDU_WORD_MAP: Record<string, string> = {
   university: 'یونیورسٹی',
   liaquat: 'لیاقت',
   pur: 'پور',
+  testin: 'ٹیسٹنگ',
   testing: 'ٹیسٹنگ',
   health: 'ہیلتھ',
   healthcare: 'ہیلتھ کیئر',
@@ -120,6 +122,11 @@ const translateWordToUrdu = (word: string): string => {
     return URDU_NAME_MAP[lower];
   }
 
+  const transliterated = transliterateLatinToUrdu(cleaned);
+  if (transliterated) {
+    return transliterated;
+  }
+
   return cleaned;
 };
 
@@ -184,7 +191,15 @@ export const formatUrduAddress = (value?: string | null): string => {
     .join('، ');
 };
 
-export const formatUrduOrganizationName = (value?: string | null): string => {
+export const formatUrduOrganizationName = (
+  value?: string | null,
+  manualUrduName?: string | null
+): string => {
+  const manual = String(manualUrduName || '').trim();
+  if (manual) {
+    return manual;
+  }
+
   const raw = String(value || '').trim();
   if (!raw) {
     return '';
@@ -192,8 +207,6 @@ export const formatUrduOrganizationName = (value?: string | null): string => {
 
   return splitAddressWords(raw).map(translateWordToUrdu).join(' ');
 };
-
-const transliterateToken = (token: string): string => translateWordToUrdu(token);
 
 export const toPrescriptionUrduText = (value?: string | null): string => {
   const raw = String(value || '').trim();

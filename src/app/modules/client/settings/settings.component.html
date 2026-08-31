@@ -18,7 +18,13 @@
           <button type="button" class="settings-tab" [class.active]="activeTab === 'password'" (click)="setTab('password')">
             Password
           </button>
-          <button type="button" class="settings-tab" [class.active]="activeTab === 'hospital'" (click)="setTab('hospital')">
+          <button
+            type="button"
+            class="settings-tab"
+            *ngIf="canReadHospitalSettings"
+            [class.active]="activeTab === 'hospital'"
+            (click)="setTab('hospital')"
+          >
             Hospital Settings
           </button>
         </div>
@@ -29,6 +35,17 @@
           <div class="card-header">My Profile</div>
           <div class="card-body">
             <div class="row">
+              <div class="col-12 mb-3">
+                <app-profile-photo-field
+                  label="Profile photo"
+                  [currentUrl]="profilePhotoUrl"
+                  [personName]="profileName"
+                  [uploading]="photoUploading"
+                  (fileSelected)="onProfilePhotoSelected($event)"
+                  (removeCurrent)="removeProfilePhoto()"
+                  (viewImage)="photoViewerOpen = true"
+                ></app-profile-photo-field>
+              </div>
               <div class="col-lg-6 col-md-12">
                 <div class="form-group c_form_group">
                   <label>Full Name</label>
@@ -152,6 +169,16 @@
                     [disabled]="!canManageHospitalSettings || !hospitalLogoUrl">
                     Remove Logo
                   </button>
+                  <div class="form-group c_form_group logo-scale-control">
+                    <label>
+                      Prescription Logo Size
+                      <strong>{{ prescriptionLogoScale }}%</strong>
+                    </label>
+                    <input type="range" min="50" max="200" step="5"
+                      [(ngModel)]="prescriptionLogoScale" name="prescriptionLogoScale"
+                      [disabled]="!canManageHospitalSettings" />
+                    <div class="logo-scale-labels"><span>Small</span><span>Default</span><span>Large</span></div>
+                  </div>
                 </div>
 
                 <div class="col-sm-12">
@@ -191,7 +218,8 @@
                       <div class="hospital-prescription-preview">
                         <div>
                           <img *ngIf="hospitalPrescriptionPreview().showLogo && hospitalPrescriptionPreview().logoUrl"
-                            [src]="hospitalPrescriptionPreview().logoUrl" alt="Hospital logo" />
+                            [src]="hospitalPrescriptionPreview().logoUrl" alt="Hospital logo"
+                            [style.transform]="'scale(' + (hospitalPrescriptionPreview().logoScale / 100) + ')'" />
                           <span *ngIf="!(hospitalPrescriptionPreview().showLogo && hospitalPrescriptionPreview().logoUrl)">Rx</span>
                         </div>
                         <h5>{{ hospitalPrescriptionPreview().hospitalName }}</h5>
@@ -234,3 +262,10 @@
     </div>
   </div>
 </div>
+
+<app-image-viewer-modal
+  [open]="photoViewerOpen"
+  [src]="profilePhotoUrl"
+  alt="Profile photo"
+  (closed)="photoViewerOpen = false"
+></app-image-viewer-modal>

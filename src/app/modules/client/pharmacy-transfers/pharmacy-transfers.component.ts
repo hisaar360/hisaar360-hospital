@@ -7,7 +7,7 @@ import { ToastrService } from 'ngx-toastr';
 
 import { AppDialogService } from '../../../core/services/app-dialog.service';
 import { BackendService } from '../../../core/services/backend.service';
-import { Store, Transfer } from '../../../shared/models/hospital.model';
+import { ProductCatalogItem, Store, Transfer, Warehouse } from '../../../shared/models/hospital.model';
 import { formatDateTime, readAssignedStoreId } from '../pharmacy-admin.utils';
 
 @Component({
@@ -27,6 +27,16 @@ export class PharmacyTransfersComponent implements OnInit {
   fromDate = '';
   toDate = '';
   storeId = readAssignedStoreId();
+  warehouses: Warehouse[] = [];
+  products: ProductCatalogItem[] = [];
+  creating = false;
+  fromLocationType: 'store' | 'warehouse' = 'warehouse';
+  fromLocationId = '';
+  toLocationType: 'store' | 'warehouse' = 'store';
+  toLocationId = '';
+  productId = '';
+  qty = 1;
+  note = '';
 
   constructor(
     private backend: BackendService,
@@ -36,7 +46,13 @@ export class PharmacyTransfersComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadStores();
+    this.loadWarehouses();
+    this.loadProducts();
     this.loadTransfers();
+  }
+
+  get canCreate(): boolean {
+    return this.backend.hasPermission('transfers.create');
   }
 
   loadStores(): void {
@@ -45,7 +61,12 @@ export class PharmacyTransfersComponent implements OnInit {
     }
 
     this.backend.getStores({ limit: 100, isActive: true }).subscribe({
-      next: (result) => (this.stores = result.items),
+      next: (result) => {
+        this.stores = result.items || [];
+        if (!this.toLocationId && this.toLocationType === 'store' && this.stores[0]?._id) {
+          this.toLocationId = this.stores[0]._id;
+        }
+      },
       error: () => (this.stores = []),
     });
   }
@@ -81,11 +102,68 @@ export class PharmacyTransfersComponent implements OnInit {
     this.loadTransfers();
   }
 
-  storeName(id: string, type: string): string {
-    if (type !== 'store') {
-      return `${type} · ${id}`;
+  loadWarehouses(): void {
+    if (!this.backend.hasPermission('warehouses.read') && !this.backend.hasPermission('warehouses.manage')) {
+      return;
+    }
+    this.backend.getWarehouses({ limit: 100 }).subscribe({
+      next: (result) => {
+        this.warehouses = result.items || [];
+        if (!this.fromLocationId && this.fromLocationType === 'warehouse' && this.warehouses[0]?._id) {
+          this.fromLocationId = this.warehouses[0]._id;
+        }
+      },
+      error: () => (this.warehouses = []),
+    });
+  }
+
+  loadProducts(): void {
+    if (!this.backend.hasPermission('products.read')) {
+      return;
+    }
+    this.backend.getProducts({ limit: 100 }).subscribe({
+      next: (result) => {
+        this.products = result.items || [];
+        if (!this.productId && this.products[0]?._id) {
+          this.productId = this.products[0]._id;
+        }
+      },
+      error: () => (this.products = []),
+    });
+  }
+
+  locationName(id: string, type: string): string {
+    if (type === 'warehouse') {
+      return this.warehouses.find((warehouse) => warehouse._id === id)?.name || id;
     }
     return this.stores.find((store) => store._id === id)?.name || id;
+  }
+
+  createTransfer(): void {
+    if (!this.fromLocationId || !this.toLocationId || !this.productId || Number(this.qty) <= 0) {
+      this.toastr.error('Select source, destination, product, and a quantity greater than 0.');
+      return;
+    }
+
+    this.creating = true;
+    this.backend
+      .createTransfer({
+        fromLocationType: this.fromLocationType,
+        fromLocationId: this.fromLocationId,
+        toLocationType: this.toLocationType,
+        toLocationId: this.toLocationId,
+        items: [{ productId: this.productId, qty: Number(this.qty) }],
+        note: this.note.trim() || undefined,
+      })
+      .pipe(finalize(() => (this.creating = false)))
+      .subscribe({
+        next: (response) => {
+          this.toastr.success(response.message || 'Transfer created as pending.');
+          this.note = '';
+          this.loadTransfers();
+        },
+        error: (err) => this.toastr.error(err?.error?.message || 'Unable to create stock transfer.'),
+      });
   }
 
   itemCount(transfer: Transfer): number {
@@ -181,7 +259,13 @@ export class PharmacyTransfersComponent implements OnInit {
     this.actingId = id;
     request.pipe(finalize(() => (this.actingId = ''))).subscribe({
       next: () => {
-        this.toastr.success(`Transfer ${action}d.`);
+        const done: Record<typeof action, string> = {
+          approve: 'approved',
+          dispatch: 'dispatched',
+          receive: 'received',
+          cancel: 'cancelled',
+        };
+        this.toastr.success(`Transfer ${done[action]}.`);
         this.loadTransfers();
       },
       error: (err) => this.toastr.error(err?.error?.message || `Unable to ${action} transfer.`),

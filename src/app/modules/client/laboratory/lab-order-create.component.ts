@@ -5,17 +5,9 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
-import { Hospital, LabOrder, LabTestCatalog, Patient } from '../../../shared/models/hospital.model';
-import { resolveLabPrintDetails } from './lab-print-details';
+import { Encounter, Hospital, LabOrder, LabTestCatalog, Patient } from '../../../shared/models/hospital.model';
 import { canEditLabOrder } from './lab-order.utils';
-
-type LabOrderReceiptItem = {
-  code: string;
-  name: string;
-  department: string;
-  sampleType: string;
-  price: number;
-};
+import { printLabInvoice } from './lab-order-invoice.builder';
 
 @Component({
   selector: 'app-lab-order-create',
@@ -38,10 +30,14 @@ export class LabOrderCreateComponent implements OnInit {
   currentHospitalId: string | null = null;
   hospital: Hospital | null = null;
   source: 'doctor' | 'walk-in' | 'admission' | 'emergency' = 'walk-in';
+  openEncounters: Encounter[] = [];
+  selectedEncounterId = '';
+  encountersLoading = false;
   referredBy = '';
   priority: 'normal' | 'urgent' = 'normal';
   paidAmount = 0;
   paymentMethod = 'cash';
+  paymentReceivedNow = true;
   notes = '';
   testSearch = '';
   isEditMode = false;
@@ -125,6 +121,7 @@ export class LabOrderCreateComponent implements OnInit {
     this.patients = [];
     this.selectedPatientId = '';
     this.selectedPatient = null;
+    this.clearEncounterAttachment();
 
     this.backend
       .getPatients({ limit: 100, status: 'active', search: phone })
@@ -168,27 +165,161 @@ export class LabOrderCreateComponent implements OnInit {
     this.selectedPatient = patient;
     this.patientPhone = patient.phone || this.patientPhone;
     this.loadHospital(patient.hospitalId || this.currentHospitalId);
+    this.loadOpenEncounters(patient._id);
   }
 
-  private loadHospital(hospitalId: string | null | undefined): void {
-    if (!hospitalId) {
+  onSourceChange(): void {
+    this.applyDefaultEncounter();
+    if (this.isEditMode) {
       return;
     }
 
-    this.backend.getHospital(hospitalId).subscribe({
-      next: (hospital) => {
-        this.backend.getLabSettings().subscribe({
-          next: (settings) => {
-            this.hospital = {
-              ...hospital,
-              laboratorySettings: settings.laboratorySettings,
-            };
-          },
-          error: () => {
-            this.hospital = hospital;
-          },
-        });
+    if (this.source === 'admission' || this.source === 'emergency') {
+      this.paymentReceivedNow = false;
+      this.paidAmount = 0;
+      return;
+    }
+
+    this.paymentReceivedNow = true;
+    this.syncPaidAmountWithSelection();
+  }
+
+  onPaymentReceivedToggle(): void {
+    this.syncPaidAmountWithSelection();
+  }
+
+  onPaidAmountChange(): void {
+    const total = this.totalAmount();
+    const paid = Number(this.paidAmount || 0);
+    this.paymentReceivedNow = total > 0 && paid >= total;
+  }
+
+  private syncPaidAmountWithSelection(): void {
+    this.paidAmount = this.paymentReceivedNow ? this.totalAmount() : 0;
+  }
+
+  billingHint(): string {
+    if (this.source === 'admission' || this.source === 'emergency') {
+      return 'Admitted / emergency: leave unpaid so charges go to the hospital visit bill. Tick “Payment received now” only if the lab collected cash/card at the counter.';
+    }
+
+    if (this.source === 'doctor') {
+      return 'OPD / doctor order: payment received now prints a PAID invoice and posts it to the hospital ledger under the staff who collected it.';
+    }
+
+    return 'Walk-in: payment is received at the lab counter by default. Save & Print Invoice will show PAID and the name of the staff who collected it.';
+  }
+
+  invoiceStatusPreview(): string {
+    const total = this.totalAmount();
+    const paid = Number(this.paidAmount || 0);
+    if (total <= 0) {
+      return 'NO CHARGE';
+    }
+    if (paid <= 0) {
+      return 'UNPAID';
+    }
+    if (paid >= total) {
+      return 'PAID';
+    }
+    return 'PARTIAL';
+  }
+
+  canCollectPayment(): boolean {
+    return (
+      this.backend.hasPermission('ledger_payments.create') ||
+      this.backend.hasPermission('bills.update_payment')
+    );
+  }
+
+  matchingEncounters(): Encounter[] {
+    const type = this.encounterTypeForSource();
+    return this.openEncounters.filter(
+      (encounter) =>
+        encounter.type === type &&
+        encounter.status !== 'closed' &&
+        encounter.status !== 'cancelled'
+    );
+  }
+
+  attachedEncounterLabel(): string {
+    const encounter = this.matchingEncounters().find((item) => item._id === this.selectedEncounterId);
+    if (!encounter) {
+      return '';
+    }
+
+    return `${encounter.encounterNo} · ${encounter.type} · ${encounter.status}`;
+  }
+
+  private encounterTypeForSource(): Encounter['type'] {
+    if (this.source === 'emergency') {
+      return 'emergency';
+    }
+
+    if (this.source === 'admission') {
+      return 'admission';
+    }
+
+    return 'opd';
+  }
+
+  private clearEncounterAttachment(): void {
+    this.openEncounters = [];
+    this.selectedEncounterId = '';
+    this.encountersLoading = false;
+  }
+
+  private loadOpenEncounters(patientId: string, preferredEncounterId = ''): void {
+    this.encountersLoading = true;
+    this.backend
+      .getEncounters({ patientId, limit: 50 })
+      .pipe(finalize(() => (this.encountersLoading = false)))
+      .subscribe({
+        next: (result) => {
+          this.openEncounters = (result.items || []).filter(
+            (encounter) => encounter.status !== 'closed' && encounter.status !== 'cancelled'
+          );
+          this.applyDefaultEncounter(preferredEncounterId);
+        },
+        error: () => {
+          this.openEncounters = [];
+          this.selectedEncounterId = '';
+        },
+      });
+  }
+
+  private applyDefaultEncounter(preferredEncounterId = ''): void {
+    const matches = this.matchingEncounters();
+    if (preferredEncounterId && matches.some((item) => item._id === preferredEncounterId)) {
+      this.selectedEncounterId = preferredEncounterId;
+      return;
+    }
+
+    if (this.selectedEncounterId && matches.some((item) => item._id === this.selectedEncounterId)) {
+      return;
+    }
+
+    const withAppointment = matches.find((item) => item.appointmentId);
+    this.selectedEncounterId = (withAppointment || matches[0])?._id || '';
+  }
+
+  private loadHospital(hospitalId: string | null | undefined): void {
+    this.backend.getLabSettings().subscribe({
+      next: (settings) => {
+        this.hospital = {
+          _id: hospitalId || settings.hospital._id || this.currentHospitalId || '',
+          name: settings.hospital.name,
+          code: '',
+          status: 'active',
+          phone: settings.hospital.phone,
+          email: settings.hospital.email,
+          address: settings.hospital.address,
+          city: settings.hospital.city,
+          logoUrl: settings.hospital.logoUrl,
+          laboratorySettings: settings.laboratorySettings,
+        };
       },
+      error: () => undefined,
     });
   }
 
@@ -201,6 +332,9 @@ export class LabOrderCreateComponent implements OnInit {
     this.selectedTests = exists
       ? this.selectedTests.filter((item) => item._id !== test._id)
       : [...this.selectedTests, test];
+    if (this.paymentReceivedNow) {
+      this.syncPaidAmountWithSelection();
+    }
   }
 
   isSelected(test: LabTestCatalog): boolean {
@@ -252,6 +386,7 @@ export class LabOrderCreateComponent implements OnInit {
     this.priority = order.priority;
     this.paidAmount = order.paidAmount;
     this.paymentMethod = order.paymentMethod || 'cash';
+    this.paymentReceivedNow = Number(order.totalAmount || 0) > 0 && Number(order.paidAmount || 0) >= Number(order.totalAmount || 0);
     this.notes = order.notes || '';
 
     const testIds = new Set(
@@ -265,6 +400,9 @@ export class LabOrderCreateComponent implements OnInit {
     }
 
     this.loadHospital(order.hospitalId || this.currentHospitalId);
+    if (order.patientId) {
+      this.loadOpenEncounters(order.patientId, order.encounterId || '');
+    }
   }
 
   saveOrder(printReceipt = false): void {
@@ -283,7 +421,16 @@ export class LabOrderCreateComponent implements OnInit {
       return;
     }
 
-    const payload = {
+    if (this.paymentReceivedNow && this.canCollectPayment()) {
+      this.paidAmount = this.totalAmount();
+    }
+
+    if (!this.canCollectPayment()) {
+      this.paidAmount = 0;
+      this.paymentReceivedNow = false;
+    }
+
+    const payload: Record<string, unknown> = {
       source: this.source,
       referredBy: this.referredBy,
       priority: this.priority,
@@ -292,6 +439,10 @@ export class LabOrderCreateComponent implements OnInit {
       notes: this.notes,
       tests: this.selectedTests.map((test) => ({ testId: test._id })),
     };
+
+    if (this.selectedEncounterId) {
+      payload['encounterId'] = this.selectedEncounterId;
+    }
 
     if (this.isEditMode && this.editingOrderId) {
       this.updateOrder(printReceipt, payload);
@@ -331,18 +482,7 @@ export class LabOrderCreateComponent implements OnInit {
       });
   }
 
-  private updateOrder(
-    printReceipt: boolean,
-    payload: {
-      source: 'doctor' | 'walk-in' | 'admission' | 'emergency';
-      referredBy: string;
-      priority: 'normal' | 'urgent';
-      paidAmount: number;
-      paymentMethod: string;
-      notes: string;
-      tests: Array<{ testId: string }>;
-    }
-  ): void {
+  private updateOrder(printReceipt: boolean, payload: Record<string, unknown>): void {
     this.saving = true;
     this.backend
       .updateLabOrder(this.editingOrderId, payload)
@@ -365,415 +505,18 @@ export class LabOrderCreateComponent implements OnInit {
   }
 
   private printLabOrderReceipt(order: LabOrder, orderId: string): void {
-    const iframe = document.createElement('iframe');
-    iframe.setAttribute('title', 'Lab order receipt print');
-    iframe.setAttribute('aria-hidden', 'true');
-    Object.assign(iframe.style, {
-      border: '0',
-      height: '0',
-      left: '-10000px',
-      opacity: '0',
-      pointerEvents: 'none',
-      position: 'fixed',
-      top: '0',
-      width: '100vw',
-    });
-
-    document.body.appendChild(iframe);
-
-    const printWindow = iframe.contentWindow;
-    const printDocument = iframe.contentDocument || printWindow?.document;
-    if (!printWindow || !printDocument) {
-      iframe.remove();
-      this.navigateAfterReceiptPrint(orderId);
-      return;
-    }
-
-    printDocument.open();
-    printDocument.write(this.receiptHtml(order));
-    printDocument.close();
-
-    let handled = false;
-    const finish = () => {
-      if (handled) {
-        return;
-      }
-
-      handled = true;
-      iframe.remove();
-      this.navigateAfterReceiptPrint(orderId);
+    const merged: LabOrder = {
+      ...order,
+      patient: order.patient || this.selectedPatient || order.patient,
     };
-
-    printWindow.onafterprint = finish;
-
-    window.setTimeout(() => {
-      try {
-        printWindow.focus();
-        printWindow.print();
-      } catch {
-        finish();
-      }
-    }, 200);
-
-    window.setTimeout(finish, 30000);
+    printLabInvoice(merged, this.hospital);
+    window.setTimeout(() => this.navigateAfterReceiptPrint(orderId), 400);
   }
 
   private navigateAfterReceiptPrint(orderId: string): void {
     if (orderId) {
       void this.router.navigate(['/laboratory/orders', orderId]);
     }
-  }
-
-  private receiptHtml(order: LabOrder): string {
-    const patient = order.patient || this.selectedPatient;
-    const patientName = patient ? this.patientName(patient) : 'Patient';
-    const patientNo = patient?.patientNo || '-';
-    const patientPhone = patient?.phone || this.patientPhone || '-';
-    const printDetails = resolveLabPrintDetails(this.hospital, { mode: 'receipt' });
-    const headerName = (printDetails.name || 'Laboratory').toUpperCase();
-    const headerAddress = printDetails.addressLine;
-    const headerPhone = printDetails.phone;
-    const orderDate = order.createdAt ? new Date(order.createdAt).toLocaleString() : new Date().toLocaleString();
-    const items = this.receiptItems(order);
-    const rows = items
-      .map(
-        (item) => `
-          <tr>
-            <td>${this.escapeHtml(this.receiptTestLabel(item))}</td>
-            <td>${this.escapeHtml(item.department)}</td>
-            <td>${this.escapeHtml(item.sampleType)}</td>
-            <td class="amount">${this.formatCurrency(item.price)}</td>
-          </tr>
-        `
-      )
-      .join('');
-
-    return `
-      <!doctype html>
-      <html>
-        <head>
-          <title>${this.escapeHtml(order.orderNo)}</title>
-          <style>
-            @page {
-              margin: 0;
-              size: 80mm auto;
-            }
-
-            * {
-              box-sizing: border-box;
-            }
-
-            html {
-              background: #fff;
-              height: 100%;
-              margin: 0;
-              padding: 0;
-              width: 100%;
-            }
-
-            body {
-              align-items: flex-start;
-              background: #fff;
-              color: #000;
-              display: flex;
-              font-family: "Courier New", Courier, monospace;
-              font-size: 11px;
-              justify-content: center;
-              line-height: 1.3;
-              margin: 0;
-              min-height: 100%;
-              padding: 0;
-              text-align: center;
-              width: 100%;
-            }
-
-            .receipt {
-              display: inline-block;
-              margin: 0 auto;
-              max-width: 80mm;
-              padding: 4mm 3mm 6mm;
-              text-align: left;
-              width: 72mm;
-            }
-
-            .center {
-              text-align: center;
-            }
-
-            .hospital-name {
-              font-size: 15px;
-              font-weight: 700;
-              letter-spacing: 0.03em;
-              margin: 0 0 4px;
-              text-transform: uppercase;
-            }
-
-            .hospital-line {
-              font-size: 10px;
-              margin: 0 0 2px;
-            }
-
-            .receipt-title {
-              font-size: 11px;
-              font-weight: 700;
-              letter-spacing: 0.1em;
-              margin: 8px 0 0;
-              text-transform: uppercase;
-            }
-
-            .rule {
-              border: 0;
-              border-top: 1px solid #000;
-              margin: 8px 0;
-            }
-
-            .line {
-              font-size: 10px;
-              margin: 0 0 2px;
-              word-break: break-word;
-            }
-
-            .kv {
-              display: flex;
-              font-size: 10px;
-              gap: 6px;
-              justify-content: space-between;
-              margin: 0 0 2px;
-            }
-
-            .kv-label {
-              flex: 0 0 auto;
-            }
-
-            .kv-value {
-              font-weight: 700;
-              text-align: right;
-              white-space: nowrap;
-            }
-
-            table {
-              border-collapse: collapse;
-              table-layout: fixed;
-              width: 100%;
-            }
-
-            th,
-            td {
-              font-size: 9px;
-              line-height: 1.25;
-              padding: 3px 0;
-              text-align: left;
-              vertical-align: top;
-              word-break: break-word;
-            }
-
-            th {
-              font-weight: 700;
-            }
-
-            th:nth-child(1),
-            td:nth-child(1) {
-              width: 36%;
-            }
-
-            th:nth-child(2),
-            td:nth-child(2) {
-              width: 20%;
-            }
-
-            th:nth-child(3),
-            td:nth-child(3) {
-              width: 18%;
-            }
-
-            th:nth-child(4),
-            td:nth-child(4) {
-              width: 26%;
-            }
-
-            th:last-child,
-            td.amount {
-              text-align: right;
-            }
-
-            .totals .balance .kv-value {
-              font-weight: 800;
-            }
-
-            .notes {
-              font-size: 10px;
-              margin: 6px 0 0;
-            }
-
-            .foot {
-              font-size: 10px;
-              margin-top: 8px;
-              text-align: left;
-            }
-
-            .foot p {
-              margin: 0 0 3px;
-            }
-
-            @media print {
-              @page {
-                margin: 0;
-                size: 80mm auto;
-              }
-
-              html,
-              body {
-                align-items: flex-start !important;
-                display: block !important;
-                height: auto !important;
-                margin: 0 !important;
-                min-height: 0 !important;
-                padding: 0 !important;
-                text-align: center !important;
-                width: 100% !important;
-              }
-
-              .receipt {
-                display: inline-block !important;
-                margin: 0 auto !important;
-                max-width: 80mm !important;
-                page-break-after: avoid;
-                text-align: left !important;
-                width: 72mm !important;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <section class="receipt">
-            <div class="center">
-              <h1 class="hospital-name">${this.escapeHtml(headerName)}</h1>
-              ${headerAddress ? `<p class="hospital-line">${this.escapeHtml(headerAddress)}</p>` : ''}
-              ${headerPhone ? `<p class="hospital-line">${this.escapeHtml(headerPhone)}</p>` : ''}
-              <p class="receipt-title">Lab Order Receipt</p>
-            </div>
-
-            <hr class="rule" />
-
-            <div class="section">
-              ${this.receiptInfoLine('Order No', order.orderNo)}
-              ${this.receiptInfoLine('Date', orderDate)}
-              ${this.receiptInfoLine('Source', this.sourceLabel(order.source))}
-              ${this.receiptInfoLine('Priority', order.priority === 'urgent' ? 'Urgent' : 'Normal')}
-              ${order.referredBy ? this.receiptInfoLine('Referred By', order.referredBy) : ''}
-            </div>
-
-            <hr class="rule" />
-
-            <div class="section">
-              ${this.receiptInfoLine('Patient', patientName)}
-              ${this.receiptInfoLine('File No', patientNo)}
-              ${this.receiptInfoLine('Phone', patientPhone)}
-            </div>
-
-            <hr class="rule" />
-
-            <table>
-              <thead>
-                <tr>
-                  <th>Test</th>
-                  <th>Dept</th>
-                  <th>Sample</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-
-            <hr class="rule" />
-
-            <div class="section totals">
-              ${this.receiptLine('Total', this.formatCurrency(order.totalAmount))}
-              ${this.receiptLine('Paid', this.formatCurrency(order.paidAmount))}
-              ${this.receiptLine('Balance', this.formatCurrency(order.balanceAmount), true)}
-            </div>
-
-            <hr class="rule" />
-
-            ${order.notes ? `<div class="notes">${this.receiptInfoLine('Notes', order.notes)}</div><hr class="rule" />` : ''}
-
-            <div class="foot">
-              <p>Please keep this receipt for sample collection.</p>
-              <p>Report will be available after processing.</p>
-              <p>Thank you for choosing ${this.escapeHtml(this.hospital?.name || 'our hospital')}.</p>
-            </div>
-          </section>
-        </body>
-      </html>
-    `;
-  }
-
-  private receiptInfoLine(label: string, value: string | number): string {
-    return `<div class="line">${this.escapeHtml(label)}: ${this.escapeHtml(value)}</div>`;
-  }
-
-  private receiptLine(label: string, value: string | number, emphasize = false): string {
-    return `
-      <div class="kv${emphasize ? ' balance' : ''}">
-        <span class="kv-label">${this.escapeHtml(label)}:</span>
-        <span class="kv-value">${this.escapeHtml(value)}</span>
-      </div>
-    `;
-  }
-
-  private receiptTestLabel(item: LabOrderReceiptItem): string {
-    if (item.code && item.name && item.code !== item.name) {
-      return `${item.code} (${item.name})`;
-    }
-
-    return item.name || item.code || '-';
-  }
-
-  private receiptItems(order: LabOrder): LabOrderReceiptItem[] {
-    if (order.items?.length) {
-      return order.items.map((item) => ({
-        code: item.shortCode || '-',
-        name: item.testName,
-        department: item.department || '-',
-        sampleType: item.sampleType || '-',
-        price: Number(item.price || 0),
-      }));
-    }
-
-    return this.selectedTests.map((test) => ({
-      code: test.shortCode,
-      name: test.name,
-      department: test.department,
-      sampleType: test.sampleType,
-      price: Number(test.price || 0),
-    }));
-  }
-
-  private sourceLabel(source: LabOrder['source']): string {
-    switch (source) {
-      case 'doctor':
-        return 'Doctor Prescribed';
-      case 'admission':
-        return 'Admission';
-      case 'emergency':
-        return 'Emergency';
-      default:
-        return 'Walk-in';
-    }
-  }
-
-  private formatCurrency(value: number | string | null | undefined): string {
-    const amount = Number(value || 0);
-    return `Rs. ${amount.toLocaleString('en-PK', { maximumFractionDigits: 0 })}`;
-  }
-
-  private escapeHtml(value: string | number | null | undefined): string {
-    return String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
   }
 
   private normalizePhone(value: string): string {

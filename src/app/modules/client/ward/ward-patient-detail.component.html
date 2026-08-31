@@ -38,7 +38,7 @@
           <div><dt>Room</dt><dd>{{ p.roomName }}</dd></div>
           <div><dt>Doctor</dt><dd>{{ p.doctorName }}</dd></div>
           <div><dt>Nurse</dt><dd>{{ p.nurseName || '—' }}</dd></div>
-          <div><dt>Admitted</dt><dd>{{ p.admittedOn }}</dd></div>
+          <div><dt>Admitted</dt><dd>{{ p.admittedOn | date:'mediumDate' }}</dd></div>
           <div><dt>Status</dt><dd>{{ statusLabel(p.status) }}</dd></div>
           <div><dt>Gallery</dt><dd>{{ p.galleryName }}</dd></div>
         </dl>
@@ -75,6 +75,30 @@
               <div><span>Nursing Tasks</span><strong>{{ p.nursingTasksDue }}</strong></div>
               <div><span>Critical Alerts</span><strong>{{ p.criticalAlerts }}</strong></div>
             </div>
+          </div>
+          <div *ngSwitchCase="'billing'">
+            <app-ward-billing-panel [admissionId]="admissionId" mode="billing"></app-ward-billing-panel>
+          </div>
+          <div *ngSwitchCase="'payments'">
+            <app-ward-billing-panel [admissionId]="admissionId" mode="payments"></app-ward-billing-panel>
+          </div>
+          <div *ngSwitchCase="'medicines'">
+            <app-ward-billing-panel [admissionId]="admissionId" mode="medicines"></app-ward-billing-panel>
+          </div>
+          <div *ngSwitchCase="'procedures'">
+            <app-ward-billing-panel [admissionId]="admissionId" mode="procedures"></app-ward-billing-panel>
+          </div>
+          <div *ngSwitchCase="'operations'">
+            <app-ward-billing-panel [admissionId]="admissionId" mode="operations"></app-ward-billing-panel>
+          </div>
+          <div *ngSwitchCase="'doctor-visits'">
+            <app-ward-billing-panel [admissionId]="admissionId" mode="doctor-visits"></app-ward-billing-panel>
+          </div>
+          <div *ngSwitchCase="'discharge'">
+            <app-ward-billing-panel [admissionId]="admissionId" mode="discharge"></app-ward-billing-panel>
+          </div>
+          <div *ngSwitchCase="'settlement'">
+            <app-ward-billing-panel [admissionId]="admissionId" mode="settlement"></app-ward-billing-panel>
           </div>
           <div *ngSwitchCase="'vitals'">
             <p class="ward-detail-note">Latest vitals for this admission.</p>

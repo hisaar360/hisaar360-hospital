@@ -136,7 +136,31 @@ export class PosReportsComponent implements OnInit {
 
   get tableColumns(): string[] {
     const firstItem = this.items[0];
-    return firstItem ? Object.keys(firstItem) : [];
+    if (!firstItem) {
+      return [];
+    }
+
+    const hidden = new Set([
+      '_id',
+      'companyId',
+      'userId',
+      'hospitalId',
+      'registerSessionId',
+      'productId',
+      'locationId',
+      'locationType',
+    ]);
+    const keys = Object.keys(firstItem).filter((key) => !hidden.has(key));
+    const preferred = [
+      'product',
+      'name',
+      'sku',
+      'availableQuantity',
+      'reservedQuantity',
+      'reorderLevel',
+      'valuation',
+    ];
+    return [...preferred.filter((key) => keys.includes(key)), ...keys.filter((key) => !preferred.includes(key))];
   }
 
   selectReport(reportKey: ReportKey): void {
@@ -207,12 +231,29 @@ export class PosReportsComponent implements OnInit {
   }
 
   labelFor(key: string): string {
+    const labels: Record<string, string> = {
+      invoiceNo: 'Invoice',
+      storeId: 'Store',
+      customerId: 'Customer',
+      paidAmount: 'Paid',
+      saleDate: 'Sale date',
+      paymentStatus: 'Payment',
+      totalPaid: 'Total paid',
+      totalSales: 'Total sales',
+      product: 'Product',
+      availableQuantity: 'Available quantity',
+      reservedQuantity: 'Reserved quantity',
+      reorderLevel: 'Reorder level',
+      valuation: 'Valuation',
+    };
+    if (labels[key]) {
+      return labels[key];
+    }
+
     return key
-      .replace(/Id$/, ' ID')
-      .replace(/([A-Z])/g, ' $1')
       .replace(/_/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .replace(/\bid\b/gi, 'ID')
       .replace(/^./, (letter) => letter.toUpperCase());
   }
 
@@ -226,11 +267,11 @@ export class PosReportsComponent implements OnInit {
     }
 
     if (this.isRecord(value)) {
-      return JSON.stringify(value);
+      return this.formatRecord(value);
     }
 
     if (Array.isArray(value)) {
-      return JSON.stringify(value);
+      return value.map((item) => this.formatValue(key, item)).join(', ') || '-';
     }
 
     if (this.isMoneyKey(key)) {
@@ -310,6 +351,20 @@ export class PosReportsComponent implements OnInit {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  private formatRecord(value: Record<string, unknown>): string {
+    const name = String(value['name'] || '').trim();
+    if (name) {
+      return name;
+    }
+
+    const firstName = String(value['firstName'] || '').trim();
+    if (firstName) {
+      return `${firstName} ${String(value['lastName'] || '').trim()}`.trim();
+    }
+
+    return '-';
   }
 
   private formatCurrency(value: unknown): string {

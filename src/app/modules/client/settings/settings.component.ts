@@ -2,17 +2,22 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { catchError, finalize, of } from 'rxjs';
 import { BackendService } from '../../../core/services/backend.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { ToastrService } from 'ngx-toastr';
-import { Hospital, PrescriptionPrintSettings, User } from '../../../shared/models/hospital.model';
+import { Doctor, Hospital, PrescriptionPrintSettings, User } from '../../../shared/models/hospital.model';
+import { resolveAssetUrl } from '../../../core/utils/asset.util';
+import { ProfilePhotoFieldComponent } from '../../../shared/components/profile-photo-field/profile-photo-field.component';
+import { ImageViewerModalComponent } from '../../../shared/components/image-viewer-modal/image-viewer-modal.component';
+import { isDoctorRole } from '../../auth/access-control';
 
 type SettingsTab = 'profile' | 'password' | 'hospital';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, ProfilePhotoFieldComponent, ImageViewerModalComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
@@ -39,27 +44,35 @@ export class SettingsComponent implements OnInit {
   hospitalCountry = '';
   hospitalLogoUrl = '';
   prescriptionShowLogo = true;
+  prescriptionLogoScale = 100;
   prescriptionRevisionNote = '* Rx to be revised after Reports.';
   prescriptionFollowUpLine = '';
   prescriptionContactLine = '';
   prescriptionFooterLines = '';
+  doctorProfile: Doctor | null = null;
+  photoUploading = false;
+  photoViewerOpen = false;
 
   constructor(
     private backend: BackendService,
+    private authService: AuthService,
     private toaster: ToastrService
   ) {}
 
   ngOnInit(): void {
     this.loadStoredUser();
     this.refreshCurrentUser();
-    this.loadHospitalFromStoredUser();
-    if (this.canReadHospitalSettings && this.currentHospitalId) {
-      this.loadHospitalSettings();
-    }
   }
 
   setTab(tab: SettingsTab): void {
+    if (tab === 'hospital' && !this.canReadHospitalSettings) {
+      return;
+    }
     this.activeTab = tab;
+  }
+
+  get profilePhotoUrl(): string {
+    return resolveAssetUrl(this.doctorProfile?.photoUrl || this.currentUser?.photoUrl);
   }
 
   get canReadHospitalSettings(): boolean {
@@ -110,6 +123,7 @@ export class SettingsComponent implements OnInit {
   } {
     return {
       showLogo: this.prescriptionShowLogo,
+      logoScale: this.normalizePrescriptionLogoScale(this.prescriptionLogoScale),
       revisionNote: this.prescriptionRevisionNote.trim() || '* Rx to be revised after Reports.',
       followUpLine: this.prescriptionFollowUpLine.trim() || this.defaultPrescriptionFollowUpLine(),
       contactLine: this.prescriptionContactLine.trim() || this.defaultHospitalContactLine(),
@@ -147,6 +161,7 @@ export class SettingsComponent implements OnInit {
       logoUrl: this.hospitalLogoUrl.trim(),
       prescriptionSettings: {
         showLogo: this.prescriptionShowLogo,
+        logoScale: this.normalizePrescriptionLogoScale(this.prescriptionLogoScale),
         revisionNote: this.prescriptionRevisionNote.trim(),
         followUpLine: this.prescriptionFollowUpLine.trim(),
         contactLine: this.prescriptionContactLine.trim(),
@@ -183,6 +198,12 @@ export class SettingsComponent implements OnInit {
       return;
     }
 
+    if (file.size > 5 * 1024 * 1024) {
+      this.toaster.error('Logo image must be 5 MB or smaller.');
+      input.value = '';
+      return;
+    }
+
     void this.prepareHospitalLogo(file)
       .then((dataUrl) => {
         this.hospitalLogoUrl = dataUrl;
@@ -198,6 +219,84 @@ export class SettingsComponent implements OnInit {
     this.hospitalLogoUrl = '';
   }
 
+  onProfilePhotoSelected(file: File | null): void {
+    if (!file) {
+      return;
+    }
+
+    this.photoUploading = true;
+
+    if (this.doctorProfile) {
+      this.backend
+        .uploadMyDoctorPhoto(file)
+        .pipe(finalize(() => (this.photoUploading = false)))
+        .subscribe({
+          next: (response) => {
+            if (response.data) {
+              this.doctorProfile = response.data;
+            }
+            this.toaster.success(response.message || 'Photo updated.');
+            this.refreshCurrentUser();
+          },
+          error: (error: { error?: { message?: string } }) => {
+            this.toaster.error(error?.error?.message || 'Unable to upload photo.');
+          },
+        });
+      return;
+    }
+
+    this.backend
+      .uploadMyPhoto(file)
+      .pipe(finalize(() => (this.photoUploading = false)))
+      .subscribe({
+        next: (response) => {
+          this.toaster.success(response.message || 'Photo updated.');
+          this.refreshCurrentUser();
+        },
+        error: (error: { error?: { message?: string } }) => {
+          this.toaster.error(error?.error?.message || 'Unable to upload photo.');
+        },
+      });
+  }
+
+  removeProfilePhoto(): void {
+    this.photoUploading = true;
+
+    if (this.doctorProfile) {
+      this.backend
+        .deleteMyDoctorPhoto()
+        .pipe(finalize(() => (this.photoUploading = false)))
+        .subscribe({
+          next: (response) => {
+            this.doctorProfile = {
+              ...this.doctorProfile!,
+              photoUrl: null,
+              photoKey: null,
+            };
+            this.toaster.success(response.message || 'Photo removed.');
+            this.refreshCurrentUser();
+          },
+          error: (error: { error?: { message?: string } }) => {
+            this.toaster.error(error?.error?.message || 'Unable to remove photo.');
+          },
+        });
+      return;
+    }
+
+    this.backend
+      .deleteMyPhoto()
+      .pipe(finalize(() => (this.photoUploading = false)))
+      .subscribe({
+        next: (response) => {
+          this.toaster.success(response.message || 'Photo removed.');
+          this.refreshCurrentUser();
+        },
+        error: (error: { error?: { message?: string } }) => {
+          this.toaster.error(error?.error?.message || 'Unable to remove photo.');
+        },
+      });
+  }
+
   private loadStoredUser(): void {
     const storedUser = JSON.parse(localStorage.getItem('user') || 'null') as User | null;
     this.applyCurrentUser(storedUser);
@@ -205,15 +304,40 @@ export class SettingsComponent implements OnInit {
 
   private refreshCurrentUser(): void {
     this.profileLoading = true;
-    this.backend
-      .getMe()
+    this.authService
+      .me({ force: true })
       .pipe(finalize(() => (this.profileLoading = false)))
       .subscribe({
-        next: (user) => this.applyCurrentUser(user),
+        next: (user) => {
+          this.applyCurrentUser(user);
+          if (this.isDoctorUser()) {
+            this.loadDoctorProfile();
+          } else {
+            this.doctorProfile = null;
+          }
+          if (this.canReadHospitalSettings && this.currentHospitalId && !user.hospital) {
+            this.loadHospitalSettings();
+          }
+        },
         error: (error) => {
           this.toaster.error(error?.error?.message || 'Unable to load profile.');
         },
       });
+  }
+
+  private loadDoctorProfile(): void {
+    this.backend
+      .getMyDoctorProfile()
+      .pipe(catchError(() => of(null)))
+      .subscribe({
+        next: (doctor) => {
+          this.doctorProfile = doctor;
+        },
+      });
+  }
+
+  private isDoctorUser(): boolean {
+    return isDoctorRole(this.currentUser?.role?.name || this.role);
   }
 
   private applyCurrentUser(user: User | null): void {
@@ -233,17 +357,9 @@ export class SettingsComponent implements OnInit {
       this.applyHospitalProfile(user.hospital);
     }
 
-    localStorage.setItem('user', JSON.stringify(user));
-    localStorage.setItem('role', user.role?.name || '');
-    localStorage.setItem('roleId', user.role?._id || '');
-    localStorage.setItem('permissions', JSON.stringify(user.role?.permissions || []));
-  }
-
-  private loadHospitalFromStoredUser(): void {
-    const storedUser = JSON.parse(localStorage.getItem('user') || 'null') as User | null;
-    this.currentHospitalId = storedUser?.hospitalId || storedUser?.hospital?._id || '';
-    if (storedUser?.hospital) {
-      this.applyHospitalProfile(storedUser.hospital);
+    this.authService.setCurrentUser(user);
+    if (this.activeTab === 'hospital' && !this.canReadHospitalSettings) {
+      this.activeTab = 'profile';
     }
   }
 
@@ -269,10 +385,11 @@ export class SettingsComponent implements OnInit {
     this.hospitalAddress = hospital?.address || '';
     this.hospitalCity = hospital?.city || '';
     this.hospitalCountry = hospital?.country || '';
-    this.hospitalLogoUrl = hospital?.logoUrl || '';
+    this.hospitalLogoUrl = resolveAssetUrl(hospital?.logoUrl || '');
 
     const settings = hospital?.prescriptionSettings;
     this.prescriptionShowLogo = settings?.showLogo !== false;
+    this.prescriptionLogoScale = this.normalizePrescriptionLogoScale(settings?.logoScale);
     this.prescriptionRevisionNote = settings?.revisionNote || '* Rx to be revised after Reports.';
     this.prescriptionFollowUpLine = settings?.followUpLine || this.defaultPrescriptionFollowUpLine();
     this.prescriptionContactLine = settings?.contactLine || this.defaultHospitalContactLine();
@@ -331,6 +448,11 @@ export class SettingsComponent implements OnInit {
     return Array.isArray(lines) ? lines.join('\n') : '';
   }
 
+  private normalizePrescriptionLogoScale(value: unknown): number {
+    const scale = Number(value);
+    return Number.isFinite(scale) ? Math.min(200, Math.max(50, Math.round(scale))) : 100;
+  }
+
   private async prepareHospitalLogo(file: File): Promise<string> {
     try {
       const bitmap = await createImageBitmap(file);
@@ -352,7 +474,10 @@ export class SettingsComponent implements OnInit {
       context.drawImage(bitmap, 0, 0, width, height);
       bitmap.close();
 
-      return canvas.toDataURL('image/jpeg', 0.92);
+      const preserveTransparency = file.type === 'image/png' || file.type === 'image/webp';
+      return preserveTransparency
+        ? canvas.toDataURL('image/png')
+        : canvas.toDataURL('image/jpeg', 0.92);
     } catch {
       return this.readFileAsDataUrl(file);
     }

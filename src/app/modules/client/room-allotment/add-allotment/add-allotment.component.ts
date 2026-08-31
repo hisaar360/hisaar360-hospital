@@ -44,6 +44,12 @@ export class AddAllotmentComponent implements OnInit {
     this.allotmentForm = this.fb.group({
       roomId: ['', Validators.required],
       bedLabel: [''],
+      consultantDoctorId: [''],
+      admissionReason: [''],
+      advanceAmount: [null],
+      advanceMethod: ['cash'],
+      securityAmount: [null],
+      securityMethod: ['cash'],
       admittedAt: [this.currentDateTimeLocalValue()],
       notes: [''],
     });
@@ -279,6 +285,12 @@ export class AddAllotmentComponent implements OnInit {
       admittedAt: value.admittedAt ? new Date(value.admittedAt).toISOString() : undefined,
       notes: value.notes || undefined,
       bedLabel: String(value.bedLabel || '').trim() || undefined,
+      consultantDoctorId: value.consultantDoctorId || undefined,
+      admissionReason: value.admissionReason || undefined,
+      advanceAmount: value.advanceAmount ? Number(value.advanceAmount) : undefined,
+      advanceMethod: value.advanceMethod || undefined,
+      securityAmount: value.securityAmount ? Number(value.securityAmount) : undefined,
+      securityMethod: value.securityMethod || undefined,
     };
 
     if (this.currentHospitalId) {

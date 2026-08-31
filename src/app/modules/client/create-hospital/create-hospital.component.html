@@ -90,9 +90,38 @@
                                             <option value="premium">Premium (Full Hospital)</option>
                                             <option value="enterprise">Enterprise (Full Hospital)</option>
                                             <option value="laboratory">Laboratory Only</option>
+                                            <option value="pharmacy-only">Pharmacy Only</option>
                                         </select>
                                         <small class="text-muted">
-                                            Laboratory Only clients get Lab + Patients features only.
+                                            Plan sets default modules. You can override with checkboxes below.
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <div class="col-sm-12">
+                                    <div class="form-group" formGroupName="enabledModules">
+                                        <label>Enabled Modules</label>
+                                        <div class="d-flex flex-wrap gap-3">
+                                            <label class="mb-0 d-flex align-items-center">
+                                                <input type="checkbox" class="mr-2" formControlName="pharmacy" />
+                                                Pharmacy / POS
+                                            </label>
+                                            <label class="mb-0 d-flex align-items-center">
+                                                <input type="checkbox" class="mr-2" formControlName="laboratory" />
+                                                Laboratory
+                                            </label>
+                                            <label class="mb-0 d-flex align-items-center">
+                                                <input type="checkbox" class="mr-2" formControlName="ward" />
+                                                Ward / Rooms / IPD
+                                            </label>
+                                            <label class="mb-0 d-flex align-items-center">
+                                                <input type="checkbox" class="mr-2" formControlName="clinical" />
+                                                Appointments / Prescriptions / Doctors
+                                            </label>
+                                        </div>
+                                        <small class="text-muted d-block mt-1">
+                                            Disabled modules hide UI and block API access for this hospital.
+                                            Users must sign in again after module changes.
                                         </small>
                                     </div>
                                 </div>

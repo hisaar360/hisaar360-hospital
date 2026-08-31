@@ -4,11 +4,16 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../core/services/backend.service';
+import { buildLabOrderReportHtml, openLabReportPrintWindow } from '../../laboratory/lab-order-report.builder';
+import { isLabOrderReportReady } from '../../laboratory/lab-print-details';
 import {
   Bill,
+  Hospital,
+  LabOrder,
   Patient,
   PatientHistory,
   Prescription,
+  User,
 } from '../../../../shared/models/hospital.model';
 
 @Component({
@@ -22,10 +27,14 @@ export class PatientProfileComponent implements OnInit {
   history: PatientHistory[] = [];
   prescriptions: Prescription[] = [];
   bills: Bill[] = [];
+  labOrders: LabOrder[] = [];
+  hospital: Hospital | null = null;
   loading = false;
   historyLoading = false;
   prescriptionsLoading = false;
   billsLoading = false;
+  labOrdersLoading = false;
+  labReportLoadingId: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -95,6 +104,19 @@ export class PatientProfileComponent implements OnInit {
           this.bills = [];
         },
       });
+
+    this.labOrdersLoading = true;
+    this.backend
+      .getPatientLabOrders(id)
+      .pipe(finalize(() => (this.labOrdersLoading = false)))
+      .subscribe({
+        next: (orders) => {
+          this.labOrders = orders || [];
+        },
+        error: () => {
+          this.labOrders = [];
+        },
+      });
   }
 
   patientName(): string {
@@ -117,9 +139,37 @@ export class PatientProfileComponent implements OnInit {
     );
   }
 
+  canCreatePrescription(): boolean {
+    const permissions = JSON.parse(localStorage.getItem('permissions') || '[]') as string[];
+    return permissions.includes('*') || permissions.includes('prescriptions.create');
+  }
+
   canViewBills(): boolean {
     const permissions = JSON.parse(localStorage.getItem('permissions') || '[]') as string[];
     return permissions.includes('*') || permissions.includes('bills.read');
+  }
+
+  prescriptionQueryParams(order?: LabOrder | null): Record<string, string> {
+    const params: Record<string, string> = {};
+    if (this.patient?._id) {
+      params['patientId'] = this.patient._id;
+    }
+
+    const doctorId = order?.doctorId || this.activeDoctorId();
+    if (doctorId) {
+      params['doctorId'] = doctorId;
+    }
+
+    return params;
+  }
+
+  activeDoctorId(): string {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || 'null') as User | null;
+      return String(user?._id || '').trim();
+    } catch {
+      return '';
+    }
   }
 
   ageLabel(): string {
@@ -164,5 +214,87 @@ export class PatientProfileComponent implements OnInit {
 
   historySummary(item: PatientHistory): string {
     return item.notes || item.symptoms || item.diagnosis || '-';
+  }
+
+  labTestsSummary(order: LabOrder): string {
+    return (order.items || [])
+      .filter((item) => item.status !== 'cancelled')
+      .map((item) => item.shortCode || item.testName)
+      .join(', ') || '-';
+  }
+
+  labOrderStatusLabel(order: LabOrder): string {
+    if (isLabOrderReportReady(order)) {
+      return 'Report ready';
+    }
+
+    const status = String(order.status || '').replace(/_/g, ' ');
+    return status ? status.charAt(0).toUpperCase() + status.slice(1) : '-';
+  }
+
+  canPrintLabReport(order: LabOrder): boolean {
+    return isLabOrderReportReady(order);
+  }
+
+  isLabReportLoading(order: LabOrder): boolean {
+    return this.labReportLoadingId === order._id;
+  }
+
+  printLabReport(order: LabOrder): void {
+    if (!this.canPrintLabReport(order)) {
+      this.toastr.error('Lab report is ready only after all tests are verified.');
+      return;
+    }
+
+    this.labReportLoadingId = order._id;
+    const finish = () => {
+      this.labReportLoadingId = null;
+    };
+
+    const openReport = (hospital: Hospital | null) => {
+      const html = buildLabOrderReportHtml({
+        order,
+        hospital,
+        comparison: [],
+        reportGeneratedBy: this.currentUser(),
+      });
+      const opened = openLabReportPrintWindow(html);
+      finish();
+      if (!opened) {
+        this.toastr.error('Unable to open lab report print view.');
+      }
+    };
+
+    if (this.hospital) {
+      openReport(this.hospital);
+      return;
+    }
+
+    this.backend.getLabSettings().subscribe({
+      next: (settings) => {
+        this.hospital = {
+          _id: settings.hospital._id || '',
+          name: settings.hospital.name,
+          code: '',
+          status: 'active',
+          phone: settings.hospital.phone,
+          email: settings.hospital.email,
+          address: settings.hospital.address,
+          city: settings.hospital.city,
+          logoUrl: settings.hospital.logoUrl,
+          laboratorySettings: settings.laboratorySettings,
+        };
+        openReport(this.hospital);
+      },
+      error: () => openReport(null),
+    });
+  }
+
+  private currentUser(): User | null {
+    try {
+      return JSON.parse(localStorage.getItem('user') || 'null') as User | null;
+    } catch {
+      return null;
+    }
   }
 }

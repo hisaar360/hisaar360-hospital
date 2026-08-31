@@ -1,18 +1,21 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../core/services/backend.service';
+import { AuthService } from '../../../../core/services/auth.service';
 import {
   clinicalDepartmentLabel,
   specialtyTemplateLabel,
 } from '../../../../shared/catalogs/doctor-specialization.catalog';
 import { Appointment, Doctor, Patient } from '../../../../shared/models/hospital.model';
+import { ImageViewerModalComponent } from '../../../../shared/components/image-viewer-modal/image-viewer-modal.component';
+import { initialsFromName, resolveAssetUrl } from '../../../../core/utils/asset.util';
 
 @Component({
   selector: 'app-doctors-profile',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, ImageViewerModalComponent],
   templateUrl: './doctors-profile.component.html',
   styleUrl: './doctors-profile.component.scss'
 })
@@ -29,10 +32,13 @@ export class DoctorsProfileComponent implements OnInit {
   doctor: Doctor | null = null;
   patients: Patient[] = [];
   appointments: Appointment[] = [];
+  viewerOpen = false;
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private backend: BackendService,
+    private authService: AuthService,
     private toastr: ToastrService
   ) { }
 
@@ -41,6 +47,10 @@ export class DoctorsProfileComponent implements OnInit {
     if (id) {
       this.loadDoctor(id);
     }
+  }
+
+  can(permission: string): boolean {
+    return this.backend.hasPermission(permission);
   }
 
   loadDoctor(id: string): void {
@@ -55,32 +65,43 @@ export class DoctorsProfileComponent implements OnInit {
         },
         error: (err) => {
           this.toastr.error(err?.error?.message || 'Something went wrong');
+          if (err?.status === 403) {
+            void this.router.navigateByUrl(this.authService.defaultAppRoute());
+          }
         },
       });
   }
 
   loadRelated(id: string): void {
-    this.backend.getDoctorPatients(id, { limit: 100 }).subscribe({
-      next: (result) => {
-        this.patients = result.items;
-      },
-      error: () => {
-        this.patients = [];
-      },
-    });
+    if (this.can('patients.read')) {
+      this.backend.getDoctorPatients(id, { limit: 100 }).subscribe({
+        next: (result) => {
+          this.patients = result.items;
+        },
+        error: () => {
+          this.patients = [];
+        },
+      });
+    }
 
-    this.backend.getDoctorAppointments(id, { limit: 100 }).subscribe({
-      next: (result) => {
-        this.appointments = result.items;
-      },
-      error: () => {
-        this.appointments = [];
-      },
-    });
+    if (this.can('appointments.read')) {
+      this.backend.getDoctorAppointments(id, { limit: 100 }).subscribe({
+        next: (result) => {
+          this.appointments = result.items;
+        },
+        error: () => {
+          this.appointments = [];
+        },
+      });
+    }
   }
 
   patientName(patient?: Patient | null): string {
-    return patient ? `${patient.firstName} ${patient.lastName}`.trim() : '-';
+    if (!patient) {
+      return '-';
+    }
+
+    return `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || '-';
   }
 
   availableDaysLabel(days?: string[] | null): string {
@@ -98,6 +119,21 @@ export class DoctorsProfileComponent implements OnInit {
 
   prescriptionTemplateLabel(): string {
     return specialtyTemplateLabel(this.doctor?.prescriptionSpecialtyTemplate || 'general');
+  }
+
+  get photoUrl(): string {
+    return resolveAssetUrl(this.doctor?.photoUrl);
+  }
+
+  get initials(): string {
+    return initialsFromName(this.doctor?.user?.name);
+  }
+
+  openPhoto(): void {
+    if (!this.photoUrl) {
+      return;
+    }
+    this.viewerOpen = true;
   }
 
   fullScreenSection(number:any) {

@@ -1,21 +1,23 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 
 import { BackendService } from '../../../core/services/backend.service';
-import { Sale, SalesReturn } from '../../../shared/models/hospital.model';
+import { Sale, SalesReturn, Store } from '../../../shared/models/hospital.model';
 import { formatCurrency, formatDate, readAssignedStoreId, toDateInputValue } from '../pharmacy-admin.utils';
 
 @Component({
   selector: 'app-pharmacy-sales-returns',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './pharmacy-sales-returns.component.html',
   styleUrl: './pharmacy-sales-returns.component.scss',
 })
 export class PharmacySalesReturnsComponent implements OnInit {
+  stores: Store[] = [];
   returns: SalesReturn[] = [];
   sales: Sale[] = [];
   loading = false;
@@ -36,7 +38,19 @@ export class PharmacySalesReturnsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.loadStores();
     this.loadReturns();
+  }
+
+  loadStores(): void {
+    if (!this.backend.hasPermission('stores.read')) {
+      return;
+    }
+
+    this.backend.getStores({ limit: 100, isActive: true }).subscribe({
+      next: (result) => (this.stores = result.items),
+      error: () => (this.stores = []),
+    });
   }
 
   loadReturns(): void {
@@ -133,6 +147,10 @@ export class PharmacySalesReturnsComponent implements OnInit {
         this.toastr.error(err?.error?.message || 'Unable to create sales return.');
       },
     });
+  }
+
+  saleLabel(item: SalesReturn): string {
+    return item.invoiceNo || '-';
   }
 
   currency(value: number | string | null | undefined): string {

@@ -12,21 +12,21 @@
     </div>
 
     <div class="sidebar-scroll">
-        <div *ngIf="canViewAllRoutes" class="user-account d-flex">
+        <div *ngIf="displayName" class="user-account d-flex">
             <div class="user_div">
-                <img src="assets/images/user.png" class="user-photo" alt="User Profile Picture">
+                <img [src]="photoUrl || 'assets/images/user.png'" class="user-photo" alt="User Profile Picture">
             </div>
             <div class="dropdown">
-                <span>Web Developer,</span>
+                <span>{{ roleLabel }}</span>
                 <a href="javascript:void(0);" class="dropdown-toggle user-name" (click)="showDropDown()">
-                    <strong>Dr.Alan Green</strong>
+                    <strong>{{ displayName }}</strong>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-right account vivify flipInY" id="drp">
-                    <li><a [routerLink]="['/doctors-profile']"><i class="fa fa-user"></i>My Profile</a></li>
-                    <li><a [routerLink]="['/app-inbox']"><i class="fa fa-envelope"></i>Messages</a></li>
+                    <li><a [routerLink]="['/settings']"><i class="fa fa-user"></i>My Profile</a></li>
+                    <li *ngIf="canViewAccounts"><a [routerLink]="['/accounts/dashboard']"><i class="fa fa-book"></i>Accounts</a></li>
                     <li *ngIf="canViewSettings"><a [routerLink]="['/settings']"><i class="fa fa-gear"></i>Settings</a></li>
                     <li class="divider"></li>
-                    <li><a [routerLink]="['/login/access']"><i class="fa fa-power-off"></i>Logout</a></li>
+                    <li><a href="javascript:void(0);" (click)="logout()"><i class="fa fa-power-off"></i>Logout</a></li>
                 </ul>
             </div>
         </div>
@@ -38,15 +38,16 @@
                     <a [routerLink]="[dashboardRoute]"><i class="fa fa-dashboard"></i> <span>Dashboard</span></a>
                 </li>
 
-                <li *ngIf="canViewDoctors || canManageDoctors">
+                <li *ngIf="canViewDoctors || canManageDoctors || canViewOwnSchedule">
                     <a (click)="isCollapsed = !isCollapsed" [attr.aria-expanded]="!isCollapsed" class="has-arrow">
                         <i class="fa fa-user-md"></i><span>Doctors</span>
                     </a>
                     <ul class="nav-dropdown" *ngIf="!isCollapsed" [@collapseExpand]>
                         <li *ngIf="canViewDoctors"><a [routerLink]="['/all-doctors']">All Doctors</a></li>
                         <li *ngIf="canManageDoctors"><a [routerLink]="['/add-doctors']">Add Doctors</a></li>
-                        <li *ngIf="canViewDoctors"><a [routerLink]="['/doctors-profile']">Doctors Profile</a></li>
-                        <li *ngIf="canViewDoctors"><a [routerLink]="['/doctors-schedule']">Doctors Schedule</a></li>
+                        <li *ngIf="canViewDoctors || canViewOwnSchedule">
+                            <a [routerLink]="['/doctors-schedule']">{{ canViewOwnSchedule && !canViewDoctors ? 'My Schedule' : 'Doctors Schedule' }}</a>
+                        </li>
                     </ul>
                 </li>
 
@@ -65,7 +66,8 @@
                     </a>
                     <ul class="nav-dropdown" *ngIf="!PrescriptionCollapsed" [@collapseExpand]>
                         <li *ngIf="canManagePrescriptions"><a [routerLink]="['/prescriptions']">New Prescription</a></li>
-                        <li *ngIf="canViewPrescriptions || canManagePrescriptions"><a [routerLink]="['/prescriptions/created']">Created Prescriptions</a></li>
+                        <li *ngIf="canViewPrescriptions"><a [routerLink]="['/prescriptions/created']">Created Prescriptions</a></li>
+                        <li *ngIf="canManagePrescriptions"><a [routerLink]="['/prescriptions/physiotherapy']">Physiotherapy</a></li>
                     </ul>
                 </li>
 
@@ -84,10 +86,14 @@
                         <li *ngIf="canViewPharmacyTransfers"><a [routerLink]="['/pharmacy/transfers']">Stock Transfers</a></li>
                         <li *ngIf="canViewPharmacySales"><a [routerLink]="['/pharmacy/sales']">Sales</a></li>
                         <li *ngIf="canOpenPharmacyPos"><a [routerLink]="['/pharmacy/pos']">Pharmacy POS</a></li>
+                        <li *ngIf="canViewPurchases"><a [routerLink]="['/pharmacy/purchases']">Purchases</a></li>
+                        <li *ngIf="canViewPurchases"><a [routerLink]="['/pharmacy/purchase-returns']">Purchase Returns</a></li>
                         <li *ngIf="canViewPharmacyReturns"><a [routerLink]="['/pharmacy/returns/sales']">Sales Returns</a></li>
                         <li *ngIf="canViewPharmacyPayments"><a [routerLink]="['/pharmacy/payments']">Payments</a></li>
                         <li *ngIf="canViewPharmacyRegisterSessions"><a [routerLink]="['/pharmacy/register-sessions']">Register Sessions</a></li>
                         <li *ngIf="canViewPharmacyExpenses"><a [routerLink]="['/pharmacy/expenses']">Expenses</a></li>
+                        <li *ngIf="hasNavAccess('pharmacy.ward_settlements.read')"><a [routerLink]="['/pharmacy/ward-settlements']">Ward Settlements</a></li>
+                        <li *ngIf="hasNavAccess('pharmacy.ward_requests.read')"><a [routerLink]="['/pharmacy/ward-requests']">Ward Requests</a></li>
                         <li *ngIf="canViewPosReports"><a [routerLink]="['/pharmacy/reports']">Pharmacy Reports</a></li>
                     </ul>
                 </li>
@@ -98,12 +104,12 @@
                         <i class="fa fa-flask"></i><span>Laboratory</span>
                     </a>
                     <ul class="nav-dropdown" *ngIf="!LaboratoryCollapsed" [@collapseExpand]>
-                        <li><a [routerLink]="['/laboratory']">Lab Dashboard</a></li>
-                        <li><a [routerLink]="['/laboratory/created-reports']">Created Lab Reports</a></li>
-                        <li *ngIf="canManageLaboratory"><a [routerLink]="['/laboratory/create-order']">Create Lab Order</a></li>
-                        <li><a [routerLink]="['/laboratory/catalog']">Test Catalog</a></li>
-                        <li *ngIf="canManageLaboratory"><a [routerLink]="['/laboratory/settings']">Lab Print Details</a></li>
-                        <li><a [routerLink]="['/laboratory/records']">Legacy Notes</a></li>
+                        <li *ngIf="canViewLabOrders"><a [routerLink]="['/laboratory']">Lab Dashboard</a></li>
+                        <li *ngIf="canViewLabOrders"><a [routerLink]="['/laboratory/created-reports']">Created Lab Reports</a></li>
+                        <li *ngIf="canCreateLaboratoryOrder"><a [routerLink]="['/laboratory/create-order']">Create Lab Order</a></li>
+                        <li *ngIf="canViewLabCatalog"><a [routerLink]="['/laboratory/catalog']">Test Catalog</a></li>
+                        <li *ngIf="canManageLaboratorySettings"><a [routerLink]="['/laboratory/settings']">Lab Print Details</a></li>
+                        <li *ngIf="canViewLabOrders"><a [routerLink]="['/laboratory/records']">Legacy Notes</a></li>
                     </ul>
                 </li>
 
@@ -126,13 +132,10 @@
                         <li><a [routerLink]="['/ward/nurses-staff']" routerLinkActive="active">Nurses & Staff</a></li>
                         <li><a [routerLink]="['/ward/inventory']" routerLinkActive="active">Ward Inventory</a></li>
                         <li><a [routerLink]="['/ward/reports']" routerLinkActive="active">Reports</a></li>
+                        <li *ngIf="hasNavAccess('ward.roster.read')"><a [routerLink]="['/ward/duty-roster']" routerLinkActive="active">Duty Roster</a></li>
                         <li><a [routerLink]="['/settings']" routerLinkActive="active">Settings</a></li>
                         <li><a [routerLink]="['/ward-admin']" routerLinkActive="active">Ward Notes</a></li>
                     </ul>
-                </li>
-
-                <li *ngIf="canViewAllRoutes" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
-                    <a [routerLink]="['/todolist']"><i class="fa fa-th-list"></i> <span>Todo List</span></a>
                 </li>
 
                 <li *ngIf="canViewPatients || canManagePatients || canViewBilling">
@@ -143,8 +146,7 @@
                     <ul class="nav-dropdown" *ngIf="!PatientCollapsed" [@collapseExpand]>
                         <li *ngIf="canViewPatients"><a [routerLink]="['/patients/all-patients']">All Patient</a></li>
                         <li *ngIf="canManagePatients"><a [routerLink]="['/patients/add-patient']">Add Patient</a></li>
-                        <li *ngIf="canViewPatients"><a [routerLink]="['/patients/patient-profile']">Patient Profile</a></li>
-                        <li *ngIf="canViewBilling"><a [routerLink]="['/patients/patient-invoices']">Patient Invoices</a></li>
+                        <li *ngIf="canViewBilling"><a [routerLink]="['/payments/invoices']">Patient Invoices</a></li>
                     </ul>
                 </li>
 
@@ -176,19 +178,31 @@
                     </ul>
                 </li>
 
+                <li *ngIf="canViewAccounts">
+                    <a (click)="AccountsCollapsed = !AccountsCollapsed" [attr.aria-expanded]="!AccountsCollapsed" class="has-arrow">
+                        <i class="fa fa-book"></i><span>Accounts</span>
+                    </a>
+                    <ul class="nav-dropdown" *ngIf="!AccountsCollapsed" [@collapseExpand]>
+                        <li *ngIf="hasNavAccess('accounts.read')"><a [routerLink]="['/accounts/dashboard']">Dashboard</a></li>
+                        <li *ngIf="hasNavAccess('accounts.read')"><a [routerLink]="['/accounts/chart-of-accounts']">Chart of Accounts</a></li>
+                        <li *ngIf="hasNavAccess('accounts.journals.read')"><a [routerLink]="['/accounts/general-ledger']">General Ledger</a></li>
+                        <li *ngIf="hasNavAccess(['accounts.journals.read', 'accounts.journals.create'])"><a [routerLink]="['/accounts/journal']">Journal</a></li>
+                        <li *ngIf="hasNavAccess('accounts.read')"><a [routerLink]="['/accounts/cash-book']">Cash Book</a></li>
+                        <li *ngIf="hasNavAccess('accounts.read')"><a [routerLink]="['/accounts/bank-book']">Bank Book</a></li>
+                        <li *ngIf="hasNavAccess('expenses.read')"><a [routerLink]="['/accounts/expenses']">Expenses</a></li>
+                        <li *ngIf="hasNavAccess(['accounts.read', 'accounts.reports.read'])"><a [routerLink]="['/accounts/receivables']">Receivables</a></li>
+                        <li *ngIf="hasNavAccess(['accounts.read', 'accounts.reports.read'])"><a [routerLink]="['/accounts/payables']">Payables</a></li>
+                        <li *ngIf="hasNavAccess('accounts.reports.read')"><a [routerLink]="['/accounts/trial-balance']">Trial Balance</a></li>
+                        <li *ngIf="hasNavAccess('accounts.reports.read')"><a [routerLink]="['/accounts/profit-loss']">Profit &amp; Loss</a></li>
+                        <li *ngIf="hasNavAccess(['accounts.read', 'accounts.reports.read'])"><a [routerLink]="['/accounts/daily-collections']">Daily Collections</a></li>
+                        <li *ngIf="hasNavAccess('accounts.reports.read')"><a [routerLink]="['/accounts/doctor-performance']">Doctor Performance</a></li>
+                        <li *ngIf="hasNavAccess('accounts.patient_profitability.read')"><a [routerLink]="['/accounts/patient-profitability']">Patient Profitability</a></li>
+                        <li *ngIf="hasNavAccess('financial_reconciliation.read')"><a [routerLink]="['/accounts/reconciliation']">Reconciliation</a></li>
+                        <li *ngIf="canViewAuditLogs"><a [routerLink]="['/accounts/audit']">Audit</a></li>
+                    </ul>
+                </li>
+
                 <li *ngIf="canViewHospitalAdministration || canViewAllRoutes" class="header">Admin</li>
-                <li *ngIf="canViewAllRoutes" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
-                    <a [routerLink]="['/app-inbox']"><i class="fa fa-envelope"></i><span>Email</span>
-                        <span class="badge badge-default mr-0">12</span></a>
-                </li>
-
-                <li *ngIf="canViewAllRoutes" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
-                    <a [routerLink]="['/app-chat']"><i class="fa fa-comments"></i><span>Chat</span></a>
-                </li>
-
-                <li *ngIf="canViewAllRoutes" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
-                    <a [routerLink]="['/our-staff']"><i class="fa fa-users"></i><span>Our Staffs</span></a>
-                </li>
 
                 <li *ngIf="canViewHospitals" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
                     <a [routerLink]="['/hospitals']"><i class="fa fa-hospital-o"></i><span>Hospitals</span></a>
@@ -216,28 +230,7 @@
                     </a>
                 </li>
 
-                <li *ngIf="canViewAllRoutes" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
-                    <a [routerLink]="['/contacts']"><i class="fa fa-address-book"></i><span>Contacts</span></a>
-                </li>
-
-                <li *ngIf="canViewAllRoutes" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
-                    <a [routerLink]="['/filemanager']"><i class="fa fa-folder"></i><span>File Manager</span></a>
-                </li>
-
-                <li *ngIf="canViewAllRoutes" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
-                    <a [routerLink]="['/our-centers']"><i class="fa fa-map-marker"></i><span>Our Centres</span></a>
-                </li>
-
-                <li *ngIf="canViewAllRoutes" class="header">Social</li>
-                <li *ngIf="canViewAllRoutes" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
-                    <a [routerLink]="['/blog']"><i class="fa fa-globe"></i><span>Blog</span></a>
-                </li>
-
-                <li *ngIf="canViewAllRoutes" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
-                    <a [routerLink]="['/social']"><i class="fa fa-share-alt-square"></i><span>Social</span></a>
-                </li>
-
-                <li *ngIf="canViewAllRoutes" class="extra_widget">
+                <li *ngIf="false" class="extra_widget">
                     <div class="form-group">
                         <label class="d-block">Traffic this Month <span class="float-right">77%</span></label>
                         <div class="progress progress-xxs">

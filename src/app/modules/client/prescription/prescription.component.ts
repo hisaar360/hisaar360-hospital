@@ -20,6 +20,8 @@ import {
 } from 'ng-apexcharts';
 import { AppDialogService } from '../../../core/services/app-dialog.service';
 import { BackendService } from '../../../core/services/backend.service';
+import { toCalendarYmd, todayYmd } from '../../../core/utils/calendar-date';
+import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import { MooliOfflineService, MooliQueuedWork, MooliSyncResult } from '../../../core/services/mooli-offline.service';
 import {
   Appointment,
@@ -173,6 +175,7 @@ import {
   stripDoctorPrefix,
   toPrescriptionUrduText,
 } from './prescription-print-urdu';
+import { transliterateLatinToUrdu } from '../../../shared/utils/urdu-transliteration';
 import {
   buildMedicineInstructions,
   containsFrequencyPattern,
@@ -209,6 +212,7 @@ interface PrintPreviewData {
   hospitalAddressUrdu: string;
   hospitalLogoUrl: string;
   showHospitalLogo: boolean;
+  hospitalLogoScale: number;
   prescriptionRevisionNote: string;
   prescriptionFollowUpLine: string;
   prescriptionFooterLines: string[];
@@ -284,6 +288,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   @ViewChild('printContent', { static: false }) printContent!: ElementRef;
   @ViewChild('documentFileInput', { static: false }) documentFileInput?: ElementRef<HTMLInputElement>;
   @ViewChild('smartMedicineInputRef', { static: false }) smartMedicineInputRef?: ElementRef<HTMLInputElement>;
+  @ViewChild('saveValidationSummary', { static: false }) saveValidationSummary?: ElementRef<HTMLElement>;
   @ViewChildren('medicineNameInput') medicineNameInputs?: QueryList<ElementRef<HTMLInputElement>>;
 
   prescriptions: Prescription[] = [];
@@ -307,6 +312,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   vitalsModalForm: FormGroup;
   appointmentsLoading = false;
   saving = false;
+  saveValidationMessages: string[] = [];
   sendingDaySummary = false;
   private patientContextRequestId = 0;
   private offlineSyncSubscription?: Subscription;
@@ -706,8 +712,36 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     return this.backend.hasPermission('prescriptions.create');
   }
 
+  get canReadPrescriptions(): boolean {
+    return this.backend.hasPermission('prescriptions.read');
+  }
+
   get canUpdatePrescriptions(): boolean {
     return this.backend.hasPermission('prescriptions.update');
+  }
+
+  get canReadPatients(): boolean {
+    return this.backend.hasPermission('patients.read');
+  }
+
+  get canReadAppointments(): boolean {
+    return this.backend.hasPermission('appointments.read');
+  }
+
+  get canReadPatientHistory(): boolean {
+    return this.backend.hasPermission('patients_history.read');
+  }
+
+  get canReadLabOrders(): boolean {
+    return this.backend.hasPermission('lab_orders.read');
+  }
+
+  get canSendDoctorDaySummary(): boolean {
+    return (
+      this.canReadPrescriptions ||
+      this.canReadAppointments ||
+      this.backend.hasPermission('hospital_dashboard.read')
+    );
   }
 
   get isPrintPreviewViewOnly(): boolean {
@@ -1240,7 +1274,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
 
   loadPatientHistoryRecords(): void {
     const patientId = this.prescriptionForm.getRawValue().patientId || this.selectedPatientId;
-    if (!patientId) {
+    if (!patientId || !this.canReadPatientHistory) {
       this.patientHistoryRecords = [];
       this.refreshPatientDocumentRows();
       return;
@@ -1682,6 +1716,11 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   openDoctorMedicineModal(rowIndex: number | null = null): void {
+    if (!this.canCreatePrescriptions) {
+      this.toastr.error('You do not have permission to add doctor medicines.');
+      return;
+    }
+
     this.selectedMedicineRowIndex = rowIndex;
     const source =
       rowIndex !== null ? (this.medicines.at(rowIndex)?.getRawValue() as Record<string, unknown>) : {};
@@ -1704,6 +1743,11 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   saveDoctorMedicine(useInPrescription = false): void {
+    if (!this.canCreatePrescriptions) {
+      this.toastr.error('You do not have permission to add doctor medicines.');
+      return;
+    }
+
     if (this.doctorMedicineForm.invalid) {
       this.doctorMedicineForm.markAllAsTouched();
       return;
@@ -2615,17 +2659,21 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   loadLookups(): void {
-    this.backend.getPatients({ limit: 100, status: 'active' }).subscribe({
-      next: (result) => {
-        this.patients = result.items;
-        void this.offline.cacheValue(this.patientsCacheKey(), this.patients);
-      },
-      error: () => {
-        void this.loadCachedPatients();
-      },
-    });
+    if (this.canReadPatients) {
+      this.backend.getPatients({ limit: 100, status: 'active' }).subscribe({
+        next: (result) => {
+          this.patients = result.items;
+          void this.offline.cacheValue(this.patientsCacheKey(), this.patients);
+        },
+        error: () => {
+          void this.loadCachedPatients();
+        },
+      });
+    } else {
+      this.patients = [];
+    }
 
-    this.backend.getDoctors({ limit: 100, status: 'active' }).subscribe({
+    this.backend.getAccessibleDoctors({ limit: 100, status: 'active' }).subscribe({
       next: (result) => {
         this.doctors = result.items;
         void this.offline.cacheValue(this.doctorsCacheKey(), this.doctors);
@@ -2647,6 +2695,12 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   private loadAppointments(showToast = false): void {
+    if (!this.canReadAppointments) {
+      this.appointments = [];
+      this.appointmentsLoading = false;
+      return;
+    }
+
     this.appointmentsLoading = true;
     const appointmentDate = this.todayValue();
 
@@ -2678,11 +2732,12 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
 
   loadDoctorMedicines(search = '', updateSmartSuggestions = false, afterLoad?: () => void): void {
     const doctorId = this.activeDoctorId();
-    if (!doctorId) {
+    if (!doctorId || !this.canReadPrescriptions) {
       this.doctorMedicines = [];
       if (updateSmartSuggestions) {
         this.clearSmartMedicineSuggestions();
       }
+      afterLoad?.();
       return;
     }
 
@@ -2904,6 +2959,13 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     }
 
     this.loadPatientLabHistory(patientId);
+    if (!this.canReadPrescriptions) {
+      this.patientContextRequestId += 1;
+      this.patientHistoryLoading = false;
+      void this.applyPatientContextPrescriptions([], 0);
+      return;
+    }
+
     const requestId = ++this.patientContextRequestId;
     this.patientHistoryLoading = true;
     const params: Record<string, unknown> = {
@@ -2949,7 +3011,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     const resolvedPatientId = String(patientId || '').trim();
     const requestId = ++this.patientLabHistoryRequestId;
 
-    if (!resolvedPatientId || !this.offline.online()) {
+    if (!resolvedPatientId || !this.canReadLabOrders || !this.offline.online()) {
       this.patientLabOrders = [];
       this.refreshLabTestRows();
       return;
@@ -3055,6 +3117,11 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (!this.canReadPrescriptions) {
+      this.toastr.error('You do not have permission to view prescriptions.');
+      return;
+    }
+
     if (mode === 'view') {
       this.backend.getPrescription(prescriptionId).subscribe({
         next: (prescription) => {
@@ -3108,6 +3175,8 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   submitPrescription(printAfterSave = false): void {
+    this.dismissSaveValidation();
+
     let shouldUpdate = Boolean(this.editingId && this.editingInPlace);
     if (
       shouldUpdate &&
@@ -3121,22 +3190,45 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     }
 
     if (!shouldUpdate && !this.canCreatePrescriptions) {
+      this.showSaveValidation([
+        'You do not have permission to create prescriptions. Ask an administrator for Prescriptions Create access.',
+      ]);
       return;
     }
 
     if (shouldUpdate && !this.canUpdatePrescriptions) {
+      this.showSaveValidation([
+        'You do not have permission to update this prescription. Ask an administrator for Prescriptions Update access.',
+      ]);
+      return;
+    }
+
+    const value = this.prescriptionForm.getRawValue();
+    const missingFields: string[] = [];
+
+    if (!String(value.patientId || '').trim()) {
+      missingFields.push('Patient is missing. Select an appointment from Today\'s Appointments.');
+    }
+
+    if (!String(value.doctorId || '').trim()) {
+      missingFields.push('Doctor is missing. Select an appointment assigned to a doctor.');
+    }
+
+    if (this.isDoctorUser() && !String(value.appointmentId || '').trim()) {
+      missingFields.push('Appointment is missing. Select an assigned appointment before saving.');
+    }
+
+    if (missingFields.length) {
+      this.prescriptionForm.markAllAsTouched();
+      this.showSaveValidation(missingFields);
       return;
     }
 
     if (this.prescriptionForm.invalid) {
       this.prescriptionForm.markAllAsTouched();
-      return;
-    }
-
-    const value = this.prescriptionForm.getRawValue();
-
-    if (this.isDoctorUser() && !value.appointmentId) {
-      this.toastr.error('Select an assigned appointment before creating prescription');
+      this.showSaveValidation([
+        'One or more required fields are invalid. Review the highlighted fields and try again.',
+      ]);
       return;
     }
 
@@ -3212,6 +3304,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
 
     request$.pipe(finalize(() => (this.saving = false))).subscribe({
       next: (response) => {
+        this.dismissSaveValidation();
         this.toastr.success(response.message);
         const savedPrescription = this.enrichPrescriptionTemplate(response.data, {
           allowFallback: true,
@@ -3246,8 +3339,34 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
           return;
         }
 
-        this.toastr.error(formatApiValidationError(err) || 'Something went wrong');
+        this.showSaveValidation(
+          [formatApiValidationError(err) || 'The prescription could not be saved. Please try again.'],
+          'Save failed'
+        );
       },
+    });
+  }
+
+  dismissSaveValidation(): void {
+    this.saveValidationMessages = [];
+  }
+
+  private showSaveValidation(messages: string[], title = 'Cannot save prescription'): void {
+    this.saveValidationMessages = [...new Set(messages.map((message) => message.trim()).filter(Boolean))];
+
+    if (!this.saveValidationMessages.length) {
+      return;
+    }
+
+    this.toastr.error(this.saveValidationMessages.join(' '), title, {
+      closeButton: true,
+      timeOut: 8000,
+    });
+
+    window.setTimeout(() => {
+      const summary = this.saveValidationSummary?.nativeElement;
+      summary?.focus({ preventScroll: true });
+      summary?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   }
 
@@ -3262,6 +3381,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
 
     this.selectedAppointmentId = appointment._id;
     this.selectedPatientId = appointment.patientId;
+    this.dismissSaveValidation();
     this.patientHistoryPage = 1;
     this.prescriptionForm.patchValue({
       patientId: appointment.patientId,
@@ -3290,7 +3410,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   private refreshSelectedAppointment(appointmentId: string): void {
-    if (!this.offline.online()) {
+    if (!this.canReadAppointments || !this.offline.online()) {
       return;
     }
 
@@ -3371,7 +3491,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     }
 
     const appointmentId = prescription.appointmentId || '';
-    if (!appointmentId || !this.offline.online()) {
+    if (!appointmentId || !this.canReadAppointments || !this.offline.online()) {
       this.applyVitalsToForm(prescriptionVitals);
       return;
     }
@@ -3397,7 +3517,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   private ensureEditAppointmentLoaded(appointmentId: string): void {
-    if (!appointmentId || !this.offline.online()) {
+    if (!appointmentId || !this.canReadAppointments || !this.offline.online()) {
       return;
     }
 
@@ -3416,7 +3536,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
 
     if (!editInPlace) {
       if (!this.canCreatePrescriptions) {
-        this.toastr.error('Aap kisi aur doctor ki prescription modify nahi kar sakte.');
+        this.toastr.error('You cannot modify another doctor\'s prescription.');
         return;
       }
 
@@ -3431,7 +3551,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
         });
         this.selectedAppointmentId = '';
       }
-      this.toastr.info('Yeh prescription kisi aur doctor ki hai. Save karne par nayi prescription banegi, purani waisi hi rahegi.');
+      this.toastr.info('This prescription belongs to another doctor. Saving will create a new prescription; the original stays unchanged.');
       return;
     }
 
@@ -3655,6 +3775,11 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   sendDoctorDaySummaryEmail(): void {
+    if (!this.canSendDoctorDaySummary) {
+      this.toastr.error('You do not have permission to send the doctor day summary.');
+      return;
+    }
+
     const doctorId = this.activeDoctorId();
     if (!doctorId) {
       this.toastr.error('Select a doctor before sending the day summary.');
@@ -4746,8 +4871,21 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const firstAppointment = this.visibleAppointments()[0];
-    if (firstAppointment && !this.prescriptionForm.value.patientId) {
+    const visibleAppointments = this.visibleAppointments();
+    const patientId = String(
+      this.routePatientId || this.prescriptionForm.getRawValue().patientId || ''
+    ).trim();
+    const matchingAppointment = patientId
+      ? visibleAppointments.find((appointment) => appointment.patientId === patientId)
+      : undefined;
+
+    if (matchingAppointment) {
+      this.selectAppointment(matchingAppointment);
+      return;
+    }
+
+    const firstAppointment = visibleAppointments[0];
+    if (firstAppointment && !patientId) {
       this.selectAppointment(firstAppointment);
     }
   }
@@ -4846,33 +4984,15 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   private isTodayAppointment(appointment: Appointment): boolean {
-    return this.dateOnly(appointment.appointmentDate) === this.todayValue();
+    return toCalendarYmd(appointment.appointmentDate) === todayYmd();
   }
 
   private dateOnly(value: string | Date): string {
-    if (typeof value === 'string') {
-      return value.slice(0, 10);
-    }
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return '';
-    }
-
-    return [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, '0'),
-      String(date.getDate()).padStart(2, '0'),
-    ].join('-');
+    return toCalendarYmd(value);
   }
 
   private todayValue(): string {
-    const today = new Date();
-    return [
-      today.getFullYear(),
-      String(today.getMonth() + 1).padStart(2, '0'),
-      String(today.getDate()).padStart(2, '0'),
-    ].join('-');
+    return todayYmd();
   }
 
   private isDoctorUser(): boolean {
@@ -5371,7 +5491,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   private openPrintPreviewWithFreshData(prescription: Prescription): void {
-    if (!prescription?._id || prescription._id.startsWith('local-')) {
+    if (!prescription?._id || prescription._id.startsWith('local-') || !this.canReadPrescriptions) {
       this.openPrintPreview(prescription);
       return;
     }
@@ -5646,11 +5766,14 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       doctorTitleEnglish: formatEnglishDoctorTitle(),
       doctorTitleUrdu: formatUrduDoctorTitle(),
       hospitalName: formatEnglishOrganizationName(hospitalName) || hospitalName,
-      hospitalNameUrdu: formatUrduOrganizationName(hospitalName) || hospitalName,
+      hospitalNameUrdu:
+        formatUrduOrganizationName(hospitalName, hospital?.nameUrdu) ||
+        transliterateLatinToUrdu(hospitalName),
       hospitalAddress: formatEnglishAddress(hospitalAddress),
       hospitalAddressUrdu: formatUrduAddress(hospitalAddress) || formatEnglishAddress(hospitalAddress),
       hospitalLogoUrl,
       showHospitalLogo: settings.showLogo !== false && Boolean(hospitalLogoUrl),
+      hospitalLogoScale: settings.logoScale,
       prescriptionRevisionNote: settings.revisionNote || '* Rx to be revised after Reports.',
       prescriptionFollowUpLine:
         settings.followUpLine || `For appointment and follow up, contact ${hospitalName}.`,
@@ -5843,7 +5966,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       return '';
     }
 
-    return logoUrl.startsWith('data:image/') && logoUrl.length > 1000000 ? '' : logoUrl;
+    return resolveAssetUrl(logoUrl.startsWith('data:image/') && logoUrl.length > 1000000 ? '' : logoUrl);
   }
 
   vitalEntries(vitals: Record<string, string> | null | undefined): Array<{ label: string; value: string }> {
@@ -5992,6 +6115,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   private resolvePrescriptionSettings(hospital: Hospital | null): PrescriptionPrintSettings {
     return {
       showLogo: hospital?.prescriptionSettings?.showLogo !== false,
+      logoScale: Math.min(200, Math.max(50, Number(hospital?.prescriptionSettings?.logoScale) || 100)),
       revisionNote: hospital?.prescriptionSettings?.revisionNote || '* Rx to be revised after Reports.',
       followUpLine: hospital?.prescriptionSettings?.followUpLine || '',
       contactLine: hospital?.prescriptionSettings?.contactLine || '',

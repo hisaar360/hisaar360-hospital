@@ -1,7 +1,32 @@
-@import '../pharmacy-shared.scss';
+@use '../pharmacy-shared.scss';
 
 .font-weight-bold {
   font-weight: 600;
+}
+
+.pharmacy-kpi-row {
+  margin-bottom: 16px;
+}
+
+.pharmacy-kpi-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  padding: 14px 16px;
+}
+
+.pharmacy-kpi-card small {
+  color: #64748b;
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.pharmacy-kpi-card h4 {
+  margin: 6px 0 0;
+  font-size: 20px;
+  font-weight: 800;
 }
 
 .medicine-preview-cell {
@@ -195,7 +220,9 @@
 }
 
 .product-management-table {
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .product-management-row {

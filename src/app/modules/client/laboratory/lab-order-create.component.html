@@ -75,13 +75,29 @@
       <section class="lab-card">
         <h2>Order Information</h2>
         <label>Order Source
-          <select [(ngModel)]="source">
+          <select [(ngModel)]="source" (ngModelChange)="onSourceChange()">
             <option value="walk-in">Walk-in</option>
             <option value="doctor">Doctor Prescribed</option>
             <option value="admission">Admission</option>
             <option value="emergency">Emergency</option>
           </select>
         </label>
+        <label *ngIf="matchingEncounters().length > 0">Attach to visit
+          <select [(ngModel)]="selectedEncounterId">
+            <option *ngFor="let encounter of matchingEncounters()" [value]="encounter._id">
+              {{ encounter.encounterNo }} · {{ encounter.type }} · {{ encounter.status }}
+            </option>
+          </select>
+        </label>
+        <p class="encounter-hint" *ngIf="selectedPatient && !isEditMode && encountersLoading">
+          Looking up open visits...
+        </p>
+        <p class="encounter-hint" *ngIf="selectedPatient && !encountersLoading && matchingEncounters().length === 0">
+          No open visit for this source. Saving will open a new encounter for these charges.
+        </p>
+        <p class="encounter-hint is-attached" *ngIf="selectedEncounterId && attachedEncounterLabel()">
+          Charges will post to {{ attachedEncounterLabel() }}.
+        </p>
         <label>Referred By
           <input [(ngModel)]="referredBy" placeholder="Doctor name optional" />
         </label>
@@ -116,10 +132,18 @@
           <strong>Rs. {{ test.price }}</strong>
         </div>
         <div class="selected-test empty" *ngIf="selectedTests.length === 0">No tests selected yet.</div>
-        <div class="payment-box">
+        <div class="payment-box" *ngIf="canCollectPayment(); else unpaidOrderHint">
+          <p class="billing-hint">{{ billingHint() }}</p>
+          <label class="payment-received">
+            <input type="checkbox" [(ngModel)]="paymentReceivedNow" (ngModelChange)="onPaymentReceivedToggle()" />
+            Payment received now
+          </label>
+          <div class="invoice-status" [attr.data-status]="invoiceStatusPreview()">
+            Invoice will print as <strong>{{ invoiceStatusPreview() }}</strong>
+          </div>
           <div><span>Total</span><strong>Rs. {{ totalAmount() }}</strong></div>
           <label>Paid
-            <input type="number" min="0" [max]="totalAmount()" [(ngModel)]="paidAmount" />
+            <input type="number" min="0" [max]="totalAmount()" [(ngModel)]="paidAmount" (ngModelChange)="onPaidAmountChange()" />
           </label>
           <label>Method
             <select [(ngModel)]="paymentMethod">
@@ -134,12 +158,17 @@
           </label>
           <div class="balance"><span>Balance</span><strong>Rs. {{ balanceAmount() }}</strong></div>
         </div>
+        <ng-template #unpaidOrderHint>
+          <div class="payment-box">
+            <p class="billing-hint">Total Rs. {{ totalAmount() }}. Payment is collected at reception — this order will stay unpaid until then.</p>
+          </div>
+        </ng-template>
         <div class="summary-actions">
           <button type="button" class="btn-light" [disabled]="saving" (click)="saveOrder(false)">
             {{ isEditMode ? 'Update Order' : 'Save Order' }}
           </button>
-          <button type="button" class="btn-primary" [disabled]="saving" (click)="saveOrder(true)">
-            {{ isEditMode ? 'Update & Print Receipt' : 'Save & Print Receipt' }}
+          <button type="button" class="btn-primary" *ngIf="canCollectPayment()" [disabled]="saving" (click)="saveOrder(true)">
+            {{ isEditMode ? 'Update & Print Invoice' : 'Save & Print Invoice' }}
           </button>
         </div>
       </aside>

@@ -1569,11 +1569,36 @@ dd {
   border: 1px solid var(--rx-line);
   border-radius: 10px;
   box-shadow: 0 24px 70px rgb(15 23 42 / 0.22);
-  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  max-height: min(90vh, 720px);
   max-width: 640px;
+  overflow: hidden;
+  padding: 16px 16px 0;
+  width: 100%;
+}
+
+.vitals-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+.vitals-modal-dialog .vitals-modal-footer,
+.vitals-modal-dialog .medicine-library-footer {
+  background: #fff;
+  border-top: 1px solid var(--rx-soft-line);
+  flex-shrink: 0;
+  margin: 0 -16px;
+  padding: 14px 16px 16px;
+}
+
+.vitals-trend-dialog {
+  max-height: 90vh;
   overflow: auto;
   padding: 16px;
-  width: 100%;
 }
 
 .vitals-modal-grid {
@@ -1594,12 +1619,32 @@ dd {
 
 .vitals-modal-grid input,
 .vitals-modal-grid textarea {
-  border: 1px solid var(--rx-line);
-  border-radius: 4px;
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: var(--rx-ink, #111827);
   font-size: 12px;
   min-height: 32px;
+  outline: none;
   padding: 6px 8px;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   width: 100%;
+}
+
+.vitals-modal-grid input::placeholder,
+.vitals-modal-grid textarea::placeholder,
+.vitals-custom-row input::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+.vitals-modal-grid input:focus,
+.vitals-modal-grid textarea:focus,
+.vitals-custom-row input:focus {
+  background-color: #fff;
+  border-color: var(--rx-blue, #1168c8);
+  box-shadow: 0 0 0 3px rgb(17 104 200 / 0.12);
+  outline: none;
 }
 
 .vitals-modal-grid textarea {
@@ -1678,11 +1723,15 @@ dd {
 }
 
 .vitals-custom-row input {
-  border: 1px solid var(--rx-line);
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
   border-radius: 6px;
+  color: var(--rx-ink, #111827);
   font-size: 12px;
   min-height: 34px;
+  outline: none;
   padding: 0 10px;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .vitals-custom-row button {
@@ -1822,6 +1871,64 @@ dd {
 .header-actions {
   display: flex;
   gap: 10px;
+}
+
+.prescription-save-validation {
+  align-items: flex-start;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: 8px;
+  color: #9a3412;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+}
+
+.prescription-save-validation:focus {
+  box-shadow: 0 0 0 3px rgb(249 115 22 / 0.15);
+  outline: none;
+}
+
+.prescription-save-validation__icon {
+  font-size: 16px;
+  line-height: 1.2;
+  padding-top: 2px;
+}
+
+.prescription-save-validation__content {
+  display: grid;
+  gap: 2px;
+}
+
+.prescription-save-validation__content strong {
+  color: #7c2d12;
+  font-size: 13px;
+}
+
+.prescription-save-validation__content > span {
+  font-size: 11px;
+}
+
+.prescription-save-validation__content ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.prescription-save-validation__content li {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.prescription-save-validation > button {
+  background: transparent;
+  border: 0;
+  color: #9a3412;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0 2px;
 }
 
 .btn-light,
@@ -2631,6 +2738,13 @@ dd {
   padding-top: 14px;
 }
 
+.medicine-library-footer .btn-light,
+.medicine-library-footer .btn-primary {
+  cursor: pointer;
+  font-weight: 700;
+  min-width: 112px;
+}
+
 .medicine-library-header,
 .medicine-library-footer {
   align-items: center;
@@ -2848,7 +2962,13 @@ dd {
   .medicine-library-footer,
   .medicine-library-footer > div {
     align-items: stretch;
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .medicine-library-footer > div {
+    justify-content: flex-end;
+    width: 100%;
   }
 }
 

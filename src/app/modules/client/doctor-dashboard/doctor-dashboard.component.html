@@ -1,167 +1,179 @@
-<div id="main-content" class="modern-dashboard doctor-dashboard">
+<div id="main-content">
   <div class="container-fluid">
-    <div class="dashboard-hero">
-      <div class="dashboard-hero__copy">
-        <span class="dashboard-eyebrow">Doctor Dashboard</span>
-        <h1>Welcome back, Dr. {{ currentUserName }}</h1>
-        <p>{{ todayLabel }} · Aaj ke appointments, patients aur fee collection ek jagah.</p>
+    <div class="block-header">
+      <div class="row clearfix">
+        <div class="col-lg-6 col-md-12 col-sm-12">
+          <h1>Welcome back, {{ greetingName() }}</h1>
+          <span>{{ todayLabel }} · today's appointments, patients, and fee collection</span>
+        </div>
+        <div class="col-lg-6 col-md-12 col-sm-12 text-lg-right">
+          <button type="button" class="btn btn-primary" (click)="loadSummary()" [disabled]="loading">
+            <i class="fa" [ngClass]="loading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
+            Refresh
+          </button>
+          <a class="btn btn-default ml-1" routerLink="/appointments" *ngIf="canOpenAppointments">View Appointments</a>
+        </div>
       </div>
-      <div class="dashboard-hero__actions">
-        <button type="button" class="btn btn-primary" (click)="loadSummary()" [disabled]="loading">
-          <i class="fa" [ngClass]="loading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
-          Refresh
-        </button>
-        <a class="btn btn-default" routerLink="/appointments" *ngIf="canOpenAppointments">View Appointments</a>
+    </div>
+
+    <div class="doctor-stat-grid">
+      <div class="card" *ngFor="let card of statCards">
+        <div class="body">
+          <div class="top_counter">
+            <div class="icon"><i class="fa" [ngClass]="card.icon"></i></div>
+            <div class="content">
+              <div class="text">{{ card.label }}</div>
+              <h5 class="number" *ngIf="!card.isCurrency">{{ loading ? '...' : card.value }}</h5>
+              <h5 class="number" *ngIf="card.isCurrency">
+                {{ loading ? '...' : (card.value | currency:'PKR':'symbol-narrow':'1.0-0') }}
+              </h5>
+            </div>
+          </div>
+          <small class="text-muted">{{ card.hint }}</small>
+        </div>
       </div>
     </div>
 
-    <div class="stat-grid">
-      <article class="stat-card" *ngFor="let card of statCards" [ngClass]="card.tone">
-        <div class="stat-card__icon"><i class="fa" [ngClass]="card.icon"></i></div>
-        <div class="stat-card__body">
-          <span>{{ card.label }}</span>
-          <strong *ngIf="card.label !== 'Today\'s Fee Collected'">{{ loading ? '...' : card.value }}</strong>
-          <strong *ngIf="card.label === 'Today\'s Fee Collected'">{{ loading ? '...' : (card.value | currency:'PKR':'symbol-narrow':'1.0-0') }}</strong>
-          <small>{{ card.hint }}</small>
+    <div class="row clearfix row-deck">
+      <div class="col-lg-8 col-md-12">
+        <div class="card">
+          <div class="header">
+            <h2>Today's Schedule <small>Appointments assigned to you today</small></h2>
+            <ul class="header-dropdown">
+              <li><span class="badge badge-default">{{ summary.todayAppointmentsList?.length || 0 }} listed</span></li>
+            </ul>
+          </div>
+          <div class="body">
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>Patient</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Payment</th>
+                    <th>Fee</th>
+                  </tr>
+                </thead>
+                <tbody *ngIf="!loading && (summary.todayAppointmentsList?.length || 0) > 0">
+                  <tr *ngFor="let appointment of summary.todayAppointmentsList">
+                    <td>
+                      <strong>{{ appointmentPatientName(appointment) }}</strong>
+                      <div class="text-muted small">{{ appointment.appointmentNo }}</div>
+                    </td>
+                    <td>{{ appointment.startTime || '-' }}</td>
+                    <td><span class="badge" [ngClass]="statusClass(appointment.status)">{{ statusLabel(appointment.status) }}</span></td>
+                    <td>
+                      <span class="badge" [class.badge-success]="appointment.paymentStatus === 'paid'">
+                        {{ appointment.paymentStatus || 'unpaid' }}
+                      </span>
+                    </td>
+                    <td>{{ appointment.consultationFee || 0 | currency:'PKR':'symbol-narrow':'1.0-0' }}</td>
+                  </tr>
+                </tbody>
+                <tbody *ngIf="loading">
+                  <tr><td colspan="5" class="text-center py-4"><i class="fa fa-spinner fa-spin"></i> Loading schedule...</td></tr>
+                </tbody>
+                <tbody *ngIf="!loading && !(summary.todayAppointmentsList?.length || 0)">
+                  <tr><td colspan="5" class="text-center py-4 text-muted">No appointments scheduled for today.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </article>
+      </div>
+      <div class="col-lg-4 col-md-12">
+        <div class="card">
+          <div class="header">
+            <h2>Today's Mix <small>Pending, confirmed, completed</small></h2>
+          </div>
+          <div class="body">
+            <apx-chart
+              [series]="appointmentDonut.series"
+              [chart]="appointmentDonut.chart"
+              [labels]="appointmentDonut.labels"
+              [colors]="appointmentDonut.colors"
+              [legend]="appointmentDonut.legend"
+              [dataLabels]="appointmentDonut.dataLabels"
+              [stroke]="appointmentDonut.stroke"
+              [plotOptions]="appointmentDonut.plotOptions"
+            ></apx-chart>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="dashboard-grid">
-      <section class="dashboard-panel dashboard-panel--wide">
-        <div class="dashboard-panel__head">
-          <div>
-            <h2>Today's Schedule</h2>
-            <p>All appointments assigned to you for today.</p>
+    <div class="row clearfix row-deck">
+      <div class="col-lg-4 col-md-12">
+        <div class="card">
+          <div class="header">
+            <h2>Workload Snapshot <small>Today's appointment buckets</small></h2>
           </div>
-          <span class="panel-pill">{{ summary.todayAppointmentsList?.length || 0 }} listed</span>
-        </div>
-        <div class="table-responsive">
-          <table class="table table-hover table-custom spacing5 mb-0">
-            <thead>
-              <tr>
-                <th>Patient</th>
-                <th>Time</th>
-                <th>Status</th>
-                <th>Payment</th>
-                <th>Fee</th>
-              </tr>
-            </thead>
-            <tbody *ngIf="!loading && (summary.todayAppointmentsList?.length || 0) > 0">
-              <tr *ngFor="let appointment of summary.todayAppointmentsList">
-                <td>
-                  <strong>{{ appointmentPatientName(appointment) }}</strong>
-                  <div class="text-muted small">{{ appointment.appointmentNo }}</div>
-                </td>
-                <td>{{ appointment.startTime || '-' }}</td>
-                <td><span class="status-pill" [ngClass]="statusClass(appointment.status)">{{ statusLabel(appointment.status) }}</span></td>
-                <td><span class="payment-pill" [class.is-paid]="appointment.paymentStatus === 'paid'">{{ appointment.paymentStatus || 'unpaid' }}</span></td>
-                <td>{{ appointment.consultationFee || 0 | currency:'PKR':'symbol-narrow':'1.0-0' }}</td>
-              </tr>
-            </tbody>
-            <tbody *ngIf="loading">
-              <tr><td colspan="5" class="text-center py-4"><i class="fa fa-spinner fa-spin"></i> Loading schedule...</td></tr>
-            </tbody>
-            <tbody *ngIf="!loading && !(summary.todayAppointmentsList?.length || 0)">
-              <tr><td colspan="5" class="text-center py-4 text-muted">Aaj koi appointment schedule nahi hai.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="dashboard-panel">
-        <div class="dashboard-panel__head">
-          <div>
-            <h2>Today's Mix</h2>
-            <p>Pending, confirmed, completed breakdown.</p>
+          <div class="body">
+            <apx-chart
+              [series]="workloadBar.series"
+              [chart]="workloadBar.chart"
+              [xaxis]="workloadBar.xaxis"
+              [colors]="workloadBar.colors"
+              [plotOptions]="workloadBar.plotOptions"
+              [dataLabels]="workloadBar.dataLabels"
+              [stroke]="workloadBar.stroke"
+            ></apx-chart>
           </div>
         </div>
-        <apx-chart
-          [series]="appointmentDonut.series"
-          [chart]="appointmentDonut.chart"
-          [labels]="appointmentDonut.labels"
-          [colors]="appointmentDonut.colors"
-          [legend]="appointmentDonut.legend"
-          [dataLabels]="appointmentDonut.dataLabels"
-          [stroke]="appointmentDonut.stroke"
-          [plotOptions]="appointmentDonut.plotOptions"
-        ></apx-chart>
-      </section>
-    </div>
-
-    <div class="dashboard-grid dashboard-grid--secondary">
-      <section class="dashboard-panel">
-        <div class="dashboard-panel__head">
-          <div>
-            <h2>Workload Snapshot</h2>
-            <p>Today's active appointment buckets.</p>
+      </div>
+      <div class="col-lg-4 col-md-12">
+        <div class="card">
+          <div class="header">
+            <h2>Quick Actions <small>Most used doctor tools</small></h2>
+          </div>
+          <div class="body">
+            <a *ngFor="let link of quickLinks" [routerLink]="link.route" class="btn btn-default btn-block mb-2" [hidden]="!link.visible">
+              <i class="fa" [ngClass]="link.icon"></i> {{ link.label }}
+            </a>
+            <div class="row mt-3">
+              <div class="col-6">
+                <small class="text-muted">Total Prescriptions</small>
+                <h5>{{ loading ? '...' : (summary.totalPrescriptions || 0) }}</h5>
+              </div>
+              <div class="col-6">
+                <small class="text-muted">Prescriptions Today</small>
+                <h5>{{ loading ? '...' : (summary.todayPrescriptions || 0) }}</h5>
+              </div>
+            </div>
           </div>
         </div>
-        <apx-chart
-          [series]="workloadBar.series"
-          [chart]="workloadBar.chart"
-          [xaxis]="workloadBar.xaxis"
-          [colors]="workloadBar.colors"
-          [plotOptions]="workloadBar.plotOptions"
-          [dataLabels]="workloadBar.dataLabels"
-          [stroke]="workloadBar.stroke"
-        ></apx-chart>
-      </section>
-
-      <section class="dashboard-panel">
-        <div class="dashboard-panel__head">
-          <div>
-            <h2>Quick Actions</h2>
-            <p>Most used doctor tools.</p>
+      </div>
+      <div class="col-lg-4 col-md-12">
+        <div class="card">
+          <div class="header">
+            <h2>My Recent Patients <small>Under your care</small></h2>
+          </div>
+          <div class="body">
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>Patient</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody *ngIf="!loading && summary.recentPatients.length > 0">
+                  <tr *ngFor="let patient of summary.recentPatients">
+                    <td>{{ patientName(patient) }}</td>
+                    <td>{{ patient.phone || '-' }}</td>
+                    <td><span class="badge badge-success">{{ patient.status || 'active' }}</span></td>
+                  </tr>
+                </tbody>
+                <tbody *ngIf="!loading && summary.recentPatients.length === 0">
+                  <tr><td colspan="3" class="text-center py-4 text-muted">No patients assigned yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-        <div class="quick-link-grid">
-          <a *ngFor="let link of quickLinks" [routerLink]="link.route" class="quick-link-card" [class.d-none]="!link.visible">
-            <i class="fa" [ngClass]="link.icon"></i>
-            <span>{{ link.label }}</span>
-          </a>
-        </div>
-        <div class="mini-metrics">
-          <div>
-            <span>Total Prescriptions</span>
-            <strong>{{ loading ? '...' : (summary.totalPrescriptions || 0) }}</strong>
-          </div>
-          <div>
-            <span>Prescriptions Today</span>
-            <strong>{{ loading ? '...' : (summary.todayPrescriptions || 0) }}</strong>
-          </div>
-        </div>
-      </section>
-
-      <section class="dashboard-panel">
-        <div class="dashboard-panel__head">
-          <div>
-            <h2>My Recent Patients</h2>
-            <p>Recently connected patients under your care.</p>
-          </div>
-        </div>
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead>
-              <tr>
-                <th>Patient</th>
-                <th>Phone</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody *ngIf="!loading && summary.recentPatients.length > 0">
-              <tr *ngFor="let patient of summary.recentPatients">
-                <td>{{ patientName(patient) }}</td>
-                <td>{{ patient.phone || '-' }}</td>
-                <td><span class="status-pill status-active">{{ patient.status || 'active' }}</span></td>
-              </tr>
-            </tbody>
-            <tbody *ngIf="!loading && summary.recentPatients.length === 0">
-              <tr><td colspan="3" class="text-center py-4 text-muted">Abhi koi patient assign nahi.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+      </div>
     </div>
   </div>
 </div>

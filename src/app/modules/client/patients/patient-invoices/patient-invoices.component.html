@@ -1,52 +1,61 @@
-<div id="main-content">
-    <div class="container-fluid">
-        <div class="block-header">
-            <div class="row clearfix">
-                <div class="col-lg-4 col-md-12 col-sm-12">
-                    <h1>Patient Invoices</h1>
-                    <span>Patient billing history</span>
-                </div>
-                <div class="col-lg-8 col-md-12 col-sm-12 text-lg-right">
-                    <a class="btn btn-default" [routerLink]="['/patients/all-patients']">Back to Patients</a>
-                </div>
-            </div>
-        </div>
+<div id="main-content" class="pharmacy-page">
+  <div class="pharmacy-shell pharmacy-admin-page">
+    <header class="pharmacy-hero">
+      <div class="pharmacy-hero-main">
+        <a class="pharmacy-back-link" routerLink="/patients/all-patients">&larr; Back to Patients</a>
+        <h1>Patient Invoices</h1>
+        <p *ngIf="patientName()">{{ patientName() }} · billing history</p>
+        <p *ngIf="!patientName()">Hospital bills linked to this patient.</p>
+      </div>
+      <div class="pharmacy-hero-actions">
+        <a class="btn btn-default" *ngIf="patientId" [routerLink]="['/patients/patient-profile', patientId]">Profile</a>
+        <a class="btn btn-outline-primary" routerLink="/payments/invoices">All Invoices</a>
+      </div>
+    </header>
 
-        <div class="row clearfix">
-            <div class="col-sm-12">
-                <div class="card">
-                    <div class="body table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Bill No</th>
-                                    <th>Total</th>
-                                    <th>Paid</th>
-                                    <th>Due</th>
-                                    <th>Status</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr *ngFor="let bill of bills">
-                                    <td>{{ bill.billNo }}</td>
-                                    <td>{{ bill.grandTotal }}</td>
-                                    <td>{{ bill.paidAmount }}</td>
-                                    <td>{{ bill.dueAmount }}</td>
-                                    <td><span class="badge badge-info">{{ bill.paymentStatus }}</span></td>
-                                    <td><a [routerLink]="['/payments/invoices/invoice-detail', bill._id]">View</a></td>
-                                </tr>
-                                <tr *ngIf="!loading && bills.length === 0">
-                                    <td colspan="6" class="text-center text-muted">No invoices found</td>
-                                </tr>
-                                <tr *ngIf="loading">
-                                    <td colspan="6" class="text-center text-muted">Loading...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+    <div class="pharmacy-table-card">
+      <div class="pharmacy-table-head">
+        <div>
+          <h2>Bills</h2>
+          <p>{{ bills.length }} invoices for this patient.</p>
         </div>
+      </div>
+      <div class="card-body">
+        <div *ngIf="loading" class="pharmacy-empty-state">Loading invoices...</div>
+        <div *ngIf="!loading && !bills.length" class="pharmacy-empty-state">No invoices found.</div>
+        <div class="table-responsive" *ngIf="!loading && bills.length">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Bill No</th>
+                <th>Source</th>
+                <th>Total</th>
+                <th>Paid</th>
+                <th>Due</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let bill of bills">
+                <td class="fw-semibold">{{ bill.billNo }}</td>
+                <td>{{ bill.sourceNo || bill.sourceType || '—' }}</td>
+                <td>{{ bill.grandTotal | number:'1.0-0' }}</td>
+                <td>{{ bill.paidAmount | number:'1.0-0' }}</td>
+                <td>{{ bill.dueAmount | number:'1.0-0' }}</td>
+                <td>
+                  <span class="pharmacy-status-pill" [ngClass]="'status-' + bill.paymentStatus">
+                    {{ bill.paymentStatus }}
+                  </span>
+                </td>
+                <td class="text-end">
+                  <a class="btn btn-sm btn-default" [routerLink]="['/payments/invoices/invoice-detail', bill._id]">View</a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
+  </div>
 </div>
