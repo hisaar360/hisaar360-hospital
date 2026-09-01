@@ -7,6 +7,7 @@ export type PatientStatus =
 
 export interface WardPatient {
   admissionId: string;
+  admissionNo?: string;
   patientId: string;
   patientName: string;
   mrn: string;
@@ -17,6 +18,9 @@ export interface WardPatient {
   age: number;
   sex: 'M' | 'F';
   diagnosis: string;
+  allergies?: string;
+  bloodGroup?: string;
+  photoUrl?: string;
   doctorId: string;
   doctorName: string;
   nurseId?: string;

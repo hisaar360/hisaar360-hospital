@@ -13,6 +13,9 @@ import {
 } from './access-control';
 import type { AccessRequirement } from './access-control';
 import {
+  isHospitalScopedUser,
+} from './hospital-scope';
+import {
   isCurrentLaboratoryEdition,
   isLaboratoryEditionRouteAllowed,
 } from './product-edition';
@@ -74,4 +77,36 @@ export const doctorOrPermissionGuard = (accessRequirement: AccessRequirement): C
     }
     return permissionGuard(route, state);
   };
+};
+
+/** Normal hospital users are redirected away from multi-hospital admin screens. */
+export const hospitalPlatformListGuard: CanActivateFn = (_route, state) => {
+  const router = inject(Router);
+  const permissions = readStoredPermissions();
+  const currentPath = state.url.split('?')[0];
+
+  if (isHospitalScopedUser()) {
+    const target = hasRouteAccess(
+      { any: ['departments.create', 'departments.update', 'hospitals.update', '*'] },
+      permissions
+    )
+      ? '/hospital-setup'
+      : resolveDefaultRoute(permissions);
+    if (target !== currentPath) {
+      return router.parseUrl(target);
+    }
+    return router.parseUrl('/dashboard');
+  }
+
+  return roleGuard(['hospitals.read'])(_route, state);
+};
+
+export const hospitalPlatformManageGuard: CanActivateFn = (_route, state) => {
+  const router = inject(Router);
+
+  if (isHospitalScopedUser()) {
+    return router.parseUrl('/hospital-setup');
+  }
+
+  return roleGuard(['hospitals.create', 'hospitals.update'])(_route, state);
 };

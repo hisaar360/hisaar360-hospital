@@ -25,6 +25,7 @@ import {
   isPharmacyModuleEnabled,
   isWardModuleEnabled,
 } from '../../auth/hospital-modules';
+import { canAccessHospitalSetup } from '../../auth/hospital-scope';
 import { AuthService } from '../../../core/services/auth.service';
 import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import { User } from '../../../shared/models/hospital.model';
@@ -464,6 +465,13 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
         this.hasPermission('rooms.read') &&
         this.hasPermission('patients.read'))
     );
+  }
+
+  get canViewHospitalSetup(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+    return this.canViewAllRoutes || canAccessHospitalSetup();
   }
 
   get canViewDepartments(): boolean {

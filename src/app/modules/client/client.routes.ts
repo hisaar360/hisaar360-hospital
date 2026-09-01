@@ -25,8 +25,9 @@ import { AddDoctorsComponent } from './doctors/add-doctors/add-doctors.component
 import { DoctorsProfileComponent } from './doctors/doctors-profile/doctors-profile.component';
 import { DoctorsScheduleComponent } from './doctors/doctors-schedule/doctors-schedule.component';
 import { authGuard } from '../auth/auth.guard';
-import { doctorOrPermissionGuard, doctorRoleGuard, roleGuard } from '../auth/role.guard';
+import { doctorOrPermissionGuard, doctorRoleGuard, hospitalPlatformListGuard, hospitalPlatformManageGuard, roleGuard } from '../auth/role.guard';
 import type { AccessRequirement } from '../auth/access-control';
+import { HOSPITAL_SETUP_ACCESS } from '../auth/hospital-scope';
 import { UsersComponent } from './User/users/users.component';
 import { CreateUserComponent } from './User/create-user/create-user.component';
 import { HospitalsComponent } from './hospitals/hospitals.component';
@@ -39,6 +40,8 @@ import { CreatedPrescriptionsComponent } from './prescription/created-prescripti
 import { AuditLogsComponent } from './audit-logs/audit-logs.component';
 import { AccountsPageComponent } from './accounts/accounts-page.component';
 import { DoctorPerformancePageComponent } from './accounts/doctor-performance-page.component';
+import { DepartmentPerformancePageComponent } from './accounts/department-performance-page.component';
+import { HelpCenterComponent } from './help/help-center.component';
 
 const HOSPITAL_DASHBOARD_ACCESS = ['hospital_dashboard.read'];
 const DOCTOR_READ_ACCESS = ['doctors.read'];
@@ -134,6 +137,16 @@ export const clientRoutes: Routes = [
         component: DashboardComponent,
         data: { title: 'Hisaar360 Hospital Management System | Dashboard' },
         canActivate: [roleGuard(HOSPITAL_DASHBOARD_ACCESS)],
+      },
+      {
+        path: 'help',
+        component: HelpCenterComponent,
+        data: { title: 'Hisaar360 HMS Help Center' },
+      },
+      {
+        path: 'help/:slug',
+        component: HelpCenterComponent,
+        data: { title: 'Hisaar360 HMS Help Center' },
       },
       {
         path: 'doctor-dashboard',
@@ -255,6 +268,14 @@ export const clientRoutes: Routes = [
         canActivate: [roleGuard(ACCOUNTS_ACCESS)],
       },
       {
+        path: 'accounts/department-performance',
+        component: DepartmentPerformancePageComponent,
+        data: {
+          title: 'Hisaar360 Hospital Management System | Department Performance',
+        },
+        canActivate: [roleGuard(ACCOUNTS_ACCESS)],
+      },
+      {
         path: 'payments',
         component: PaymentsComponent,
         data: { title: 'Hisaar360 Hospital Management System | Patient Payments' },
@@ -295,6 +316,13 @@ export const clientRoutes: Routes = [
         component: DepartmentComponent,
         data: { title: 'Hisaar360 Hospital Management System | Departments' },
         canActivate: [roleGuard(DEPARTMENT_ACCESS)],
+      },
+      {
+        path: 'hospital-setup',
+        loadComponent: () =>
+          import('./hospital-setup/hospital-setup.component').then((m) => m.HospitalSetupComponent),
+        data: { title: 'Hisaar360 Hospital Management System | Hospital Setup' },
+        canActivate: [roleGuard(HOSPITAL_SETUP_ACCESS)],
       },
       {
         path: 'our-centers',
@@ -495,6 +523,27 @@ export const clientRoutes: Routes = [
           import('./ward/ward-duty-roster.component').then((m) => m.WardDutyRosterComponent),
         data: { title: 'Hisaar360 Hospital Management System | Ward Duty Roster' },
         canActivate: [roleGuard(['ward.roster.read'])],
+      },
+      {
+        path: 'ward/nursery',
+        loadComponent: () =>
+          import('./ward/nursery-dashboard.component').then((m) => m.NurseryDashboardComponent),
+        data: { title: 'Hisaar360 Hospital Management System | Nursery / Newborn' },
+        canActivate: [roleGuard(WARD_ADMIN_ACCESS)],
+      },
+      {
+        path: 'ward/nursery/birth-records',
+        loadComponent: () =>
+          import('./ward/birth-records-dashboard.component').then((m) => m.BirthRecordsDashboardComponent),
+        data: { title: 'Hisaar360 Hospital Management System | Birth Records' },
+        canActivate: [roleGuard(WARD_ADMIN_ACCESS)],
+      },
+      {
+        path: 'ward/nursery/:id',
+        loadComponent: () =>
+          import('./ward/nursery-newborn-detail.component').then((m) => m.NurseryNewbornDetailComponent),
+        data: { title: 'Hisaar360 Hospital Management System | Newborn Profile' },
+        canActivate: [roleGuard(WARD_ADMIN_ACCESS)],
       },
       {
         path: 'ward-admin',
@@ -790,13 +839,13 @@ export const clientRoutes: Routes = [
         path: 'hospitals',
         component: HospitalsComponent,
         data: { title: 'Hisaar360 Hospital Management System | Hospitals' },
-        canActivate: [roleGuard(HOSPITAL_READ_ACCESS)],
+        canActivate: [hospitalPlatformListGuard],
       },
       {
         path: 'create-hospital',
         component: CreateHospitalComponent,
         data: { title: 'Hisaar360 Hospital Management System | Add Hospital' },
-        canActivate: [roleGuard(HOSPITAL_MANAGE_ACCESS)],
+        canActivate: [hospitalPlatformManageGuard],
       },
       {
         path: 'roles',

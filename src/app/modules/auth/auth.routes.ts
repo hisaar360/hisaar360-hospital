@@ -20,4 +20,10 @@ export const authRoutes: Routes = [
     component: ForgotPasswordComponent,
     data: { title: 'Forgot Password' },
   },
+  {
+    path: 'verify/birth/:code',
+    loadComponent: () =>
+      import('./birth-certificate-verify.component').then((m) => m.BirthCertificateVerifyComponent),
+    data: { title: 'Verify Hospital Birth Certificate' },
+  },
 ];

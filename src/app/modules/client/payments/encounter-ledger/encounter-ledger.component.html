@@ -121,6 +121,12 @@
                 <h3>{{ ledger.encounter.encounterNo }}</h3>
                 <p>{{ patientName(ledger.encounter) }} · {{ ledger.encounter.type }} · {{ ledger.encounter.status }}</p>
               </div>
+              <app-hms-document-toolbar
+                [title]="'Patient Ledger'"
+                [filename]="'patient-ledger-' + ledger.encounter.encounterNo + '.pdf'"
+                [getHtml]="buildPatientLedgerHtml"
+                [disabled]="ledgerLoading"
+              ></app-hms-document-toolbar>
             </div>
 
             <div class="summary-grid">

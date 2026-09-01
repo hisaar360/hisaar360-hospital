@@ -1,9 +1,19 @@
 <div id="main-content" class="allotment-page">
     <div class="allotment-shell">
         <header class="allotment-header">
-            <h1>Add Room Allotment</h1>
-            <p>Admit patient to a room</p>
+            <h1>{{ recommendationReadOnly ? 'Review & Admit Patient' : 'Add Room Allotment' }}</h1>
+            <p>{{ recommendationReadOnly ? 'Doctor admission order is read-only. Complete ward/bed allocation below.' : 'Admit patient to a room' }}</p>
         </header>
+
+        <section class="allotment-card recommendation-summary" *ngIf="recommendationSummary as rec" data-testid="ward-admit-review">
+            <div class="allotment-card__head">
+                <h2>Doctor Admission Recommendation (Read Only)</h2>
+            </div>
+            <p><strong>Order:</strong> {{ rec['orderNo'] || '—' }}</p>
+            <p><strong>Reason:</strong> {{ rec['reason'] || '—' }}</p>
+            <p><strong>Diagnosis:</strong> {{ rec['initialDiagnosis'] || '—' }}</p>
+            <p><strong>Priority:</strong> {{ rec['priority'] || 'routine' }}</p>
+        </section>
 
         <div class="allotment-layout">
             <section class="allotment-card allotment-form-card">
@@ -71,6 +81,7 @@
                         <div class="select-field">
                             <span class="field-leading-icon"><i class="fa fa-bed" aria-hidden="true"></i></span>
                             <select id="roomId" class="allotment-input allotment-select" formControlName="roomId"
+                                data-testid="ward-select-room"
                                 (change)="onRoomChange($any($event.target).value)">
                                 <option value="">Select room</option>
                                 <option *ngFor="let room of selectableRooms" [value]="room._id">
@@ -88,6 +99,7 @@
                     <div class="allotment-field">
                         <label for="bedLabel">Bed / Room Label</label>
                         <input id="bedLabel" class="allotment-input" type="text" formControlName="bedLabel"
+                            data-testid="ward-select-bed"
                             placeholder="Bed number or room label" />
                     </div>
 
@@ -99,7 +111,8 @@
                     <div class="allotment-grid-2">
                         <div class="allotment-field">
                             <label for="advanceAmount">Admission Advance</label>
-                            <input id="advanceAmount" class="allotment-input" type="number" formControlName="advanceAmount" min="0" />
+                            <input id="advanceAmount" class="allotment-input" type="number" formControlName="advanceAmount" min="0"
+                                data-testid="ward-advance" />
                         </div>
                         <div class="allotment-field">
                             <label for="advanceMethod">Advance Method</label>
@@ -114,7 +127,8 @@
                     <div class="allotment-grid-2">
                         <div class="allotment-field">
                             <label for="securityAmount">Security / Deposit</label>
-                            <input id="securityAmount" class="allotment-input" type="number" formControlName="securityAmount" min="0" />
+                            <input id="securityAmount" class="allotment-input" type="number" formControlName="securityAmount" min="0"
+                                data-testid="ward-security" />
                         </div>
                         <div class="allotment-field">
                             <label for="securityMethod">Security Method</label>
@@ -139,10 +153,34 @@
 
                     <div class="allotment-actions">
                         <button class="allotment-btn allotment-btn--primary allotment-btn--save" type="submit"
+                            data-testid="ward-save-allotment"
                             [disabled]="saving || roomsLoading">
                             <i class="fa fa-save" aria-hidden="true"></i>
                             {{ saving ? 'Saving...' : 'Save Allotment' }}
                         </button>
+                    </div>
+
+                    <div class="ward-admission-success" *ngIf="admissionSuccess as success" data-testid="ward-admission-success">
+                        <header>
+                            <strong>Patient Admitted Successfully</strong>
+                        </header>
+                        <dl class="ward-admission-success__grid">
+                            <div><dt>Admission No</dt><dd>{{ success.admissionNo }}</dd></div>
+                            <div><dt>Encounter No</dt><dd>{{ success.encounterNo || success.encounterId }}</dd></div>
+                            <div><dt>Ward</dt><dd>{{ success.wardName }}</dd></div>
+                            <div><dt>Room</dt><dd>{{ success.roomNo }}</dd></div>
+                            <div><dt>Bed</dt><dd>{{ success.bedLabel }}</dd></div>
+                            <div><dt>Consultant</dt><dd>{{ success.consultantName }}</dd></div>
+                            <div><dt>Assigned Nurse</dt><dd>{{ success.nurseName || '—' }}</dd></div>
+                        </dl>
+                        <article class="ward-admission-success__next">
+                            <h4>WHAT HAPPENS NEXT?</h4>
+                            <p>Continue patient care from the Ward Patient Control Panel.</p>
+                            <div class="ward-admission-success__actions">
+                                <button type="button" class="allotment-btn allotment-btn--primary" (click)="openPatientControlPanel()" data-testid="ward-open-control-panel">Open Patient Control Panel</button>
+                                <button type="button" class="allotment-btn allotment-btn--ghost" (click)="backToAdmissions()">Back to Admissions</button>
+                            </div>
+                        </article>
                     </div>
                 </form>
             </section>

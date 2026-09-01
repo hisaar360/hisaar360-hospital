@@ -1,5 +1,11 @@
 <div class="ward-billing-panel" *ngIf="!loading; else loadingTpl">
   <div class="ward-billing-kpis" *ngIf="mode === 'billing' || mode === 'payments' || mode === 'settlement'">
+    <app-hms-document-toolbar
+      *ngIf="mode === 'billing'"
+      [title]="'Running Bill'"
+      filename="running-bill.pdf"
+      [getHtml]="buildRunningBillDocument"
+    ></app-hms-document-toolbar>
     <div class="ward-billing-kpi"><span>Total Charges</span><strong>{{ money(summary['netPayable']) }}</strong></div>
     <div class="ward-billing-kpi"><span>Paid</span><strong>{{ money(summary['totalPaid']) }}</strong></div>
     <div class="ward-billing-kpi"><span>Security Held</span><strong>{{ money(summary['securityDepositHeld']) }}</strong></div>
@@ -199,7 +205,11 @@
     <div *ngSwitchCase="'discharge'" class="ward-discharge-statement">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h4>Final Discharge Statement</h4>
-        <button class="btn btn-sm btn-outline-primary" (click)="printDischarge()">Print</button>
+        <app-hms-document-toolbar
+          [title]="'Discharge Statement'"
+          filename="discharge-statement.pdf"
+          [getHtml]="buildDischargeDocument"
+        ></app-hms-document-toolbar>
       </div>
       <div class="ward-summary-grid">
         <div><span>Gross Charges</span><strong>{{ money(dischargeStatement['grossCharges']) }}</strong></div>

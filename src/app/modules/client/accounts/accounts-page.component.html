@@ -1,4 +1,4 @@
-<div id="main-content" class="accounts-page pharmacy-page">
+<div id="main-content" class="hms-page accounts-page pharmacy-page">
   <div class="pharmacy-shell accounts-shell">
     <header class="pharmacy-hero accounts-hero">
       <div class="pharmacy-hero-main">
@@ -16,7 +16,14 @@
       >
         {{ tab.label }}
       </a>
-      <button class="accounts-nav-tab is-action" type="button" (click)="printPage()">Print</button>
+      <app-hms-document-toolbar
+        *ngIf="accountsDocumentEnabled"
+        [title]="accountsDocumentTitle"
+        [filename]="accountsDocumentFilename"
+        [orientation]="accountsDocumentOrientation"
+        [getHtml]="buildAccountsDocumentHtml"
+        [disabled]="loading"
+      ></app-hms-document-toolbar>
     </nav>
 
     <section class="accounts-filter-card">
@@ -53,9 +60,12 @@
         </label>
 
         <div class="accounts-filter-actions">
-          <button class="btn btn-primary" type="button" (click)="load()" [disabled]="loading">
-            {{ loading ? 'Loading...' : 'Apply' }}
-          </button>
+          <span class="accounts-filter-actions__label" aria-hidden="true">Apply</span>
+          <div class="accounts-filter-actions__row">
+            <button class="btn btn-primary" type="button" (click)="load()" [disabled]="loading">
+              {{ loading ? 'Loading...' : 'Apply' }}
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -160,37 +170,35 @@
     </section>
 
     <section *ngIf="!loading && view === 'profit-loss'" class="accounts-panel">
-      <div class="accounts-summary-grid">
-        <div *ngFor="let card of [
-          { label: 'Consultations', value: asRecord('revenue')['consultations'], highlight: false },
-          { label: 'Laboratory', value: asRecord('revenue')['laboratory'], highlight: false },
-          { label: 'Pharmacy', value: asRecord('revenue')['pharmacy'], highlight: false },
-          { label: 'Gross revenue', value: asRecord('revenue')['grossRevenue'], highlight: true },
-          { label: 'COGS', value: asRecord('expenses')['cogs'], highlight: false },
-          { label: 'Operating expense', value: asRecord('expenses')['operatingExpense'], highlight: false },
-          { label: 'Gross profit', value: data['grossProfit'], highlight: true },
-          { label: 'Net profit', value: data['netProfit'], highlight: true }
-        ]" class="accounts-summary-tile" [class.is-highlight]="card.highlight">
-          <small>{{ card.label }}</small>
-          <h4>{{ money(card.value) }}</h4>
+      <div class="accounts-summary-grid accounts-summary-grid--doctor">
+        <div
+          *ngFor="let card of profitLossKpiCards"
+          class="accounts-kpi-card"
+          [class]="'accounts-kpi-card tone-' + card.tone"
+          [class.is-highlight]="card.highlight"
+        >
+          <div class="accounts-kpi-card__icon"><i class="fa" [ngClass]="card.icon"></i></div>
+          <div class="accounts-kpi-card__body">
+            <small>{{ card.label }}</small>
+            <h4>{{ money(card.value) }}</h4>
+          </div>
         </div>
       </div>
     </section>
 
     <section *ngIf="!loading && view === 'daily-collections'" class="accounts-panel">
-      <div class="accounts-summary-grid">
-        <div *ngFor="let card of [
-          { label: 'OPD', value: data['opd'] },
-          { label: 'IPD', value: data['ipd'] },
-          { label: 'Lab', value: data['lab'] },
-          { label: 'Pharmacy counter', value: data['pharmacyCounter'] },
-          { label: 'Refunds', value: data['refunds'] },
-          { label: 'Expenses', value: data['expenses'] },
-          { label: 'Cash', value: data['cashTotal'] },
-          { label: 'Net cash movement', value: data['netCashMovement'], highlight: true }
-        ]" class="accounts-summary-tile" [class.is-highlight]="card.highlight">
-          <small>{{ card.label }}</small>
-          <h4>{{ money(card.value) }}</h4>
+      <div class="accounts-summary-grid accounts-summary-grid--doctor">
+        <div
+          *ngFor="let card of dailyCollectionsKpiCards"
+          class="accounts-kpi-card"
+          [class]="'accounts-kpi-card tone-' + card.tone"
+          [class.is-highlight]="card.highlight"
+        >
+          <div class="accounts-kpi-card__icon"><i class="fa" [ngClass]="card.icon"></i></div>
+          <div class="accounts-kpi-card__body">
+            <small>{{ card.label }}</small>
+            <h4>{{ money(card.value) }}</h4>
+          </div>
         </div>
       </div>
     </section>
@@ -233,15 +241,18 @@
     </section>
 
     <section *ngIf="!loading && view === 'trial-balance'" class="accounts-panel">
-      <div class="accounts-summary-grid">
-        <div *ngFor="let card of [
-          { label: 'Total debit', value: asRecord('totals')['closingDebit'] },
-          { label: 'Total credit', value: asRecord('totals')['closingCredit'] },
-          { label: 'Period debit', value: asRecord('totals')['periodDebit'] },
-          { label: 'Balanced', value: data['balanced'], highlight: true }
-        ]" class="accounts-summary-tile" [class.is-highlight]="card.highlight">
-          <small>{{ card.label }}</small>
-          <h4>{{ card.label === 'Balanced' ? (card.value ? 'Yes' : 'No') : money(card.value) }}</h4>
+      <div class="accounts-summary-grid accounts-summary-grid--doctor">
+        <div
+          *ngFor="let card of trialBalanceKpiCards"
+          class="accounts-kpi-card"
+          [class]="'accounts-kpi-card tone-' + card.tone"
+          [class.is-highlight]="card.highlight"
+        >
+          <div class="accounts-kpi-card__icon"><i class="fa" [ngClass]="card.icon"></i></div>
+          <div class="accounts-kpi-card__body">
+            <small>{{ card.label }}</small>
+            <h4>{{ card.isBoolean ? (card.value ? 'Yes' : 'No') : money(card.value) }}</h4>
+          </div>
         </div>
       </div>
       <p *ngIf="data['integrityWarning']" class="text-danger px-3 pb-3">{{ data['integrityWarning'] }}</p>
@@ -287,8 +298,8 @@
       *ngIf="!loading && (asArray('items').length || asArray('rows').length || asArray('lines').length || asArray('findings').length)"
       class="accounts-panel"
     >
-      <div class="accounts-table-wrap">
-        <table class="table table-hover accounts-table">
+      <div class="accounts-table-wrap desktop-only">
+        <table class="table table-hover accounts-table hms-table">
           <tbody>
             <tr *ngFor="let row of asArray('items')">
               <td>{{ displayCell(row, ['journalNo', 'invoiceNo', 'encounterNo', 'purchaseNo', 'code', 'patientName', 'action', 'title', 'date', '_id']) }}</td>
@@ -316,6 +327,33 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="accounts-mobile-rows mobile-only">
+        <article class="hms-mobile-card accounts-mobile-row" *ngFor="let row of asArray('items')">
+          <strong>{{ displayCell(row, ['journalNo', 'invoiceNo', 'encounterNo', 'purchaseNo', 'code', 'patientName', 'action', 'title', 'date', '_id']) }}</strong>
+          <p>{{ displayCell(row, ['description', 'name', 'title', 'supplierName', 'patientName', 'module', 'category']) }}</p>
+          <p>{{ displayCell(row, ['totalDebit', 'debit', 'total', 'amount', 'balance', 'paidAmount']) }}</p>
+          <span class="hms-status-chip ward-badge ward-badge--pending">{{ displayCell(row, ['status', 'accountType', 'ageBucket', 'paymentMethod', 'severity']) }}</span>
+        </article>
+        <article class="hms-mobile-card accounts-mobile-row" *ngFor="let row of asArray('rows')">
+          <strong>{{ row['code'] }} · {{ row['name'] }}</strong>
+          <p>Debit {{ row['closingDebit'] }}</p>
+          <p>Credit {{ row['closingCredit'] }}</p>
+        </article>
+        <article class="hms-mobile-card accounts-mobile-row" *ngFor="let row of asArray('lines')">
+          <strong>{{ row['date'] }} · {{ row['journalNo'] || row['description'] }}</strong>
+          <p>Debit {{ row['debit'] }} · Credit {{ row['credit'] }}</p>
+          <p>Balance {{ row['runningBalance'] }}</p>
+        </article>
+        <article class="hms-mobile-card accounts-mobile-row" *ngFor="let row of asArray('findings')">
+          <div class="hms-mobile-card__head">
+            <strong>{{ row['code'] }}</strong>
+            <span class="hms-status-chip ward-badge" [ngClass]="row['severity'] === 'error' ? 'ward-badge--critical' : 'ward-badge--watch'">{{ row['severity'] }}</span>
+          </div>
+          <p>{{ row['description'] || 'Reconciliation check' }}</p>
+          <p>Count: {{ row['count'] }}</p>
+        </article>
       </div>
     </section>
   </div>

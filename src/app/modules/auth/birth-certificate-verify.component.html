@@ -1,0 +1,45 @@
+<div class="verify-page">
+  <div class="verify-card">
+    <div class="verify-brand">Hisaar360 Hospital Management System</div>
+    <h1>Hospital Birth Certificate Verification</h1>
+    <p class="verify-subtitle">Public authenticity check — no login required.</p>
+
+    <div class="verify-loading" *ngIf="loading">Verifying certificate…</div>
+
+    <div *ngIf="!loading && result" [class]="'verify-result ' + statusClass()">
+      <div class="verify-status">{{ statusLabel() }}</div>
+
+      <ng-container *ngIf="result.found; else notFound">
+        <dl>
+          <div><dt>Certificate No</dt><dd>{{ result.certificateNo }}</dd></div>
+          <div><dt>Hospital</dt><dd>{{ result.hospitalName }}</dd></div>
+          <div><dt>Document</dt><dd>{{ result.documentTitle }}</dd></div>
+          <div><dt>Baby Name</dt><dd>{{ result.babyName }}</dd></div>
+          <div><dt>Date of Birth</dt><dd>{{ result.dateOfBirth | date:'mediumDate' }}</dd></div>
+          <div><dt>Mother</dt><dd>{{ result.motherName }}</dd></div>
+          <div><dt>Issue Date</dt><dd>{{ result.issuedAt | date:'medium' }}</dd></div>
+          <div><dt>Version</dt><dd>{{ result.version }}</dd></div>
+          <div *ngIf="result.signatoryName"><dt>Signatory</dt><dd>{{ result.signatoryName }}<span *ngIf="result.signatoryDesignation"> — {{ result.signatoryDesignation }}</span></dd></div>
+        </dl>
+
+        <p class="verify-superseded" *ngIf="result.status === 'SUPERSEDED'">
+          {{ result.supersededMessage }}
+          <span *ngIf="result.latestCertificateNo">Latest certificate: {{ result.latestCertificateNo }} (v{{ result.latestVersion }})</span>
+        </p>
+
+        <p class="verify-revoked" *ngIf="result.status === 'REVOKED'">
+          Revoked on {{ result.revokedAt | date:'medium' }}
+          <span *ngIf="result.revocationReason"> — {{ result.revocationReason }}</span>
+        </p>
+      </ng-container>
+
+      <ng-template #notFound>
+        <p>This verification code does not match any issued hospital birth certificate.</p>
+      </ng-template>
+
+      <footer class="verify-disclaimer">
+        {{ result.legalDisclaimer || 'This verification confirms authenticity of a hospital-issued birth record certificate only. It is not government civil registration.' }}
+      </footer>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,328 @@
+@use './ward-shared.scss';
+
+.nursery-detail-page {
+  --ward-primary: #2563eb;
+}
+
+.nursery-detail-hero {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 12px;
+}
+
+.nursery-detail-hero__main {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+}
+
+.nursery-detail-hero__main h2 {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 6px 0 4px;
+}
+
+.nursery-detail-hero__main p {
+  color: var(--ward-muted);
+  font-size: 12px;
+  margin: 0 0 2px;
+}
+
+.nursery-detail-hero__meta {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+
+.nursery-detail-hero__meta div {
+  background: #f8fafc;
+  border: 1px solid var(--ward-border);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.nursery-detail-hero__meta dt {
+  color: var(--ward-muted);
+  font-size: 10px;
+  font-weight: 700;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.nursery-detail-hero__meta dd {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 4px 0 0;
+}
+
+.nursery-mother-chip {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+}
+
+.nursery-mother-chip small {
+  color: var(--ward-muted);
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.nursery-mother-chip strong {
+  display: block;
+  font-size: 14px;
+}
+
+.nursery-mother-chip span {
+  color: var(--ward-muted);
+  display: block;
+  font-size: 11px;
+}
+
+.nursery-detail-main {
+  overflow: hidden;
+}
+
+.ward-detail-tabs {
+  border-bottom: 1px solid var(--ward-border);
+  overflow-x: auto;
+  padding: 10px 12px;
+  white-space: nowrap;
+}
+
+.nursery-detail-content {
+  padding: 12px;
+}
+
+.nursery-info-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.nursery-info-card {
+  background: #f8fafc;
+  border: 1px solid var(--ward-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.nursery-info-card h3 {
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+
+.nursery-info-card dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.nursery-info-card dl div {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 110px 1fr;
+}
+
+.nursery-info-card dt {
+  color: var(--ward-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.nursery-info-card dd {
+  font-size: 12px;
+  margin: 0;
+}
+
+.nursery-tab-note {
+  color: var(--ward-muted);
+  font-size: 12px;
+  margin: 0 0 10px;
+}
+
+.nursery-feeding-form {
+  background: #f8fafc;
+  border: 1px solid var(--ward-border);
+  border-radius: 10px;
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+}
+
+.nursery-feeding-form h4 {
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.nursery-feeding-form__grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.hms-field--wide {
+  grid-column: 1 / -1;
+}
+
+.hms-field textarea {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 8px;
+  min-height: 88px;
+  padding: 8px 10px;
+  resize: vertical;
+  width: 100%;
+}
+
+.nursery-detail-skeleton .nursery-skeleton-block {
+  animation: nursery-pulse 1.4s ease-in-out infinite;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  border-radius: 10px;
+  height: 120px;
+  margin-bottom: 10px;
+}
+
+.nursery-detail-skeleton .nursery-skeleton-row {
+  animation: nursery-pulse 1.4s ease-in-out infinite;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  border-radius: 10px;
+  height: 42px;
+  margin-bottom: 8px;
+}
+
+@keyframes nursery-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.nursery-btn-light {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 4px;
+  color: var(--ward-text);
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 32px;
+  padding: 0 12px;
+}
+
+.ward-bed-mgmt-btn {
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 32px;
+  padding: 0 12px;
+}
+
+.ward-bed-mgmt-btn--primary {
+  background: var(--ward-primary);
+  border: 1px solid var(--ward-primary);
+  color: #fff;
+}
+
+.nursery-avatar {
+  align-items: center;
+  background: #e2e8f0;
+  border-radius: 10px;
+  color: #475569;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  height: 36px;
+  justify-content: center;
+  overflow: hidden;
+  width: 36px;
+}
+
+.nursery-avatar--lg {
+  border-radius: 14px;
+  font-size: 16px;
+  height: 72px;
+  width: 72px;
+}
+
+.nursery-avatar img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.nursery-overview-list {
+  display: grid;
+  gap: 0;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.nursery-overview-list > div {
+  align-items: start;
+  border-bottom: 1px solid #f1f5f9;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 110px 1fr;
+  padding: 7px 0;
+}
+
+.nursery-overview-list dt {
+  color: var(--ward-muted);
+  font-size: 10px;
+  font-weight: 700;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.nursery-overview-list dd {
+  font-size: 12px;
+  margin: 0;
+}
+
+.nursery-mini-empty {
+  color: var(--ward-muted);
+  font-size: 12px;
+}
+
+.hms-field {
+  display: grid;
+  gap: 6px;
+}
+
+.hms-field__label {
+  color: var(--ward-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hms-field input,
+.hms-field select {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 8px;
+  min-height: 42px;
+  padding: 0 10px;
+}
+
+@media (max-width: 767px) {
+  .nursery-detail-hero__meta,
+  .nursery-info-grid,
+  .nursery-feeding-form__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nursery-mother-chip {
+    align-items: start;
+    flex-direction: column;
+  }
+}

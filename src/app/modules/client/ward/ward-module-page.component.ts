@@ -79,6 +79,7 @@ export class WardModulePageComponent implements OnInit {
     const moduleKey = this.route.snapshot.data['wardModuleKey'] as string;
     this.config = WARD_MODULE_PAGE_CONFIGS[moduleKey];
     this.applyRouteContext(this.route.snapshot.queryParamMap);
+    this.loadWardOptions();
     this.refreshRows();
   }
 
@@ -557,7 +558,13 @@ export class WardModulePageComponent implements OnInit {
   setTab(tabKey: string): void {
     this.activeTab = tabKey;
     this.currentPage = 1;
-    this.refreshRows();
+    if (this.config.layout === 'reports') {
+      this.filterReportCards();
+      this.cdr.markForCheck();
+      return;
+    }
+    this.applyTabFilter();
+    this.cdr.markForCheck();
   }
 
   onFilterChange(): void {
@@ -614,12 +621,43 @@ export class WardModulePageComponent implements OnInit {
   }
 
   openRow(row: WardModuleRow): void {
+    if (row.meta?.recommendationId && row.meta.rowSource === 'admission_recommendation' && !row.linkRoute) {
+      this.reviewAdmissionRecommendation(row);
+      return;
+    }
+
     if (row.linkRoute) {
       void this.router.navigateByUrl(row.linkRoute);
     }
   }
 
+  reviewAdmissionRecommendation(row: WardModuleRow): void {
+    const recommendationId = row.meta?.recommendationId;
+    if (!recommendationId) {
+      return;
+    }
+
+    void this.router.navigate(['/room-allotment/add-alloted-rooms'], {
+      queryParams: { recommendationId },
+    });
+  }
+
   openReport(card: WardModuleReportCard): void {
+    const routes: Record<string, string> = {
+      occupancy: '/ward/bed-management',
+      records: '/ward-admin',
+      r1: '/ward/bed-management',
+      r2: '/ward/admissions',
+      r3: '/ward/nursing-care',
+      r4: '/ward/shift-handover',
+      r5: '/ward/mar',
+      r6: '/ward/mar',
+    };
+    const target = routes[card.id];
+    if (target) {
+      void this.router.navigateByUrl(target);
+      return;
+    }
     this.toastr.info(card.description, card.title);
   }
 
@@ -639,7 +677,7 @@ export class WardModulePageComponent implements OnInit {
       this.wardData.loadReportCards(this.activeTab, this.search).subscribe({
         next: (cards) => {
           this.allReportCards = cards;
-          this.reportCards = cards;
+          this.filterReportCards();
           this.rows = [];
           this.loading = false;
           this.cdr.markForCheck();
@@ -659,8 +697,7 @@ export class WardModulePageComponent implements OnInit {
       next: (rows) => {
         const patchedRows = this.applyDripStatusPatch(rows);
         this.allRows = patchedRows;
-        this.rows =
-          this.activeTab === 'all' ? patchedRows : patchedRows.filter((row) => row.cells['_tab'] === this.activeTab);
+        this.applyTabFilter();
         this.reportCards = [];
         this.loading = false;
         this.cdr.markForCheck();
@@ -673,13 +710,32 @@ export class WardModulePageComponent implements OnInit {
         this.cdr.markForCheck();
       },
     });
+  }
 
-    this.wardData.loadBedManagement().subscribe({
-      next: (data) => {
-        this.wardOptions = data.wardOptions;
+  private loadWardOptions(): void {
+    this.wardData.loadWardFilterOptions().subscribe({
+      next: (options) => {
+        this.wardOptions = options;
         this.cdr.markForCheck();
       },
     });
+  }
+
+  private applyTabFilter(): void {
+    this.rows =
+      this.activeTab === 'all'
+        ? this.allRows
+        : this.allRows.filter((row) => row.cells['_tab'] === this.activeTab);
+  }
+
+  private filterReportCards(): void {
+    if (this.activeTab === 'all') {
+      this.reportCards = this.allReportCards;
+      return;
+    }
+    this.reportCards = this.allReportCards.filter(
+      (card) => !card.category || card.category === this.activeTab
+    );
   }
 
   private kpiValueFromRows(kpi: WardModuleKpi): number {

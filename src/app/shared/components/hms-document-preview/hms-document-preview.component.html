@@ -1,0 +1,19 @@
+<div class="hms-doc-preview-backdrop" *ngIf="session" (click)="close()">
+  <div class="hms-doc-preview-shell" (click)="$event.stopPropagation()">
+    <header class="hms-doc-preview-toolbar">
+      <div class="hms-doc-preview-title">
+        <strong>{{ session.title }}</strong>
+      </div>
+      <div class="hms-doc-preview-actions">
+        <button type="button" class="hms-btn hms-btn-secondary" (click)="downloadPdf()" [disabled]="pdfLoading">
+          {{ pdfLoading ? 'Preparing…' : 'Download PDF' }}
+        </button>
+        <button type="button" class="hms-btn hms-btn-secondary" (click)="printDocument()">Print</button>
+        <button type="button" class="hms-btn hms-btn-primary" (click)="close()">Close</button>
+      </div>
+    </header>
+    <div class="hms-doc-preview-stage">
+      <div class="hms-doc-preview-page" [innerHTML]="previewHtml"></div>
+    </div>
+  </div>
+</div>

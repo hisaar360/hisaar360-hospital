@@ -1,252 +1,268 @@
-<div id="main-content" class="records-page">
-    <div class="container-fluid px-2 px-md-4">
-        <!-- Page Header -->
-        <div class="block-header py-3">
-            <div class="row align-items-center">
-                <div class="col-lg-6 col-md-12">
-                    <h1 class="page-title">{{ pageTitle }}</h1>
-                    <span class="page-subtitle">{{ pageSubtitle }}</span>
-                </div>
-                <div class="col-lg-6 col-md-12 text-lg-right mt-2 mt-lg-0">
-                    <a class="btn btn-outline-secondary" [routerLink]="['/patients/all-patients']">Patients</a>
-                    <a class="btn btn-outline-secondary ml-2" [routerLink]="['/appointments']">Appointments</a>
-                </div>
-            </div>
-        </div>
+<div id="main-content" class="hms-page ward-page-shell care-records-page" [class.care-records-page--ward]="recordType === 'ward'">
+  <div class="container-fluid hms-page-container ward-page-container">
+    <header class="hms-page-header ward-page-header ward-page-header--compact">
+      <div class="hms-page-header__copy">
+        <h1>{{ pageTitle }}</h1>
+        <p>{{ pageSubtitle }}</p>
+      </div>
+      <div class="hms-page-actions ward-page-header__actions">
+        <a class="hms-btn hms-btn-sm hms-btn-secondary btn btn-sm btn-light" [routerLink]="['/patients/all-patients']">Patient List</a>
+        <a class="hms-btn hms-btn-sm hms-btn-secondary btn btn-sm btn-light" [routerLink]="['/appointments']">Appointments</a>
+      </div>
+    </header>
 
-        <!-- Page loading / error -->
-        <div class="row mb-3" *ngIf="loading && !bootstrapped">
-            <div class="col-12">
-                <div class="card shadow-sm rounded">
-                    <div class="body p-4 text-center text-muted">
-                        <i class="fa fa-spinner fa-spin mr-2"></i>
-                        Loading care records...
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row mb-3" *ngIf="loadError && !loading && !bootstrapped">
-            <div class="col-12">
-                <div class="card shadow-sm rounded border-danger">
-                    <div class="body p-4 text-center">
-                        <p class="text-danger mb-3">{{ loadError }}</p>
-                        <button class="btn btn-primary" type="button" (click)="loadPageBootstrap()">Retry</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <ng-container *ngIf="bootstrapped || (!loading && !loadError)">
-        <!-- Ward Current Patients -->
-        <div class="row mb-3" *ngIf="recordType === 'ward'">
-            <div class="col-12">
-                <div class="card shadow-sm rounded">
-                    <div class="header px-3 py-2 border-bottom">
-                        <h2 class="h5 mb-0">Current Admitted Patients</h2>
-                    </div>
-                    <div class="body table-responsive p-3">
-                        <table class="table table-hover table-striped mb-0">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th>Patient</th>
-                                    <th>Room</th>
-                                    <th>Admitted At</th>
-                                    <th class="text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr *ngFor="let allotment of activeAllotments">
-                                    <td>{{ patientName(allotment.patient) }}</td>
-                                    <td>{{ allotment.room?.roomNo || '-' }}</td>
-                                    <td>{{ allotment.admittedAt | date:'short' }}</td>
-                                    <td class="text-right">
-                                        <a class="btn btn-sm btn-outline-primary"
-                                            [routerLink]="['/patients/patient-profile', allotment.patientId]">Profile</a>
-                                    </td>
-                                </tr>
-                                <tr *ngIf="activeAllotments.length === 0">
-                                    <td colspan="4" class="text-center text-muted">No admitted patients found</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Record Form & List -->
-        <div class="row">
-            <!-- Add / Edit Form -->
-            <div class="col-lg-4 col-md-12 mb-3" *ngIf="canCreate || editingId">
-                <div class="card shadow-sm rounded">
-                    <div class="header px-3 py-2 border-bottom">
-                        <h2 class="h5 mb-0">{{ editingId ? 'Update Record' : 'Add Record' }}</h2>
-                    </div>
-                    <div class="body p-3">
-                        <form [formGroup]="recordForm" (ngSubmit)="submitRecord()">
-                            <div class="form-group">
-                                <label>Patient</label>
-                                <select class="form-control" formControlName="patientId">
-                                    <option value="">Select patient</option>
-                                    <option *ngFor="let patient of patients" [value]="patient._id">{{
-                                        patientName(patient) }}</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label>Doctor</label>
-                                <select class="form-control" formControlName="doctorId">
-                                    <option value="">Select doctor</option>
-                                    <option *ngFor="let doctor of doctors" [value]="doctor.userId">{{ doctor.user?.name
-                                        || doctor.specialization }}</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label>Appointment</label>
-                                <select class="form-control" formControlName="appointmentId">
-                                    <option value="">Optional</option>
-                                    <option *ngFor="let appointment of appointments" [value]="appointment._id">
-                                        {{ appointment.appointmentNo }} - {{ patientName(appointment.patient) }}
-                                    </option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label>{{ titleLabel }}</label>
-                                <input class="form-control" formControlName="title" placeholder="Title">
-                            </div>
-
-                            <div class="form-group">
-                                <label>{{ diagnosisLabel }}</label>
-                                <input class="form-control" formControlName="diagnosis" placeholder="Diagnosis">
-                            </div>
-
-                            <div class="form-group">
-                                <label>{{ symptomsLabel }}</label>
-                                <textarea class="form-control" rows="2" formControlName="symptoms"
-                                    placeholder="Symptoms"></textarea>
-                            </div>
-
-                            <div class="form-group">
-                                <label>{{ notesLabel }}</label>
-                                <textarea class="form-control" rows="4" formControlName="notes"
-                                    placeholder="Notes"></textarea>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-6 form-group">
-                                    <label>Blood Pressure</label>
-                                    <input class="form-control" formControlName="bloodPressure"
-                                        placeholder="e.g. 120/80">
-                                </div>
-                                <div class="col-6 form-group">
-                                    <label>Temperature</label>
-                                    <input class="form-control" formControlName="temperature" placeholder="°C">
-                                </div>
-                                <div class="col-6 form-group">
-                                    <label>Pulse</label>
-                                    <input class="form-control" formControlName="pulse" placeholder="bpm">
-                                </div>
-                                <div class="col-6 form-group">
-                                    <label>Weight</label>
-                                    <input class="form-control" formControlName="weight" placeholder="kg">
-                                </div>
-                            </div>
-
-                            <div class="form-group">
-                                <label>Height</label>
-                                <input class="form-control" formControlName="height" placeholder="cm">
-                            </div>
-
-                            <div class="d-flex justify-content-start mt-3">
-                                <button class="btn btn-primary" type="submit" [disabled]="saving">
-                                    {{ saving ? 'Saving...' : editingId ? 'Update Record' : 'Save Record' }}
-                                </button>
-                                <button class="btn btn-outline-secondary ml-2" type="button" *ngIf="editingId"
-                                    (click)="resetForm()">Cancel</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Record List -->
-            <div [class]="(canCreate || editingId) ? 'col-lg-8 col-md-12' : 'col-12'">
-                <div class="card shadow-sm rounded">
-                    <div class="header px-3 py-2 border-bottom">
-                        <h2 class="h5 mb-0">Record List</h2>
-                    </div>
-                    <div class="body p-3">
-                        <div class="row mb-3">
-                            <div class="col-md-6 mb-2 mb-md-0">
-                                <select class="form-control" [(ngModel)]="selectedPatientId"
-                                    (change)="recordsPage = 1; loadRecords()">
-                                    <option value="">All patients</option>
-                                    <option *ngFor="let patient of patients" [value]="patient._id">{{
-                                        patientName(patient) }}</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 text-md-right">
-                                <a class="btn btn-outline-secondary" [routerLink]="['/prescriptions']"
-                                    *ngIf="recordType === 'clinical'">Open Prescriptions</a>
-                                <a class="btn btn-outline-secondary" [routerLink]="['/pharmacy']"
-                                    *ngIf="recordType === 'laboratory'">Open Pharmacy</a>
-                                <a class="btn btn-outline-secondary" [routerLink]="['/room-allotment/alloted-rooms']"
-                                    *ngIf="recordType === 'ward'">Open Allotments</a>
-                            </div>
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-hover table-striped mb-0">
-                                <thead class="thead-light">
-                                    <tr>
-                                        <th>Patient</th>
-                                        <th>Doctor</th>
-                                        <th>{{ titleLabel }}</th>
-                                        <th>{{ diagnosisLabel }}</th>
-                                        <th>Date</th>
-                                        <th class="text-right">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr *ngFor="let record of records">
-                                        <td>{{ patientName(record.patient) }}</td>
-                                        <td>{{ doctorName(record.doctorId, record.doctor) }}</td>
-                                        <td>{{ record.title || '-' }}</td>
-                                        <td>{{ record.diagnosis || '-' }}</td>
-                                        <td>{{ record.createdAt | date:'mediumDate' }}</td>
-                                        <td class="text-right">
-                                            <a class="btn btn-sm btn-outline-primary mr-1"
-                                                [routerLink]="['/patients/patient-profile', record.patientId]">Profile</a>
-                                            <button class="btn btn-sm btn-outline-warning mr-1" *ngIf="canUpdate"
-                                                (click)="editRecord(record)">Edit</button>
-                                            <button class="btn btn-sm btn-outline-danger" *ngIf="canDelete"
-                                                (click)="deleteRecord(record)">Delete</button>
-                                        </td>
-                                    </tr>
-                                    <tr *ngIf="!loading && records.length === 0">
-                                        <td colspan="6" class="text-center text-muted">No records found</td>
-                                    </tr>
-                                    <tr *ngIf="loading">
-                                        <td colspan="6" class="text-center text-muted">Loading...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center mt-3">
-                            <button class="btn btn-outline-secondary" (click)="changePage(recordsPage - 1)"
-                                [disabled]="recordsPage <= 1">Prev</button>
-                            <span>Page {{ recordsPage }} of {{ totalPages || 1 }}</span>
-                            <button class="btn btn-outline-secondary" (click)="changePage(recordsPage + 1)"
-                                [disabled]="totalPages > 0 && recordsPage >= totalPages">Next</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        </ng-container>
+    <div *ngIf="loading && !bootstrapped" class="hms-card ward-panel">
+      <div class="hms-empty-state">
+        <i class="fa fa-spinner fa-spin"></i>
+        <p>Loading care records...</p>
+      </div>
     </div>
+
+    <div *ngIf="loadError && !loading && !bootstrapped" class="hms-card ward-panel">
+      <div class="hms-empty-state">
+        <p>{{ loadError }}</p>
+        <button class="hms-btn hms-btn-primary btn btn-primary" type="button" (click)="loadPageBootstrap()">Retry</button>
+      </div>
+    </div>
+
+    <ng-container *ngIf="bootstrapped || (!loading && !loadError)">
+      <section class="hms-card ward-panel" *ngIf="recordType === 'ward'">
+        <div class="hms-card-header ward-panel__head">
+          <div>
+            <h2>Current Admitted Patients</h2>
+            <p>Patients currently admitted to the ward.</p>
+          </div>
+        </div>
+
+        <div class="ward-data-table-wrap desktop-only">
+          <table class="hms-table ward-data-table">
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th>Room</th>
+                <th>Admitted At</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let allotment of activeAllotments">
+                <td>{{ patientName(allotment.patient) }}</td>
+                <td>{{ allotment.room?.roomNo || '—' }}</td>
+                <td>{{ allotment.admittedAt | date:'short' }}</td>
+                <td><span class="hms-status-chip ward-badge ward-badge--watch">Watch</span></td>
+                <td>
+                  <a class="hms-btn hms-btn-sm hms-btn-secondary btn btn-sm btn-light"
+                    [routerLink]="['/patients/patient-profile', allotment.patientId]">Profile</a>
+                </td>
+              </tr>
+              <tr *ngIf="activeAllotments.length === 0">
+                <td colspan="5">
+                  <div class="hms-empty-state ward-empty-state ward-empty-state--compact">
+                    <h3>No admitted patients</h3>
+                    <p>No patients are currently admitted.</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="hms-mobile-cards mobile-only">
+          <article class="hms-mobile-card" *ngFor="let allotment of activeAllotments">
+            <div class="hms-mobile-card__head">
+              <strong>{{ patientName(allotment.patient) }}</strong>
+              <span class="hms-status-chip ward-badge ward-badge--watch">Watch</span>
+            </div>
+            <p>Room {{ allotment.room?.roomNo || '—' }}</p>
+            <p>Admitted {{ allotment.admittedAt | date:'short' }}</p>
+            <div class="hms-mobile-card__actions">
+              <a class="hms-btn hms-btn-sm hms-btn-secondary btn btn-sm btn-light"
+                [routerLink]="['/patients/patient-profile', allotment.patientId]">Profile</a>
+            </div>
+          </article>
+          <div class="hms-empty-state" *ngIf="activeAllotments.length === 0">
+            <h3>No admitted patients</h3>
+            <p>No patients are currently admitted.</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="care-records-layout">
+        <section class="hms-card ward-panel care-records-form" *ngIf="canCreate || editingId">
+          <div class="hms-card-header ward-panel__head">
+            <h2>{{ editingId ? 'Update Record' : 'Add Record' }}</h2>
+          </div>
+          <div class="hms-card-body">
+            <form [formGroup]="recordForm" (ngSubmit)="submitRecord()" class="care-records-form-grid">
+              <label class="hms-form-field">
+                <span class="hms-form-field__label">Patient</span>
+                <select formControlName="patientId">
+                  <option value="">Select patient</option>
+                  <option *ngFor="let patient of patients" [value]="patient._id">{{ patientName(patient) }}</option>
+                </select>
+              </label>
+
+              <label class="hms-form-field">
+                <span class="hms-form-field__label">Doctor</span>
+                <select formControlName="doctorId">
+                  <option value="">Select doctor</option>
+                  <option *ngFor="let doctor of doctors" [value]="doctor.userId">{{ doctor.user?.name || doctor.specialization }}</option>
+                </select>
+              </label>
+
+              <label class="hms-form-field">
+                <span class="hms-form-field__label">Appointment</span>
+                <select formControlName="appointmentId">
+                  <option value="">Optional</option>
+                  <option *ngFor="let appointment of appointments" [value]="appointment._id">
+                    {{ appointment.appointmentNo }} - {{ patientName(appointment.patient) }}
+                  </option>
+                </select>
+              </label>
+
+              <label class="hms-form-field">
+                <span class="hms-form-field__label">{{ titleLabel }}</span>
+                <input formControlName="title" placeholder="Title">
+              </label>
+
+              <label class="hms-form-field">
+                <span class="hms-form-field__label">{{ diagnosisLabel }}</span>
+                <input formControlName="diagnosis" placeholder="Diagnosis">
+              </label>
+
+              <label class="hms-form-field care-records-form-grid__wide">
+                <span class="hms-form-field__label">{{ symptomsLabel }}</span>
+                <textarea rows="2" formControlName="symptoms" placeholder="Symptoms"></textarea>
+              </label>
+
+              <label class="hms-form-field care-records-form-grid__wide">
+                <span class="hms-form-field__label">{{ notesLabel }}</span>
+                <textarea rows="4" formControlName="notes" placeholder="Notes"></textarea>
+              </label>
+
+              <label class="hms-form-field">
+                <span class="hms-form-field__label">Blood Pressure</span>
+                <input formControlName="bloodPressure" placeholder="e.g. 120/80">
+              </label>
+              <label class="hms-form-field">
+                <span class="hms-form-field__label">Temperature</span>
+                <input formControlName="temperature" placeholder="°C">
+              </label>
+              <label class="hms-form-field">
+                <span class="hms-form-field__label">Pulse</span>
+                <input formControlName="pulse" placeholder="bpm">
+              </label>
+              <label class="hms-form-field">
+                <span class="hms-form-field__label">Weight</span>
+                <input formControlName="weight" placeholder="kg">
+              </label>
+              <label class="hms-form-field">
+                <span class="hms-form-field__label">Height</span>
+                <input formControlName="height" placeholder="cm">
+              </label>
+
+              <div class="care-records-form-actions">
+                <button class="hms-btn hms-btn-primary btn btn-primary" type="submit" [disabled]="saving">
+                  {{ saving ? 'Saving...' : editingId ? 'Update Record' : 'Add Record' }}
+                </button>
+                <button class="hms-btn hms-btn-secondary btn btn-light" type="button" *ngIf="editingId" (click)="resetForm()">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="hms-card ward-panel care-records-list">
+          <div class="hms-card-header ward-panel__head">
+            <div>
+              <h2>Record List</h2>
+              <p>Recent ward admin notes and care records.</p>
+            </div>
+            <a class="hms-btn hms-btn-sm hms-btn-secondary btn btn-sm btn-light" [routerLink]="['/prescriptions']" *ngIf="recordType === 'clinical'">Open Prescriptions</a>
+            <a class="hms-btn hms-btn-sm hms-btn-secondary btn btn-sm btn-light" [routerLink]="['/pharmacy']" *ngIf="recordType === 'laboratory'">Open Pharmacy</a>
+            <a class="hms-btn hms-btn-sm hms-btn-secondary btn btn-sm btn-light" [routerLink]="['/room-allotment/alloted-rooms']" *ngIf="recordType === 'ward'">Open Allotments</a>
+          </div>
+
+          <div class="hms-filter-card ward-filter-toolbar care-records-list-filters">
+            <label class="hms-form-field ward-filter--compact ward-filter--grow">
+              <span class="hms-form-field__label">Filter by patient</span>
+              <select [(ngModel)]="selectedPatientId" (change)="recordsPage = 1; loadRecords()">
+                <option value="">All patients</option>
+                <option *ngFor="let patient of patients" [value]="patient._id">{{ patientName(patient) }}</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="ward-data-table-wrap desktop-only">
+            <table class="hms-table ward-data-table">
+              <thead>
+                <tr>
+                  <th>Patient</th>
+                  <th>Doctor</th>
+                  <th>{{ titleLabel }}</th>
+                  <th>{{ diagnosisLabel }}</th>
+                  <th>Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let record of records">
+                  <td>{{ patientName(record.patient) }}</td>
+                  <td>{{ doctorName(record.doctorId, record.doctor) }}</td>
+                  <td>{{ record.title || '—' }}</td>
+                  <td>{{ record.diagnosis || '—' }}</td>
+                  <td>{{ record.createdAt | date:'mediumDate' }}</td>
+                  <td>
+                    <div class="table-actions">
+                      <a class="hms-btn hms-btn-sm hms-btn-secondary btn btn-sm btn-light"
+                        [routerLink]="['/patients/patient-profile', record.patientId]">Profile</a>
+                      <button class="hms-btn hms-btn-sm hms-btn-secondary btn btn-sm btn-light" *ngIf="canUpdate" (click)="editRecord(record)">Edit</button>
+                      <button class="hms-btn hms-btn-sm hms-btn-danger btn btn-sm btn-outline-danger" *ngIf="canDelete" (click)="deleteRecord(record)">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr *ngIf="!loading && records.length === 0">
+                  <td colspan="6">
+                    <div class="hms-empty-state ward-empty-state ward-empty-state--compact">
+                      <span class="hms-empty-state__icon ward-empty-state__icon"><i class="fa fa-inbox"></i></span>
+                      <h3>No records found</h3>
+                    </div>
+                  </td>
+                </tr>
+                <tr *ngIf="loading">
+                  <td colspan="6" class="text-center text-muted">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="hms-mobile-cards mobile-only">
+            <article class="hms-mobile-card" *ngFor="let record of records">
+              <div class="hms-mobile-card__head">
+                <strong>{{ patientName(record.patient) }}</strong>
+                <span>{{ record.createdAt | date:'mediumDate' }}</span>
+              </div>
+              <p>{{ record.title || '—' }}</p>
+              <p>{{ record.diagnosis || '—' }}</p>
+              <p>Dr. {{ doctorName(record.doctorId, record.doctor) }}</p>
+              <div class="hms-mobile-card__actions">
+                <a class="hms-btn hms-btn-sm hms-btn-secondary btn btn-sm btn-light"
+                  [routerLink]="['/patients/patient-profile', record.patientId]">Profile</a>
+                <button class="hms-btn hms-btn-sm hms-btn-secondary btn btn-sm btn-light" *ngIf="canUpdate" (click)="editRecord(record)">Edit</button>
+              </div>
+            </article>
+            <div class="hms-empty-state" *ngIf="!loading && records.length === 0">
+              <h3>No records found</h3>
+            </div>
+          </div>
+
+          <div class="ward-table-footer">
+            <button class="hms-btn hms-btn-sm hms-btn-secondary btn btn-sm btn-light" (click)="changePage(recordsPage - 1)" [disabled]="recordsPage <= 1">Prev</button>
+            <span>Page {{ recordsPage }} of {{ totalPages || 1 }}</span>
+            <button class="hms-btn hms-btn-sm hms-btn-secondary btn btn-sm btn-light" (click)="changePage(recordsPage + 1)" [disabled]="totalPages > 0 && recordsPage >= totalPages">Next</button>
+          </div>
+        </section>
+      </div>
+    </ng-container>
+  </div>
 </div>

@@ -99,6 +99,43 @@
   padding: 10px 12px;
 }
 
+.ward-filter-toolbar__actions {
+  display: grid;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.ward-filter-toolbar__actions-label {
+  color: transparent;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  min-height: 12px;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.ward-filter-toolbar__actions-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.ward-filter-toolbar__actions-row .btn,
+.ward-filter-toolbar__actions-row .birth-btn-light,
+.ward-filter-toolbar__actions-row .nursery-btn-light,
+.ward-filter-toolbar__actions-row .ward-bed-mgmt-btn,
+.ward-filter-toolbar__actions-row .ward-refresh-btn,
+.ward-page-header__actions .ward-filter-toolbar__actions-row .btn {
+  height: 32px;
+  min-height: 32px;
+  padding-bottom: 0;
+  padding-top: 0;
+}
+
 .ward-filter-toolbar--in-panel {
   border: 0;
   border-bottom: 1px solid var(--ward-border);
@@ -317,7 +354,36 @@
   font-size: 11px;
   height: 26px;
   justify-content: center;
+  line-height: 1;
   width: 26px;
+}
+
+.hms-btn,
+.nursery-btn-light,
+.birth-btn-light,
+.ward-bed-mgmt-btn,
+.ward-refresh-btn {
+  align-items: center;
+  border-radius: 4px;
+  display: inline-flex;
+  justify-content: center;
+  line-height: 1.2;
+  vertical-align: middle;
+}
+
+.ward-page-shell .btn.nursery-btn-light,
+.ward-page-shell .btn.birth-btn-light,
+.ward-page-shell .btn.ward-bed-mgmt-btn,
+.ward-page-shell .btn.ward-refresh-btn {
+  border-radius: 4px;
+}
+
+.hms-btn i,
+.nursery-btn-light i,
+.birth-btn-light i,
+.ward-bed-mgmt-btn i,
+.ward-refresh-btn i {
+  line-height: 1;
 }
 
 .table-actions > button:hover,

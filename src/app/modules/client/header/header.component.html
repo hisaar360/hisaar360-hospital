@@ -134,6 +134,32 @@
                                     src="assets/images/flag/france.svg" alt="French"> French</a>
                         </div>
                     </li> -->
+                    <li *ngIf="notifications.canSeeNotifications()" class="dropdown hms-notification-menu" [class.open]="menuOpen">
+                        <a href="javascript:void(0);" class="dropdown-toggle icon-menu-bar" data-testid="notification-bell" (click)="toggleNotificationMenu()" title="Notifications">
+                            <i class="fa fa-bell-o"></i>
+                            <span class="notification-dot info" *ngIf="((notifications.unreadCount$ | async) || 0) > 0">{{ ((notifications.unreadCount$ | async) || 0) > 9 ? '9+' : (notifications.unreadCount$ | async) }}</span>
+                        </a>
+                        <ul class="dropdown-menu feeds_widget mt-0 animation-li-delay hms-notification-panel" *ngIf="menuOpen">
+                            <li class="header theme-bg gradient mt-0 text-light d-flex justify-content-between align-items-center">
+                                <span>Latest Updates</span>
+                                <button type="button" class="btn btn-link btn-sm text-light" data-testid="notification-mute" (click)="toggleMute($event)" title="Toggle sound">
+                                    <i class="fa" [ngClass]="notificationSound.muted ? 'fa-volume-off' : 'fa-volume-up'"></i>
+                                </button>
+                            </li>
+                            <li *ngFor="let item of (notifications.items$ | async)?.slice(0, 8)" data-testid="notification-item">
+                                <a href="javascript:void(0);" (click)="openNotification(item)">
+                                    <div class="mr-4"><i class="fa fa-info-circle text-info"></i></div>
+                                    <div class="feeds-body">
+                                        <h4 class="title">{{ item.title }} <small class="float-right text-muted font-12">{{ item.createdAt | date:'shortTime' }}</small></h4>
+                                        <small>{{ item.message }}</small>
+                                    </div>
+                                </a>
+                            </li>
+                            <li *ngIf="!(notifications.items$ | async)?.length">
+                                <a href="javascript:void(0);"><small class="p-3 d-block">No notifications yet.</small></a>
+                            </li>
+                        </ul>
+                    </li>
                     <li *ngIf="canOpenPos" class="hidden-xs">
                         <a href="javascript:void(0);" (click)="openPos()" class="icon-menu-bar pos-open-link"
                             title="Open POS">

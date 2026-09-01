@@ -253,7 +253,8 @@
             (click)="activeTab = 'ultrasound'">Ultrasound</button>
           <button type="button" [class.active]="activeTab === 'iv'" (click)="activeTab = 'iv'">Drips / IV
             Fluids</button>
-          <button type="button" [class.active]="activeTab === 'admission'" (click)="activeTab = 'admission'">Admission
+          <button type="button" [class.active]="activeTab === 'admission'" (click)="activeTab = 'admission'"
+            data-testid="prescription-tab-admission">Admission
             Orders</button>
           <button type="button" [class.active]="activeTab === 'documents'"
             (click)="activeTab = 'documents'">Documents</button>
@@ -1137,7 +1138,7 @@
                 Assign a patient appointment to view admission orders.
               </p>
             </div>
-            <button type="button" class="btn-light admission-add-btn" [disabled]="!hasAssignedPatient()"
+            <button type="button" class="btn-light admission-add-btn" data-testid="admission-add-order"
               (click)="openAdmissionOrderModal()">+ Add Order</button>
           </div>
 
@@ -1145,45 +1146,42 @@
             <table class="admission-orders-table">
               <thead>
                 <tr>
-                  <th>Order</th>
-                  <th>Category</th>
-                  <th>Ordered On</th>
+                  <th>Order No</th>
+                  <th>Recommended At</th>
                   <th>Priority</th>
+                  <th>Reason</th>
+                  <th>Diagnosis</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngIf="admissionOrderRows.length === 0">
-                  <td colspan="6" class="lab-empty-row">
-                    {{ hasAssignedPatient() ? 'No admission orders recorded for this patient yet.' : 'Select an assigned patient to view admission orders.' }}
+                <tr *ngIf="admissionRecommendationsLoading">
+                  <td colspan="7" class="lab-empty-row">Loading admission recommendations…</td>
+                </tr>
+                <tr *ngIf="!admissionRecommendationsLoading && admissionRecommendations.length === 0">
+                  <td colspan="7" class="lab-empty-row">
+                    {{ hasAssignedPatient() ? 'No admission recommendations recorded for this patient yet.' : 'Select an assigned patient to view admission orders.' }}
                   </td>
                 </tr>
-                <tr *ngFor="let row of admissionOrderRows; trackBy: trackAdmissionOrderRow">
-                  <td><strong>{{ row.order }}</strong></td>
-                  <td>{{ row.category }}</td>
-                  <td>{{ row.orderedOn }}</td>
-                  <td>
-                    <span class="admission-priority-badge" [ngClass]="admissionOrderPriorityClass(row.priority)">
-                      {{ admissionOrderPriorityLabel(row.priority) }}
-                    </span>
-                  </td>
-                  <td>
-                    <span class="admission-status-badge" [ngClass]="admissionOrderStatusClass(row.status)">
-                      {{ admissionOrderStatusLabel(row.status) }}
-                    </span>
-                  </td>
+                <tr *ngFor="let record of admissionRecommendations; trackBy: trackAdmissionRecommendation">
+                  <td><strong>{{ record.orderNo || '—' }}</strong></td>
+                  <td>{{ record.recommendedAt || record.createdAt | date:'medium' }}</td>
+                  <td>{{ record.priority || 'routine' }}</td>
+                  <td>{{ record.reason || '—' }}</td>
+                  <td>{{ record.initialDiagnosis || '—' }}</td>
+                  <td>{{ admissionRecommendationStatusLabel(record.status) }}</td>
                   <td>
                     <div class="admission-order-actions">
-                      <button type="button" class="admission-action-btn" *ngIf="row.source === 'form'"
-                        (click)="editAdmissionOrderRow(row)">
+                      <button type="button" class="admission-action-btn" (click)="openAdmissionOrderModal(record)" *ngIf="canEditAdmissionRecommendation(record)">
                         <i class="fa fa-pencil"></i>
                       </button>
-                      <button type="button" class="admission-action-btn delete" *ngIf="row.source === 'form'"
-                        (click)="deleteAdmissionOrderRow(row)">
-                        <i class="fa fa-trash"></i>
+                      <button type="button" class="admission-action-btn" (click)="printAdmissionRecommendation(record)">
+                        <i class="fa fa-print"></i>
                       </button>
-                      <span *ngIf="row.source !== 'form'">—</span>
+                      <button type="button" class="admission-action-btn" (click)="openAdmissionOrderModal(record)">
+                        <i class="fa fa-eye"></i>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -1580,22 +1578,19 @@
               </div>
 
               <div class="admission-sidebar-list">
-                <div class="admission-sidebar-row" *ngFor="let row of sidebarAdmissionOrderRows(); trackBy: trackAdmissionOrderRow">
+                <div class="admission-sidebar-row" *ngFor="let record of admissionRecommendations; trackBy: trackAdmissionRecommendation">
                   <div class="admission-sidebar-main">
-                    <strong>{{ row.order }}</strong>
-                    <small>{{ row.category }} · {{ admissionOrderPriorityLabel(row.priority) }}</small>
+                    <strong>{{ record.orderNo || 'Draft' }}</strong>
+                    <small>{{ admissionRecommendationStatusLabel(record.status) }} · {{ record.priority || 'routine' }}</small>
                   </div>
                   <div class="admission-sidebar-actions">
-                    <button type="button" (click)="editAdmissionOrderRow(row)" aria-label="Edit order">
-                      <i class="fa fa-pencil"></i>
-                    </button>
-                    <button type="button" (click)="deleteAdmissionOrderRow(row)" aria-label="Remove order">
-                      <i class="fa fa-trash"></i>
+                    <button type="button" (click)="openAdmissionOrderModal(record)" aria-label="View recommendation">
+                      <i class="fa fa-eye"></i>
                     </button>
                   </div>
                 </div>
-                <div class="vitals-empty" *ngIf="sidebarAdmissionOrderRows().length === 0">
-                  No orders added yet.
+                <div class="vitals-empty" *ngIf="admissionRecommendations.length === 0">
+                  No admission recommendations yet.
                 </div>
               </div>
 
@@ -2913,67 +2908,19 @@
     </div>
   </div>
 
-  <div class="medicine-library-backdrop" *ngIf="admissionOrderModalOpen">
-    <div class="admission-order-modal-dialog">
-      <div class="medicine-library-header">
-        <div>
-          <h3>{{ editingAdmissionOrderIndex !== null ? 'Edit Order' : 'Add Order' }}</h3>
-          <p>Add admission order for this patient.</p>
-        </div>
-        <button type="button" class="modal-close-btn" (click)="closeAdmissionOrderModal()">&times;</button>
-      </div>
-
-      <div class="admission-order-presets">
-        <button type="button" class="admission-preset-btn" *ngFor="let preset of admissionOrderPresets"
-          (click)="applyAdmissionOrderPreset(preset)">
-          {{ preset.order }}
-        </button>
-      </div>
-
-      <form class="admission-order-modal-form" [formGroup]="admissionOrderModalForm" (ngSubmit)="saveAdmissionOrderModal()">
-        <label>
-          <span>Order</span>
-          <input formControlName="order" placeholder="Monitor Vitals (4 hourly)" />
-        </label>
-
-        <div class="admission-order-modal-grid">
-          <label>
-            <span>Category</span>
-            <select formControlName="category">
-              <option *ngFor="let category of admissionOrderCategories" [value]="category">{{ category }}</option>
-            </select>
-          </label>
-          <label>
-            <span>Priority</span>
-            <select formControlName="priority">
-              <option value="normal">Normal</option>
-              <option value="high">High</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="admission-order-modal-grid">
-          <label>
-            <span>Status</span>
-            <select formControlName="status">
-              <option value="active">Active</option>
-              <option value="planned">Planned</option>
-              <option value="completed">Completed</option>
-            </select>
-          </label>
-          <label>
-            <span>Ordered On</span>
-            <input type="datetime-local" formControlName="orderedOn" />
-          </label>
-        </div>
-
-        <div class="admission-order-modal-actions">
-          <button type="button" class="btn-light" (click)="closeAdmissionOrderModal()">Cancel</button>
-          <button type="submit" class="btn-primary">{{ editingAdmissionOrderIndex !== null ? 'Save Changes' : 'Add Order' }}</button>
-        </div>
-      </form>
-    </div>
-  </div>
+  <app-admission-recommendation-drawer
+    [open]="admissionRecommendationDrawerOpen"
+    [readOnly]="editingAdmissionRecommendation ? !canEditAdmissionRecommendation(editingAdmissionRecommendation) : false"
+    [patient]="admissionDrawerPatient()"
+    [appointment]="admissionDrawerAppointment()"
+    [doctor]="getAdmissionDrawerDoctor()"
+    [doctors]="doctors"
+    [hospital]="currentHospital"
+    [prescriptionId]="editingId || ''"
+    [record]="editingAdmissionRecommendation"
+    (closed)="closeAdmissionRecommendationDrawer()"
+    (saved)="onAdmissionRecommendationSaved($event)"
+  ></app-admission-recommendation-drawer>
 
   <div class="medicine-library-backdrop document-modal-backdrop" *ngIf="documentModalOpen" (click)="closeDocumentModal()">
     <div class="document-modal-dialog" (click)="$event.stopPropagation()">

@@ -79,18 +79,20 @@ import {
   PatientIvFluidRecord,
 } from './iv-fluid-data';
 import {
-  ADMISSION_ORDER_CATEGORIES,
-  ADMISSION_ORDER_PRESETS,
-  AdmissionOrderDisplayRow,
-  AdmissionOrderPriority,
-  AdmissionOrderStatus,
-  admissionOrderPriorityLabel as formatAdmissionOrderPriorityLabel,
-  admissionOrderStatusLabel as formatAdmissionOrderStatusLabel,
-  buildAdmissionOrderDisplayRows,
-  countActiveAdmissionOrders,
   legacyAdmissionOrdersToItems,
   PatientAdmissionOrderRecord,
 } from './admission-order-data';
+import { AdmissionRecommendationDrawerComponent } from './admission-recommendation-drawer.component';
+import {
+  AdmissionRecommendationRecord,
+  admissionRecommendationStatusLabel,
+  doctorDisplayName,
+  mapAdmissionRecommendationRecord,
+} from './admission-recommendation.models';
+import {
+  buildAdmissionRecommendationPrintHtml,
+  printAdmissionRecommendationHtml,
+} from './admission-recommendation-print.builder';
 import {
   inferSpecialtyTemplateKey,
   resolvePrintSpecialtyRows,
@@ -280,7 +282,7 @@ interface MedicineSuggestionOption {
 
 @Component({
   selector: 'app-prescription',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, NgApexchartsModule, RouterLink, GynaeClinicalPrintPageComponent, GynaeWomensHealthPrintPageComponent, PrescriptionTemplateGynaeModernComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, NgApexchartsModule, RouterLink, GynaeClinicalPrintPageComponent, GynaeWomensHealthPrintPageComponent, PrescriptionTemplateGynaeModernComponent, AdmissionRecommendationDrawerComponent],
   templateUrl: './prescription.component.html',
   styleUrl: './prescription.component.scss',
 })
@@ -489,12 +491,10 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   editingIvFluidIndex: number | null = null;
   ivFluidModalForm: FormGroup;
   readonly ivFluidOptions = IV_FLUID_OPTIONS;
-  admissionOrderRows: AdmissionOrderDisplayRow[] = [];
-  admissionOrderModalOpen = false;
-  editingAdmissionOrderIndex: number | null = null;
-  admissionOrderModalForm: FormGroup;
-  readonly admissionOrderCategories = ADMISSION_ORDER_CATEGORIES;
-  readonly admissionOrderPresets = ADMISSION_ORDER_PRESETS;
+  admissionRecommendations: AdmissionRecommendationRecord[] = [];
+  admissionRecommendationsLoading = false;
+  admissionRecommendationDrawerOpen = false;
+  editingAdmissionRecommendation: AdmissionRecommendationRecord | null = null;
   patientDocumentRows: PatientDocumentDisplayRow[] = [];
   patientHistoryRecords: PatientHistory[] = [];
   documentModalOpen = false;
@@ -588,13 +588,6 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       route: ['IV'],
       startDateTime: [this.currentDateTimeLocalValue()],
       status: ['planned' as IvFluidStatus],
-    });
-    this.admissionOrderModalForm = this.fb.group({
-      order: ['', Validators.required],
-      category: ['Nursing'],
-      priority: ['normal' as AdmissionOrderPriority],
-      status: ['active' as AdmissionOrderStatus],
-      orderedOn: [this.currentDateTimeLocalValue()],
     });
     this.documentModalForm = this.fb.group({
       name: ['', Validators.required],
@@ -872,8 +865,8 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       order: [item?.order || ''],
       category: [item?.category || 'General'],
       orderedOn: [item?.orderedOn || this.currentDateTimeLocalValue()],
-      priority: [(item?.priority || 'normal') as AdmissionOrderPriority],
-      status: [(item?.status || 'active') as AdmissionOrderStatus],
+      priority: [item?.priority || 'normal'],
+      status: [item?.status || 'active'],
     });
   }
 
@@ -938,7 +931,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       this.labTestModalOpen ||
       this.labTestDetailModalOpen ||
       this.ivFluidModalOpen ||
-      this.admissionOrderModalOpen ||
+      this.admissionRecommendationDrawerOpen ||
       this.documentModalOpen,
     );
   }
@@ -2273,123 +2266,150 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     return row.id;
   }
 
-  openAdmissionOrderModal(formIndex: number | null = null): void {
-    this.editingAdmissionOrderIndex = formIndex;
-
-    if (formIndex !== null && this.admissionOrderItems.at(formIndex)) {
-      const item = this.admissionOrderItems.at(formIndex).getRawValue() as AdmissionOrderItem;
-      this.admissionOrderModalForm.reset({
-        order: item.order || '',
-        category: item.category || 'General',
-        priority: item.priority || 'normal',
-        status: item.status || 'active',
-        orderedOn: item.orderedOn || this.currentDateTimeLocalValue(),
-      });
-    } else {
-      this.admissionOrderModalForm.reset({
-        order: '',
-        category: 'Nursing',
-        priority: 'normal',
-        status: 'active',
-        orderedOn: this.currentDateTimeLocalValue(),
-      });
+  openAdmissionOrderModal(record: AdmissionRecommendationRecord | null = null): void {
+    if (!this.hasAssignedPatient()) {
+      this.toastr.info('Assign a patient appointment before creating an admission recommendation.');
+      return;
     }
 
-    this.admissionOrderModalOpen = true;
+    if (!this.backend.hasPermission('ward.admissions.recommend') && !this.backend.hasPermission('ward.admissions.create')) {
+      this.toastr.error('You do not have permission to recommend admission.');
+      return;
+    }
+
+    this.editingAdmissionRecommendation = record;
+    this.admissionRecommendationDrawerOpen = true;
   }
 
-  closeAdmissionOrderModal(): void {
-    this.admissionOrderModalOpen = false;
-    this.editingAdmissionOrderIndex = null;
+  admissionDrawerPatient(): Patient | null {
+    return this.selectedPatient() || this.buildAdmissionPatientStub();
   }
 
-  applyAdmissionOrderPreset(preset: (typeof ADMISSION_ORDER_PRESETS)[number]): void {
-    this.admissionOrderModalForm.patchValue({
-      order: preset.order,
-      category: preset.category,
-      priority: preset.priority,
-      status: preset.status,
+  admissionDrawerAppointment(): Appointment | null {
+    return this.selectedAppointment() || this.buildRouteAppointmentStub();
+  }
+
+  private buildRouteAppointmentStub(): Appointment | null {
+    const appointmentId = String(this.routeAppointmentId || this.selectedAppointmentId || '').trim();
+    if (!appointmentId) {
+      return null;
+    }
+
+    const patient = this.admissionDrawerPatient();
+    const doctorId = String(
+      this.prescriptionForm.getRawValue().doctorId || this.routeDoctorId || this.resolvedDoctorProfileId() || ''
+    ).trim();
+
+    return {
+      _id: appointmentId,
+      hospitalId: this.currentHospitalId || '',
+      appointmentNo: '—',
+      patientId: String(patient?._id || this.routePatientId || this.selectedPatientId || ''),
+      patient,
+      doctorId,
+      departmentId: null,
+      appointmentDate: this.todayValue(),
+      startTime: '—',
+      endTime: '—',
+      status: 'confirmed',
+    } as Appointment;
+  }
+
+  private buildAdmissionPatientStub(): Patient | null {
+    const patientId = String(this.prescriptionForm.getRawValue().patientId || this.selectedPatientId || '').trim();
+    if (!patientId) {
+      return null;
+    }
+
+    const appointmentPatient = this.selectedAppointment()?.patient;
+    if (appointmentPatient?._id) {
+      return appointmentPatient;
+    }
+
+    return {
+      _id: patientId,
+      hospitalId: this.currentHospitalId || '',
+      patientNo: '—',
+      firstName: 'Patient',
+      lastName: '',
+      gender: 'male',
+    } as Patient;
+  }
+
+  closeAdmissionRecommendationDrawer(): void {
+    this.admissionRecommendationDrawerOpen = false;
+    this.editingAdmissionRecommendation = null;
+  }
+
+  onAdmissionRecommendationSaved(record: AdmissionRecommendationRecord): void {
+    const index = this.admissionRecommendations.findIndex((item) => item._id === record._id);
+    if (index >= 0) {
+      this.admissionRecommendations[index] = record;
+    } else {
+      this.admissionRecommendations = [record, ...this.admissionRecommendations];
+    }
+    this.editingAdmissionRecommendation = record;
+    this.refreshAdmissionRecommendations();
+  }
+
+  printAdmissionRecommendation(record: AdmissionRecommendationRecord): void {
+    const html = buildAdmissionRecommendationPrintHtml({
+      hospital: this.currentHospital,
+      patient: this.selectedPatient(),
+      appointment: this.selectedAppointment(),
+      doctor: this.resolvePreviewDoctorProfile(),
+      record,
     });
+    printAdmissionRecommendationHtml(html);
   }
 
-  saveAdmissionOrderModal(): void {
-    if (this.admissionOrderModalForm.invalid) {
-      this.admissionOrderModalForm.markAllAsTouched();
+  admissionRecommendationStatusLabel(status?: string): string {
+    return admissionRecommendationStatusLabel(status);
+  }
+
+  recommendationDoctorName(record: AdmissionRecommendationRecord): string {
+    const doctor = record.recommendedByDoctorId;
+    if (doctor && typeof doctor === 'object') {
+      return doctorDisplayName(doctor);
+    }
+    return this.selectedDoctorName();
+  }
+
+  canEditAdmissionRecommendation(record: AdmissionRecommendationRecord): boolean {
+    return ['draft', 'pending', 'acknowledged'].includes(record.status);
+  }
+
+  trackAdmissionRecommendation(_index: number, record: AdmissionRecommendationRecord): string {
+    return record._id;
+  }
+
+  refreshAdmissionRecommendations(): void {
+    const patientId = this.prescriptionForm.getRawValue().patientId || this.selectedPatientId;
+    if (!patientId || !this.offline.online()) {
+      this.admissionRecommendations = [];
       return;
     }
 
-    const value = this.admissionOrderModalForm.getRawValue() as AdmissionOrderItem;
-    const payload = {
-      order: String(value.order || '').trim(),
-      category: String(value.category || 'General').trim(),
-      orderedOn: String(value.orderedOn || '').trim(),
-      priority: (value.priority || 'normal') as AdmissionOrderPriority,
-      status: (value.status || 'active') as AdmissionOrderStatus,
-    };
-
-    if (!payload.order) {
-      return;
-    }
-
-    if (this.editingAdmissionOrderIndex !== null) {
-      this.admissionOrderItems.at(this.editingAdmissionOrderIndex).patchValue(payload);
-    } else {
-      this.admissionOrderItems.push(this.createAdmissionOrderGroup(payload));
-    }
-
-    this.closeAdmissionOrderModal();
-    this.refreshAdmissionOrderRows();
-  }
-
-  editAdmissionOrderRow(row: AdmissionOrderDisplayRow): void {
-    if (row.source === 'form' && row.formIndex !== undefined) {
-      this.openAdmissionOrderModal(row.formIndex);
-    }
-  }
-
-  deleteAdmissionOrderRow(row: AdmissionOrderDisplayRow): void {
-    if (row.source !== 'form' || row.formIndex === undefined) {
-      return;
-    }
-
-    this.admissionOrderItems.removeAt(row.formIndex);
-    this.refreshAdmissionOrderRows();
+    this.admissionRecommendationsLoading = true;
+    this.backend
+      .listAdmissionRecommendations({ patientId, limit: 50 })
+      .pipe(finalize(() => (this.admissionRecommendationsLoading = false)))
+      .subscribe({
+        next: (result) => {
+          this.admissionRecommendations = (result.items || []).map(mapAdmissionRecommendationRecord);
+        },
+        error: () => {
+          this.admissionRecommendations = [];
+        },
+      });
   }
 
   refreshAdmissionOrderRows(): void {
-    this.admissionOrderRows = buildAdmissionOrderDisplayRows(
-      this.hasAssignedPatient() ? this.patientSavedAdmissionOrders() : [],
-      this.admissionOrderItems.getRawValue() as AdmissionOrderItem[],
-      this.hasAssignedPatient() ? this.patientLegacyAdmissionOrders() : []
-    );
-  }
-
-  sidebarAdmissionOrderRows(): AdmissionOrderDisplayRow[] {
-    return this.admissionOrderRows.filter((row) => row.source === 'form');
+    this.refreshAdmissionRecommendations();
   }
 
   totalActiveAdmissionOrders(): number {
-    return countActiveAdmissionOrders(this.admissionOrderRows);
-  }
-
-  admissionOrderPriorityClass(priority: AdmissionOrderPriority): string {
-    return `admission-priority-${priority}`;
-  }
-
-  admissionOrderStatusClass(status: AdmissionOrderStatus): string {
-    return `admission-status-${status}`;
-  }
-
-  admissionOrderPriorityLabel(priority: AdmissionOrderPriority): string {
-    return formatAdmissionOrderPriorityLabel(priority);
-  }
-
-  admissionOrderStatusLabel(status: AdmissionOrderStatus): string {
-    return formatAdmissionOrderStatusLabel(status);
-  }
-
-  trackAdmissionOrderRow(_index: number, row: AdmissionOrderDisplayRow): string {
-    return row.id;
+    return this.admissionRecommendations.filter((item) => ['draft', 'pending', 'acknowledged'].includes(item.status)).length;
   }
 
   openDocumentModal(formIndex: number | null = null, categoryKey: GynaeDocumentCategoryKey | null = null): void {
@@ -2677,6 +2697,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       next: (result) => {
         this.doctors = result.items;
         void this.offline.cacheValue(this.doctorsCacheKey(), this.doctors);
+        this.syncDoctorProfileRouteDefaults();
         this.initializePrescriptionTheme();
         this.refreshOpenPreviewData();
         this.applyGynaeDoctorDefaults();
@@ -2707,7 +2728,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     this.backend
       .getAppointments({
         limit: 100,
-        doctorId: this.isDoctorUser() ? this.currentUserId || undefined : undefined,
+        doctorId: this.isDoctorUser() ? this.resolvedDoctorProfileId() || undefined : undefined,
         dateFrom: appointmentDate,
         dateTo: appointmentDate,
       })
@@ -4834,7 +4855,9 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
 
     this.prescriptionForm.patchValue({
       patientId: this.routePatientId,
-      doctorId: this.isDoctorUser() ? this.currentUserId || '' : this.routeDoctorId,
+      doctorId:
+        this.routeDoctorId ||
+        (this.isDoctorUser() ? this.resolvedDoctorProfileId() || this.currentUserId || '' : ''),
       appointmentId: this.routeAppointmentId,
     });
 
@@ -5002,9 +5025,40 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   private activeDoctorId(): string {
     return String(
       this.prescriptionForm.getRawValue().doctorId ||
+      this.resolvedDoctorProfileId() ||
       (this.isDoctorUser() ? this.currentUserId : '') ||
       ''
     ).trim();
+  }
+
+  private resolvedDoctorProfileId(): string {
+    if (!this.isDoctorUser()) {
+      return String(this.prescriptionForm.getRawValue().doctorId || '').trim();
+    }
+
+    const formDoctorId = String(this.prescriptionForm.getRawValue().doctorId || '').trim();
+    if (formDoctorId && this.doctors.some((doctor) => doctor._id === formDoctorId)) {
+      return formDoctorId;
+    }
+
+    const matched = this.doctors.find((doctor) => String(doctor.userId || '') === String(this.currentUserId || ''));
+    return String(matched?._id || formDoctorId || '').trim();
+  }
+
+  private syncDoctorProfileRouteDefaults(): void {
+    if (!this.isDoctorUser()) {
+      return;
+    }
+
+    const profileId = this.resolvedDoctorProfileId();
+    if (!profileId) {
+      return;
+    }
+
+    this.prescriptionForm.patchValue({ doctorId: profileId }, { emitEvent: false });
+    if (this.routeAppointmentId || this.routePatientId) {
+      this.loadAppointments();
+    }
   }
 
   private mergeDoctorMedicines(items: DoctorMedicine[]): DoctorMedicine[] {
@@ -5841,6 +5895,41 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     }
 
     return lines.slice(0, 12);
+  }
+
+  getAdmissionDrawerDoctor(): Doctor | null {
+    const doctorId = String(this.resolvedDoctorProfileId() || this.prescriptionForm.getRawValue().doctorId || '').trim();
+    if (doctorId) {
+      const resolved =
+        this.doctors.find((doctor) => doctor._id === doctorId) ||
+        this.resolvePrescriptionDoctor({ doctorId }) ||
+        null;
+      if (resolved) {
+        return resolved;
+      }
+
+      return {
+        _id: doctorId,
+        user: { name: this.selectedDoctorName() !== '-' ? this.selectedDoctorName() : 'Doctor' },
+      } as Doctor;
+    }
+
+    const resolved =
+      this.resolvePreviewDoctorProfile() ||
+      this.resolvePrescriptionDoctor({ doctorId: this.selectedAppointment()?.doctorId }) ||
+      null;
+
+    if (resolved) {
+      return resolved;
+    }
+
+    if (this.isDoctorUser() && this.currentUserId) {
+      return (
+        this.doctors.find((doctor) => String(doctor.userId || '') === String(this.currentUserId)) || null
+      );
+    }
+
+    return null;
   }
 
   private resolvePreviewDoctorProfile(): Doctor | null {

@@ -3,11 +3,14 @@ import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
+import { buildDischargeStatementDocumentHtml, buildRunningBillDocumentHtml } from '../../../core/documents/discharge-document.builder';
+import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../core/utils/hms-document-context.util';
+import { HmsDocumentToolbarComponent } from '../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
 
 @Component({
   selector: 'app-ward-billing-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HmsDocumentToolbarComponent],
   templateUrl: './ward-billing-panel.component.html',
   styleUrl: './ward-billing-panel.component.scss',
 })
@@ -59,6 +62,58 @@ export class WardBillingPanelComponent implements OnChanges {
   get dischargeStatement(): Record<string, unknown> {
     return (this.dischargeData['dischargeStatement'] as Record<string, unknown>) || {};
   }
+
+  buildRunningBillDocument = (): string => {
+    const admission = (this.billData['admission'] as Record<string, unknown>) || {};
+    const patient = (admission['patient'] as Record<string, unknown>) || null;
+    return buildRunningBillDocumentHtml({
+      patient: patient as { firstName?: string; lastName?: string; patientNo?: string },
+      admissionNo: String(admission['admissionNo'] || ''),
+      encounterNo: String((this.billData['encounter'] as Record<string, unknown> | undefined)?.['encounterNo'] || ''),
+      wardLabel: String(admission['wardLabel'] || admission['roomType'] || ''),
+      roomBed: String(admission['bedLabel'] || ''),
+      admittedAt: String(admission['admittedAt'] || ''),
+      chargeBreakdown: (this.billData['chargeBreakdown'] as Record<string, number>) || {},
+      summary: {
+        totalCharges: Number(this.summary['totalCharges'] || 0),
+        totalDiscount: Number(this.summary['totalDiscount'] || 0),
+        netPayable: Number(this.summary['netPayable'] || 0),
+        totalPaid: Number(this.summary['totalPaid'] || 0),
+        totalRefunded: Number(this.summary['totalRefunded'] || 0),
+        balance: Number(this.summary['outstandingBalance'] || this.summary['balance'] || 0),
+        securityDepositHeld: Number(this.summary['securityDepositHeld'] || 0),
+        securityDepositApplied: Number(this.summary['securityDepositApplied'] || 0),
+        advanceCreditBalance: Number(this.summary['advanceCreditBalance'] || 0),
+      },
+      hospital: readStoredHospitalDocumentInfo(),
+      generatedBy: readCurrentUserName(),
+    });
+  };
+
+  buildDischargeDocument = (): string => {
+    const statement = this.dischargeStatement;
+    const patient = (statement['patient'] as Record<string, unknown>) || null;
+    return buildDischargeStatementDocumentHtml({
+      patient: patient as { firstName?: string; lastName?: string; patientNo?: string },
+      admissionNo: String(statement['admissionNo'] || ''),
+      wardLabel: String(statement['wardLabel'] || ''),
+      admittedAt: String(statement['admittedAt'] || ''),
+      dischargedAt: String(statement['dischargedAt'] || ''),
+      chargeBreakdown: (statement['chargeBreakdown'] as Record<string, number>) || {},
+      summary: {
+        totalCharges: Number(statement['grossCharges'] || 0),
+        totalDiscount: Number(statement['totalDiscount'] || 0),
+        netPayable: Number(statement['netCharges'] || 0),
+        totalPaid: Number(statement['previousPayments'] || 0),
+        balance: Number(statement['balanceDue'] || 0),
+        securityDepositHeld: Number(statement['securityAvailable'] || 0),
+        securityDepositApplied: Number(statement['securityAdjusted'] || 0),
+        advanceCreditBalance: Number(statement['advanceCreditBalance'] || 0),
+      },
+      hospital: readStoredHospitalDocumentInfo(),
+      generatedBy: readCurrentUserName(),
+    });
+  };
 
   load(): void {
     if (!this.admissionId) {

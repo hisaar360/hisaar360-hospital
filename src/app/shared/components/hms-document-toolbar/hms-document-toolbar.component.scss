@@ -1,0 +1,9 @@
+.hms-doc-toolbar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hms-doc-toolbar.is-disabled {
+  opacity: 0.6;
+}

@@ -1,0 +1,519 @@
+@use './ward-shared.scss';
+@use './ward-modal-shared.scss';
+
+.nursery-dashboard-page {
+  --ward-primary: #2563eb;
+  --ward-primary-soft: #eff6ff;
+}
+
+.nursery-page-header__title {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.nursery-page-header__icon {
+  align-items: center;
+  background: var(--ward-primary-soft);
+  border-radius: 12px;
+  color: var(--ward-primary);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 18px;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.nursery-kpi-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.ward-kpi-card__copy em {
+  color: var(--ward-muted);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.ward-kpi-card--rose .ward-kpi-card__icon {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.nursery-btn-light {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 4px;
+  color: var(--ward-text);
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 32px;
+  padding: 0 12px;
+}
+
+.ward-bed-mgmt-btn {
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 32px;
+  padding: 0 12px;
+}
+
+.ward-bed-mgmt-btn--primary {
+  background: var(--ward-primary);
+  border: 1px solid var(--ward-primary);
+  color: #fff;
+}
+
+.nursery-layout {
+  align-items: start;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.nursery-layout__main {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.nursery-table-panel .ward-panel__head h2 {
+  font-size: 14px;
+}
+
+.ward-data-table tbody tr {
+  cursor: pointer;
+}
+
+.ward-data-table tbody tr.is-selected {
+  background: var(--ward-primary-soft);
+}
+
+.nursery-baby-cell {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 180px;
+}
+
+.nursery-baby-cell strong {
+  display: block;
+  font-size: 12px;
+}
+
+.nursery-baby-cell small {
+  color: var(--ward-muted);
+  display: block;
+  font-size: 10px;
+}
+
+.nursery-avatar {
+  align-items: center;
+  background: #e2e8f0;
+  border-radius: 10px;
+  color: #475569;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  height: 36px;
+  justify-content: center;
+  overflow: hidden;
+  width: 36px;
+}
+
+.nursery-avatar.has-photo {
+  background: #fff;
+}
+
+.nursery-avatar img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.nursery-avatar--lg {
+  border-radius: 14px;
+  font-size: 16px;
+  height: 72px;
+  width: 72px;
+}
+
+.nursery-actions-cell {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.nursery-menu {
+  position: relative;
+}
+
+.nursery-menu__trigger {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 8px;
+  color: #64748b;
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.nursery-menu__panel {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  display: grid;
+  min-width: 160px;
+  overflow: hidden;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+}
+
+.nursery-menu__panel button,
+.nursery-menu__panel a {
+  background: #fff;
+  border: 0;
+  color: var(--ward-text);
+  font-size: 12px;
+  padding: 8px 12px;
+  text-align: left;
+  text-decoration: none;
+}
+
+.nursery-menu__panel button:hover,
+.nursery-menu__panel a:hover {
+  background: #f8fafc;
+}
+
+.nursery-bottom-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.nursery-mini-card .ward-panel__head {
+  align-items: center;
+}
+
+.nursery-mini-card .ward-panel__head h3 {
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.nursery-mini-card .ward-panel__head a {
+  color: var(--ward-primary);
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.nursery-mini-list {
+  display: grid;
+  gap: 0;
+  padding: 4px 0;
+}
+
+.nursery-mini-row {
+  align-items: center;
+  border-bottom: 1px solid #f1f5f9;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  padding: 8px 12px;
+}
+
+.nursery-mini-row strong {
+  font-size: 12px;
+}
+
+.nursery-mini-row span {
+  color: var(--ward-muted);
+  font-size: 11px;
+}
+
+.nursery-mini-row em {
+  color: #64748b;
+  font-size: 10px;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.nursery-mini-empty {
+  color: var(--ward-muted);
+  font-size: 12px;
+  margin: 0;
+  padding: 16px 12px;
+}
+
+.nursery-overview-panel {
+  position: sticky;
+  top: 12px;
+}
+
+.nursery-overview-hero {
+  align-items: center;
+  border-bottom: 1px solid var(--ward-border);
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+}
+
+.nursery-overview-hero h3 {
+  font-size: 14px;
+  font-weight: 800;
+  margin: 0 0 4px;
+}
+
+.nursery-overview-hero p {
+  color: var(--ward-muted);
+  font-size: 11px;
+  margin: 0;
+}
+
+.nursery-overview-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 8px 12px;
+}
+
+.nursery-overview-list > div {
+  align-items: start;
+  border-bottom: 1px solid #f1f5f9;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 110px 1fr;
+  padding: 7px 0;
+}
+
+.nursery-overview-list dt {
+  color: var(--ward-muted);
+  font-size: 10px;
+  font-weight: 700;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.nursery-overview-list dd {
+  font-size: 12px;
+  margin: 0;
+}
+
+.nursery-quick-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 10px 12px;
+}
+
+.nursery-quick-grid button {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid var(--ward-border);
+  border-radius: 10px;
+  color: var(--ward-text);
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  min-height: 68px;
+  padding: 8px;
+}
+
+.nursery-quick-grid button i {
+  color: var(--ward-primary);
+  font-size: 14px;
+}
+
+.nursery-quick-grid button span {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.nursery-overview-cta {
+  margin: 0 12px 12px;
+  width: calc(100% - 24px);
+}
+
+.nursery-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.nursery-skeleton-kpi,
+.nursery-skeleton-row,
+.nursery-skeleton-block {
+  animation: nursery-pulse 1.4s ease-in-out infinite;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  border-radius: 10px;
+}
+
+.nursery-skeleton-kpi {
+  min-height: 64px;
+}
+
+.nursery-skeleton-row {
+  height: 42px;
+  margin: 8px 12px;
+}
+
+.nursery-skeleton-block {
+  height: 84px;
+  margin: 12px;
+}
+
+@keyframes nursery-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.nursery-mobile-cards {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+}
+
+.nursery-mobile-card {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.nursery-mobile-card__head {
+  align-items: start;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.nursery-mobile-card p {
+  color: var(--ward-muted);
+  font-size: 11px;
+  margin: 0 0 4px;
+}
+
+.nursery-mobile-card__actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.nursery-modal-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 16px;
+  position: fixed;
+  z-index: 100030;
+}
+
+.nursery-modal {
+  max-width: 460px;
+  width: 100%;
+}
+
+.nursery-modal__body {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.nursery-modal__footer {
+  border-top: 1px solid var(--ward-border);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 10px 12px;
+}
+
+.hms-field {
+  display: grid;
+  gap: 6px;
+}
+
+.hms-field__label {
+  color: var(--ward-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hms-field input,
+.hms-field select {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 8px;
+  min-height: 42px;
+  padding: 0 10px;
+}
+
+.desktop-only {
+  display: block;
+}
+
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 1399px) {
+  .nursery-layout {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .nursery-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .nursery-overview-panel {
+    position: static;
+  }
+
+  .nursery-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .nursery-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  .nursery-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  .mobile-only {
+    display: block;
+  }
+
+  .nursery-page-header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .ward-page-header__actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}

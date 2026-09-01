@@ -1,0 +1,112 @@
+.ward-mar-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ward-mar-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.85rem;
+}
+
+.ward-mar-card__head {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ward-mar-card__head h4 {
+  margin: 0 0 0.2rem;
+}
+
+.ward-mar-card__head p {
+  color: #64748b;
+  margin: 0;
+}
+
+.ward-mar-pharmacy-status {
+  background: #eff6ff;
+  border-radius: 999px;
+  color: #1d4ed8;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+}
+
+.ward-mar-meta {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin: 0.65rem 0;
+}
+
+.ward-mar-meta dt {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.ward-mar-meta dd {
+  margin: 0;
+}
+
+.ward-mar-timeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.ward-mar-slot {
+  background: #f8fafc;
+  border: 1px solid #dbe4ef;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 88px;
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+}
+
+.ward-mar-slot--given { background: #ecfdf5; border-color: #86efac; }
+.ward-mar-slot--due { background: #fff7ed; border-color: #fdba74; }
+.ward-mar-slot--late { background: #fef2f2; border-color: #fca5a5; }
+.ward-mar-slot--upcoming { background: #f8fafc; }
+
+.ward-mar-record-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 1rem;
+  position: fixed;
+  z-index: 1200;
+}
+
+.ward-mar-record-dialog {
+  max-width: 420px;
+  padding: 1rem;
+  width: 100%;
+}
+
+.ward-mar-record-dialog footer {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 390px) {
+  .ward-mar-record-backdrop {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .ward-mar-record-dialog {
+    border-radius: 0;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: 100vh;
+    max-width: none;
+  }
+}

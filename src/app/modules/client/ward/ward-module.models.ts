@@ -34,6 +34,8 @@ export interface WardModuleRowMeta {
   patientId?: string;
   admissionId?: string;
   prescriptionId?: string;
+  recommendationId?: string;
+  rowSource?: 'admission_recommendation' | 'room_allotment' | 'ward_activity';
   fluidIndex?: number;
   fluidName?: string;
   fluidStatus?: 'planned' | 'running' | 'completed';
@@ -65,6 +67,7 @@ export interface WardModuleReportCard {
   title: string;
   description: string;
   actionLabel: string;
+  category?: string;
 }
 
 export interface WardModuleHierarchyNode {

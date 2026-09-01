@@ -75,6 +75,13 @@ import {
   User,
   Warehouse,
 } from '../../shared/models/hospital.model';
+import {
+  BirthCertificateCorrectResult,
+  BirthCertificateDetail,
+  BirthCertificateIssueResult,
+  BirthCertificateVerificationResult,
+  BirthRecordMotherContext,
+} from '../../shared/models/birth-records.model';
 
 interface AvailableAppointmentSlotsResponse {
   date: string;
@@ -1281,6 +1288,42 @@ export class BackendService {
     );
   }
 
+  getWardControlCenter(): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.ward}/control-center`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getPatientUpdates(admissionId: string): Observable<{ items: Record<string, unknown>[] }> {
+    return this.get<{ items: Record<string, unknown>[] }>(`${CONFIG.ward}/admissions/${admissionId}/updates`).pipe(
+      map((response) => this.unwrapData(response) as { items: Record<string, unknown>[] })
+    );
+  }
+
+  getPatientAdmissionHistory(
+    patientId: string,
+    excludeAdmissionId?: string
+  ): Observable<{ items: Record<string, unknown>[] }> {
+    const query = excludeAdmissionId ? `?excludeAdmissionId=${excludeAdmissionId}` : '';
+    return this.get<{ items: Record<string, unknown>[] }>(`${CONFIG.ward}/patients/${patientId}/admission-history${query}`).pipe(
+      map((response) => this.unwrapData(response) as { items: Record<string, unknown>[] })
+    );
+  }
+
+  listNotifications(params: Record<string, unknown> = {}): Observable<{ items: unknown[]; unreadCount?: number }> {
+    return this.get<{ items: unknown[]; unreadCount?: number }>(`${CONFIG.notifications}`, params).pipe(
+      map((response) => this.unwrapData(response) as { items: unknown[]; unreadCount?: number })
+    );
+  }
+
+  markNotificationRead(id: string): Observable<unknown> {
+    return this.patch<unknown>(`${CONFIG.notifications}/${id}/read`, {});
+  }
+
+  markAllNotificationsRead(): Observable<unknown> {
+    return this.patch<unknown>(`${CONFIG.notifications}/read-all`, {});
+  }
+
   acknowledgeWardActivity(id: string): Observable<ApiResponse<Record<string, unknown>>> {
     return this.post<Record<string, unknown>>(`${CONFIG.ward}/activities/${id}/acknowledge`, {});
   }
@@ -1565,6 +1608,12 @@ export class BackendService {
     );
   }
 
+  getDepartmentPerformance(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/department-performance`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
   getReportDoctors(params?: Record<string, unknown>): Observable<Array<Record<string, unknown>>> {
     return this.get<Array<Record<string, unknown>>>(`${CONFIG.accounts}/report-doctors`, params).pipe(
       map((response) => this.unwrapData(response))
@@ -1615,6 +1664,167 @@ export class BackendService {
 
   createAdmissionRecommendation(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
     return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/admission-recommendations`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getAdmissionRecommendation(recommendationId: string): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.wardBilling}/admission-recommendations/${recommendationId}`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  updateAdmissionRecommendation(recommendationId: string, payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.patch<Record<string, unknown>>(`${CONFIG.wardBilling}/admission-recommendations/${recommendationId}`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  cancelAdmissionRecommendation(recommendationId: string, payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/admission-recommendations/${recommendationId}/cancel`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  acknowledgeAdmissionRecommendation(recommendationId: string): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/admission-recommendations/${recommendationId}/acknowledge`, {}).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getAdmissionRecommendationLookups(params?: Record<string, unknown>): Observable<{
+    doctors: Doctor[];
+    departments: Department[];
+    wards: HospitalWard[];
+  }> {
+    return this.get<{ doctors: Doctor[]; departments: Department[]; wards: HospitalWard[] }>(
+      `${CONFIG.wardBilling}/admission-recommendations/lookups`,
+      params
+    ).pipe(map((response) => this.unwrapData(response)));
+  }
+
+  getHospitalMasterDataOverview(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.baseUrl}/hospital-master-data/overview`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  syncHospitalMasterDataTemplates(payload?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.baseUrl}/hospital-master-data/sync-templates`, payload || {}).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getNurseryDashboard(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.baseUrl}/nursery/dashboard`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listNurseryNewborns(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
+    return this.get<PaginatedResponse<Record<string, unknown>>>(`${CONFIG.baseUrl}/nursery`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  registerNurseryNewborn(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.baseUrl}/nursery`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getNurseryNewborn(id: string): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.baseUrl}/nursery/${id}`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createNurseryFeeding(id: string, payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.baseUrl}/nursery/${id}/feedings`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getBirthRecordsDashboard(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.baseUrl}/birth-records/dashboard`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listBirthRecords(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
+    return this.get<PaginatedResponse<Record<string, unknown>>>(`${CONFIG.baseUrl}/birth-records`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createBirthRecord(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.baseUrl}/birth-records`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getBirthRecord(id: string): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.baseUrl}/birth-records/${id}`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  updateBirthRecord(id: string, payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.patch<Record<string, unknown>>(`${CONFIG.baseUrl}/birth-records/${id}`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  verifyBirthRecord(id: string): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.baseUrl}/birth-records/${id}/verify`, {}).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getBirthRecordMotherContext(motherPatientId: string): Observable<BirthRecordMotherContext> {
+    return this.get<BirthRecordMotherContext>(`${CONFIG.baseUrl}/birth-records/mother/${motherPatientId}/context`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getMotherNewborns(motherPatientId: string): Observable<Array<Record<string, unknown>>> {
+    return this.get<Array<Record<string, unknown>>>(`${CONFIG.baseUrl}/birth-records/mother/${motherPatientId}/newborns`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  issueBirthCertificate(birthRecordId: string): Observable<BirthCertificateIssueResult> {
+    return this.post<BirthCertificateIssueResult>(`${CONFIG.baseUrl}/birth-records/${birthRecordId}/certificates`, {}).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getBirthCertificate(id: string): Observable<BirthCertificateDetail> {
+    return this.get<BirthCertificateDetail>(`${CONFIG.baseUrl}/birth-records/certificates/${id}`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  correctBirthCertificate(id: string, payload: Record<string, unknown>): Observable<BirthCertificateCorrectResult> {
+    return this.post<BirthCertificateCorrectResult>(`${CONFIG.baseUrl}/birth-records/certificates/${id}/correct`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  revokeBirthCertificate(id: string, payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.baseUrl}/birth-records/certificates/${id}/revoke`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  recordBirthCertificatePrint(id: string): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.baseUrl}/birth-records/certificates/${id}/print`, {}).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  verifyBirthCertificatePublic(code: string): Observable<BirthCertificateVerificationResult> {
+    return this.get<BirthCertificateVerificationResult>(`${CONFIG.baseUrl}/public/birth-certificates/verify/${encodeURIComponent(code)}`).pipe(
       map((response) => this.unwrapData(response))
     );
   }

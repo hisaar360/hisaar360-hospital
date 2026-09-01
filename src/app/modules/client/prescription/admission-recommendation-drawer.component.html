@@ -1,0 +1,559 @@
+<div class="admission-modal-backdrop" *ngIf="open" (click)="closeDrawer()">
+  <div class="admission-modal" role="dialog" aria-labelledby="admission-modal-title" (click)="$event.stopPropagation()">
+    <header class="admission-modal__header">
+      <div class="admission-modal__header-main">
+        <div class="admission-modal__title-block">
+          <h3 id="admission-modal-title">Admission Recommendation</h3>
+          <div class="admission-modal__meta">
+            <strong>{{ patientDisplayName() }}</strong>
+            <span>MR {{ patient?.patientNo || '—' }}</span>
+            <span>{{ patientAgeLabel() }} • {{ patientGenderLabel() }}</span>
+            <span>APT {{ appointment?.appointmentNo || '—' }}</span>
+            <span>{{ encounterDisplayLabel() }}</span>
+          </div>
+        </div>
+
+        <div class="admission-modal__header-actions">
+          <app-hms-document-toolbar
+            *ngIf="record"
+            [title]="'Admission Recommendation'"
+            [filename]="(record.orderNo || 'admission-recommendation') + '.pdf'"
+            [getHtml]="buildAdmissionRecommendationDocumentHtml"
+          ></app-hms-document-toolbar>
+          <button type="button" class="modal-close-btn" aria-label="Close" (click)="closeDrawer()">&times;</button>
+        </div>
+      </div>
+
+      <nav class="admission-modal__tabs" aria-label="Admission recommendation sections">
+        <button
+          type="button"
+          *ngFor="let tab of tabs"
+          [class.is-active]="activeSection === tab.id"
+          (click)="setSection(tab.id)"
+        >
+          <i class="fa" [ngClass]="tab.icon"></i>
+          <span>{{ tab.label }}</span>
+        </button>
+      </nav>
+    </header>
+
+    <div class="admission-modal__body">
+      <section class="admission-success-panel" *ngIf="recommendationSuccess as success" data-testid="admission-recommendation-success">
+        <header class="admission-success-panel__head">
+          <h3>Admission Recommended</h3>
+          <p>This is a recommendation only — the patient has <strong>NOT</strong> been admitted yet.</p>
+        </header>
+        <dl class="admission-success-panel__grid">
+          <div><dt>Order No</dt><dd>{{ success.orderNo || '—' }}</dd></div>
+          <div><dt>Patient</dt><dd>{{ patientDisplayName() }}</dd></div>
+          <div><dt>Recommended Ward</dt><dd>{{ recommendedWardLabel(success) }}</dd></div>
+          <div><dt>Priority</dt><dd>{{ success.priority || 'routine' }}</dd></div>
+          <div><dt>Recommended By</dt><dd>{{ recommendedByLabel(success) }}</dd></div>
+          <div><dt>Sent At</dt><dd>{{ success.recommendedAt || success.createdAt | date:'medium' }}</dd></div>
+        </dl>
+        <article class="admission-success-panel__next hms-card">
+          <h4>WHAT HAPPENS NEXT?</h4>
+          <p>
+            This admission request has been sent to Ward Reception. The patient has NOT been admitted yet.
+            Ward Reception will review the recommendation, select the actual Ward / Room / Bed and complete the admission.
+          </p>
+          <div class="admission-success-panel__actions">
+            <button type="button" class="btn-primary" (click)="viewAdmissionOrder()" data-testid="admission-view-order">View Admission Order</button>
+            <button type="button" class="btn-light" (click)="openAdmissionGuide()">Open Admission Guide</button>
+            <button type="button" class="btn-light" *ngIf="canGoToPendingAdmissions" (click)="goToPendingAdmissions()">Go to Pending Admissions</button>
+          </div>
+        </article>
+      </section>
+
+      <ng-container *ngIf="!recommendationSuccess">
+      <div class="admission-modal__loading" *ngIf="lookupsLoading" data-testid="admission-lookups-loading">
+        <i class="fa fa-spinner fa-spin"></i> Loading form data…
+      </div>
+      <div class="admission-modal__hint admission-modal__hint--warn" *ngIf="lookupsError" data-testid="admission-lookups-error">{{ lookupsError }}</div>
+      <div class="admission-modal__hint admission-modal__hint--warn" *ngIf="lookupsWarning" data-testid="admission-lookups-warning">{{ lookupsWarning }}</div>
+      <div class="admission-modal__hint admission-modal__hint--warn" *ngIf="validationErrors.length" data-testid="admission-validation-errors">
+        Required: {{ validationErrors.join(', ') }}
+      </div>
+
+      <form [formGroup]="form" class="admission-modal__form" [class.is-loading]="lookupsLoading" data-testid="admission-recommendation-form">
+        <!-- ADMISSION -->
+        <section *ngIf="activeSection === 'admission'" class="admission-panel">
+          <div class="admission-grid admission-grid--4">
+            <label class="hms-form-field">
+              <span class="hms-form-field__label">Urgency *</span>
+              <select formControlName="urgency">
+                <option *ngFor="let item of urgencyOptions" [value]="item.value">{{ item.label }}</option>
+              </select>
+            </label>
+            <label class="hms-form-field">
+              <span class="hms-form-field__label">Level of Care *</span>
+              <select formControlName="levelOfCare">
+                <option *ngFor="let item of levelOptions" [value]="item.value">{{ item.label }}</option>
+              </select>
+            </label>
+            <label class="hms-form-field">
+              <span class="hms-form-field__label">Priority *</span>
+              <select formControlName="priority">
+                <option *ngFor="let item of priorityOptions" [value]="item.value">{{ item.label }}</option>
+              </select>
+            </label>
+            <label class="hms-form-field">
+              <span class="hms-form-field__label">Expected Timing *</span>
+              <select formControlName="expectedTiming">
+                <option *ngFor="let item of timingOptions" [value]="item.value">{{ item.label }}</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="admission-grid admission-grid--4 admission-grid--aligned">
+            <hms-doctor-select
+              formControlName="consultantDoctorId"
+              [doctors]="doctorOptions"
+              [previewDoctor]="selectedConsultantDoctor()"
+              [loading]="lookupsLoading"
+              [required]="true"
+              [disabled]="readOnly || lookupsLoading"
+              data-testid="admission-consultant-doctor"
+              testId="admission-consultant-doctor"
+              (doctorChange)="onConsultantDoctorSelected($event)"
+            ></hms-doctor-select>
+
+            <label class="hms-form-field">
+              <span class="hms-form-field__label">Department</span>
+              <select formControlName="departmentId" data-testid="admission-department">
+                <option value="">Select department</option>
+                <option *ngFor="let item of departments" [value]="item._id">{{ item.name }}</option>
+              </select>
+            </label>
+
+            <label class="hms-form-field">
+              <span class="hms-form-field__label">Recommended Ward</span>
+              <select formControlName="recommendedWard" data-testid="admission-recommended-ward">
+                <option value="">Select ward (recommendation only)</option>
+                <option *ngFor="let ward of filteredWards()" [value]="ward.name">{{ ward.name }}</option>
+              </select>
+            </label>
+
+            <label class="hms-form-field">
+              <span class="hms-form-field__label">Admission Type</span>
+              <select formControlName="admissionType">
+                <option *ngFor="let item of admissionTypeOptions" [value]="item.value">{{ item.label }}</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="admission-field" *ngIf="form.get('expectedTiming')?.value === 'scheduled'">
+            <span>Scheduled Date/Time</span>
+            <input type="datetime-local" formControlName="scheduledAt" />
+          </label>
+
+          <div class="admission-grid admission-grid--3">
+            <label class="admission-field admission-field--wide">
+              <span>Reason for Admission *</span>
+              <textarea rows="3" formControlName="reasonForAdmission" data-testid="admission-reason"></textarea>
+            </label>
+            <label class="admission-field admission-field--wide">
+              <span>Provisional Diagnosis *</span>
+              <textarea rows="3" formControlName="provisionalDiagnosis" data-testid="admission-diagnosis"></textarea>
+            </label>
+            <label class="admission-field admission-field--wide">
+              <span>Differential Diagnosis</span>
+              <textarea rows="3" formControlName="differentialDiagnosis"></textarea>
+            </label>
+          </div>
+        </section>
+
+        <!-- CLINICAL SUMMARY -->
+        <section *ngIf="activeSection === 'clinical'" class="admission-panel">
+          <div class="admission-card">
+            <h4>Clinical Presentation</h4>
+            <div class="admission-grid admission-grid--2">
+              <label class="admission-field admission-field--wide">
+                <span>Chief Complaint</span>
+                <textarea rows="2" formControlName="chiefComplaint"></textarea>
+              </label>
+              <label class="admission-field admission-field--wide">
+                <span>Current Symptoms</span>
+                <textarea rows="2" formControlName="symptoms"></textarea>
+              </label>
+              <label class="admission-field">
+                <span>Duration of Symptoms</span>
+                <input formControlName="symptomDuration" />
+              </label>
+            </div>
+          </div>
+
+          <div class="admission-card">
+            <h4>Admission Assessment</h4>
+            <div class="admission-grid admission-grid--3">
+              <label class="admission-field admission-field--wide">
+                <span>Reason for Admission *</span>
+                <textarea rows="3" formControlName="reasonForAdmission" data-testid="admission-reason"></textarea>
+              </label>
+              <label class="admission-field admission-field--wide">
+                <span>Provisional Diagnosis *</span>
+                <textarea rows="3" formControlName="provisionalDiagnosis" data-testid="admission-diagnosis"></textarea>
+              </label>
+              <label class="admission-field admission-field--wide">
+                <span>Differential Diagnosis</span>
+                <textarea rows="3" formControlName="differentialDiagnosis"></textarea>
+              </label>
+            </div>
+          </div>
+
+          <div class="admission-card">
+            <h4>Clinical Findings</h4>
+            <div class="admission-grid admission-grid--2">
+              <label class="admission-field admission-field--wide">
+                <span>Relevant History</span>
+                <textarea rows="3" formControlName="relevantHistory"></textarea>
+              </label>
+              <label class="admission-field admission-field--wide">
+                <span>Examination Findings</span>
+                <textarea rows="3" formControlName="examinationFindings"></textarea>
+              </label>
+            </div>
+          </div>
+
+          <div class="admission-card">
+            <h4>Vitals</h4>
+            <div class="admission-vitals-row" formGroupName="vitals">
+              <label class="admission-vital">
+                <span><i class="fa fa-thermometer-half"></i> Temperature</span>
+                <div class="admission-vital__input"><input formControlName="temperature" /><em>°C</em></div>
+              </label>
+              <label class="admission-vital">
+                <span><i class="fa fa-heartbeat"></i> Pulse</span>
+                <div class="admission-vital__input"><input formControlName="pulse" /><em>bpm</em></div>
+              </label>
+              <label class="admission-vital">
+                <span><i class="fa fa-tachometer"></i> BP</span>
+                <div class="admission-vital__input"><input formControlName="bp" /><em>mmHg</em></div>
+              </label>
+              <label class="admission-vital">
+                <span><i class="fa fa-cloud"></i> RR</span>
+                <div class="admission-vital__input"><input formControlName="respiratoryRate" /><em>/min</em></div>
+              </label>
+              <label class="admission-vital">
+                <span><i class="fa fa-heartbeat"></i> SpO2</span>
+                <div class="admission-vital__input"><input formControlName="spo2" /><em>%</em></div>
+              </label>
+              <label class="admission-vital">
+                <span><i class="fa fa-balance-scale"></i> Weight</span>
+                <div class="admission-vital__input"><input formControlName="weight" /><em>kg</em></div>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <!-- INITIAL ORDERS -->
+        <section *ngIf="activeSection === 'orders'" class="admission-panel">
+          <div class="admission-card">
+            <h4>Investigations</h4>
+            <label class="admission-field admission-field--wide">
+              <span>Lab Tests</span>
+              <textarea rows="3" formControlName="labTests" placeholder="One test per line"></textarea>
+            </label>
+            <label class="admission-field admission-field--wide">
+              <span>Imaging</span>
+              <textarea rows="2" formControlName="imaging" placeholder="One study per line"></textarea>
+            </label>
+            <label class="admission-field admission-field--wide">
+              <span>Other Investigations</span>
+              <textarea rows="2" formControlName="otherInvestigations"></textarea>
+            </label>
+          </div>
+
+          <div class="admission-card">
+            <h4>Procedures &amp; Consults</h4>
+            <div class="admission-grid admission-grid--2">
+              <label class="admission-field admission-field--wide">
+                <span>Proposed Procedures</span>
+                <textarea rows="3" formControlName="proposedProcedures"></textarea>
+              </label>
+              <label class="admission-field admission-field--wide">
+                <span>Specialist Consultations</span>
+                <textarea rows="3" formControlName="specialistConsults"></textarea>
+              </label>
+            </div>
+            <label class="admission-field admission-field--wide">
+              <span>Treatment Plan</span>
+              <textarea rows="2" formControlName="treatmentPlan"></textarea>
+            </label>
+            <label class="admission-field admission-field--wide">
+              <span>Clinical Goals</span>
+              <textarea rows="2" formControlName="clinicalGoals"></textarea>
+            </label>
+          </div>
+
+          <div class="admission-card">
+            <div class="admission-card__head">
+              <h4>Medications</h4>
+              <button type="button" class="btn-light" (click)="addMedicationRow()"><i class="fa fa-plus"></i> Add Medication</button>
+            </div>
+
+            <div class="admission-med-table admission-med-table--desktop" formArrayName="medications">
+              <div class="admission-med-table__head">
+                <span>Medicine</span>
+                <span>Dose</span>
+                <span>Route</span>
+                <span>Frequency</span>
+                <span>Duration</span>
+                <span>PRN</span>
+                <span>Notes</span>
+                <span></span>
+              </div>
+              <div class="admission-med-table__row" *ngFor="let med of medications.controls; let i = index" [formGroupName]="i">
+                <input formControlName="name" placeholder="Medicine" />
+                <input formControlName="dose" placeholder="Dose" />
+                <input formControlName="route" placeholder="Route" />
+                <input formControlName="frequency" placeholder="Frequency" />
+                <input formControlName="duration" placeholder="Duration" />
+                <label class="admission-med-prn"><input type="checkbox" formControlName="prn" /> PRN</label>
+                <input formControlName="notes" placeholder="Notes" />
+                <button type="button" class="btn-light" (click)="removeMedicationRow(i)">Remove</button>
+              </div>
+            </div>
+
+            <div class="admission-med-cards admission-med-cards--mobile" formArrayName="medications">
+              <article class="admission-med-card" *ngFor="let med of medications.controls; let i = index" [formGroupName]="i">
+                <label class="admission-field"><span>Medicine</span><input formControlName="name" /></label>
+                <div class="admission-grid admission-grid--2">
+                  <label class="admission-field"><span>Dose</span><input formControlName="dose" /></label>
+                  <label class="admission-field"><span>Route</span><input formControlName="route" /></label>
+                  <label class="admission-field"><span>Frequency</span><input formControlName="frequency" /></label>
+                  <label class="admission-field"><span>Duration</span><input formControlName="duration" /></label>
+                </div>
+                <label class="admission-field"><span>Notes</span><input formControlName="notes" /></label>
+                <label class="admission-med-prn"><input type="checkbox" formControlName="prn" /> PRN</label>
+                <button type="button" class="btn-light" (click)="removeMedicationRow(i)">Remove</button>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <!-- MONITORING & NURSING -->
+        <section *ngIf="activeSection === 'monitoring'" class="admission-panel">
+          <div class="admission-grid admission-grid--3">
+            <label class="admission-field">
+              <span>Vitals Frequency</span>
+              <select formControlName="vitalsFrequency">
+                <option *ngFor="let item of vitalsFrequencyOptions" [value]="item.value">{{ item.label }}</option>
+              </select>
+            </label>
+            <label class="admission-field">
+              <span>Activity</span>
+              <select formControlName="activityOrder">
+                <option *ngFor="let item of activityOptions" [value]="item.value">{{ item.label }}</option>
+              </select>
+            </label>
+            <label class="admission-field">
+              <span>Diet</span>
+              <select formControlName="diet">
+                <option *ngFor="let item of dietOptions" [value]="item.value">{{ item.label }}</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="admission-card">
+            <h4>Monitoring</h4>
+            <div class="admission-option-grid" formGroupName="monitoring">
+              <button
+                type="button"
+                class="admission-option-card"
+                *ngFor="let option of monitoringOptions"
+                [class.is-selected]="isMonitoringChecked(option.key)"
+                (click)="toggleMonitoring(option.key)"
+              >
+                <i class="fa" [ngClass]="option.icon"></i>
+                <span>{{ option.label }}</span>
+                <i class="fa fa-check admission-option-card__check" *ngIf="isMonitoringChecked(option.key)"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="admission-card">
+            <div class="admission-toggle-row">
+              <div>
+                <strong>IV Access Required</strong>
+                <small>Enable to specify IV fluid orders</small>
+              </div>
+              <button type="button" class="admission-toggle" [class.on]="isSwitchOn('ivAccessRequired')" (click)="toggleSwitch('ivAccessRequired')">
+                <i></i>
+              </button>
+            </div>
+            <div class="admission-subcard" *ngIf="isSwitchOn('ivAccessRequired')">
+              <div class="admission-grid admission-grid--3">
+                <label class="admission-field"><span>Fluid</span><input formControlName="ivFluid" /></label>
+                <label class="admission-field"><span>Rate</span><input formControlName="ivRate" /></label>
+                <label class="admission-field"><span>Duration</span><input formControlName="ivDuration" /></label>
+              </div>
+            </div>
+          </div>
+
+          <div class="admission-card">
+            <div class="admission-toggle-row">
+              <div>
+                <strong>Oxygen Required</strong>
+                <small>Enable to specify oxygen therapy</small>
+              </div>
+              <button type="button" class="admission-toggle" [class.on]="isSwitchOn('oxygenRequired')" (click)="toggleSwitch('oxygenRequired')">
+                <i></i>
+              </button>
+            </div>
+            <div class="admission-subcard" *ngIf="isSwitchOn('oxygenRequired')">
+              <div class="admission-grid admission-grid--3">
+                <label class="admission-field"><span>Device</span><input formControlName="oxygenDevice" /></label>
+                <label class="admission-field"><span>Flow / Target</span><input formControlName="oxygenFlow" /></label>
+                <label class="admission-field"><span>Notes</span><input formControlName="oxygenNotes" /></label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SAFETY / PRECAUTIONS -->
+        <section *ngIf="activeSection === 'safety'" class="admission-panel">
+          <div class="admission-card">
+            <h4>Medication Safety</h4>
+            <div class="admission-grid admission-grid--2">
+              <label class="admission-field admission-field--wide">
+                <span>Drug Allergies</span>
+                <textarea rows="2" formControlName="drugAllergies"></textarea>
+              </label>
+              <label class="admission-field admission-field--wide">
+                <span>Current Medications</span>
+                <textarea rows="2" formControlName="currentMedications"></textarea>
+              </label>
+            </div>
+            <label class="admission-field">
+              <span>Medication Reconciliation</span>
+              <select formControlName="medReconciliationStatus">
+                <option *ngFor="let item of medReconciliationOptions" [value]="item.value">{{ item.label }}</option>
+              </select>
+            </label>
+            <label class="admission-field admission-field--wide">
+              <span>Known Allergies</span>
+              <textarea rows="2" formControlName="knownAllergies"></textarea>
+            </label>
+          </div>
+
+          <div class="admission-card">
+            <h4>Isolation Precautions</h4>
+            <div class="admission-chip-row">
+              <button
+                type="button"
+                class="admission-chip"
+                [class.is-selected]="form.get('isolationRequired')?.value === 'no'"
+                (click)="form.get('isolationRequired')?.setValue('no')"
+              >
+                No
+              </button>
+              <button
+                type="button"
+                class="admission-chip"
+                *ngFor="let item of isolationTypeOptions"
+                [class.is-selected]="form.get('isolationRequired')?.value === 'yes' && form.get('isolationType')?.value === item.value"
+                (click)="form.patchValue({ isolationRequired: 'yes', isolationType: item.value })"
+              >
+                {{ item.label }}
+              </button>
+            </div>
+          </div>
+
+          <div class="admission-card">
+            <h4>VTE / Bleeding</h4>
+            <div class="admission-grid admission-grid--3">
+              <label class="admission-field">
+                <span>VTE Assessment</span>
+                <select formControlName="vteAssessment">
+                  <option *ngFor="let item of vteOptions" [value]="item.value">{{ item.label }}</option>
+                </select>
+              </label>
+              <label class="admission-field">
+                <span>Bleeding Risk</span>
+                <select formControlName="bleedingRisk">
+                  <option *ngFor="let item of bleedingOptions" [value]="item.value">{{ item.label }}</option>
+                </select>
+              </label>
+              <label class="admission-field">
+                <span>Prophylaxis Decision</span>
+                <select formControlName="prophylaxisDecision">
+                  <option *ngFor="let item of prophylaxisOptions" [value]="item.value">{{ item.label }}</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <!-- ADDITIONAL INSTRUCTIONS -->
+        <section *ngIf="activeSection === 'handover'" class="admission-panel">
+          <div class="admission-card">
+            <h4>Receiving Ward Instructions</h4>
+            <label class="admission-field admission-field--wide">
+              <span>Instructions for receiving ward</span>
+              <textarea rows="3" formControlName="receivingWardInstructions"></textarea>
+            </label>
+          </div>
+          <div class="admission-card">
+            <h4>Additional Instructions</h4>
+            <label class="admission-field admission-field--wide">
+              <span>Additional instructions</span>
+              <textarea rows="3" formControlName="additionalInstructions"></textarea>
+            </label>
+          </div>
+          <div class="admission-card">
+            <h4>Special Instructions / Handover</h4>
+            <label class="admission-field admission-field--wide">
+              <span>Special instructions</span>
+              <textarea rows="3" formControlName="specialInstructions"></textarea>
+            </label>
+          </div>
+        </section>
+      </form>
+
+      <aside class="admission-summary-strip" aria-label="Order summary">
+        <article class="admission-summary-card">
+          <small>Patient</small>
+          <strong>{{ patientDisplayName() }}</strong>
+          <span>MR {{ patient?.patientNo || '—' }}</span>
+          <span>{{ patientAgeLabel() }} • {{ patientGenderLabel() }}</span>
+        </article>
+        <article class="admission-summary-card">
+          <small>Appointment</small>
+          <strong>{{ appointment?.appointmentNo || '—' }}</strong>
+          <span>{{ appointmentDateLabel() }}</span>
+          <span>{{ appointmentTimeLabel() }}</span>
+        </article>
+        <article class="admission-summary-card">
+          <small>Doctor</small>
+          <strong>{{ doctorDisplayName() }}</strong>
+          <span>{{ departmentName() }}</span>
+        </article>
+        <article class="admission-summary-card">
+          <small>Encounter</small>
+          <strong>{{ encounterDisplayLabel() }}</strong>
+          <span>Open</span>
+        </article>
+        <article class="admission-summary-card">
+          <small>Order Status</small>
+          <strong>{{ record?.orderNo ? ('Order ' + record?.orderNo) : 'New Order' }}</strong>
+          <span class="admission-status-pill">{{ statusLabel(record?.status || 'draft') }}</span>
+        </article>
+      </aside>
+      </ng-container>
+    </div>
+
+    <footer class="admission-modal__footer" *ngIf="!recommendationSuccess">
+      <button type="button" class="btn-light" (click)="closeDrawer()">Close</button>
+      <button type="button" class="btn-light" (click)="cancelRecommendation()" *ngIf="canRecommend && record?._id && record?.status !== 'admitted'">
+        Cancel Order
+      </button>
+      <button type="button" class="btn-light" (click)="saveDraft()" [disabled]="saving || readOnly || !canRecommend || lookupsLoading" data-testid="admission-save-draft">Save Draft</button>
+      <button type="button" class="btn-primary" (click)="recommendAdmission()" [disabled]="!canSubmitRecommend" data-testid="admission-recommend-submit">Recommend Admission</button>
+    </footer>
+
+    <footer class="admission-modal__footer" *ngIf="recommendationSuccess">
+      <button type="button" class="btn-primary" (click)="closeDrawer()">Done</button>
+    </footer>
+  </div>
+</div>

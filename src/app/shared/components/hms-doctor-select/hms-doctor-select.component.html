@@ -1,0 +1,62 @@
+<div class="hms-form-field hms-doctor-select" [class.is-open]="open" [class.is-loading]="loading">
+  <span class="hms-form-field__label">
+    {{ label }}<em *ngIf="required"> *</em>
+  </span>
+
+  <div class="hms-doctor-select__loading" *ngIf="loading" data-testid="admission-consultant-doctor-loading">
+    Loading doctors…
+  </div>
+
+  <button
+    type="button"
+    class="hms-doctor-select__trigger"
+    data-testid="admission-consultant-doctor-trigger"
+    [disabled]="disabled || loading"
+    (click)="togglePanel($event)"
+  >
+    <ng-container *ngIf="selectedDoctor() as doctor; else emptyDoctor">
+      <span class="hms-doctor-select__avatar">
+        <img *ngIf="photoUrl(doctor)" [src]="photoUrl(doctor)" alt="" />
+        <span *ngIf="!photoUrl(doctor)">{{ initials(doctor) }}</span>
+      </span>
+      <span class="hms-doctor-select__text">
+        <strong data-testid="admission-consultant-doctor-name">{{ displayName(doctor) }}</strong>
+        <small>{{ profileLine(doctor) || '—' }}</small>
+      </span>
+    </ng-container>
+    <ng-template #emptyDoctor>
+      <span class="hms-doctor-select__placeholder">{{ loading ? 'Loading doctors…' : placeholder }}</span>
+    </ng-template>
+    <i class="fa fa-chevron-down"></i>
+  </button>
+
+  <div class="hms-doctor-select__panel" *ngIf="open" (click)="$event.stopPropagation()" data-testid="admission-consultant-doctor-panel">
+    <input
+      type="search"
+      class="hms-doctor-select__search"
+      [(ngModel)]="search"
+      [ngModelOptions]="{ standalone: true }"
+      placeholder="Search doctors..."
+      autofocus
+    />
+    <div class="hms-doctor-select__options">
+      <button
+        type="button"
+        class="hms-doctor-select__option"
+        *ngFor="let doctor of filteredDoctors()"
+        [attr.data-testid]="'doctor-option-' + doctor._id"
+        (click)="selectDoctor(doctor, $event)"
+      >
+        <span class="hms-doctor-select__avatar">
+          <img *ngIf="photoUrl(doctor)" [src]="photoUrl(doctor)" alt="" />
+          <span *ngIf="!photoUrl(doctor)">{{ initials(doctor) }}</span>
+        </span>
+        <span class="hms-doctor-select__text">
+          <strong>{{ displayName(doctor) }}</strong>
+          <small>{{ profileLine(doctor) || '—' }}</small>
+        </span>
+      </button>
+      <div class="hms-doctor-select__empty" *ngIf="!filteredDoctors().length">No doctors found.</div>
+    </div>
+  </div>
+</div>

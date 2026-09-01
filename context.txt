@@ -2,7 +2,7 @@
 HISAAR360 HOSPITAL MANAGEMENT SYSTEM
 Frontend Application Context  |  Angular Hospital HMS Software
 ================================================================================
-Last updated: 2026-08-30
+Last updated: 2026-09-01
 Document type: Product architecture, UX, and engineering context
 Canonical product name: Hisaar360 Hospital Management System
 Short name: Hisaar360 HMS
@@ -431,17 +431,27 @@ Landing for Doctor: /doctor-dashboard
 
 --- 7.3 Inpatient admission ----------------------------------------------------
 
-  1. Room Allotment create (patient + room)
+  Doctor-led admission recommendation (clinical order; no financial posting):
+  1. Doctor consultation / prescription
+  2. POST /ward-billing/admission-recommendations
+       → AdmissionRecommendation (draft | pending | acknowledged | admitted | cancelled | declined)
+       → orderNo (AOR-YYYY-NNNN), clinicalSnapshot, no RoomAllotment, no admission Encounter
+  3. Ward Receptionist: Ward → Admissions → Pending Orders → Review & Admit
+  4. Actual admission (administrative + financial setup unchanged):
+     Room Allotment create (patient + room + admissionRecommendationId)
        → Encounter type=admission, status=admitted
        → optional advance payment on ledger
-  2. Ward Admin / Nurse: bed board, vitals, MAR, drips, I/O, handover
-  3. Lab orders / pharmacy issues during stay (lab auto-posts to ledger)
-  4. Discharge:
+       → recommendation status=admitted, linked roomAllotmentId / admissionEncounterId
+  5. Ward Admin / Nurse: bed board, vitals, MAR, drips, I/O, handover; read Admission Order / Initial Plan
+  6. Lab orders / pharmacy issues during stay (existing flows)
+  7. Discharge:
        PATCH /room-allotments/:id/discharge
          OR GET /encounters/:id/discharge-preview
             POST /encounters/:id/finalize-discharge
        → bed charges (days × room.chargesPerDay)
        → encounter status = discharged
+
+  See also: docs/HMS_ADMISSION_ORDER_FLOW.md (canonical admission-order workflow)
 
 Landing for Ward Admin / Nurse: /ward/dashboard
 
@@ -725,6 +735,169 @@ hospital pharmacy POS.
 When writing UI copy, error toasts, print headers, or PDF letterheads, prefer
 the hospital/company name from the API, then fall back to
 "Hisaar360 Hospital Management System" — never the old template brand.
+
+
+================================================================================
+8. MASTER DATA, ADMISSION LOOKUPS, NURSERY (2026-09-01)
+================================================================================
+
+DEPARTMENT MASTER
+  - Seeded templates via systemTemplateKey (idempotent upsert; never overwrites custom rows)
+  - status active/inactive (clinical dropdowns: active only)
+  - Admin UI: /departments + /hospital-setup
+
+WARD MASTER (HospitalWard)
+  - departmentMode GENERAL | DEPARTMENT_SPECIFIC; departmentIds[]
+  - genderPolicy, ageGroup, careLevel, type, systemTemplateKey
+  - status active/inactive; operational dropdowns active only
+  - Admin UI: /hospital-setup; beds/rooms via /ward/bed-management
+
+HOSPITAL HIERARCHY
+  Hospital → Ward/Care Unit → optional Floor → Room → Bed
+
+ADMISSION RECOMMENDATION UI
+  - Drawer: admission-recommendation-drawer (prescription Admission Orders)
+  - Bootstrap lookups: GET /ward-billing/admission-recommendations/lookups
+  - Doctor selector: hms-doctor-select (search inside dropdown; doctorId internal)
+  - Recommended Ward is recommendation only; actual allocation = RoomAllotment
+
+NURSERY / NEWBORN
+  - Baby = separate Patient (patientKind=newborn, provisionalLabel)
+  - Mother↔Baby link: newborn_links collection (one mother → many babies)
+  - Operational module: /ward/nursery (NOT ward sidebar Settings)
+  - Birth Records: /ward/nursery/birth-records
+  - Reuses Encounter, MAR, Medicine Request, Lab, Pharmacy on baby patient/encounter
+  - Separate mother/baby discharge
+
+BIRTH RECORD (source of truth)
+  - Collection: birth_records (birthRecordNo e.g. BR-2026-000001)
+  - Status lifecycle: DRAFT → RECORDED → VERIFIED → CERTIFICATE_ISSUED (+ CORRECTED/CANCELLED)
+  - Links: babyPatientId, motherPatientId, optional newbornLinkId / encounters
+  - Supports twins/multiples via multipleBirthGroupId + birthOrder
+  - API: /api/v1/birth-records/*
+
+HOSPITAL BIRTH CERTIFICATE (versioned document snapshot)
+  - Collection: birth_certificates (certificateNo e.g. HBC-2026-000001, version)
+  - Hospital certificate != NADRA B-Form / Union Council civil registration
+  - Immutable snapshot at issuance; corrections create new ACTIVE version, old SUPERSEDED
+  - SHA-256 documentHash + encrypted verification token (server-side only for reprint QR)
+  - Config: Hospital.birthCertificateSettings (Hospital Setup → Birth Certificate tab)
+  - API: POST /birth-records/:id/certificates, POST /certificates/:id/correct|revoke|print
+
+PUBLIC QR VERIFICATION
+  - Public page: /verify/birth/:code (no login)
+  - API: GET /api/v1/public/birth-certificates/verify/:code (rate limited)
+  - QR encodes opaque token only — never Mongo IDs or CNIC
+  - Returns minimal payload: validity, hospital, baby name, DOB, masked mother, version
+
+CERTIFICATE VERSIONING / CIVIL REGISTRATION DISTINCTION
+  - One ACTIVE certificate per birth record (unique partial index)
+  - Civil registration tracked separately on BirthRecord (NOT_APPLIED/APPLIED/REGISTERED)
+  - Permissions: ward.nursery.birth_records.* and ward.nursery.birth_certificates.*
+
+
+================================================================================
+9. DEPARTMENT PERFORMANCE, HELP CENTER, FINANCE CENTRALIZATION (2026-09-01)
+================================================================================
+
+FINANCIAL CHAIN (canonical)
+  Patient → Encounter → ledger_items / ledger_payments → GL journals (posting.service)
+  Do NOT double-count legacy Bill + encounter ledger + GL for the same event.
+
+DEPARTMENT PERFORMANCE REPORT
+  Route: /accounts/department-performance
+  API: GET /api/v1/accounts/department-performance
+  Permission: accounts.reports.read
+  Attribution: Encounter → appointment.departmentId OR consultantDoctor.departmentId
+  Unattributable rows: "Unassigned" (never fabricated)
+  Filters: date range, department, doctor (userId), OPD/IPD, sourceType, paymentStatus
+  KPIs: gross charges, collected, outstanding, known direct cost (pharmacy COGS), gross contribution
+  Tabs: Overview (departments), Doctors, Services, Transactions
+  Export: Excel (.xlsx via xlsx lib — Summary/Departments/Doctors/Transactions/Services)
+  Print/PDF: window.print() with accounts-page styles
+
+HELP CENTER
+  Route: /help and /help/:slug
+  Menu: user dropdown → Help Center
+  Client-side searchable static articles (help-content.data.ts) — no fake features
+  Categories: Getting Started through Troubleshooting
+  Visual workflows: main hospital flow + maternity/newborn flow on homepage
+  Articles document real routes (admit, discharge, nursery, birth certificate, ledger, etc.)
+
+QA NOTE (2026-09-01)
+  Playwright smoke: department report, help center/search, nursery, birth records, ward admissions, bed management PASS.
+  Full end-to-end Scenario A/B IPD+maternity walkthrough: NOT COMPLETED in this session — see docs/HMS_FULL_ACCEPTANCE_QA.md
+
+
+================================================================================
+10. SINGLE-HOSPITAL UX & HOSPITAL SETUP HUB (2026-09-01)
+================================================================================
+
+PLATFORM vs NORMAL HMS USER
+  - Data model / backend still supports multiple Hospital records per company.
+  - Normal hospital users operate in ONE active hospital from authenticated
+    user.hospitalId (see src/app/modules/auth/hospital-scope.ts).
+  - Platform / super-admin users without hospitalId may still use /hospitals
+    and /create-hospital when they have hospitals.read / hospitals.create.
+
+NORMAL HMS NAVIGATION
+  - Sidebar: Hospital Setup (/hospital-setup) — NOT "Hospitals" or standalone Departments.
+  - /hospitals: hospitalPlatformListGuard redirects hospital-scoped users to
+    /hospital-setup (if permitted) or their default dashboard — no multi-hospital UI.
+  - /departments route and component remain for reuse; master-data CRUD is in Hospital Setup.
+
+HOSPITAL SETUP (/hospital-setup)
+  - Master-data / configuration hub (not daily operations).
+  - Permission: any of departments.create, departments.update, ward.create,
+    ward.update, hospitals.update, or * (HOSPITAL_SETUP_ACCESS).
+  - Tabs: Departments | Wards & Care Units | Rooms / Beds | Birth Certificate
+  - Departments: add/edit, activate/deactivate, search, sort; inactive hidden from dropdowns.
+  - Wards: full ward master fields via hospital_wards API; link to /ward/bed-management for rooms/beds.
+  - Add Default Departments & Wards: idempotent sync-templates (activateDefaults=false);
+    confirmation modal; does not overwrite existing custom setup.
+  - Birth certificate: accordion sections; Hospital.birthCertificateSettings unchanged.
+
+
+================================================================================
+11. PREMIUM UI DESIGN SYSTEM (2026-09-01)
+================================================================================
+
+SHARED STYLES
+  - Global: src/app/shared/styles/hms-design-system.scss (imported in styles.scss)
+  - Classes: .hms-page, .hms-card, .hms-kpi-grid, .hms-filter-card, .hms-btn,
+    .hms-table, .hms-tabs, .hms-mobile-card, .hms-status-chip, etc.
+  - Ward reuse: ward-shared.scss, ward-modal-shared.scss (.hms-modal*, .hms-btn)
+  - Accounts reuse: accounts-page.component.scss + pharmacy-shared.scss
+
+LAYOUT FIXES
+  - Top navbar (.navbar-fixed-top): left aligned to sidebar (270px), no side margin gap.
+  - Accounts filter Apply button: label-spacer pattern (.accounts-filter-actions__label)
+    on all accounts pages (dashboard, doctor-performance, department-performance).
+  - Doctor Performance: KPI, Period Breakdown, Detailed Activity as separate panels.
+
+WARD MODULE API EFFICIENCY
+  - Ward module pages load ward dropdown via loadWardFilterOptions() (hospital wards only).
+  - Do NOT call loadBedManagement() on every ward module refresh (was spamming floors API
+    per ward on Admissions, Reports, etc.).
+  - Tab switches filter client-side; no refetch unless filters/search change.
+
+WARD REPORTS
+  - Open Report navigates to relevant route (bed-management, ward-admin, mar, etc.)
+    instead of toast-only placeholder.
+
+UNIFIED DOCUMENT SYSTEM (2026-09-02)
+  - HmsDocumentService: preview / PDF (html2canvas + jsPDF) / print (hidden iframe)
+  - HmsDocumentPreviewComponent: global modal in app.component (A4 scaled; mobile sticky toolbar)
+  - HmsDocumentToolbarComponent: Preview | PDF | Excel | Print (Excel where meaningful)
+  - Shared HTML builders: core/utils/hms-document-template.util.ts + core/documents/*
+  - Same template powers Preview, PDF, and Print (no separate layouts)
+  - Standard header: hospital logo/name/address, doc title, patient/meta, generated at/by
+  - Standard footer: Hisaar360 Hospital Management System
+  - Wired: Accounts reports, Doctor/Dept performance, Patient Ledger, Lab report, Birth
+    certificate, Admission recommendation, MAR, Ward patient summary/vitals/procedures,
+    Imaging order, Running bill, Discharge statement
+  - Finance safety: document export is read-only (no ledger/journal/stock side effects)
+  - Mobile: CODE READY FOR MOBILE VISUAL QA (preview modal near-fullscreen <=767px)
 
 
 ================================================================================

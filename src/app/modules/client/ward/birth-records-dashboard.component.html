@@ -1,0 +1,285 @@
+<div id="main-content" class="modern-dashboard hms-page ward-page-shell birth-records-page">
+  <div class="container-fluid ward-page-container">
+    <header class="ward-page-header ward-page-header--compact">
+      <div class="ward-page-header__copy">
+        <a routerLink="/ward/nursery" class="ward-back-link">Nursery / Newborn</a>
+        <h1>Birth Records</h1>
+        <p>Hospital newborn birth records and certificates.</p>
+      </div>
+      <div class="ward-page-header__actions">
+        <button type="button" class="btn btn-sm ward-refresh-btn" (click)="loadDashboard()" [disabled]="loading">
+          <i class="fa" [ngClass]="loading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
+        </button>
+        <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" (click)="openRecordBirth()">
+          + Record Birth
+        </button>
+      </div>
+    </header>
+
+    <section class="ward-kpi-grid birth-records-kpis" *ngIf="!loading; else birthKpiSkeleton">
+      <article class="ward-kpi-card ward-kpi-card--blue" *ngFor="let card of kpiCards">
+        <span class="ward-kpi-card__icon"><i class="fa" [ngClass]="card.icon"></i></span>
+        <span class="ward-kpi-card__copy">
+          <strong>{{ kpiValue(card.key) }}</strong>
+          <small>{{ card.label }}</small>
+        </span>
+      </article>
+    </section>
+
+    <section class="ward-filter-toolbar">
+      <label class="ward-filter--compact ward-filter--grow">
+        <span>Search</span>
+        <input type="search" [(ngModel)]="filters.search" placeholder="Baby, mother, record no…" (keyup.enter)="loadDashboard()" />
+      </label>
+      <label class="ward-filter--compact">
+        <span>Status</span>
+        <select [(ngModel)]="filters.status">
+          <option value="">All</option>
+          <option value="DRAFT">Draft</option>
+          <option value="RECORDED">Recorded</option>
+          <option value="PENDING_VERIFICATION">Pending Verification</option>
+          <option value="VERIFIED">Verified</option>
+          <option value="CERTIFICATE_ISSUED">Certificate Issued</option>
+        </select>
+      </label>
+      <div class="ward-filter-toolbar__actions">
+        <span class="ward-filter-toolbar__actions-label" aria-hidden="true">Actions</span>
+        <div class="ward-filter-toolbar__actions-row">
+          <button type="button" class="btn btn-sm btn-light birth-btn-light" (click)="resetFilters()">Reset</button>
+          <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" (click)="loadDashboard()">Apply</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="ward-panel birth-records-panel">
+      <div class="nursery-loading" *ngIf="loading">
+        <div class="birth-skeleton-row" *ngFor="let row of [1,2,3,4,5]"></div>
+      </div>
+
+      <ng-container *ngIf="!loading">
+        <div class="ward-data-table-wrap desktop-only" *ngIf="records.length; else emptyRecords">
+          <table class="ward-data-table">
+            <thead>
+              <tr>
+                <th>Birth Record No</th>
+                <th>Baby</th>
+                <th>MR</th>
+                <th>Mother</th>
+                <th>DOB / Time</th>
+                <th>Delivery</th>
+                <th>Verification</th>
+                <th>Certificate</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let record of records">
+                <td>{{ record.birthRecordNo }}</td>
+                <td>{{ babyLabel(record) }}</td>
+                <td>{{ babyMr(record) }}</td>
+                <td>{{ motherLabel(record) }}</td>
+                <td>{{ record.dateOfBirth | date:'mediumDate' }}</td>
+                <td>{{ record.modeOfDelivery || '—' }}</td>
+                <td><span [class]="statusClass(record.status)">{{ statusLabel(record.status) }}</span></td>
+                <td>{{ record.activeCertificate?.certificateNo || '—' }}</td>
+                <td class="birth-records-actions">
+                  <button type="button" class="btn btn-sm btn-light birth-btn-light" *ngIf="canVerify(record)" (click)="verifyRecord(record)">Verify</button>
+                  <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" *ngIf="canIssue(record)" (click)="issueCertificate(record)">Issue</button>
+                  <button type="button" class="btn btn-sm btn-light birth-btn-light" *ngIf="record.activeCertificate" (click)="openCertificate(record)">View</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="birth-records-cards mobile-only" *ngIf="records.length">
+          <article class="birth-record-card" *ngFor="let record of records">
+            <header>
+              <strong>{{ babyLabel(record) }}</strong>
+              <span [class]="statusClass(record.status)">{{ statusLabel(record.status) }}</span>
+            </header>
+            <p>{{ record.birthRecordNo }} · MR {{ babyMr(record) }}</p>
+            <p>Mother: {{ motherLabel(record) }}</p>
+            <div class="birth-records-actions">
+              <button type="button" class="btn btn-sm btn-light birth-btn-light" *ngIf="canVerify(record)" (click)="verifyRecord(record)">Verify</button>
+              <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" *ngIf="canIssue(record)" (click)="issueCertificate(record)">Issue</button>
+            </div>
+          </article>
+        </div>
+      </ng-container>
+    </section>
+  </div>
+</div>
+
+<ng-template #birthKpiSkeleton>
+  <section class="ward-kpi-grid birth-records-kpis">
+    <article class="ward-kpi-card birth-skeleton-kpi" *ngFor="let row of [1,2,3,4]"></article>
+  </section>
+</ng-template>
+
+<ng-template #emptyRecords>
+  <div class="ward-empty-state">
+    <span class="ward-empty-state__icon"><i class="fa fa-file-text-o"></i></span>
+    <h3>No birth records found</h3>
+    <p>Record a birth to begin verification and certificate workflow.</p>
+    <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" (click)="openRecordBirth()">+ Record Birth</button>
+  </div>
+</ng-template>
+
+<div class="hms-modal-backdrop" *ngIf="recordOpen" (click)="recordOpen = false">
+  <section class="hms-modal hms-modal--wide" (click)="$event.stopPropagation()">
+    <header class="hms-modal__header">
+      <div class="hms-modal__header-copy">
+        <h3>Record Birth</h3>
+        <p>Capture hospital birth details and create a linked newborn record.</p>
+      </div>
+      <button type="button" class="hms-modal__close" aria-label="Close" (click)="recordOpen = false">&times;</button>
+    </header>
+
+    <div class="hms-modal__body">
+      <section class="hms-modal-card">
+        <div class="hms-modal-card__title"><i class="fa fa-female"></i><h4>Mother Information</h4></div>
+        <hms-patient-search
+          [(ngModel)]="recordForm.motherPatientId"
+          label="Search Mother"
+          hint="Search by mother name or MR number"
+          placeholder="Mother name or MR number…"
+          [required]="true"
+          [preferFemale]="true"
+          (patientChange)="onMotherSelected($event)"
+          (contextChange)="onMotherContext($event)"
+        ></hms-patient-search>
+        <p class="hms-form-field__error" *ngIf="recordErrors['motherPatientId']">{{ recordErrors['motherPatientId'] }}</p>
+        <div class="hms-summary-card" *ngIf="motherContext?.admission">
+          <div class="hms-summary-card__copy">
+            <small>Current Admission</small>
+            <strong>{{ motherAdmissionNo() }}</strong>
+            <span>{{ motherContextRoomBed() }}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="hms-modal-card">
+        <div class="hms-modal-card__title"><i class="fa fa-calendar"></i><h4>Birth Details</h4></div>
+        <div class="hms-form-grid">
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Date of Birth *</span>
+            <input type="date" [(ngModel)]="recordForm.dateOfBirth" (ngModelChange)="clearRecordError('dateOfBirth')" />
+            <span class="hms-form-field__error" *ngIf="recordErrors['dateOfBirth']">{{ recordErrors['dateOfBirth'] }}</span>
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Time of Birth</span>
+            <input type="time" [(ngModel)]="recordForm.timeOfBirth" />
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Sex</span>
+            <select [(ngModel)]="recordForm.sexAtBirth">
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Birth Weight (g)</span>
+            <input type="number" [(ngModel)]="recordForm.birthWeightGrams" placeholder="e.g. 2850" />
+            <span class="hms-form-field__error" *ngIf="recordErrors['birthWeightGrams']">{{ recordErrors['birthWeightGrams'] }}</span>
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Plurality</span>
+            <select [(ngModel)]="recordForm.plurality">
+              <option value="singleton">Singleton</option>
+              <option value="twin">Twin</option>
+              <option value="triplet">Triplet</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Birth Order</span>
+            <input type="number" min="1" [(ngModel)]="recordForm.birthOrder" />
+          </label>
+        </div>
+      </section>
+
+      <section class="hms-modal-card">
+        <div class="hms-modal-card__title"><i class="fa fa-stethoscope"></i><h4>Delivery Details</h4></div>
+        <div class="hms-form-grid">
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Mode of Delivery</span>
+            <input [(ngModel)]="recordForm.modeOfDelivery" placeholder="e.g. Normal vaginal delivery" />
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Delivered By</span>
+            <input [(ngModel)]="recordForm.deliveredByDoctorId" placeholder="Consultant / clinician name or ID" />
+          </label>
+        </div>
+      </section>
+
+      <section class="hms-modal-card">
+        <div class="hms-modal-card__title"><i class="fa fa-users"></i><h4>Parent / Guardian Details</h4></div>
+        <label class="hms-form-field">
+          <span class="hms-form-field__label">Father Name</span>
+          <input [(ngModel)]="recordForm.fatherName" placeholder="Enter father name or leave blank if unknown" />
+        </label>
+      </section>
+
+      <section class="hms-modal-card">
+        <div class="hms-modal-card__title"><i class="fa fa-child"></i><h4>Newborn Record Creation</h4></div>
+        <label class="hms-toggle-card" [class.is-on]="recordForm.createNewbornPatient">
+          <input type="checkbox" [(ngModel)]="recordForm.createNewbornPatient" hidden />
+          <span class="hms-toggle-card__box"><i class="fa fa-check"></i></span>
+          <span>Create newborn patient record linked to this birth</span>
+        </label>
+        <label class="hms-form-field" *ngIf="recordForm.createNewbornPatient">
+          <span class="hms-form-field__label">Provisional Newborn Name</span>
+          <input [(ngModel)]="recordForm.provisionalName" placeholder="Baby of Mother Name" />
+        </label>
+      </section>
+
+      <section class="hms-modal-card">
+        <div class="hms-modal-card__title"><i class="fa fa-sticky-note-o"></i><h4>Notes</h4></div>
+        <label class="hms-form-field">
+          <span class="hms-form-field__label">Clinical Notes</span>
+          <textarea [(ngModel)]="recordForm.notes" rows="3" placeholder="Optional birth notes"></textarea>
+        </label>
+      </section>
+    </div>
+
+    <footer class="hms-modal__footer">
+      <button type="button" class="hms-btn hms-btn--ghost" (click)="recordOpen = false">Cancel</button>
+      <div class="hms-modal__footer-actions">
+        <button type="button" class="hms-btn hms-btn--primary" [disabled]="saving" (click)="saveBirthRecord()">
+          {{ saving ? 'Saving…' : 'Record Birth' }}
+        </button>
+      </div>
+    </footer>
+  </section>
+</div>
+
+<div class="birth-modal-backdrop" *ngIf="certificateDetail" (click)="certificateDetail = null">
+  <section class="birth-modal birth-modal--wide ward-panel" (click)="$event.stopPropagation()">
+    <header class="ward-panel__head">
+      <div>
+        <h3>{{ certificateDetail.certificateNo }}</h3>
+        <p>Version {{ certificateDetail.version }} · {{ certificateDetail.status }}</p>
+      </div>
+      <button type="button" class="btn btn-sm btn-light birth-btn-light" (click)="certificateDetail = null">Close</button>
+    </header>
+    <div class="birth-modal__body">
+      <div class="birth-cert-grid">
+        <article><h4>Child</h4><p>{{ certificateBabyName() }}</p><p>MR: {{ certificateBabyMr() }}</p></article>
+        <article><h4>Mother</h4><p>{{ certificateMotherName() }}</p></article>
+        <article><h4>Verification</h4><p>{{ certificateVerificationCode() }}</p></article>
+        <article><h4>Issued</h4><p>{{ certificateDetail.issuedAt | date:'medium' }}</p></article>
+      </div>
+      <div class="birth-records-actions">
+        <app-hms-document-toolbar
+          *ngIf="certificateDetail"
+          [title]="'Birth Certificate'"
+          [filename]="(certificateDetail.certificateNo || 'birth-certificate') + '.pdf'"
+          [getHtml]="buildBirthCertificateDocumentHtml"
+          [onPrinted]="onBirthCertificatePrinted.bind(this)"
+        ></app-hms-document-toolbar>
+      </div>
+    </div>
+  </section>
+</div>

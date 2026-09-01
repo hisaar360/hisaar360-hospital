@@ -1,0 +1,156 @@
+.hms-patient-search {
+  position: relative;
+}
+
+.hms-patient-search__control {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--ward-border, #e2e8f0);
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 10px;
+}
+
+.hms-patient-search__control:focus-within {
+  border-color: var(--ward-blue, #2563eb);
+  box-shadow: 0 0 0 2px rgb(37 99 235 / 0.12);
+}
+
+.hms-patient-search__icon {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.hms-patient-search__input {
+  background: transparent;
+  border: 0;
+  flex: 1;
+  font-size: 13px;
+  min-height: 42px;
+  outline: none;
+  padding: 0;
+}
+
+.hms-patient-search__spinner {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.hms-patient-search__panel {
+  background: #fff;
+  border: 1px solid var(--ward-border, #e2e8f0);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  display: grid;
+  left: 0;
+  max-height: 240px;
+  overflow: auto;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+}
+
+.hms-patient-search__option {
+  align-items: center;
+  background: #fff;
+  border: 0;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.hms-patient-search__option:hover {
+  background: #f8fafc;
+}
+
+.hms-patient-search__avatar {
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 8px;
+  color: #2563eb;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+
+.hms-patient-search__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hms-patient-search__text strong {
+  font-size: 12px;
+}
+
+.hms-patient-search__text small {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.hms-patient-search__empty {
+  color: #64748b;
+  font-size: 11px;
+  margin: 6px 0 0;
+}
+
+.hms-summary-card {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid var(--ward-border, #e2e8f0);
+  border-radius: 10px;
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.hms-summary-card__avatar {
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 10px;
+  color: #2563eb;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 16px;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.hms-summary-card__copy {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hms-summary-card__copy small {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.hms-summary-card__copy strong {
+  font-size: 13px;
+}
+
+.hms-summary-card__copy span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.hms-form-field__hint {
+  color: #64748b;
+  font-size: 11px;
+}

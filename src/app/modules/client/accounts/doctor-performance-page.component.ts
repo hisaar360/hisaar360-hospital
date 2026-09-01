@@ -4,7 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
+import { buildAccountsReportDocumentHtml } from '../../../core/documents/accounts-report-document.builder';
+import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../core/utils/hms-document-context.util';
+import { formatHmsMoney } from '../../../core/utils/hms-document-template.util';
 import { todayYmd, toCalendarYmd } from '../../../core/utils/calendar-date';
+import { HmsDocumentToolbarComponent } from '../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
 
 interface ReportDoctor {
   _id: string;
@@ -25,7 +29,7 @@ interface DoctorKpiCard {
 @Component({
   selector: 'app-doctor-performance-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, HmsDocumentToolbarComponent],
   templateUrl: './doctor-performance-page.component.html',
   styleUrl: './accounts-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -53,6 +57,7 @@ export class DoctorPerformancePageComponent implements OnInit {
     { label: 'Cash', route: 'cash-book' },
     { label: 'Collections', route: 'daily-collections' },
     { label: 'Doctor Report', route: 'doctor-performance' },
+    { label: 'Department Report', route: 'department-performance' },
     { label: 'Patient Profitability', route: 'patient-profitability' },
     { label: 'Trial Balance', route: 'trial-balance' },
     { label: 'P&L', route: 'profit-loss' },
@@ -224,7 +229,26 @@ export class DoctorPerformancePageComponent implements OnInit {
     return Number.isFinite(parsed) ? parsed.toLocaleString('en-PK') : '0';
   }
 
-  printPage(): void {
-    window.print();
-  }
+  buildDoctorPerformanceDocumentHtml = (): string =>
+    buildAccountsReportDocumentHtml({
+      title: 'Doctor Performance',
+      hospital: readStoredHospitalDocumentInfo(),
+      fromDate: this.fromDate,
+      toDate: this.toDate,
+      generatedBy: readCurrentUserName(),
+      orientation: 'landscape',
+      summaryCards: this.doctorKpiCardsList.map((card) => ({
+        label: card.label,
+        value: card.money ? formatHmsMoney(card.value) : String(card.value ?? '—'),
+      })),
+      columns: [
+        { keys: ['date', 'entryDate'], label: 'Date' },
+        { keys: ['referenceNo', 'appointmentNo', 'orderNo'], label: 'Reference' },
+        { keys: ['patientName', 'patient.patientNo'], label: 'Patient' },
+        { keys: ['sourceType', 'category'], label: 'Source' },
+        { keys: ['amount', 'netAmount', 'revenue'], label: 'Amount', numeric: true },
+        { keys: ['status'], label: 'Status' },
+      ],
+      rows: this.detailRowsList,
+    });
 }

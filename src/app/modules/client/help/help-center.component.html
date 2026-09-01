@@ -1,0 +1,437 @@
+<div id="main-content" class="help-center-page hms-page">
+  <div class="help-shell">
+    <ng-container *ngIf="!activeArticle; else articleView">
+      <header class="help-page-header">
+        <div class="help-page-header__copy">
+          <h1>Help Center</h1>
+          <p class="help-subtitle">Step-by-step guidance for running your hospital.</p>
+        </div>
+        <a class="hms-btn hms-btn-secondary" routerLink="/">Back to Dashboard</a>
+      </header>
+
+      <section class="help-search-panel hms-card">
+        <div class="help-search-row">
+          <input
+            id="help-search"
+            class="help-search-input"
+            [(ngModel)]="searchQuery"
+            (ngModelChange)="onSearchInputChange()"
+            (keyup.enter)="onSearch(true)"
+            placeholder="Search for guides, tasks, modules... (e.g. admit patient, medicine dose, payment)"
+            aria-label="Search help guides"
+          />
+          <button class="hms-btn hms-btn-secondary help-clear-btn" type="button" *ngIf="isSearchActive" (click)="clearSearch()">
+            Clear
+          </button>
+          <button class="hms-btn hms-btn-primary help-search-btn" type="button" (click)="onSearch(true)">
+            <i class="fa fa-search"></i>
+            <span>Search</span>
+          </button>
+        </div>
+        <div class="help-popular">
+          <span class="help-popular__label">Popular searches:</span>
+          <div class="help-popular__chips">
+            <button
+              *ngFor="let term of popularSearches"
+              type="button"
+              class="help-chip"
+              (click)="applyPopularSearch(term)"
+            >
+              {{ term }}
+            </button>
+          </div>
+        </div>
+        <div class="help-recent" *ngIf="recentSearches.length">
+          <span class="help-popular__label">Recent searches:</span>
+          <div class="help-popular__chips">
+            <button
+              *ngFor="let term of recentSearches"
+              type="button"
+              class="help-chip help-chip--muted"
+              (click)="applyPopularSearch(term)"
+            >
+              {{ term }}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="help-section hms-card help-search-results" *ngIf="isSearchActive">
+        <div class="help-section__head help-section__head--split">
+          <div>
+            <h2>Search results</h2>
+            <p class="help-section__note">{{ displayedResults.length }} guide{{ displayedResults.length === 1 ? '' : 's' }} for “{{ searchQuery.trim() }}”</p>
+          </div>
+          <button type="button" class="hms-btn hms-btn-secondary hms-btn-sm" (click)="clearSearch()">Browse All Guides</button>
+        </div>
+
+        <article *ngFor="let article of displayedResults" class="help-guide-card help-guide-card--search">
+          <div class="help-guide-card__main">
+            <small class="help-guide-card__category">{{ article.category }}</small>
+            <h4 [innerHTML]="highlight(article.title)"></h4>
+            <p class="help-guide-card__who">{{ articleRoleLabel(article) }}</p>
+            <p [innerHTML]="highlight(articleSummary(article))"></p>
+            <p class="help-guide-card__path" *ngIf="articleNavigationLabel(article) as navLabel">
+              <i class="fa fa-map-signs"></i>
+              <span [innerHTML]="highlight(navLabel)"></span>
+            </p>
+          </div>
+          <button type="button" class="hms-btn hms-btn-primary hms-btn-sm help-guide-card__action" (click)="openArticle(article)">
+            Open Guide
+          </button>
+        </article>
+
+        <div class="help-no-results" *ngIf="!displayedResults.length">
+          <h3>No matching guide found</h3>
+          <p>Try one of these common searches or browse module guides below.</p>
+          <div class="help-popular__chips">
+            <button *ngFor="let term of popularSearches" type="button" class="help-chip" (click)="applyPopularSearch(term)">
+              {{ term }}
+            </button>
+          </div>
+          <button type="button" class="hms-btn hms-btn-secondary" (click)="clearSearch()">Browse All Guides</button>
+        </div>
+      </section>
+
+      <section class="help-section hms-card" *ngIf="!isSearchActive">
+        <div class="help-section__head">
+          <h2>Quick Tasks</h2>
+        </div>
+        <div class="help-quick-grid">
+          <button
+            *ngFor="let task of visibleQuickTasks"
+            type="button"
+            class="help-quick-card"
+            (click)="openQuickTask(task)"
+          >
+            <span class="help-quick-card__icon"><i class="fa" [ngClass]="task.icon"></i></span>
+            <span class="help-quick-card__label">{{ task.label }}</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="help-section hms-card" *ngIf="visibleModuleGuides.length && !isSearchActive">
+        <div class="help-section__head help-section__head--split">
+          <div>
+            <h2>Module Guides</h2>
+            <p class="help-section__note">Shown for modules enabled at your hospital and accessible to your role.</p>
+          </div>
+        </div>
+        <div class="help-module-grid help-module-grid--desktop">
+          <button
+            *ngFor="let guide of visibleModuleGuides"
+            type="button"
+            class="help-module-card"
+            (click)="openModuleGuide(guide)"
+          >
+            <span class="help-module-card__icon"><i class="fa" [ngClass]="guide.icon"></i></span>
+            <span class="help-module-card__body">
+              <strong>{{ guide.title }}</strong>
+              <span>{{ guide.description }}</span>
+            </span>
+            <i class="fa fa-chevron-right help-module-card__arrow"></i>
+          </button>
+        </div>
+        <div class="help-module-list help-module-list--mobile">
+          <button
+            *ngFor="let guide of visibleModuleGuides"
+            type="button"
+            class="help-module-row"
+            (click)="openModuleGuide(guide)"
+          >
+            <span class="help-module-row__icon"><i class="fa" [ngClass]="guide.icon"></i></span>
+            <span class="help-module-row__body">
+              <strong>{{ guide.title }}</strong>
+              <span>{{ guide.description }}</span>
+            </span>
+            <i class="fa fa-chevron-right"></i>
+          </button>
+        </div>
+      </section>
+
+      <section class="help-section hms-card" *ngIf="!isSearchActive">
+        <div class="help-section__head">
+          <h2>I am a…</h2>
+          <p class="help-section__note">Choose your role to see the workflow and tasks that match your daily work.</p>
+        </div>
+        <div class="help-role-pills" role="group" aria-label="Help role selector">
+          <button
+            *ngFor="let role of visibleRoleFilters"
+            type="button"
+            class="help-role-pill"
+            [class.active]="selectedRole === role.key"
+            [attr.aria-pressed]="selectedRole === role.key"
+            (click)="selectRole($any(role.key))"
+          >
+            {{ role.label }}
+          </button>
+        </div>
+
+        <div class="help-common-tasks" *ngIf="commonTasks.length">
+          <h3>Your common tasks</h3>
+          <div class="help-quick-grid help-quick-grid--compact">
+            <button
+              *ngFor="let task of commonTasks"
+              type="button"
+              class="help-quick-card"
+              (click)="openQuickTask(task)"
+            >
+              <span class="help-quick-card__icon"><i class="fa" [ngClass]="task.icon"></i></span>
+              <span class="help-quick-card__label">{{ task.label }}</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="help-section hms-card help-workflow-section" *ngIf="!isSearchActive">
+        <div class="help-section__head">
+          <h2>{{ activeWorkflow.title }}</h2>
+          <p class="help-section__note">{{ activeWorkflow.description }}</p>
+        </div>
+
+        <div class="help-workflow help-workflow--desktop">
+          <ng-container *ngFor="let block of activeWorkflow.desktopBlocks">
+            <h3 *ngIf="block.type === 'heading'" class="help-workflow__heading">{{ block.text }}</h3>
+            <p *ngIf="block.type === 'note'" class="help-workflow__note">{{ block.text }}</p>
+
+            <div *ngIf="block.type === 'row'" class="help-workflow__row">
+              <ng-container *ngFor="let item of block.items; let last = last">
+                <button
+                  type="button"
+                  class="help-flow-node"
+                  [class.help-flow-node--accent]="item.accent"
+                  [class.help-flow-node--muted]="item.muted"
+                  [class.help-flow-node--clickable]="item.helpSlug"
+                  (click)="openWorkflowStep(item)"
+                >
+                  <span class="help-flow-node__num" *ngIf="item.number">{{ item.number }}</span>
+                  <span>{{ item.label }}</span>
+                </button>
+                <div *ngIf="!last" class="help-flow-connector" aria-hidden="true"></div>
+              </ng-container>
+            </div>
+
+            <div *ngIf="block.type === 'branch'" class="help-workflow__branch">
+              <ng-container *ngFor="let item of block.items; let i = index">
+                <span *ngIf="i > 0 && block.label" class="help-flow-or">{{ block.label }}</span>
+                <button
+                  type="button"
+                  class="help-flow-node"
+                  [class.help-flow-node--accent]="item.accent"
+                  [class.help-flow-node--muted]="item.muted"
+                  [class.help-flow-node--clickable]="item.helpSlug"
+                  (click)="openWorkflowStep(item)"
+                >
+                  <span class="help-flow-node__num" *ngIf="item.number">{{ item.number }}</span>
+                  <span>{{ item.label }}</span>
+                </button>
+              </ng-container>
+            </div>
+
+            <div *ngIf="block.type === 'parallel'" class="help-workflow__row help-workflow__row--split">
+              <button
+                *ngFor="let item of block.items"
+                type="button"
+                class="help-flow-node help-flow-node--branch"
+                [class.help-flow-node--clickable]="item.helpSlug"
+                (click)="openWorkflowStep(item)"
+              >
+                <span class="help-flow-node__num" *ngIf="item.number">{{ item.number }}</span>
+                <span>{{ item.label }}</span>
+              </button>
+            </div>
+          </ng-container>
+        </div>
+
+        <div class="help-workflow help-workflow--mobile">
+          <ng-container *ngFor="let step of activeWorkflow.mobileSteps; let last = last">
+            <p *ngIf="!step.number && step.muted" class="help-flow-step__note">{{ step.label }}</p>
+            <h3 *ngIf="!step.number && step.accent && !step.muted" class="help-flow-step__heading">{{ step.label }}</h3>
+            <button
+              *ngIf="step.number || (!step.muted && !step.accent)"
+              type="button"
+              class="help-flow-step"
+              [class.help-flow-step--accent]="step.accent"
+              [class.help-flow-step--muted]="step.muted"
+              [class.help-flow-step--branch]="step.branch"
+              [class.help-flow-step--clickable]="step.helpSlug"
+              (click)="openWorkflowStep(step)"
+            >
+              <span class="help-flow-step__num" *ngIf="step.number">{{ step.number }}</span>
+              <span>{{ step.label }}</span>
+            </button>
+            <div *ngIf="!last && (step.number || step.helpSlug)" class="help-flow-step__arrow" aria-hidden="true">↓</div>
+          </ng-container>
+        </div>
+      </section>
+
+      <section class="help-guides-layout hms-card" *ngIf="!isSearchActive">
+        <aside class="help-guides-sidebar">
+          <h3>Categories</h3>
+          <button class="help-category-btn" [class.active]="!selectedCategory" type="button" (click)="clearFilters()">
+            All guides
+          </button>
+          <button
+            *ngFor="let category of categories"
+            class="help-category-btn"
+            [class.active]="selectedCategory === category"
+            type="button"
+            (click)="selectCategory(category)"
+          >
+            {{ category }}
+          </button>
+        </aside>
+
+        <div class="help-guides-main">
+          <div class="help-guides-toolbar">
+            <div>
+              <h3>{{ guidesHeading }}</h3>
+              <p class="help-section__note">{{ results.length }} guide{{ results.length === 1 ? '' : 's' }}</p>
+            </div>
+            <button type="button" class="help-filter-toggle" (click)="clearFilters()">Clear filters</button>
+          </div>
+
+          <div class="help-category-chips">
+            <button type="button" class="help-chip" [class.active]="!selectedCategory" (click)="clearFilters()">All</button>
+            <button
+              *ngFor="let category of categories"
+              type="button"
+              class="help-chip"
+              [class.active]="selectedCategory === category"
+              (click)="selectCategory(category)"
+            >
+              {{ category.split(' / ')[0] }}
+            </button>
+          </div>
+
+          <article *ngFor="let article of results" class="help-guide-card">
+            <div class="help-guide-card__main">
+              <small class="help-guide-card__category">{{ article.category }}</small>
+              <h4>{{ article.title }}</h4>
+              <p class="help-guide-card__who">{{ articleRoleLabel(article) }}</p>
+              <p>{{ articleSummary(article) }}</p>
+              <p class="help-guide-card__path" *ngIf="articleNavigationLabel(article) as navLabel">
+                <i class="fa fa-map-signs"></i>
+                <span>{{ navLabel }}</span>
+              </p>
+              <div class="help-guide-card__roles">
+                <span *ngFor="let role of roleChips(article)" class="help-role-chip">{{ role }}</span>
+              </div>
+            </div>
+            <button type="button" class="hms-btn hms-btn-primary hms-btn-sm help-guide-card__action" (click)="openArticle(article)">
+              Open Guide
+            </button>
+          </article>
+
+          <p *ngIf="!results.length" class="help-empty">No guides matched your search or filters.</p>
+        </div>
+      </section>
+    </ng-container>
+
+    <ng-template #articleView>
+      <article class="help-article-detail" *ngIf="activeArticle as article">
+        <nav class="help-breadcrumb" aria-label="Breadcrumb">
+          <button type="button" class="help-breadcrumb__link" (click)="backToHome()">Help Center</button>
+          <span aria-hidden="true">›</span>
+          <span>{{ article.category }}</span>
+        </nav>
+
+        <header class="help-article-header">
+          <div>
+            <h1>{{ article.title }}</h1>
+            <p class="help-subtitle">{{ articleSummary(article) }}</p>
+            <div class="help-guide-card__roles">
+              <span *ngFor="let role of roleChips(article)" class="help-role-chip">{{ role }}</span>
+            </div>
+          </div>
+          <button type="button" class="hms-btn hms-btn-secondary" (click)="backToHome()">Back to All Guides</button>
+        </header>
+
+        <div class="help-article-layout">
+          <aside class="help-article-context">
+            <section class="help-context-card" *ngIf="article.whenToUse">
+              <h3>When do I use this?</h3>
+              <p>{{ article.whenToUse }}</p>
+            </section>
+
+            <section class="help-context-card">
+              <h3>Who does this?</h3>
+              <p>{{ article.whoCan }}</p>
+              <p class="help-context-card__meta">Permissions: {{ article.permissions }}</p>
+            </section>
+
+            <section class="help-context-card" *ngIf="navigationPath(article).length || article.route">
+              <h3>Where to go</h3>
+              <p class="help-nav-path" *ngIf="navigationPath(article).length">
+                <ng-container *ngFor="let segment of navigationPath(article); let last = last">
+                  {{ segment }}<span *ngIf="!last"> → </span>
+                </ng-container>
+              </p>
+              <code class="help-route-chip" *ngIf="article.route">{{ article.route }}</code>
+            </section>
+
+            <section class="help-context-card" *ngIf="article.beforeStart.length">
+              <h3>Before you start</h3>
+              <ul>
+                <li *ngFor="let item of article.beforeStart">{{ item }}</li>
+              </ul>
+            </section>
+
+            <section class="help-context-card help-context-card--tip" *ngIf="article.tip">
+              <h3>Tip</h3>
+              <p>{{ article.tip }}</p>
+            </section>
+          </aside>
+
+          <main class="help-article-main">
+            <section class="help-context-card">
+              <h3>Steps</h3>
+              <ol class="help-steps-timeline">
+                <li *ngFor="let step of article.steps; let i = index">
+                  <span class="help-step-num">{{ i + 1 }}</span>
+                  <span class="help-step-text">{{ step }}</span>
+                </li>
+              </ol>
+            </section>
+
+            <section class="help-outcome-card">
+              <h3>What happens next?</h3>
+              <ul>
+                <li *ngFor="let item of article.after">{{ item }}</li>
+              </ul>
+            </section>
+
+            <section class="help-context-card" *ngIf="article.financial?.length">
+              <h3>Financial effect</h3>
+              <ul>
+                <li *ngFor="let item of article.financial">{{ item }}</li>
+              </ul>
+            </section>
+
+            <section class="help-context-card" *ngIf="article.errors?.length">
+              <h3>Common problems</h3>
+              <ul>
+                <li *ngFor="let item of article.errors">{{ item }}</li>
+              </ul>
+            </section>
+
+            <section class="help-related-section" *ngIf="relatedArticles(article).length">
+              <h3>Related guides</h3>
+              <div class="help-related-list">
+                <button
+                  *ngFor="let related of relatedArticles(article)"
+                  type="button"
+                  class="help-related-row"
+                  (click)="openArticle(related)"
+                >
+                  <span>{{ related.title }}</span>
+                  <i class="fa fa-chevron-right"></i>
+                </button>
+              </div>
+            </section>
+          </main>
+        </div>
+      </article>
+    </ng-template>
+  </div>
+</div>

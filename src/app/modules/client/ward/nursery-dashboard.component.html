@@ -1,0 +1,395 @@
+<div id="main-content" class="modern-dashboard hms-page ward-page-shell nursery-dashboard-page" (click)="closeMenus()">
+  <div class="container-fluid ward-page-container">
+    <header class="ward-page-header ward-page-header--compact nursery-page-header">
+      <div class="ward-page-header__copy nursery-page-header__title">
+        <div class="nursery-page-header__icon"><i class="fa fa-child"></i></div>
+        <div>
+          <h1>Nursery / Newborn</h1>
+          <p>Manage newborn patients, mother linkage, nursery beds, feeding, medications and birth records.</p>
+        </div>
+      </div>
+      <div class="ward-page-header__actions">
+        <button type="button" class="btn btn-sm ward-refresh-btn" (click)="loadDashboard()" [disabled]="loading">
+          <i class="fa" [ngClass]="loading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
+        </button>
+        <a routerLink="/ward/nursery/birth-records" class="btn btn-sm btn-light nursery-btn-light">Birth Records</a>
+        <button type="button" class="btn btn-sm btn-light nursery-btn-light" (click)="openRecordBirth()">+ Record Birth</button>
+        <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" (click)="openRegister()">
+          + Register Newborn
+        </button>
+      </div>
+    </header>
+
+    <section class="ward-kpi-grid nursery-kpi-grid" *ngIf="!loading; else kpiSkeleton">
+      <article class="ward-kpi-card" *ngFor="let card of kpiCards" [ngClass]="'ward-kpi-card--' + card.tone">
+        <span class="ward-kpi-card__icon"><i class="fa" [ngClass]="card.icon"></i></span>
+        <span class="ward-kpi-card__copy">
+          <strong>{{ kpiValue(card.key) }}</strong>
+          <small>{{ card.label }}</small>
+          <em>{{ kpiSupport(card.key) }}</em>
+        </span>
+      </article>
+    </section>
+
+    <div class="nursery-layout">
+      <div class="nursery-layout__main">
+        <section class="ward-filter-toolbar">
+          <label class="ward-filter--compact ward-filter--grow">
+            <span>Search</span>
+            <input type="search" [(ngModel)]="filters.search" (ngModelChange)="applyFilters()" placeholder="Baby name, MR, mother name..." />
+          </label>
+          <label class="ward-filter--compact">
+            <span>Status</span>
+            <select [(ngModel)]="filters.status" (ngModelChange)="applyFilters()">
+              <option value="">All</option>
+              <option value="active">Admitted</option>
+              <option value="discharged">Discharged</option>
+            </select>
+          </label>
+          <label class="ward-filter--compact">
+            <span>Ward</span>
+            <select [(ngModel)]="filters.ward" (ngModelChange)="applyFilters()">
+              <option value="">All</option>
+              <option *ngFor="let ward of wardOptions()" [value]="ward">{{ ward }}</option>
+            </select>
+          </label>
+          <label class="ward-filter--compact">
+            <span>Bed / Cot</span>
+            <select [(ngModel)]="filters.bed" (ngModelChange)="applyFilters()">
+              <option value="">All</option>
+              <option *ngFor="let item of newborns" [value]="item.nurseryBedLabel">{{ item.nurseryBedLabel }}</option>
+            </select>
+          </label>
+          <label class="ward-filter--compact">
+            <span>Date</span>
+            <input type="date" [(ngModel)]="filters.date" />
+          </label>
+          <div class="ward-filter-toolbar__actions">
+            <span class="ward-filter-toolbar__actions-label" aria-hidden="true">Actions</span>
+            <div class="ward-filter-toolbar__actions-row">
+              <button type="button" class="btn btn-sm btn-light nursery-btn-light" (click)="resetFilters()">Reset</button>
+              <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" (click)="applyFilters()">Apply</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="ward-panel nursery-table-panel">
+          <div class="ward-panel__head">
+            <div>
+              <h2>Newborns List</h2>
+              <p>Active nursery admissions with mother linkage and bed placement.</p>
+            </div>
+          </div>
+
+          <div class="nursery-loading" *ngIf="loading">
+            <div class="nursery-skeleton-row" *ngFor="let row of [1,2,3,4,5]"></div>
+          </div>
+
+          <ng-container *ngIf="!loading && filteredNewborns.length; else emptyNewborns">
+            <div class="ward-data-table-wrap desktop-only">
+              <table class="ward-data-table">
+                <thead>
+                  <tr>
+                    <th>Baby / MR Number</th>
+                    <th>Sex</th>
+                    <th>Age</th>
+                    <th>Mother Name</th>
+                    <th>Mother Room / Bed</th>
+                    <th>Nursery Bed / Cot</th>
+                    <th>Consultant</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    *ngFor="let item of filteredNewborns"
+                    [class.is-selected]="selectedNewborn?._id === item._id"
+                    (click)="selectNewborn(item)"
+                  >
+                    <td>
+                      <div class="nursery-baby-cell">
+                        <span class="nursery-avatar" [class.has-photo]="babyPhoto(item)">
+                          <img *ngIf="babyPhoto(item)" [src]="babyPhoto(item)" [alt]="babyLabel(item)" />
+                          <span *ngIf="!babyPhoto(item)">{{ babyInitials(item) }}</span>
+                        </span>
+                        <span>
+                          <strong>{{ babyLabel(item) }}</strong>
+                          <small>MRN {{ babyMr(item) }}</small>
+                        </span>
+                      </div>
+                    </td>
+                    <td>{{ babyGender(item) | titlecase }}</td>
+                    <td>{{ babyAge(item) }}</td>
+                    <td>{{ motherLabel(item) }}</td>
+                    <td>{{ item.motherRoomLabel }} / {{ item.motherBedLabel }}</td>
+                    <td>{{ item.nurseryBedLabel }}</td>
+                    <td>{{ item.consultantLabel }}</td>
+                    <td><span [class]="statusClass(item)">{{ statusLabel(item) }}</span></td>
+                    <td class="nursery-actions-cell" (click)="$event.stopPropagation()">
+                      <button type="button" class="btn btn-sm btn-light nursery-btn-light" (click)="openProfile(item)">View</button>
+                      <div class="nursery-menu">
+                        <button type="button" class="nursery-menu__trigger" (click)="toggleMenu(item._id, $event)">
+                          <i class="fa fa-ellipsis-v"></i>
+                        </button>
+                        <div class="nursery-menu__panel" *ngIf="menuOpenId === item._id">
+                          <button type="button" (click)="openProfile(item)">Open Profile</button>
+                          <button type="button" (click)="openMotherProfile(item)">Mother Profile</button>
+                          <a routerLink="/ward/vitals">Vitals</a>
+                          <a routerLink="/ward/nursery/birth-records">Birth Record</a>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="nursery-mobile-cards mobile-only">
+              <article class="nursery-mobile-card" *ngFor="let item of filteredNewborns" (click)="selectNewborn(item)">
+                <div class="nursery-mobile-card__head">
+                  <div class="nursery-baby-cell">
+                    <span class="nursery-avatar"><span>{{ babyInitials(item) }}</span></span>
+                    <span><strong>{{ babyLabel(item) }}</strong><small>{{ babyMr(item) }}</small></span>
+                  </div>
+                  <span [class]="statusClass(item)">{{ statusLabel(item) }}</span>
+                </div>
+                <p>{{ babyGender(item) | titlecase }} · {{ babyAge(item) }}</p>
+                <p>Mother: {{ motherLabel(item) }}</p>
+                <p>Bed: {{ item.nurseryBedLabel }}</p>
+                <div class="nursery-mobile-card__actions">
+                  <button type="button" class="btn btn-sm btn-light nursery-btn-light" (click)="openProfile(item); $event.stopPropagation()">View</button>
+                </div>
+              </article>
+            </div>
+          </ng-container>
+        </section>
+
+        <section class="nursery-bottom-grid" *ngIf="!loading">
+          <article class="ward-panel nursery-mini-card">
+            <div class="ward-panel__head">
+              <h3>Recent Feeding Records</h3>
+              <a routerLink="/ward/nursery">View All</a>
+            </div>
+            <div class="nursery-mini-list" *ngIf="recentFeedings.length; else noFeedings">
+              <div class="nursery-mini-row" *ngFor="let item of recentFeedings">
+                <strong>{{ item.babyLabel || '—' }}</strong>
+                <span>{{ feedingTypeLabel(item.feedingType) }}</span>
+                <em>{{ timeAgo(item.recordedAt) }}</em>
+              </div>
+            </div>
+            <ng-template #noFeedings>
+              <p class="nursery-mini-empty">No feeding records yet.</p>
+            </ng-template>
+          </article>
+
+          <article class="ward-panel nursery-mini-card">
+            <div class="ward-panel__head">
+              <h3>Medication / MAR Due</h3>
+              <a routerLink="/ward/mar">View All</a>
+            </div>
+            <div class="nursery-mini-list" *ngIf="medicationDue.length; else noMar">
+              <div class="nursery-mini-row" *ngFor="let item of medicationDue">
+                <strong>{{ item['babyLabel'] || '—' }}</strong>
+                <span>{{ item['medicine'] || '—' }}</span>
+                <em>{{ item['dueLabel'] || '—' }}</em>
+              </div>
+            </div>
+            <ng-template #noMar>
+              <p class="nursery-mini-empty">No MAR due records loaded.</p>
+            </ng-template>
+          </article>
+
+          <article class="ward-panel nursery-mini-card">
+            <div class="ward-panel__head">
+              <h3>Birth Certificates Pending</h3>
+              <a routerLink="/ward/nursery/birth-records">View All</a>
+            </div>
+            <div class="nursery-mini-list" *ngIf="pendingCertificates.length; else noCerts">
+              <div class="nursery-mini-row" *ngFor="let item of pendingCertificates">
+                <strong>{{ item.babyLabel || '—' }}</strong>
+                <span>{{ item.birthRecordNo || '—' }}</span>
+                <em>{{ item.status || 'Pending' }}</em>
+              </div>
+            </div>
+            <ng-template #noCerts>
+              <p class="nursery-mini-empty">No pending certificates.</p>
+            </ng-template>
+          </article>
+        </section>
+      </div>
+
+      <aside class="nursery-layout__side ward-panel nursery-overview-panel">
+        <div class="ward-panel__head">
+          <h2>Quick Overview</h2>
+        </div>
+
+        <div class="nursery-overview-skeleton" *ngIf="loading">
+          <div class="nursery-skeleton-block"></div>
+          <div class="nursery-skeleton-row" *ngFor="let row of [1,2,3]"></div>
+        </div>
+
+        <ng-container *ngIf="!loading && selectedNewborn; else noSelection">
+          <div class="nursery-overview-hero">
+            <span class="nursery-avatar nursery-avatar--lg" [class.has-photo]="babyPhoto(selectedNewborn)">
+              <img *ngIf="babyPhoto(selectedNewborn)" [src]="babyPhoto(selectedNewborn)" [alt]="babyLabel(selectedNewborn)" />
+              <span *ngIf="!babyPhoto(selectedNewborn)">{{ babyInitials(selectedNewborn) }}</span>
+            </span>
+            <div>
+              <h3>{{ babyLabel(selectedNewborn) }}</h3>
+              <p>MRN {{ babyMr(selectedNewborn) }} · {{ babyGender(selectedNewborn) | titlecase }} · {{ babyAge(selectedNewborn) }}</p>
+            </div>
+          </div>
+
+          <dl class="nursery-overview-list">
+            <div><dt>Born On</dt><dd>{{ bornOnLabel(selectedNewborn) }}</dd></div>
+            <div><dt>Birth Weight</dt><dd>{{ birthWeightLabel(selectedNewborn) }}</dd></div>
+            <div><dt>Gestational Age</dt><dd>{{ selectedNewborn.gestationalAgeWeeks ? selectedNewborn.gestationalAgeWeeks + ' weeks' : 'Not recorded' }}</dd></div>
+            <div><dt>Mother</dt><dd>{{ motherLabel(selectedNewborn) }}</dd></div>
+            <div><dt>Mother Room / Bed</dt><dd>{{ selectedNewborn.motherRoomLabel }} / {{ selectedNewborn.motherBedLabel }}</dd></div>
+            <div><dt>Nursery Bed / Cot</dt><dd>{{ selectedNewborn.nurseryBedLabel }}</dd></div>
+            <div><dt>Consultant</dt><dd>{{ selectedNewborn.consultantLabel }}</dd></div>
+            <div><dt>Birth Certificate</dt><dd>{{ certificateStatus(selectedNewborn) }}</dd></div>
+          </dl>
+
+          <div class="nursery-quick-grid">
+            <button type="button" *ngFor="let action of quickActions" (click)="runQuickAction(action)">
+              <i class="fa" [ngClass]="action.icon"></i>
+              <span>{{ action.label }}</span>
+            </button>
+          </div>
+
+          <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary nursery-overview-cta" (click)="openProfile(selectedNewborn)">
+            Open Newborn Profile
+          </button>
+        </ng-container>
+
+        <ng-template #noSelection>
+          <div class="ward-empty-state" *ngIf="!loading">
+            <span class="ward-empty-state__icon"><i class="fa fa-child"></i></span>
+            <h3>No newborn selected</h3>
+            <p>Select a newborn from the list to view quick overview and actions.</p>
+          </div>
+        </ng-template>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<ng-template #kpiSkeleton>
+  <section class="ward-kpi-grid nursery-kpi-grid">
+    <article class="ward-kpi-card nursery-skeleton-kpi" *ngFor="let row of [1,2,3,4,5]"></article>
+  </section>
+</ng-template>
+
+<ng-template #emptyNewborns>
+  <div class="ward-empty-state" *ngIf="!loading">
+    <span class="ward-empty-state__icon"><i class="fa fa-child"></i></span>
+    <h3>No newborns currently admitted</h3>
+    <p>Register a newborn or record a birth to begin nursery care documentation.</p>
+    <div class="nursery-empty-actions">
+      <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" (click)="openRegister()">Register Newborn</button>
+      <a routerLink="/ward/nursery/birth-records" class="btn btn-sm btn-light nursery-btn-light">Record Birth</a>
+    </div>
+  </div>
+</ng-template>
+
+<div class="hms-modal-backdrop" *ngIf="registerOpen" (click)="registerOpen = false">
+  <section class="hms-modal" (click)="$event.stopPropagation()">
+    <header class="hms-modal__header">
+      <div class="hms-modal__header-copy">
+        <h3>Register Newborn</h3>
+        <p>Create a newborn patient and link with the mother record.</p>
+      </div>
+      <button type="button" class="hms-modal__close" aria-label="Close" (click)="registerOpen = false">&times;</button>
+    </header>
+
+    <div class="hms-modal__body">
+      <section class="hms-modal-card">
+        <div class="hms-modal-card__title"><i class="fa fa-female"></i><h4>Mother Link</h4></div>
+        <hms-patient-search
+          [(ngModel)]="registerForm.motherPatientId"
+          label="Search Mother"
+          hint="Search by mother name or MR number"
+          placeholder="Mother name or MR number…"
+          [required]="true"
+          [preferFemale]="true"
+          (patientChange)="onMotherSelected($event)"
+          (contextChange)="onMotherContext($event)"
+        ></hms-patient-search>
+        <p class="hms-form-field__error" *ngIf="registerErrors['motherPatientId']">{{ registerErrors['motherPatientId'] }}</p>
+      </section>
+
+      <section class="hms-modal-card">
+        <div class="hms-modal-card__title"><i class="fa fa-child"></i><h4>Newborn Details</h4></div>
+        <div class="hms-form-grid">
+          <label class="hms-form-field hms-form-grid--span-2">
+            <span class="hms-form-field__label">Provisional Name</span>
+            <input [(ngModel)]="registerForm.provisionalName" placeholder="Baby of Mother Name" />
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Sex *</span>
+            <select [(ngModel)]="registerForm.gender" (ngModelChange)="clearRegisterError('gender')">
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+            <span class="hms-form-field__error" *ngIf="registerErrors['gender']">{{ registerErrors['gender'] }}</span>
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Birth Weight (g)</span>
+            <input type="number" [(ngModel)]="registerForm.birthWeightGrams" placeholder="e.g. 2850" />
+            <span class="hms-form-field__error" *ngIf="registerErrors['birthWeightGrams']">{{ registerErrors['birthWeightGrams'] }}</span>
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Birth Order</span>
+            <select [(ngModel)]="registerForm.birthOrder">
+              <option value="Singleton">Singleton</option>
+              <option value="Twin A">Twin A</option>
+              <option value="Twin B">Twin B</option>
+            </select>
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Plurality</span>
+            <select [(ngModel)]="registerForm.plurality">
+              <option value="singleton">Singleton</option>
+              <option value="twin">Twin</option>
+              <option value="triplet">Triplet</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="hms-modal-card">
+        <div class="hms-modal-card__title"><i class="fa fa-calendar"></i><h4>Birth Information</h4></div>
+        <div class="hms-form-grid">
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Date of Birth</span>
+            <input type="date" [(ngModel)]="registerForm.dateOfBirth" />
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Time of Birth</span>
+            <input type="time" [(ngModel)]="registerForm.timeOfBirth" />
+          </label>
+        </div>
+      </section>
+
+      <section class="hms-modal-card">
+        <div class="hms-modal-card__title"><i class="fa fa-sticky-note-o"></i><h4>Notes</h4></div>
+        <label class="hms-form-field">
+          <span class="hms-form-field__label">Optional Notes</span>
+          <textarea [(ngModel)]="registerForm.notes" rows="3" placeholder="Clinical notes or context for nursery staff"></textarea>
+        </label>
+      </section>
+    </div>
+
+    <footer class="hms-modal__footer">
+      <button type="button" class="hms-btn hms-btn--ghost" (click)="registerOpen = false">Cancel</button>
+      <div class="hms-modal__footer-actions">
+        <button type="button" class="hms-btn hms-btn--primary" (click)="registerNewborn()" [disabled]="saving">
+          {{ saving ? 'Registering…' : 'Register Newborn' }}
+        </button>
+      </div>
+    </footer>
+  </section>
+</div>

@@ -1,0 +1,86 @@
+<div class="ward-modal-backdrop" *ngIf="open" (click)="close()">
+  <div class="ward-modal-dialog hms-card" data-testid="doctor-order-modal" (click)="$event.stopPropagation()">
+    <header class="ward-modal-header">
+      <h3>Doctor Order</h3>
+      <button type="button" class="btn btn-link" (click)="close()">×</button>
+    </header>
+
+    <div class="ward-modal-body">
+      <label class="hms-form-field">
+        <span class="hms-form-field__label">Order Type</span>
+        <select [(ngModel)]="orderType" data-testid="doctor-order-type">
+          <option *ngFor="let type of visibleOrderTypes" [ngValue]="type.key">{{ type.label }}</option>
+        </select>
+      </label>
+
+      <label class="hms-form-field" *ngIf="requiresDoctorAttribution">
+        <span class="hms-form-field__label">Recommended By Doctor *</span>
+        <select [(ngModel)]="form.recommendedByDoctorId">
+          <option value="">Select doctor</option>
+          <option *ngFor="let doctor of doctors" [value]="doctor.userId || doctor._id">
+            {{ doctor.user?.name || doctor.specialization || 'Doctor' }}
+          </option>
+        </select>
+      </label>
+
+      <ng-container [ngSwitch]="orderType">
+        <ng-container *ngSwitchCase="'medicine'">
+          <label class="hms-form-field"><span class="hms-form-field__label">Medicine</span><input [(ngModel)]="form.medicineName" /></label>
+          <div class="ward-modal-grid">
+            <label class="hms-form-field"><span class="hms-form-field__label">Dose</span><input [(ngModel)]="form.dose" /></label>
+            <label class="hms-form-field"><span class="hms-form-field__label">Unit</span><input [(ngModel)]="form.unit" /></label>
+            <label class="hms-form-field"><span class="hms-form-field__label">Route</span><input [(ngModel)]="form.route" /></label>
+            <label class="hms-form-field"><span class="hms-form-field__label">Frequency</span><input [(ngModel)]="form.frequency" /></label>
+          </div>
+          <label class="hms-form-field"><span class="hms-form-field__label">Duration</span><input [(ngModel)]="form.duration" /></label>
+          <label class="hms-form-field"><span class="hms-form-field__label">Instructions</span><textarea rows="2" [(ngModel)]="form.instructions"></textarea></label>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'lab'">
+          <label class="hms-form-field"><span class="hms-form-field__label">Test(s)</span><input [(ngModel)]="form.tests" placeholder="CBC, RFT" /></label>
+          <label class="hms-form-field"><span class="hms-form-field__label">Clinical Notes</span><textarea rows="2" [(ngModel)]="form.notes"></textarea></label>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'imaging'">
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Modality</span>
+            <select [(ngModel)]="form.modality">
+              <option value="xray">X-Ray</option>
+              <option value="ultrasound">Ultrasound</option>
+              <option value="ct">CT Scan</option>
+              <option value="mri">MRI</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label class="hms-form-field"><span class="hms-form-field__label">Study</span><input [(ngModel)]="form.study" placeholder="Chest X-Ray" /></label>
+          <div class="ward-modal-grid">
+            <label class="hms-form-field"><span class="hms-form-field__label">Body Part</span><input [(ngModel)]="form.bodyPart" /></label>
+            <label class="hms-form-field"><span class="hms-form-field__label">Views</span><input [(ngModel)]="form.views" /></label>
+          </div>
+          <label class="hms-form-field"><span class="hms-form-field__label">Clinical Indication</span><textarea rows="2" [(ngModel)]="form.clinicalIndication"></textarea></label>
+        </ng-container>
+
+        <ng-container *ngSwitchDefault>
+          <label class="hms-form-field"><span class="hms-form-field__label">Order</span><input [(ngModel)]="form.orderName" /></label>
+          <label class="hms-form-field"><span class="hms-form-field__label">Notes</span><textarea rows="2" [(ngModel)]="form.notes"></textarea></label>
+        </ng-container>
+      </ng-container>
+
+      <label class="hms-form-field">
+        <span class="hms-form-field__label">Priority</span>
+        <select [(ngModel)]="form.priority">
+          <option value="normal">Normal</option>
+          <option value="urgent">Urgent</option>
+          <option value="stat">STAT</option>
+        </select>
+      </label>
+    </div>
+
+    <footer class="ward-modal-footer">
+      <button type="button" class="hms-btn hms-btn--ghost" (click)="close()">Cancel</button>
+      <button type="button" class="hms-btn hms-btn--primary" data-testid="doctor-order-save" [disabled]="saving" (click)="submit()">
+        {{ saving ? 'Saving…' : 'Save Order' }}
+      </button>
+    </footer>
+  </div>
+</div>

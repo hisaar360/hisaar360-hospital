@@ -245,6 +245,7 @@ export function mapAllotmentToWardPatient(
 
   return {
     admissionId: allotment._id,
+    admissionNo: allotment.admissionNo || '',
     patientId: allotment.patientId,
     patientName: patientFullName(patient),
     mrn: patient?.patientNo || '—',
@@ -255,6 +256,9 @@ export function mapAllotmentToWardPatient(
     age: patientAge(patient),
     sex: patientSex(patient),
     diagnosis: allotment.admissionReason || encounter?.admissionReason || patient?.chronicDiseases?.[0] || 'Under care',
+    allergies: Array.isArray(patient?.allergies) ? patient.allergies.join(', ') : patient?.allergies || '',
+    bloodGroup: patient?.bloodGroup || '',
+    photoUrl: (patient as { photoUrl?: string } | undefined)?.photoUrl || '',
     doctorId: allotment.consultantDoctorId || patient?.assignedDoctorId || '',
     doctorName: doctorName(allotment.consultantDoctorId || patient?.assignedDoctorId, doctors),
     nurseId: normalizeEntityId(allotment.assignedNurseId) || normalizeEntityId(allotment.assignedNurse?._id) || undefined,
@@ -394,6 +398,8 @@ export interface WardActivityRecord {
   priority?: string;
   shift?: string;
   metadata?: Record<string, unknown>;
+  scheduledAt?: string | null;
+  completedAt?: string | null;
   createdAt?: string;
 }
 
@@ -893,6 +899,71 @@ export function normalizeWardFloorRecords(raw: unknown, fallbackWardId = ''): Wa
   }
 
   return [];
+}
+
+export function mapAdmissionRecommendationRows(
+  recommendations: Array<Record<string, unknown>>,
+  doctors: Doctor[] = []
+): WardModuleRow[] {
+  return recommendations.map((item) => {
+    const patient = item['patientId'] as Patient | undefined;
+    const doctorRef = item['recommendedByDoctorId'] as Doctor | string | undefined;
+    const doctorId = typeof doctorRef === 'object' ? doctorRef?._id : doctorRef;
+    const status = String(item['status'] || 'pending');
+    const tab =
+      status === 'admitted'
+        ? 'active'
+        : status === 'cancelled' || status === 'declined'
+          ? 'discharge'
+          : 'pending';
+
+    const roomAllotmentId =
+      typeof item['roomAllotmentId'] === 'object'
+        ? String((item['roomAllotmentId'] as { _id?: string })._id || '')
+        : String(item['roomAllotmentId'] || '');
+
+    return withModuleMeta(
+      {
+        id: String(item['_id']),
+        cells: {
+          patient: patientFullName(patient),
+          mrn: patient?.patientNo || '—',
+          bed: '—',
+          doctor: typeof doctorRef === 'object' ? doctorName(String(doctorRef?._id || ''), doctors) : doctorName(String(doctorId || ''), doctors),
+          admittedOn: formatDisplayDate(String(item['recommendedAt'] || item['createdAt'] || '')),
+          status:
+            status === 'pending'
+              ? 'Pending Order'
+              : status === 'acknowledged'
+                ? 'Acknowledged'
+                : status === 'draft'
+                  ? 'Draft'
+                  : status === 'admitted'
+                    ? 'Admitted'
+                    : status,
+          orderNo: String(item['orderNo'] || '—'),
+          priority: String(item['priority'] || 'routine'),
+          reason: String(item['reason'] || '—'),
+          diagnosis: String(item['initialDiagnosis'] || '—'),
+          levelOfCare: String((item['clinicalSnapshot'] as Record<string, unknown> | undefined)?.['admissionDecision']
+            ? ((item['clinicalSnapshot'] as Record<string, unknown>)['admissionDecision'] as Record<string, unknown>)['levelOfCare']
+            : '—'),
+          _tab: tab,
+          _source: 'admission_recommendation',
+        },
+        badgeTone: {
+          status: status === 'pending' || status === 'acknowledged' ? 'pending' : status === 'admitted' ? 'active' : 'completed',
+        },
+        linkRoute: status === 'admitted' && roomAllotmentId ? `/ward/patient-detail/${roomAllotmentId}` : undefined,
+      },
+      patient?._id,
+      roomAllotmentId,
+      {
+        recommendationId: String(item['_id']),
+        rowSource: 'admission_recommendation',
+      }
+    );
+  });
 }
 
 export function mapAdmissionRows(allotments: RoomAllotment[], doctors: Doctor[] = []): WardModuleRow[] {

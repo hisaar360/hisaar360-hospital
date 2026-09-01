@@ -1,0 +1,63 @@
+<div class="ward-mar-panel">
+  <div class="ward-mar-toolbar" *ngIf="cards.length">
+    <app-hms-document-toolbar
+      [title]="'MAR Sheet'"
+      filename="mar-sheet.pdf"
+      [getHtml]="buildMarDocument"
+    ></app-hms-document-toolbar>
+  </div>
+  <article class="ward-mar-card" *ngFor="let card of cards" data-testid="mar-medicine-card">
+    <header class="ward-mar-card__head">
+      <div>
+        <h4>{{ card.medicine }}</h4>
+        <p>{{ card.dose }} · {{ card.route }} · {{ card.frequency }}</p>
+      </div>
+      <span class="ward-mar-pharmacy-status">{{ card.pharmacyStatus }}</span>
+    </header>
+
+    <dl class="ward-mar-meta">
+      <div><dt>Recommended By</dt><dd>{{ card.recommendedBy || '—' }}</dd></div>
+      <div><dt>Last Given</dt><dd>{{ card.lastGivenAt ? (card.lastGivenAt | date:'medium') : '—' }}<small *ngIf="card.lastGivenBy"> · {{ card.lastGivenBy }}</small></dd></div>
+      <div><dt>Next Due</dt><dd>{{ card.nextDueAt ? (card.nextDueAt | date:'medium') : '—' }}<small *ngIf="card.nextDueLabel"> · {{ card.nextDueLabel }}</small></dd></div>
+    </dl>
+
+    <div class="ward-mar-timeline">
+      <button
+        type="button"
+        class="ward-mar-slot"
+        *ngFor="let slot of card.slots"
+        [ngClass]="slotClass(slot.status)"
+        (click)="openRecord(card, slot)"
+      >
+        <strong>{{ slot.label }}</strong>
+        <span>{{ slot.status }}</span>
+      </button>
+    </div>
+  </article>
+
+  <p *ngIf="!cards.length" class="ward-mar-empty">No active medicines for this patient.</p>
+</div>
+
+<div class="ward-mar-record-backdrop" *ngIf="recordOpen">
+  <div class="ward-mar-record-dialog hms-card" data-testid="mar-administration-modal">
+    <header><h3>Record Administration</h3></header>
+    <p *ngIf="activeCard && activeSlot"><strong>{{ activeCard.medicine }}</strong> · Scheduled {{ activeSlot.label }}</p>
+    <label class="hms-form-field"><span>Status</span>
+      <select [(ngModel)]="recordForm.marStatus" data-testid="mar-status">
+        <option value="given">Given</option>
+        <option value="late">Late</option>
+        <option value="held">Held</option>
+        <option value="refused">Refused</option>
+        <option value="not_available">Not Available</option>
+        <option value="missed">Missed</option>
+      </select>
+    </label>
+    <label class="hms-form-field"><span>Actual Given At</span><input type="datetime-local" data-testid="mar-administered-at" [(ngModel)]="recordForm.administeredAt" /></label>
+    <label class="hms-form-field"><span>Actual Dose</span><input data-testid="mar-actual-dose" [(ngModel)]="recordForm.dose" /></label>
+    <label class="hms-form-field"><span>Notes</span><textarea rows="2" [(ngModel)]="recordForm.notes"></textarea></label>
+    <footer>
+      <button type="button" class="hms-btn hms-btn--ghost" (click)="closeRecord()">Cancel</button>
+      <button type="button" class="hms-btn hms-btn--primary" data-testid="mar-save-dose" [disabled]="recordSaving" (click)="submitRecord()">{{ recordSaving ? 'Saving…' : 'Save Dose' }}</button>
+    </footer>
+  </div>
+</div>

@@ -1,4 +1,4 @@
-<div id="main-content" class="modern-dashboard ward-page-shell ward-bed-page">
+<div id="main-content" class="modern-dashboard hms-page ward-page-shell ward-bed-page">
   <div class="container-fluid ward-page-container">
     <div class="ward-page-header ward-page-header--compact">
       <div class="ward-page-header__copy">
@@ -56,9 +56,14 @@
         <span>Date</span>
         <input type="date" [(ngModel)]="filters.date" />
       </label>
-      <button type="button" class="btn btn-sm btn-primary ward-refresh-btn" (click)="refresh()">
-        <i class="fa fa-refresh"></i>
-      </button>
+      <div class="ward-filter-toolbar__actions">
+        <span class="ward-filter-toolbar__actions-label" aria-hidden="true">Actions</span>
+        <div class="ward-filter-toolbar__actions-row">
+          <button type="button" class="btn btn-sm btn-primary ward-refresh-btn" (click)="refresh()">
+            <i class="fa fa-refresh"></i>
+          </button>
+        </div>
+      </div>
     </section>
 
     <div class="ward-empty-setup" *ngIf="!loading && !hasWardSetup">

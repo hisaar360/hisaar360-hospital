@@ -6,22 +6,30 @@ import { ToastrService } from 'ngx-toastr';
 import { Observable } from 'rxjs';
 import { distinctUntilChanged, map } from 'rxjs/operators';
 import { BackendService } from '../../../core/services/backend.service';
+import { buildAccountsReportDocumentHtml } from '../../../core/documents/accounts-report-document.builder';
+import {
+  buildAccountsViewDocumentContext,
+  resolveAccountsViewDocumentConfig,
+} from '../../../core/utils/accounts-document.util';
+import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../core/utils/hms-document-context.util';
 import { todayYmd, toCalendarYmd } from '../../../core/utils/calendar-date';
+import { HmsDocumentToolbarComponent } from '../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
 
 interface KpiCard {
   label: string;
   value: unknown;
   hint: string;
   icon: string;
-  tone: 'teal' | 'orange' | 'purple' | 'green';
+  tone: 'teal' | 'orange' | 'purple' | 'green' | 'blue';
   money?: boolean;
   highlight?: boolean;
+  isBoolean?: boolean;
 }
 
 @Component({
   selector: 'app-accounts-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, HmsDocumentToolbarComponent],
   templateUrl: './accounts-page.component.html',
   styleUrl: './accounts-page.component.scss',
 })
@@ -232,8 +240,68 @@ export class AccountsPageComponent implements OnInit {
     return '';
   }
 
-  printPage(): void {
-    window.print();
+  get accountsDocumentEnabled(): boolean {
+    return !!resolveAccountsViewDocumentConfig(this.view, this.data);
+  }
+
+  get accountsDocumentTitle(): string {
+    return resolveAccountsViewDocumentConfig(this.view, this.data)?.title || this.title;
+  }
+
+  get accountsDocumentFilename(): string {
+    return resolveAccountsViewDocumentConfig(this.view, this.data)?.filename || `${this.view}.pdf`;
+  }
+
+  get accountsDocumentOrientation(): 'portrait' | 'landscape' {
+    return resolveAccountsViewDocumentConfig(this.view, this.data)?.orientation || 'portrait';
+  }
+
+  buildAccountsDocumentHtml = (): string => {
+    const context = buildAccountsViewDocumentContext(this.view, this.data, {
+      hospital: readStoredHospitalDocumentInfo(),
+      generatedBy: readCurrentUserName(),
+      fromDate: this.fromDate,
+      toDate: this.toDate,
+    });
+    return context ? buildAccountsReportDocumentHtml(context) : '';
+  };
+
+  get profitLossKpiCards(): KpiCard[] {
+    const revenue = this.asRecord('revenue');
+    const expenses = this.asRecord('expenses');
+    return [
+      { label: 'Consultations', value: revenue['consultations'], hint: '', icon: 'fa-user-md', tone: 'teal' },
+      { label: 'Laboratory', value: revenue['laboratory'], hint: '', icon: 'fa-flask', tone: 'blue' },
+      { label: 'Pharmacy', value: revenue['pharmacy'], hint: '', icon: 'fa-medkit', tone: 'purple' },
+      { label: 'Gross Revenue', value: revenue['grossRevenue'], hint: '', icon: 'fa-line-chart', tone: 'teal', highlight: true },
+      { label: 'COGS', value: expenses['cogs'], hint: '', icon: 'fa-shopping-cart', tone: 'orange' },
+      { label: 'Operating Expense', value: expenses['operatingExpense'], hint: '', icon: 'fa-building', tone: 'orange' },
+      { label: 'Gross Profit', value: this.data['grossProfit'], hint: '', icon: 'fa-plus-circle', tone: 'green', highlight: true },
+      { label: 'Net Profit', value: this.data['netProfit'], hint: '', icon: 'fa-check-circle', tone: 'green', highlight: true },
+    ];
+  }
+
+  get dailyCollectionsKpiCards(): KpiCard[] {
+    return [
+      { label: 'OPD', value: this.data['opd'], hint: '', icon: 'fa-stethoscope', tone: 'teal' },
+      { label: 'IPD', value: this.data['ipd'], hint: '', icon: 'fa-bed', tone: 'blue' },
+      { label: 'Lab', value: this.data['lab'], hint: '', icon: 'fa-flask', tone: 'purple' },
+      { label: 'Pharmacy Counter', value: this.data['pharmacyCounter'], hint: '', icon: 'fa-medkit', tone: 'green' },
+      { label: 'Refunds', value: this.data['refunds'], hint: '', icon: 'fa-undo', tone: 'orange' },
+      { label: 'Expenses', value: this.data['expenses'], hint: '', icon: 'fa-money', tone: 'orange' },
+      { label: 'Cash', value: this.data['cashTotal'], hint: '', icon: 'fa-money', tone: 'teal' },
+      { label: 'Net Cash Movement', value: this.data['netCashMovement'], hint: '', icon: 'fa-exchange', tone: 'green', highlight: true },
+    ];
+  }
+
+  get trialBalanceKpiCards(): KpiCard[] {
+    const totals = this.asRecord('totals');
+    return [
+      { label: 'Total Debit', value: totals['closingDebit'], hint: '', icon: 'fa-arrow-down', tone: 'teal' },
+      { label: 'Total Credit', value: totals['closingCredit'], hint: '', icon: 'fa-arrow-up', tone: 'blue' },
+      { label: 'Period Debit', value: totals['periodDebit'], hint: '', icon: 'fa-calendar', tone: 'purple' },
+      { label: 'Balanced', value: this.data['balanced'], hint: '', icon: 'fa-check', tone: 'green', highlight: true, isBoolean: true },
+    ];
   }
 
   private refreshDerivedViews(): void {

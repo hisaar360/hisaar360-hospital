@@ -91,6 +91,27 @@ export interface LaboratoryPrintSettings {
   reportSignatories?: LabReportSignatory[];
 }
 
+export interface BirthCertificateSettings {
+  enabled?: boolean;
+  documentTitle?: string;
+  certificatePrefix?: string;
+  birthRecordPrefix?: string;
+  logoUrl?: string;
+  stampUrl?: string;
+  signatoryName?: string;
+  signatoryDesignation?: string;
+  signatureUrl?: string;
+  footerText?: string;
+  legalDisclaimer?: string;
+  showFatherCnic?: boolean;
+  showMotherCnic?: boolean;
+  showBirthWeight?: boolean;
+  showDeliveryMode?: boolean;
+  showQrCode?: boolean;
+  showRevocationReason?: boolean;
+  verificationBaseUrl?: string;
+}
+
 export interface LabSettingsResponse {
   hospital: {
     _id?: string;
@@ -206,12 +227,17 @@ export interface Hospital {
   modulesEnforced?: boolean;
   prescriptionSettings?: PrescriptionPrintSettings | null;
   laboratorySettings?: LaboratoryPrintSettings | null;
+  birthCertificateSettings?: BirthCertificateSettings | null;
 }
 
 export interface Department {
   _id: string;
   hospitalId: string;
   name: string;
+  code?: string;
+  category?: string;
+  systemTemplateKey?: string;
+  sortOrder?: number;
   description?: string | null;
   status: Status;
 }
@@ -622,6 +648,16 @@ export interface HospitalWard {
   name: string;
   code?: string;
   description?: string;
+  type?: string;
+  purpose?: string;
+  departmentMode?: 'GENERAL' | 'DEPARTMENT_SPECIFIC';
+  departmentIds?: string[];
+  genderPolicy?: string;
+  ageGroup?: string;
+  careLevel?: string;
+  systemTemplateKey?: string;
+  sortOrder?: number;
+  notes?: string;
   status: 'active' | 'inactive';
 }
 
@@ -667,6 +703,8 @@ export interface RoomAllotment {
   notes?: string | null;
   assignedNurseId?: string | null;
   assignedNurse?: Pick<User, '_id' | 'name' | 'email' | 'phone'> | null;
+  admissionRecommendationId?: string | null;
+  admissionNo?: string | null;
 }
 
 export interface BillItem {

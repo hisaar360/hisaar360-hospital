@@ -1,0 +1,188 @@
+<div id="main-content" class="hms-page ward-page-shell nursery-detail-page">
+  <div class="container-fluid ward-page-container">
+    <header class="ward-page-header ward-page-header--compact">
+      <div class="ward-page-header__copy">
+        <a routerLink="/ward/nursery" class="ward-back-link"><i class="fa fa-arrow-left"></i> Back to Nursery</a>
+        <h1>Newborn Profile</h1>
+        <p *ngIf="detail">{{ babyLabel() }} · MRN {{ babyMr() }}</p>
+      </div>
+    </header>
+
+    <div class="nursery-detail-skeleton" *ngIf="loading">
+      <div class="nursery-skeleton-block"></div>
+      <div class="nursery-skeleton-row" *ngFor="let row of [1,2,3,4]"></div>
+    </div>
+
+    <ng-container *ngIf="!loading && detail">
+      <section class="ward-panel nursery-detail-hero">
+        <div class="nursery-detail-hero__main">
+          <span class="nursery-avatar nursery-avatar--lg" [class.has-photo]="babyPhoto()">
+            <img *ngIf="babyPhoto()" [src]="babyPhoto()" [alt]="babyLabel()" />
+            <span *ngIf="!babyPhoto()">{{ babyInitials() }}</span>
+          </span>
+          <div>
+            <span [class]="statusClass()">{{ statusLabel() }}</span>
+            <h2>{{ babyLabel() }}</h2>
+            <p>MRN {{ babyMr() }} · {{ babyGender() | titlecase }} · {{ babyAge() }}</p>
+            <p>DOB: {{ babyDob() }}</p>
+          </div>
+        </div>
+        <dl class="nursery-detail-hero__meta">
+          <div><dt>Current Nursery Bed</dt><dd>{{ nurseryBedLabel() }}</dd></div>
+          <div><dt>Ward</dt><dd>{{ nurseryWardLabel() }}</dd></div>
+          <div><dt>Birth Weight</dt><dd>{{ birthWeightLabel() }}</dd></div>
+          <div><dt>Consultant</dt><dd>{{ consultantLabel() }}</dd></div>
+        </dl>
+      </section>
+
+      <section class="ward-panel nursery-mother-chip">
+        <div>
+          <small>Mother</small>
+          <strong>{{ motherLabel() }}</strong>
+          <span>MRN {{ motherMr() }} · {{ motherRoomBedLabel() }}</span>
+        </div>
+        <button type="button" class="btn btn-sm btn-light nursery-btn-light" (click)="openMotherProfile()">Open Mother Profile</button>
+      </section>
+
+      <section class="ward-panel nursery-detail-main">
+        <div class="ward-status-tabs ward-detail-tabs">
+          <button
+            type="button"
+            class="ward-status-tab"
+            *ngFor="let tab of tabs"
+            [class.ward-status-tab--active]="activeTab === tab.key"
+            (click)="setTab(tab.key)"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+
+        <div class="nursery-detail-content" [ngSwitch]="activeTab">
+          <div *ngSwitchCase="'overview'" class="nursery-info-grid">
+            <article class="nursery-info-card">
+              <h3>Baby Information</h3>
+              <dl>
+                <div><dt>Name</dt><dd>{{ babyLabel() }}</dd></div>
+                <div><dt>MRN</dt><dd>{{ babyMr() }}</dd></div>
+                <div><dt>Sex</dt><dd>{{ babyGender() | titlecase }}</dd></div>
+                <div><dt>Age</dt><dd>{{ babyAge() }}</dd></div>
+              </dl>
+            </article>
+            <article class="nursery-info-card">
+              <h3>Birth Details</h3>
+              <dl>
+                <div><dt>Born On</dt><dd>{{ babyDob() }}</dd></div>
+                <div><dt>Weight</dt><dd>{{ birthWeightLabel() }}</dd></div>
+                <div><dt>Gestational Age</dt><dd>{{ detail.gestationalAgeWeeks ? detail.gestationalAgeWeeks + ' weeks' : 'Not recorded' }}</dd></div>
+                <div><dt>Delivery</dt><dd>{{ detail.modeOfDelivery || 'Not recorded' }}</dd></div>
+              </dl>
+            </article>
+            <article class="nursery-info-card">
+              <h3>Mother Information</h3>
+              <dl>
+                <div><dt>Name</dt><dd>{{ motherLabel() }}</dd></div>
+                <div><dt>MRN</dt><dd>{{ motherMr() }}</dd></div>
+                <div><dt>Room / Bed</dt><dd>{{ motherRoomBedLabel() }}</dd></div>
+              </dl>
+            </article>
+            <article class="nursery-info-card">
+              <h3>Current Placement</h3>
+              <dl>
+                <div><dt>Ward</dt><dd>{{ nurseryWardLabel() }}</dd></div>
+                <div><dt>Bed / Cot</dt><dd>{{ nurseryBedLabel() }}</dd></div>
+                <div><dt>Status</dt><dd>{{ statusLabel() }}</dd></div>
+              </dl>
+            </article>
+          </div>
+
+          <div *ngSwitchCase="'mother'">
+            <p>Mother linkage for this newborn admission.</p>
+            <dl class="nursery-overview-list">
+              <div><dt>Mother</dt><dd>{{ motherLabel() }}</dd></div>
+              <div><dt>MRN</dt><dd>{{ motherMr() }}</dd></div>
+              <div><dt>Room / Bed</dt><dd>{{ motherRoomBedLabel() }}</dd></div>
+            </dl>
+            <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" (click)="openMotherProfile()">Open Mother Profile</button>
+          </div>
+
+          <div *ngSwitchCase="'vitals'">
+            <p class="nursery-tab-note">Use the ward vitals module for this patient encounter.</p>
+            <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" (click)="navigateWard('/ward/vitals')">Open Vitals & Observations</button>
+          </div>
+
+          <div *ngSwitchCase="'feeding'">
+            <form class="nursery-feeding-form" (ngSubmit)="saveFeeding()">
+              <h4>Add Feeding Record</h4>
+              <div class="nursery-feeding-form__grid">
+                <label class="hms-field">
+                  <span class="hms-field__label">Type</span>
+                  <select [(ngModel)]="feedingForm.feedingType" name="feedingType">
+                    <option value="breastfeeding">Breastfeeding</option>
+                    <option value="expressed_breast_milk">Expressed Breast Milk</option>
+                    <option value="formula">Formula</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label class="hms-field">
+                  <span class="hms-field__label">Amount</span>
+                  <input [(ngModel)]="feedingForm.amount" name="amount" placeholder="e.g. 30 ml" />
+                </label>
+                <label class="hms-field">
+                  <span class="hms-field__label">Duration (min)</span>
+                  <input type="number" [(ngModel)]="feedingForm.durationMinutes" name="durationMinutes" />
+                </label>
+                <label class="hms-field hms-field--wide">
+                  <span class="hms-field__label">Tolerance / Notes</span>
+                  <textarea [(ngModel)]="feedingForm.toleranceNotes" name="toleranceNotes" rows="3"></textarea>
+                </label>
+              </div>
+              <button type="submit" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" [disabled]="saving">
+                {{ saving ? 'Saving…' : '+ Add Feeding Record' }}
+              </button>
+            </form>
+
+            <div class="ward-data-table-wrap" *ngIf="detail.feedings?.length; else noFeedings">
+              <table class="ward-data-table">
+                <thead>
+                  <tr>
+                    <th>Time</th><th>Type</th><th>Amount</th><th>Duration</th><th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of detail.feedings">
+                    <td>{{ row.recordedAt | date:'short' }}</td>
+                    <td>{{ feedingTypeLabel(row.feedingType) | titlecase }}</td>
+                    <td>{{ row.amount || '—' }}</td>
+                    <td>{{ row.durationMinutes ? row.durationMinutes + ' min' : '—' }}</td>
+                    <td>{{ row.toleranceNotes || '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ng-template #noFeedings>
+              <p class="nursery-mini-empty">No feeding records yet.</p>
+            </ng-template>
+          </div>
+
+          <div *ngSwitchCase="'medications'">
+            <p class="nursery-tab-note">Medication administration is managed through the ward MAR module.</p>
+            <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" (click)="navigateWard('/ward/mar')">Open MAR / Medications</button>
+          </div>
+
+          <div *ngSwitchCase="'birth'">
+            <dl class="nursery-overview-list">
+              <div><dt>Birth Record</dt><dd>{{ detail.birthRecord?.['birthRecordNo'] || 'Not recorded' }}</dd></div>
+              <div><dt>Status</dt><dd>{{ detail.birthRecord?.['status'] || 'Not recorded' }}</dd></div>
+              <div><dt>Certificate</dt><dd>{{ detail.certificate?.['certificateNo'] || 'Not issued' }}</dd></div>
+            </dl>
+            <a routerLink="/ward/nursery/birth-records" class="btn btn-sm btn-light nursery-btn-light">Open Birth Records</a>
+          </div>
+
+          <div *ngSwitchCase="'discharge'">
+            <p class="nursery-tab-note">Discharge workflow follows the standard ward discharge process.</p>
+          </div>
+        </div>
+      </section>
+    </ng-container>
+  </div>
+</div>

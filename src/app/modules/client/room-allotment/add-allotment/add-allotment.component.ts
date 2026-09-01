@@ -11,7 +11,19 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../core/services/backend.service';
-import { Patient, Room } from '../../../../shared/models/hospital.model';
+import { Patient, Room, Doctor, RoomAllotment } from '../../../../shared/models/hospital.model';
+
+interface WardAdmissionSuccess {
+  admissionNo: string;
+  encounterId: string;
+  encounterNo?: string;
+  roomAllotmentId: string;
+  wardName: string;
+  roomNo: string;
+  bedLabel: string;
+  consultantName: string;
+  nurseName: string;
+}
 
 @Component({
   selector: 'app-add-allotment',
@@ -33,6 +45,10 @@ export class AddAllotmentComponent implements OnInit {
   patientLookupPerformed = false;
   matchedPatients: Patient[] = [];
   selectedPatient: Patient | null = null;
+  admissionRecommendationId = '';
+  recommendationSummary: Record<string, unknown> | null = null;
+  recommendationReadOnly = false;
+  admissionSuccess: WardAdmissionSuccess | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -60,6 +76,7 @@ export class AddAllotmentComponent implements OnInit {
     this.currentHospitalId = currentUser?.hospitalId || null;
     this.prefilledWardName = String(this.route.snapshot.queryParamMap.get('wardName') || '').trim();
     this.prefilledBedId = String(this.route.snapshot.queryParamMap.get('bedId') || '').trim();
+    this.admissionRecommendationId = String(this.route.snapshot.queryParamMap.get('recommendationId') || '').trim();
 
     const bedNo = String(this.route.snapshot.queryParamMap.get('bedNo') || '').trim();
     if (bedNo) {
@@ -71,6 +88,35 @@ export class AddAllotmentComponent implements OnInit {
     });
 
     this.loadRooms();
+    this.loadAdmissionRecommendationContext();
+  }
+
+  private loadAdmissionRecommendationContext(): void {
+    if (!this.admissionRecommendationId) {
+      return;
+    }
+
+    this.recommendationReadOnly = true;
+    this.backend.getAdmissionRecommendation(this.admissionRecommendationId).subscribe({
+      next: (recommendation) => {
+        this.recommendationSummary = recommendation;
+        const patient = recommendation['patientId'] as Patient | undefined;
+        if (patient?._id) {
+          this.selectedPatient = patient;
+          this.matchedPatients = [patient];
+          this.patientLookupPerformed = true;
+        }
+
+        this.allotmentForm.patchValue({
+          consultantDoctorId:
+            typeof recommendation['recommendedByDoctorId'] === 'object'
+              ? String((recommendation['recommendedByDoctorId'] as Doctor)?._id || '')
+              : String(recommendation['recommendedByDoctorId'] || ''),
+          admissionReason: String(recommendation['reason'] || recommendation['initialDiagnosis'] || ''),
+        });
+      },
+      error: () => this.toastr.error('Unable to load admission recommendation.'),
+    });
   }
 
   private currentDateTimeLocalValue(date = new Date()): string {
@@ -260,6 +306,20 @@ export class AddAllotmentComponent implements OnInit {
     return this.backend.hasPermission(permission);
   }
 
+  consultantName(doctorId?: string | null): string {
+    if (!doctorId) return '—';
+    return String(doctorId);
+  }
+
+  openPatientControlPanel(): void {
+    if (!this.admissionSuccess?.roomAllotmentId) return;
+    void this.router.navigate(['/ward/patient-detail', this.admissionSuccess.roomAllotmentId]);
+  }
+
+  backToAdmissions(): void {
+    void this.router.navigate(['/ward/admissions']);
+  }
+
   submitAllotment(): void {
     if (!this.can('room_allotments.create')) {
       this.toastr.error('You do not have permission to create room allotments.');
@@ -291,6 +351,13 @@ export class AddAllotmentComponent implements OnInit {
       advanceMethod: value.advanceMethod || undefined,
       securityAmount: value.securityAmount ? Number(value.securityAmount) : undefined,
       securityMethod: value.securityMethod || undefined,
+      admissionRecommendationId: this.admissionRecommendationId || undefined,
+      recommendedByDoctorId: value.consultantDoctorId || undefined,
+      sourceAppointmentId:
+        typeof this.recommendationSummary?.['sourceAppointmentId'] === 'object'
+          ? String((this.recommendationSummary?.['sourceAppointmentId'] as { _id?: string })._id || '')
+          : String(this.recommendationSummary?.['sourceAppointmentId'] || '') || undefined,
+      initialDiagnosis: String(this.recommendationSummary?.['initialDiagnosis'] || value.admissionReason || '') || undefined,
     };
 
     if (this.currentHospitalId) {
@@ -298,13 +365,40 @@ export class AddAllotmentComponent implements OnInit {
     }
 
     this.saving = true;
+    this.admissionSuccess = null;
     this.backend
       .createRoomAllotment(payload)
       .pipe(finalize(() => (this.saving = false)))
       .subscribe({
         next: (response) => {
-          this.toastr.success(response.message);
-          this.router.navigateByUrl('/room-allotment/alloted-rooms');
+          const allotment = (response.data || {}) as RoomAllotment & {
+            encounter?: { _id?: string; encounterNo?: string };
+            admissionEncounterId?: string;
+          };
+          const encounterId = String(
+            allotment.encounterId || allotment.admissionEncounterId || allotment.encounter?._id || ''
+          ).trim();
+          const admissionNo = String(allotment.admissionNo || '').trim();
+          const encounterNo = String(allotment.encounter?.encounterNo || '').trim();
+
+          if (!admissionNo || !encounterId) {
+            this.toastr.error('Admission saved but response did not include admission/encounter identifiers.');
+            return;
+          }
+
+          this.admissionSuccess = {
+            admissionNo,
+            encounterId,
+            encounterNo: encounterNo || undefined,
+            roomAllotmentId: String(allotment._id || ''),
+            wardName: this.roomWardName(this.selectedRoom),
+            roomNo: this.selectedRoom?.roomNo || '',
+            bedLabel: String(value.bedLabel || this.selectedRoom?.roomNo || ''),
+            consultantName: this.consultantName(value.consultantDoctorId),
+            nurseName: '',
+          };
+
+          this.toastr.success(response.message || 'Room allotment created successfully');
         },
         error: (err) => this.toastr.error(err?.error?.message || 'Unable to save room allotment.'),
       });

@@ -35,9 +35,12 @@
           <i class="fa fa-file-text-o"></i>
           <span>Print Invoice</span>
         </button>
-        <button type="button" class="btn-primary" *ngIf="isReportReady()" (click)="printReport()">
-          <i class="fa fa-file-pdf-o"></i> Print / PDF Report
-        </button>
+        <app-hms-document-toolbar
+          *ngIf="isReportReady()"
+          [title]="'Laboratory Report'"
+          [filename]="(order?.orderNo || 'lab-report') + '.pdf'"
+          [getHtml]="buildLabReportDocumentHtml"
+        ></app-hms-document-toolbar>
       </div>
     </header>
 

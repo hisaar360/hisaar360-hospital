@@ -39,6 +39,7 @@ import {
   getWardOptionsFromCatalog,
   getWardOptionsFromRooms,
   mapAdmissionRows,
+  mapAdmissionRecommendationRows,
   mapAllotmentToWardPatient,
   mapDripRows,
   mapMarRows,
@@ -338,6 +339,13 @@ export class WardDataService {
     return this.backend.getWardFloors(wardId, { limit: 100, status: 'active' });
   }
 
+  loadWardFilterOptions(): Observable<string[]> {
+    return this.refreshHospitalWards().pipe(
+      map((wards) => (wards.length ? getWardOptionsFromCatalog(wards) : [])),
+      catchError(() => of([] as string[]))
+    );
+  }
+
   fetchWardFloors(wardId: string): Observable<WardFloor[]> {
     const id = String(wardId || '').trim();
     if (!id) {
@@ -542,8 +550,29 @@ export class WardDataService {
       );
     }
 
+    if (moduleKey === 'admissions') {
+      return forkJoin({
+        bundle: this.loadClinicalBundle(),
+        recommendations: this.backend.listAdmissionRecommendations({ limit: 100 }).pipe(
+          map((result) => result.items || []),
+          catchError(() => of([] as Array<Record<string, unknown>>))
+        ),
+      }).pipe(
+        map(({ bundle, recommendations }) => {
+          const baseRows = this.rowsFromClinicalBundle(bundle, moduleKey, tab, search, filters);
+          const pendingRecommendations = recommendations.filter(
+            (item) => !['admitted'].includes(String(item['status'] || ''))
+          );
+          const recommendationRows = mapAdmissionRecommendationRows(pendingRecommendations, bundle.doctors);
+          return [...recommendationRows, ...baseRows];
+        }),
+        catchError(() => of([] as WardModuleRow[]))
+      );
+    }
+
     return this.loadClinicalBundle().pipe(
-      map((bundle) => this.rowsFromClinicalBundle(bundle, moduleKey, tab, search, filters))
+      map((bundle) => this.rowsFromClinicalBundle(bundle, moduleKey, tab, search, filters)),
+      catchError(() => of([] as WardModuleRow[]))
     );
   }
 
@@ -675,6 +704,8 @@ export class WardDataService {
     orders: WardModuleRow[];
     io: WardModuleRow[];
     handover: WardModuleRow[];
+    prescriptions: Prescription[];
+    marActivities: WardActivityRecord[];
   }> {
     return this.loadClinicalBundle().pipe(
       switchMap((bundle) => {
@@ -703,6 +734,15 @@ export class WardDataService {
                 )
               : null;
             const filters = { admissionId, patientId: patient?.patientId || '' };
+            const marActivities = bundle.activities.filter(
+              (item) =>
+                item.activityType === 'mar_dose' &&
+                (String(item.admissionId || '') === String(admissionId) ||
+                  String(item.patientId || '') === String(patient?.patientId || ''))
+            );
+            const prescriptions = bundle.prescriptions.filter(
+              (item) => String(resolvePrescriptionPatientId(item) || '') === String(patient?.patientId || '')
+            );
             return {
               patient,
               vitals: this.rowsFromClinicalBundle(bundle, 'vitals', 'all', '', filters),
@@ -712,6 +752,8 @@ export class WardDataService {
               orders: this.rowsFromClinicalBundle(bundle, 'orders-services', 'all', '', filters),
               io: this.rowsFromClinicalBundle(bundle, 'io-chart', 'all', '', filters),
               handover: this.rowsFromClinicalBundle(bundle, 'shift-handover', 'all', '', filters),
+              prescriptions,
+              marActivities,
             };
           })
         );
@@ -728,6 +770,7 @@ export class WardDataService {
             title: item['title'] || '',
             description: item['description'] || '',
             actionLabel: 'Open Report',
+            category: item['category'] || '',
           })
         ) || [];
 
@@ -738,8 +781,8 @@ export class WardDataService {
       }),
       catchError(() => this.loadClinicalBundle().pipe(
         map((bundle) => [
-          { id: 'occupancy', title: 'Ward Occupancy Summary', description: `${bundle.allotments.length} admitted patients`, actionLabel: 'Open Report' },
-          { id: 'records', title: 'Ward Clinical Records', description: `${bundle.history.length} ward notes`, actionLabel: 'Open Report' },
+          { id: 'occupancy', title: 'Ward Occupancy Summary', description: `${bundle.allotments.length} admitted patients`, actionLabel: 'Open Report', category: 'occupancy' },
+          { id: 'records', title: 'Ward Clinical Records', description: `${bundle.history.length} ward notes`, actionLabel: 'Open Report', category: 'nursing' },
         ])
       ))
     );

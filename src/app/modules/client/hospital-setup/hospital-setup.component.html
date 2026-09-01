@@ -1,0 +1,392 @@
+<div class="hospital-setup-page" (click)="showMoreMenu = false">
+  <header class="hospital-setup-page__header">
+    <div class="hospital-setup-page__intro">
+      <h2>Hospital Setup</h2>
+      <p>Configure your hospital's departments, wards, rooms, and documents.</p>
+    </div>
+    <div class="hospital-setup-page__actions">
+      <button
+        *ngIf="activeTab === 'departments' && can('departments.create')"
+        type="button"
+        class="btn-primary"
+        (click)="openDepartmentModal()"
+      >
+        + Add Department
+      </button>
+      <button
+        *ngIf="activeTab === 'wards' && can('ward.create')"
+        type="button"
+        class="btn-primary"
+        (click)="openWardModal()"
+      >
+        + Add Ward
+      </button>
+      <a *ngIf="activeTab === 'rooms-beds'" routerLink="/ward/bed-management" class="btn-primary">
+        Manage Beds
+      </a>
+      <button
+        *ngIf="activeTab === 'birth-certificates'"
+        type="button"
+        class="btn-primary"
+        (click)="saveBirthCertificateSettings()"
+        [disabled]="savingBirthSettings"
+      >
+        {{ savingBirthSettings ? 'Saving…' : 'Save Settings' }}
+      </button>
+
+      <div class="hospital-setup-more" (click)="$event.stopPropagation()">
+        <button type="button" class="btn-light hospital-setup-more__toggle" (click)="toggleMoreMenu()" aria-label="More actions">
+          ⋮ More
+        </button>
+        <div class="hospital-setup-more__menu" *ngIf="showMoreMenu">
+          <button type="button" (click)="confirmAddDefaults()" [disabled]="syncing">
+            {{ syncing ? 'Adding…' : 'Add Default Departments & Wards' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <nav class="hospital-setup-tabs" aria-label="Hospital setup sections">
+    <button type="button" [class.is-active]="activeTab === 'departments'" (click)="setTab('departments')">Departments</button>
+    <button type="button" [class.is-active]="activeTab === 'wards'" (click)="setTab('wards')">Wards &amp; Care Units</button>
+    <button type="button" [class.is-active]="activeTab === 'rooms-beds'" (click)="setTab('rooms-beds')">Rooms / Beds</button>
+    <button type="button" [class.is-active]="activeTab === 'birth-certificates'" (click)="setTab('birth-certificates')">Birth Certificate</button>
+  </nav>
+
+  <div class="hospital-setup-loading" *ngIf="loading"><i class="fa fa-spinner fa-spin"></i> Loading your hospital configuration…</div>
+
+  <!-- Departments -->
+  <section *ngIf="activeTab === 'departments' && !loading" class="hospital-setup-card">
+    <div class="hospital-setup-toolbar">
+      <label>
+        <span>Search</span>
+        <input type="search" [(ngModel)]="departmentSearch" placeholder="Search departments…" aria-label="Search departments" />
+      </label>
+      <label>
+        <span>Status</span>
+        <select [(ngModel)]="departmentStatusFilter" aria-label="Filter by status">
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </label>
+    </div>
+    <div class="hospital-setup-table-wrap">
+      <table class="hospital-setup-table">
+        <thead>
+          <tr>
+            <th><button type="button" class="sort-btn" (click)="setDepartmentSort('name')">Department {{ sortIndicator('name') }}</button></th>
+            <th><button type="button" class="sort-btn" (click)="setDepartmentSort('code')">Code {{ sortIndicator('code') }}</button></th>
+            <th><button type="button" class="sort-btn" (click)="setDepartmentSort('category')">Category {{ sortIndicator('category') }}</button></th>
+            <th><button type="button" class="sort-btn" (click)="setDepartmentSort('doctors')">Doctors {{ sortIndicator('doctors') }}</button></th>
+            <th><button type="button" class="sort-btn" (click)="setDepartmentSort('status')">Status {{ sortIndicator('status') }}</button></th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of filteredDepartments">
+            <td>{{ item.name }}</td>
+            <td>{{ item.code || '—' }}</td>
+            <td>{{ formatLabel(item.category || 'OTHER') }}</td>
+            <td>{{ doctorCountByDepartment[item._id] || 0 }}</td>
+            <td><span class="status-pill" [class.is-active]="item.status === 'active'">{{ item.status }}</span></td>
+            <td class="actions-cell">
+              <button *ngIf="can('departments.update')" type="button" class="btn-light" (click)="openDepartmentModal(item)">Edit</button>
+              <button *ngIf="can('departments.update')" type="button" class="btn-light" (click)="toggleDepartmentStatus(item)">
+                {{ item.status === 'active' ? 'Deactivate' : 'Activate' }}
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="!filteredDepartments.length">
+            <td colspan="6" class="empty-cell">No departments found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="hospital-setup-hint">Inactive departments remain in historical records but are hidden from operational dropdowns.</p>
+  </section>
+
+  <!-- Wards -->
+  <section *ngIf="activeTab === 'wards' && !loading" class="hospital-setup-card">
+    <div class="hospital-setup-toolbar">
+      <label>
+        <span>Search</span>
+        <input type="search" [(ngModel)]="wardSearch" placeholder="Search wards…" aria-label="Search wards" />
+      </label>
+      <label>
+        <span>Status</span>
+        <select [(ngModel)]="wardStatusFilter" aria-label="Filter ward status">
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </label>
+    </div>
+    <div class="hospital-setup-table-wrap">
+      <table class="hospital-setup-table">
+        <thead>
+          <tr>
+            <th>Ward Name</th>
+            <th>Code</th>
+            <th>Type</th>
+            <th>Department Mode</th>
+            <th>Departments</th>
+            <th>Gender Policy</th>
+            <th>Age Group</th>
+            <th>Care Level</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of filteredWards">
+            <td>{{ item.name }}</td>
+            <td>{{ item.code || '—' }}</td>
+            <td>{{ formatLabel(item.type || 'general') }}</td>
+            <td>{{ item.departmentMode === 'DEPARTMENT_SPECIFIC' ? 'Department-specific' : 'General' }}</td>
+            <td>{{ wardDepartmentLabels(item) }}</td>
+            <td>{{ formatLabel(item.genderPolicy || 'mixed') }}</td>
+            <td>{{ formatLabel(item.ageGroup || 'all') }}</td>
+            <td>{{ formatLabel(item.careLevel || 'general') }}</td>
+            <td><span class="status-pill" [class.is-active]="item.status === 'active'">{{ item.status }}</span></td>
+            <td class="actions-cell">
+              <button *ngIf="can('ward.update')" type="button" class="btn-light" (click)="openWardModal(item)">Edit</button>
+              <button *ngIf="can('ward.update')" type="button" class="btn-light" (click)="toggleWardStatus(item)">
+                {{ item.status === 'active' ? 'Deactivate' : 'Activate' }}
+              </button>
+              <a routerLink="/ward/bed-management" class="btn-light">View Rooms / Beds</a>
+            </td>
+          </tr>
+          <tr *ngIf="!filteredWards.length">
+            <td colspan="10" class="empty-cell">No wards found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="hospital-setup-hint">Inactive wards are hidden from admission and operational ward selection.</p>
+  </section>
+
+  <!-- Rooms / Beds -->
+  <section *ngIf="activeTab === 'rooms-beds' && !loading" class="hospital-setup-card">
+    <p class="hospital-setup-hint hospital-setup-hint--lead">
+      Rooms and beds are operationally managed from Bed Management.
+    </p>
+    <div class="hospital-setup-table-wrap">
+      <table class="hospital-setup-table">
+        <thead>
+          <tr>
+            <th>Ward</th>
+            <th>Rooms</th>
+            <th>Beds</th>
+            <th>Available</th>
+            <th>Occupied</th>
+            <th>Inactive</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of wards">
+            <td>{{ item.name }}</td>
+            <td>{{ item.roomsCount || 0 }}</td>
+            <td>{{ item.bedsCount || 0 }}</td>
+            <td>{{ item.availableBeds || 0 }}</td>
+            <td>{{ item.occupiedBeds || 0 }}</td>
+            <td>{{ item.inactiveBeds || 0 }}</td>
+            <td class="actions-cell">
+              <a routerLink="/ward/bed-management" class="btn-light">Manage Rooms &amp; Beds</a>
+            </td>
+          </tr>
+          <tr *ngIf="!wards.length">
+            <td colspan="7" class="empty-cell">No wards configured yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Birth Certificate -->
+  <section *ngIf="activeTab === 'birth-certificates'" class="hospital-setup-card birth-cert-settings">
+    <p class="birth-cert-settings__note">
+      Configure hospital-issued birth record certificates for your hospital. These are <strong>not</strong> NADRA B-Form or Union Council civil-registration documents.
+    </p>
+
+    <div class="birth-accordion" [class.is-open]="birthAccordion['basic']">
+      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('basic')">Basic Settings</button>
+      <div class="birth-accordion__body" *ngIf="birthAccordion['basic']">
+        <label><span>Enable certificates</span><input type="checkbox" [(ngModel)]="birthSettings.enabled" /></label>
+        <label><span>Document title</span><input [(ngModel)]="birthSettings.documentTitle" /></label>
+        <label><span>Certificate prefix</span><input [(ngModel)]="birthSettings.certificatePrefix" /></label>
+        <label><span>Birth record prefix</span><input [(ngModel)]="birthSettings.birthRecordPrefix" /></label>
+      </div>
+    </div>
+
+    <div class="birth-accordion" [class.is-open]="birthAccordion['branding']">
+      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('branding')">Branding</button>
+      <div class="birth-accordion__body" *ngIf="birthAccordion['branding']">
+        <label><span>Logo URL</span><input [(ngModel)]="birthSettings.logoUrl" placeholder="https://…" /></label>
+        <label><span>Stamp URL</span><input [(ngModel)]="birthSettings.stampUrl" placeholder="https://…" /></label>
+        <label class="full"><span>Footer text</span><textarea rows="2" [(ngModel)]="birthSettings.footerText"></textarea></label>
+      </div>
+    </div>
+
+    <div class="birth-accordion" [class.is-open]="birthAccordion['signatory']">
+      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('signatory')">Authorized Signatory</button>
+      <div class="birth-accordion__body" *ngIf="birthAccordion['signatory']">
+        <label><span>Signatory name</span><input [(ngModel)]="birthSettings.signatoryName" /></label>
+        <label><span>Signatory designation</span><input [(ngModel)]="birthSettings.signatoryDesignation" /></label>
+        <label><span>Signature URL</span><input [(ngModel)]="birthSettings.signatureUrl" placeholder="https://…" /></label>
+      </div>
+    </div>
+
+    <div class="birth-accordion" [class.is-open]="birthAccordion['qr']">
+      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('qr')">QR &amp; Verification</button>
+      <div class="birth-accordion__body" *ngIf="birthAccordion['qr']">
+        <label><span>Verification base URL</span><input [(ngModel)]="birthSettings.verificationBaseUrl" placeholder="https://www.hisaar360.com/verify/birth" /></label>
+        <label><span>Show QR code</span><input type="checkbox" [(ngModel)]="birthSettings.showQrCode" /></label>
+      </div>
+    </div>
+
+    <div class="birth-accordion" [class.is-open]="birthAccordion['privacy']">
+      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('privacy')">Privacy</button>
+      <div class="birth-accordion__body" *ngIf="birthAccordion['privacy']">
+        <label><span>Show mother CNIC</span><input type="checkbox" [(ngModel)]="birthSettings.showMotherCnic" /></label>
+        <label><span>Show father CNIC</span><input type="checkbox" [(ngModel)]="birthSettings.showFatherCnic" /></label>
+      </div>
+    </div>
+
+    <div class="birth-accordion" [class.is-open]="birthAccordion['display']">
+      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('display')">Certificate Display</button>
+      <div class="birth-accordion__body" *ngIf="birthAccordion['display']">
+        <label><span>Show birth weight</span><input type="checkbox" [(ngModel)]="birthSettings.showBirthWeight" /></label>
+        <label><span>Show delivery mode</span><input type="checkbox" [(ngModel)]="birthSettings.showDeliveryMode" /></label>
+        <label><span>Show revocation reason</span><input type="checkbox" [(ngModel)]="birthSettings.showRevocationReason" /></label>
+      </div>
+    </div>
+
+    <div class="birth-accordion" [class.is-open]="birthAccordion['legal']">
+      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('legal')">Legal / Civil Registration Notice</button>
+      <div class="birth-accordion__body" *ngIf="birthAccordion['legal']">
+        <label class="full"><span>Legal disclaimer</span><textarea rows="4" [(ngModel)]="birthSettings.legalDisclaimer"></textarea></label>
+      </div>
+    </div>
+
+    <div class="birth-cert-settings__save">
+      <button type="button" class="btn-primary" (click)="saveBirthCertificateSettings()" [disabled]="savingBirthSettings">
+        {{ savingBirthSettings ? 'Saving…' : 'Save Birth Certificate Settings' }}
+      </button>
+    </div>
+  </section>
+</div>
+
+<!-- Department modal -->
+<div class="hospital-setup-modal" *ngIf="showDepartmentModal" role="dialog" aria-modal="true">
+  <div class="hospital-setup-modal__backdrop" (click)="closeDepartmentModal()"></div>
+  <div class="hospital-setup-modal__panel">
+    <header>
+      <h3>{{ editingDepartmentId ? 'Edit Department' : 'Add Department' }}</h3>
+      <button type="button" class="btn-light" (click)="closeDepartmentModal()">Close</button>
+    </header>
+    <form [formGroup]="departmentForm" (ngSubmit)="saveDepartment()">
+      <label><span>Name *</span><input formControlName="name" /></label>
+      <label><span>Code</span><input formControlName="code" /></label>
+      <label>
+        <span>Category</span>
+        <select formControlName="category">
+          <option *ngFor="let cat of departmentCategories" [value]="cat">{{ formatLabel(cat) }}</option>
+        </select>
+      </label>
+      <label class="full"><span>Description</span><textarea rows="2" formControlName="description"></textarea></label>
+      <label>
+        <span>Status</span>
+        <select formControlName="status">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </label>
+      <footer>
+        <button type="button" class="btn-light" (click)="closeDepartmentModal()">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="savingDepartment">
+          {{ savingDepartment ? 'Saving…' : 'Save Department' }}
+        </button>
+      </footer>
+    </form>
+  </div>
+</div>
+
+<!-- Ward modal -->
+<div class="hospital-setup-modal" *ngIf="showWardModal" role="dialog" aria-modal="true">
+  <div class="hospital-setup-modal__backdrop" (click)="closeWardModal()"></div>
+  <div class="hospital-setup-modal__panel hospital-setup-modal__panel--wide">
+    <header>
+      <h3>{{ editingWardId ? 'Edit Ward' : 'Add Ward' }}</h3>
+      <button type="button" class="btn-light" (click)="closeWardModal()">Close</button>
+    </header>
+    <form [formGroup]="wardForm" (ngSubmit)="saveWard()">
+      <div class="hospital-setup-modal__grid">
+        <label><span>Ward Name *</span><input formControlName="name" /></label>
+        <label><span>Code</span><input formControlName="code" /></label>
+        <label>
+          <span>Type</span>
+          <select formControlName="type">
+            <option *ngFor="let type of wardTypes" [value]="type">{{ formatLabel(type) }}</option>
+          </select>
+        </label>
+        <label>
+          <span>Department Mode</span>
+          <select formControlName="departmentMode">
+            <option value="GENERAL">General</option>
+            <option value="DEPARTMENT_SPECIFIC">Department-specific</option>
+          </select>
+        </label>
+        <label>
+          <span>Gender Policy</span>
+          <select formControlName="genderPolicy">
+            <option *ngFor="let policy of wardGenderPolicies" [value]="policy">{{ formatLabel(policy) }}</option>
+          </select>
+        </label>
+        <label>
+          <span>Age Group</span>
+          <select formControlName="ageGroup">
+            <option *ngFor="let group of wardAgeGroups" [value]="group">{{ formatLabel(group) }}</option>
+          </select>
+        </label>
+        <label>
+          <span>Care Level</span>
+          <select formControlName="careLevel">
+            <option *ngFor="let level of wardCareLevels" [value]="level">{{ formatLabel(level) }}</option>
+          </select>
+        </label>
+        <label>
+          <span>Status</span>
+          <select formControlName="status">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </label>
+        <label class="full"><span>Description</span><textarea rows="2" formControlName="description"></textarea></label>
+      </div>
+
+      <div class="ward-dept-picker" *ngIf="wardForm.get('departmentMode')?.value === 'DEPARTMENT_SPECIFIC'">
+        <span class="ward-dept-picker__label">Departments</span>
+        <div class="ward-dept-picker__list">
+          <label *ngFor="let dept of departments">
+            <input
+              type="checkbox"
+              [checked]="isWardDepartmentSelected(dept._id)"
+              (change)="toggleWardDepartment(dept._id, $any($event.target).checked)"
+            />
+            {{ dept.name }}
+          </label>
+        </div>
+      </div>
+
+      <footer>
+        <button type="button" class="btn-light" (click)="closeWardModal()">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="savingWard">
+          {{ savingWard ? 'Saving…' : 'Save Ward' }}
+        </button>
+      </footer>
+    </form>
+  </div>
+</div>

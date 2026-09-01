@@ -52,6 +52,7 @@ export const CONFIG = {
   roomAllotments: API_BASE_URL + '/room-allotments',
   ward: API_BASE_URL + '/ward',
   wardBilling: API_BASE_URL + '/ward-billing',
+  notifications: API_BASE_URL + '/notifications',
   bills: API_BASE_URL + '/bills',
   encounters: API_BASE_URL + '/encounters',
   payments: API_BASE_URL + '/payments',

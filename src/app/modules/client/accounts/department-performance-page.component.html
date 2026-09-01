@@ -1,0 +1,235 @@
+<div id="main-content" class="hms-page accounts-page pharmacy-page">
+  <div class="pharmacy-shell accounts-shell">
+    <header class="pharmacy-hero accounts-hero">
+      <div class="pharmacy-hero-main">
+        <h1>Department Performance</h1>
+        <p>Revenue, collections, and service mix by department from encounter ledger activity.</p>
+      </div>
+      <div class="pharmacy-hero-actions">
+        <app-hms-document-toolbar
+          [title]="'Department Performance'"
+          filename="department-performance.pdf"
+          orientation="landscape"
+          [showExcel]="true"
+          [getHtml]="buildDepartmentPerformanceDocumentHtml"
+          [disabled]="loading"
+          (excelClick)="exportExcel()"
+        ></app-hms-document-toolbar>
+      </div>
+    </header>
+
+    <nav class="accounts-nav-tabs" aria-label="Accounts reports">
+      <a
+        *ngFor="let tab of accountsNav"
+        class="accounts-nav-tab"
+        [class.active]="isNavActive(tab.route)"
+        [routerLink]="['/accounts', tab.route]"
+      >
+        {{ tab.label }}
+      </a>
+    </nav>
+
+    <section class="accounts-filter-card">
+      <div class="accounts-filter-grid">
+        <label>
+          <span class="accounts-field-label">Department</span>
+          <select class="form-control" [(ngModel)]="selectedDepartmentId" (ngModelChange)="load()">
+            <option value="">All departments</option>
+            <option *ngFor="let row of departments" [value]="row.departmentId || ''">{{ row.departmentName }}</option>
+          </select>
+        </label>
+        <label>
+          <span class="accounts-field-label">Doctor</span>
+          <select class="form-control" [(ngModel)]="selectedDoctorId" (ngModelChange)="load()">
+            <option value="">All doctors</option>
+            <option *ngFor="let doctor of reportDoctors" [value]="doctor.userId">{{ doctor.name }}</option>
+          </select>
+        </label>
+        <label>
+          <span class="accounts-field-label">Encounter type</span>
+          <select class="form-control" [(ngModel)]="encounterType" (ngModelChange)="load()">
+            <option *ngFor="let option of encounterTypes" [value]="option.value">{{ option.label }}</option>
+          </select>
+        </label>
+        <label>
+          <span class="accounts-field-label">Source type</span>
+          <select class="form-control" [(ngModel)]="sourceType" (ngModelChange)="load()">
+            <option value="">All sources</option>
+            <option *ngFor="let type of sourceTypes.slice(1)" [value]="type">{{ type }}</option>
+          </select>
+        </label>
+        <label>
+          <span class="accounts-field-label">Payment status</span>
+          <select class="form-control" [(ngModel)]="paymentStatus" (ngModelChange)="load()">
+            <option *ngFor="let option of paymentStatuses" [value]="option.value">{{ option.label }}</option>
+          </select>
+        </label>
+        <label>
+          <span class="accounts-field-label">From date</span>
+          <input class="form-control" type="date" [(ngModel)]="fromDate" (ngModelChange)="onManualDateChange()" />
+        </label>
+        <label>
+          <span class="accounts-field-label">To date</span>
+          <input class="form-control" type="date" [(ngModel)]="toDate" (ngModelChange)="onManualDateChange()" />
+        </label>
+        <div class="accounts-filter-presets">
+          <div class="accounts-preset-row">
+            <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'today'" type="button" (click)="applyDatePreset('today')">Today</button>
+            <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'week'" type="button" (click)="applyDatePreset('week')">This Week</button>
+            <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'month'" type="button" (click)="applyDatePreset('month')">This Month</button>
+            <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'year'" type="button" (click)="applyDatePreset('year')">This Year</button>
+          </div>
+        </div>
+
+        <div class="accounts-filter-actions">
+          <span class="accounts-filter-actions__label" aria-hidden="true">Apply</span>
+          <div class="accounts-filter-actions__row">
+            <button class="btn btn-primary" type="button" (click)="load()" [disabled]="loading">
+              {{ loading ? 'Loading...' : 'Apply' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div *ngIf="loading" class="accounts-loading">
+      <i class="fa fa-spinner fa-spin"></i>
+      Loading report...
+    </div>
+
+    <section *ngIf="!loading" class="accounts-panel">
+      <div class="accounts-summary-grid accounts-summary-grid--doctor">
+        <div class="accounts-kpi-card accounts-kpi-card--doctor tone-teal is-highlight">
+          <div class="accounts-kpi-card__icon"><i class="fa fa-money"></i></div>
+          <div class="accounts-kpi-card__body"><small>Gross Charges</small><h4>{{ money(kpis['grossCharges']) }}</h4></div>
+        </div>
+        <div class="accounts-kpi-card accounts-kpi-card--doctor tone-green is-highlight">
+          <div class="accounts-kpi-card__icon"><i class="fa fa-check"></i></div>
+          <div class="accounts-kpi-card__body"><small>Collected</small><h4>{{ money(kpis['collected']) }}</h4></div>
+        </div>
+        <div class="accounts-kpi-card accounts-kpi-card--doctor tone-orange">
+          <div class="accounts-kpi-card__icon"><i class="fa fa-clock-o"></i></div>
+          <div class="accounts-kpi-card__body"><small>Outstanding</small><h4>{{ money(kpis['outstanding']) }}</h4></div>
+        </div>
+        <div class="accounts-kpi-card accounts-kpi-card--doctor tone-blue">
+          <div class="accounts-kpi-card__icon"><i class="fa fa-calculator"></i></div>
+          <div class="accounts-kpi-card__body"><small>Known Direct Cost</small><h4>{{ money(kpis['knownDirectCost']) }}</h4></div>
+        </div>
+        <div class="accounts-kpi-card accounts-kpi-card--doctor tone-purple is-highlight">
+          <div class="accounts-kpi-card__icon"><i class="fa fa-line-chart"></i></div>
+          <div class="accounts-kpi-card__body"><small>Gross Contribution</small><h4>{{ money(kpis['grossContribution']) }}</h4></div>
+        </div>
+        <div class="accounts-kpi-card accounts-kpi-card--doctor tone-teal">
+          <div class="accounts-kpi-card__icon"><i class="fa fa-users"></i></div>
+          <div class="accounts-kpi-card__body"><small>Patients / Encounters</small><h4>{{ kpis['patients'] || 0 }} / {{ kpis['encounters'] || 0 }}</h4></div>
+        </div>
+      </div>
+
+      <div class="accounts-segment">
+        <button class="accounts-segment-btn" [class.active]="detailTab === 'overview'" type="button" (click)="setDetailTab('overview')">Overview</button>
+        <button class="accounts-segment-btn" [class.active]="detailTab === 'doctors'" type="button" (click)="setDetailTab('doctors')">Doctors</button>
+        <button class="accounts-segment-btn" [class.active]="detailTab === 'services'" type="button" (click)="setDetailTab('services')">Services</button>
+        <button class="accounts-segment-btn" [class.active]="detailTab === 'transactions'" type="button" (click)="setDetailTab('transactions')">Transactions</button>
+      </div>
+
+      <div *ngIf="detailTab === 'overview'" class="accounts-table-wrap">
+        <table class="table table-sm accounts-table">
+          <thead>
+            <tr>
+              <th>Department</th>
+              <th>Patients</th>
+              <th>Appointments</th>
+              <th>Admissions</th>
+              <th>Consultations</th>
+              <th>Procedures</th>
+              <th>Total Charges</th>
+              <th>Collected</th>
+              <th>Outstanding</th>
+              <th>Direct Cost</th>
+              <th>Gross Contribution</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of departments" (click)="selectDepartment(row)" [class.active]="selectedDepartment?.departmentName === row.departmentName" style="cursor:pointer">
+              <td>{{ row.departmentName }}</td>
+              <td>{{ row.patients }}</td>
+              <td>{{ row.appointments }}</td>
+              <td>{{ row.admissions }}</td>
+              <td>{{ row.consultations }}</td>
+              <td>{{ row.procedures }}</td>
+              <td>{{ money(row.grossCharges) }}</td>
+              <td>{{ money(row.collected) }}</td>
+              <td>{{ money(row.outstanding) }}</td>
+              <td>{{ money(row.knownDirectCost) }}</td>
+              <td>{{ money(row.grossContribution) }}</td>
+            </tr>
+            <tr *ngIf="!departments.length" class="accounts-empty-row"><td colspan="11">No department activity for this period.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div *ngIf="detailTab === 'doctors'" class="accounts-table-wrap">
+        <table class="table table-sm accounts-table">
+          <thead>
+            <tr>
+              <th>Doctor</th><th>Department</th><th>Patients</th><th>Consultations</th><th>Procedures</th><th>Admissions</th><th>Charges</th><th>Collected</th><th>Outstanding</th><th>Direct Cost</th><th>Contribution</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of doctors">
+              <td>{{ row.doctorName }}</td>
+              <td>{{ row.departmentName }}</td>
+              <td>{{ row.patients }}</td>
+              <td>{{ row.consultations }}</td>
+              <td>{{ row.procedures }}</td>
+              <td>{{ row.admissions }}</td>
+              <td>{{ money(row.grossCharges) }}</td>
+              <td>{{ money(row.collected) }}</td>
+              <td>{{ money(row.outstanding) }}</td>
+              <td>{{ money(row.knownDirectCost) }}</td>
+              <td>{{ money(row.grossContribution) }}</td>
+            </tr>
+            <tr *ngIf="!doctors.length" class="accounts-empty-row"><td colspan="11">No doctor activity for this period.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div *ngIf="detailTab === 'services' && selectedDepartment" class="accounts-summary-grid accounts-summary-grid--doctor">
+        <div class="accounts-kpi-card accounts-kpi-card--doctor tone-teal"><div class="accounts-kpi-card__body"><small>Consultation</small><h4>{{ money(serviceAmount('consultation')) }}</h4></div></div>
+        <div class="accounts-kpi-card accounts-kpi-card--doctor tone-blue"><div class="accounts-kpi-card__body"><small>Lab</small><h4>{{ money(serviceAmount('lab')) }}</h4></div></div>
+        <div class="accounts-kpi-card accounts-kpi-card--doctor tone-orange"><div class="accounts-kpi-card__body"><small>Pharmacy</small><h4>{{ money(serviceAmount('pharmacy')) }}</h4></div></div>
+        <div class="accounts-kpi-card accounts-kpi-card--doctor tone-purple"><div class="accounts-kpi-card__body"><small>Bed</small><h4>{{ money(serviceAmount('bed')) }}</h4></div></div>
+        <div class="accounts-kpi-card accounts-kpi-card--doctor tone-green"><div class="accounts-kpi-card__body"><small>Doctor Visit</small><h4>{{ money(serviceAmount('doctor')) }}</h4></div></div>
+        <div class="accounts-kpi-card accounts-kpi-card--doctor tone-teal"><div class="accounts-kpi-card__body"><small>Procedure / Operation</small><h4>{{ money(serviceAmount('procedure')) }}</h4></div></div>
+        <div class="accounts-kpi-card accounts-kpi-card--doctor tone-blue"><div class="accounts-kpi-card__body"><small>Ward</small><h4>{{ money(serviceAmount('ward')) }}</h4></div></div>
+        <div class="accounts-kpi-card accounts-kpi-card--doctor tone-orange"><div class="accounts-kpi-card__body"><small>Other</small><h4>{{ money(serviceAmount('other')) }}</h4></div></div>
+      </div>
+
+      <div *ngIf="detailTab === 'transactions'" class="accounts-table-wrap">
+        <table class="table table-sm accounts-table">
+          <thead>
+            <tr>
+              <th>Date</th><th>Type</th><th>Department</th><th>Doctor</th><th>MR</th><th>Patient</th><th>Encounter</th><th>Receipt</th><th>Source</th><th>Description</th><th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of transactions">
+              <td>{{ row.date | date:'mediumDate' }}</td>
+              <td>{{ row.type }}</td>
+              <td>{{ row.departmentName }}</td>
+              <td>{{ row.doctorName }}</td>
+              <td>{{ row.patientNo }}</td>
+              <td>{{ row.patientName }}</td>
+              <td>{{ row.encounterNo }}</td>
+              <td>{{ row.receiptNo || '—' }}</td>
+              <td>{{ row.sourceType }}</td>
+              <td>{{ row.title }}</td>
+              <td>{{ money(row.amount) }}</td>
+            </tr>
+            <tr *ngIf="!transactions.length" class="accounts-empty-row"><td colspan="11">No transactions for this period.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>

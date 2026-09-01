@@ -1,4 +1,4 @@
-<div id="main-content" class="modern-dashboard ward-page-shell ward-module-page">
+<div id="main-content" class="modern-dashboard hms-page ward-page-shell ward-module-page">
   <div class="container-fluid ward-page-container" *ngIf="config">
     <div class="ward-page-header ward-page-header--compact">
       <div class="ward-page-header__copy">
@@ -23,15 +23,20 @@
             <option *ngFor="let option of shiftOptions" [value]="option">{{ option }}</option>
           </select>
         </label>
-        <button type="button" class="btn btn-sm btn-outline-primary" (click)="exportData()" *ngIf="config.layout === 'table'">
-          <i class="fa fa-download"></i> Export
-        </button>
-        <button type="button" class="btn btn-sm btn-primary ward-refresh-btn" (click)="refresh()">
-          <i class="fa fa-refresh"></i>
-        </button>
-        <button type="button" class="btn btn-sm btn-primary" *ngIf="config.primaryActionLabel" (click)="primaryAction()">
-          <i class="fa fa-plus"></i> {{ config.primaryActionLabel }}
-        </button>
+        <div class="ward-filter-toolbar__actions">
+          <span class="ward-filter-toolbar__actions-label" aria-hidden="true">Actions</span>
+          <div class="ward-filter-toolbar__actions-row">
+            <button type="button" class="btn btn-sm btn-outline-primary" (click)="exportData()" *ngIf="config.layout === 'table'">
+              <i class="fa fa-download"></i> Export
+            </button>
+            <button type="button" class="btn btn-sm btn-primary ward-refresh-btn" (click)="refresh()">
+              <i class="fa fa-refresh"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-primary" *ngIf="config.primaryActionLabel" (click)="primaryAction()">
+              <i class="fa fa-plus"></i> {{ config.primaryActionLabel }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -98,9 +103,14 @@
           <span>Search</span>
           <input type="search" [(ngModel)]="search" (ngModelChange)="onFilterChange()" [placeholder]="config.searchPlaceholder" />
         </label>
-        <button type="button" class="btn btn-sm btn-outline-primary" (click)="exportData()" *ngIf="config.layout === 'table'">
-          <i class="fa fa-download"></i> Export
-        </button>
+        <div class="ward-filter-toolbar__actions">
+          <span class="ward-filter-toolbar__actions-label" aria-hidden="true">Actions</span>
+          <div class="ward-filter-toolbar__actions-row">
+            <button type="button" class="btn btn-sm btn-outline-primary" (click)="exportData()" *ngIf="config.layout === 'table'">
+              <i class="fa fa-download"></i> Export
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="ward-report-grid" *ngIf="config.layout === 'reports' && reportCards.length; else tableBlock">
@@ -148,6 +158,15 @@
                   </td>
                   <td>
                     <div class="table-actions table-actions--wide">
+                      <button
+                        type="button"
+                        class="table-actions__label-btn table-actions__label-btn--start"
+                        title="Review and Admit"
+                        *ngIf="config.key === 'admissions' && row.meta?.recommendationId && (row.cells['_tab'] === 'pending' || row.cells['status'] === 'Acknowledged' || row.cells['status'] === 'Pending Order')"
+                        (click)="reviewAdmissionRecommendation(row)"
+                      >
+                        <i class="fa fa-check"></i> Review &amp; Admit
+                      </button>
                       <button type="button" title="View" (click)="openRow(row)" *ngIf="row.linkRoute"><i class="fa fa-eye"></i></button>
                       <button
                         type="button"

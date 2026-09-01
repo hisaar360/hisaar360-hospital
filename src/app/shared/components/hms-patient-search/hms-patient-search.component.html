@@ -1,0 +1,49 @@
+<div class="hms-form-field hms-patient-search" [class.is-disabled]="disabled">
+  <span class="hms-form-field__label">
+    {{ label }}<em *ngIf="required"> *</em>
+  </span>
+
+  <div class="hms-patient-search__control" *ngIf="!selectedPatient">
+    <span class="hms-patient-search__icon"><i class="fa fa-search"></i></span>
+    <input
+      type="search"
+      class="hms-patient-search__input"
+      [(ngModel)]="query"
+      [ngModelOptions]="{ standalone: true }"
+      [placeholder]="placeholder"
+      [disabled]="disabled"
+      (input)="onQueryInput()"
+      (focus)="onQueryFocus()"
+      autocomplete="off"
+    />
+    <span class="hms-patient-search__spinner" *ngIf="loading"><i class="fa fa-spinner fa-spin"></i></span>
+  </div>
+
+  <div class="hms-patient-search__panel" *ngIf="open && results.length && !selectedPatient">
+    <button type="button" class="hms-patient-search__option" *ngFor="let patient of results" (click)="selectPatient(patient)">
+      <span class="hms-patient-search__avatar">{{ displayName(patient).slice(0, 2).toUpperCase() }}</span>
+      <span class="hms-patient-search__text">
+        <strong>{{ displayName(patient) }}</strong>
+        <small>{{ patientMeta(patient) }}</small>
+      </span>
+    </button>
+  </div>
+
+  <p class="hms-patient-search__empty" *ngIf="open && !loading && query.trim().length >= 2 && !results.length && !selectedPatient">
+    No patients found. Try another name or MR number.
+  </p>
+
+  <article class="hms-summary-card" *ngIf="selectedPatient as patient">
+    <div class="hms-summary-card__avatar"><i class="fa fa-female"></i></div>
+    <div class="hms-summary-card__copy">
+      <small>Selected Mother</small>
+      <strong>{{ displayName(patient) }}</strong>
+      <span>MRN {{ patientMr(patient) }}</span>
+      <span *ngIf="loadAdmissionContext && !contextLoading">{{ motherRoomBed() }} · Adm {{ motherAdmissionNo() }}</span>
+      <span *ngIf="contextLoading"><i class="fa fa-spinner fa-spin"></i> Loading admission…</span>
+    </div>
+    <button type="button" class="hms-btn hms-btn--ghost" [disabled]="disabled" (click)="clearSelection()">Change</button>
+  </article>
+
+  <small class="hms-form-field__hint" *ngIf="hint && !selectedPatient">{{ hint }}</small>
+</div>

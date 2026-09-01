@@ -1,0 +1,688 @@
+:host {
+  --rx-blue: #1168c8;
+  --rx-blue-soft: #eaf3ff;
+  --rx-ink: #111827;
+  --rx-muted: #6b7280;
+  --rx-line: #e5e7eb;
+  --rx-soft-line: #edf1f7;
+  --rx-panel: #ffffff;
+}
+
+.admission-modal-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 16px;
+  position: fixed;
+  z-index: 100020;
+}
+
+.admission-modal {
+  background: var(--rx-panel);
+  border: 1px solid var(--rx-line);
+  border-radius: 12px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: min(90vh, 920px);
+  max-width: 1420px;
+  overflow: hidden;
+  width: min(94vw, 1420px);
+}
+
+.admission-modal__header {
+  background: var(--rx-panel);
+  border-bottom: 1px solid var(--rx-line);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.admission-modal__header-main {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+}
+
+.admission-modal__title-block h3 {
+  color: var(--rx-ink);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.admission-modal__meta {
+  color: var(--rx-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 6px 12px;
+}
+
+.admission-modal__meta strong {
+  color: var(--rx-ink);
+  font-weight: 700;
+}
+
+.admission-modal__header-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.admission-modal__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 18px 12px;
+}
+
+.admission-modal__tabs button {
+  align-items: center;
+  background: var(--rx-panel);
+  border: 1px solid var(--rx-line);
+  border-radius: 999px;
+  color: var(--rx-ink);
+  display: inline-flex;
+  font-size: 12px;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 12px;
+}
+
+.admission-modal__tabs button.is-active {
+  background: var(--rx-blue);
+  border-color: var(--rx-blue);
+  color: #fff;
+}
+
+.admission-modal__body {
+  overflow: auto;
+  padding: 14px 18px 18px;
+}
+
+.admission-modal__loading {
+  color: var(--rx-muted);
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.admission-modal__form {
+  display: grid;
+  gap: 14px;
+}
+
+.admission-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.admission-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.admission-grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admission-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admission-grid--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.admission-field {
+  display: grid;
+  gap: 5px;
+}
+
+.admission-field--wide {
+  grid-column: 1 / -1;
+}
+
+.admission-field span {
+  color: var(--rx-ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admission-field input,
+.admission-field select,
+.admission-field textarea,
+.admission-search {
+  background: #fff;
+  border: 1px solid var(--rx-line);
+  border-radius: 8px;
+  color: var(--rx-ink);
+  font-size: 13px;
+  min-height: 44px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.admission-field textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.admission-field--doctor {
+  gap: 8px;
+}
+
+.admission-search {
+  min-height: 36px;
+}
+
+.admission-doctor-card {
+  align-items: center;
+  background: var(--rx-blue-soft);
+  border: 1px solid var(--rx-soft-line);
+  border-radius: 10px;
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+}
+
+.admission-doctor-card__avatar {
+  align-items: center;
+  background: #dbeafe;
+  border-radius: 10px;
+  color: var(--rx-blue);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  height: 48px;
+  justify-content: center;
+  overflow: hidden;
+  width: 48px;
+}
+
+.admission-doctor-card__avatar img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.admission-doctor-card strong {
+  color: var(--rx-ink);
+  display: block;
+  font-size: 13px;
+}
+
+.admission-doctor-card small {
+  color: var(--rx-muted);
+  display: block;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.admission-card {
+  background: #fbfcfe;
+  border: 1px solid var(--rx-soft-line);
+  border-radius: 12px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.admission-card h4 {
+  color: var(--rx-ink);
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.admission-card__head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.admission-vitals-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.admission-vital span {
+  align-items: center;
+  color: var(--rx-muted);
+  display: flex;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.admission-vital__input {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--rx-line);
+  border-radius: 8px;
+  display: flex;
+  min-height: 44px;
+  padding-right: 8px;
+}
+
+.admission-vital__input input {
+  border: 0;
+  flex: 1;
+  min-height: 42px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.admission-vital__input em {
+  color: var(--rx-muted);
+  font-size: 11px;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.admission-option-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admission-option-card {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--rx-line);
+  border-radius: 10px;
+  color: var(--rx-ink);
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  position: relative;
+  text-align: left;
+}
+
+.admission-option-card.is-selected {
+  background: var(--rx-blue-soft);
+  border-color: var(--rx-blue);
+  color: var(--rx-blue);
+}
+
+.admission-option-card__check {
+  margin-left: auto;
+}
+
+.admission-toggle-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.admission-toggle-row strong {
+  color: var(--rx-ink);
+  display: block;
+  font-size: 13px;
+}
+
+.admission-toggle-row small {
+  color: var(--rx-muted);
+  display: block;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.admission-toggle {
+  background: #cbd5e1;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  flex-shrink: 0;
+  height: 24px;
+  padding: 0;
+  position: relative;
+  width: 44px;
+}
+
+.admission-toggle i {
+  background: #fff;
+  border-radius: 50%;
+  display: block;
+  height: 18px;
+  left: 3px;
+  position: absolute;
+  top: 3px;
+  transition: transform 0.15s ease;
+  width: 18px;
+}
+
+.admission-toggle.on {
+  background: var(--rx-blue);
+}
+
+.admission-toggle.on i {
+  transform: translateX(20px);
+}
+
+.admission-subcard {
+  background: #fff;
+  border: 1px dashed var(--rx-line);
+  border-radius: 10px;
+  margin-top: 10px;
+  padding: 10px;
+}
+
+.admission-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admission-chip {
+  background: #fff;
+  border: 1px solid var(--rx-line);
+  border-radius: 999px;
+  color: var(--rx-ink);
+  font-size: 12px;
+  min-height: 34px;
+  padding: 6px 12px;
+}
+
+.admission-chip.is-selected {
+  background: var(--rx-blue-soft);
+  border-color: var(--rx-blue);
+  color: var(--rx-blue);
+  font-weight: 600;
+}
+
+.admission-med-table--desktop {
+  display: grid;
+  gap: 8px;
+}
+
+.admission-med-table__head,
+.admission-med-table__row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1.4fr repeat(5, minmax(0, 1fr)) 56px auto;
+}
+
+.admission-med-table__head {
+  color: var(--rx-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.admission-med-table__row input {
+  border: 1px solid var(--rx-line);
+  border-radius: 8px;
+  min-height: 40px;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+.admission-med-prn {
+  align-items: center;
+  color: var(--rx-muted);
+  display: inline-flex;
+  font-size: 12px;
+  gap: 6px;
+}
+
+.admission-med-cards--mobile {
+  display: none;
+}
+
+.admission-summary-strip {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+.admission-summary-card {
+  background: #fff;
+  border: 1px solid var(--rx-line);
+  border-radius: 10px;
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+}
+
+.admission-summary-card small {
+  color: var(--rx-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admission-summary-card strong {
+  color: var(--rx-ink);
+  font-size: 12px;
+}
+
+.admission-summary-card span {
+  color: var(--rx-muted);
+  font-size: 11px;
+}
+
+.admission-status-pill {
+  background: var(--rx-blue-soft);
+  border-radius: 999px;
+  color: var(--rx-blue);
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 2px;
+  padding: 2px 8px;
+  width: fit-content;
+}
+
+.admission-modal__footer {
+  background: var(--rx-panel);
+  border-top: 1px solid var(--rx-line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 18px;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+
+.btn-light,
+.btn-primary {
+  border: 1px solid var(--rx-line);
+  border-radius: 6px;
+  font-size: 12px;
+  min-height: 36px;
+  padding: 6px 12px;
+}
+
+.btn-light {
+  background: var(--rx-panel);
+  color: #1f2937;
+}
+
+.btn-primary {
+  background: var(--rx-blue);
+  border-color: var(--rx-blue);
+  color: #fff;
+}
+
+.btn-light:disabled,
+.btn-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.modal-close-btn {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--rx-line);
+  border-radius: 6px;
+  color: var(--rx-muted);
+  display: inline-flex;
+  font-size: 22px;
+  height: 36px;
+  justify-content: center;
+  line-height: 1;
+  width: 36px;
+}
+
+@media (max-width: 1100px) {
+  .admission-grid--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admission-vitals-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admission-option-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admission-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admission-med-table--desktop {
+    display: none;
+  }
+
+  .admission-med-cards--mobile {
+    display: grid;
+    gap: 10px;
+  }
+
+  .admission-med-card {
+    background: #fff;
+    border: 1px solid var(--rx-line);
+    border-radius: 10px;
+    display: grid;
+    gap: 8px;
+    padding: 10px;
+  }
+}
+
+@media (max-width: 720px) {
+  .admission-modal-backdrop {
+    padding: 0;
+  }
+
+  .admission-modal {
+    border-radius: 0;
+    height: 100vh;
+    max-width: none;
+    width: 100vw;
+  }
+
+  .admission-modal__header-main {
+    flex-direction: column;
+  }
+
+  .admission-modal__header-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .admission-grid--2,
+  .admission-grid--3,
+  .admission-grid--4 {
+    grid-template-columns: 1fr;
+  }
+
+  .admission-vitals-row,
+  .admission-option-grid,
+  .admission-summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .admission-doctor-card__avatar {
+    height: 42px;
+    width: 42px;
+  }
+}
+
+@media (max-width: 390px) {
+  .admission-modal__header-actions .btn-light span,
+  .admission-modal__header-actions .btn-primary {
+    font-size: 11px;
+    padding-inline: 8px;
+  }
+}
+
+
+.admission-success-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 0.25rem 0 0.5rem;
+}
+
+.admission-success-panel__head h3 {
+  margin: 0 0 0.35rem;
+}
+
+.admission-success-panel__head p {
+  color: var(--rx-muted);
+  margin: 0;
+}
+
+.admission-success-panel__grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin: 0;
+}
+
+.admission-success-panel__grid dt {
+  color: var(--rx-muted);
+  font-size: 0.75rem;
+}
+
+.admission-success-panel__grid dd {
+  font-weight: 600;
+  margin: 0;
+}
+
+.admission-success-panel__next {
+  background: var(--rx-blue-soft);
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.admission-success-panel__next h4 {
+  margin: 0 0 0.5rem;
+}
+
+.admission-success-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+@media (max-width: 390px) {
+  .admission-modal-backdrop {
+    padding: 0;
+  }
+
+  .admission-modal {
+    border-radius: 0;
+    height: 100vh;
+    max-width: none;
+    width: 100vw;
+  }
+}

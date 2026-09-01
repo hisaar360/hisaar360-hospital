@@ -12,17 +12,18 @@
     </div>
 
     <div class="sidebar-scroll">
-        <div *ngIf="displayName" class="user-account d-flex">
-            <div class="user_div">
+        <div *ngIf="displayName" class="user-account sidebar-user-card d-flex">
+            <div class="user_div sidebar-user-card__avatar">
                 <img [src]="photoUrl || 'assets/images/user.png'" class="user-photo" alt="User Profile Picture">
             </div>
-            <div class="dropdown">
-                <span>{{ roleLabel }}</span>
-                <a href="javascript:void(0);" class="dropdown-toggle user-name" (click)="showDropDown()">
+            <div class="dropdown sidebar-user-card__meta">
+                <span class="sidebar-user-card__role">{{ roleLabel }}</span>
+                <a href="javascript:void(0);" class="dropdown-toggle user-name sidebar-user-card__name" (click)="showDropDown()">
                     <strong>{{ displayName }}</strong>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-right account vivify flipInY" id="drp">
                     <li><a [routerLink]="['/settings']"><i class="fa fa-user"></i>My Profile</a></li>
+                    <li><a [routerLink]="['/help']"><i class="fa fa-question-circle"></i>Help Center</a></li>
                     <li *ngIf="canViewAccounts"><a [routerLink]="['/accounts/dashboard']"><i class="fa fa-book"></i>Accounts</a></li>
                     <li *ngIf="canViewSettings"><a [routerLink]="['/settings']"><i class="fa fa-gear"></i>Settings</a></li>
                     <li class="divider"></li>
@@ -122,6 +123,7 @@
                         <li><a [routerLink]="['/ward/bed-management']" routerLinkActive="active">Bed Management</a></li>
                         <li><a [routerLink]="['/ward/patient-list']" routerLinkActive="active">Patient List</a></li>
                         <li><a [routerLink]="['/ward/admissions']" routerLinkActive="active">Admissions</a></li>
+                        <li class="header">Nursing Care</li>
                         <li><a [routerLink]="['/ward/nursing-care']" routerLinkActive="active">Nursing Care</a></li>
                         <li><a [routerLink]="['/ward/mar']" routerLinkActive="active">MAR / Medications</a></li>
                         <li><a [routerLink]="['/ward/drips-iv']" routerLinkActive="active">Drips / IV Fluids</a></li>
@@ -129,11 +131,15 @@
                         <li><a [routerLink]="['/ward/io-chart']" routerLinkActive="active">I/O Chart</a></li>
                         <li><a [routerLink]="['/ward/orders-services']" routerLinkActive="active">Orders & Services</a></li>
                         <li><a [routerLink]="['/ward/shift-handover']" routerLinkActive="active">Shift Handover</a></li>
+                        <li class="header">Staff / Operations</li>
                         <li><a [routerLink]="['/ward/nurses-staff']" routerLinkActive="active">Nurses & Staff</a></li>
                         <li><a [routerLink]="['/ward/inventory']" routerLinkActive="active">Ward Inventory</a></li>
-                        <li><a [routerLink]="['/ward/reports']" routerLinkActive="active">Reports</a></li>
                         <li *ngIf="hasNavAccess('ward.roster.read')"><a [routerLink]="['/ward/duty-roster']" routerLinkActive="active">Duty Roster</a></li>
-                        <li><a [routerLink]="['/settings']" routerLinkActive="active">Settings</a></li>
+                        <li><a [routerLink]="['/ward/reports']" routerLinkActive="active">Reports</a></li>
+                        <li class="header">Maternity / Newborn</li>
+                        <li><a [routerLink]="['/ward/nursery']" routerLinkActive="active">Nursery / Newborn</a></li>
+                        <li><a [routerLink]="['/ward/nursery/birth-records']" routerLinkActive="active">Birth Records</a></li>
+                        <li class="header">Notes</li>
                         <li><a [routerLink]="['/ward-admin']" routerLinkActive="active">Ward Notes</a></li>
                     </ul>
                 </li>
@@ -161,8 +167,8 @@
                     </ul>
                 </li>
 
-                <li *ngIf="canViewDepartments" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
-                    <a [routerLink]="['/departments']"><i class="fa fa-table"></i><span>Departments</span></a>
+                <li *ngIf="canViewHospitalSetup" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
+                    <a [routerLink]="['/hospital-setup']"><i class="fa fa-hospital-o"></i><span>Hospital Setup</span></a>
                 </li>
 
                 <li *ngIf="canViewBilling || canManageBilling">
@@ -204,10 +210,6 @@
 
                 <li *ngIf="canViewHospitalAdministration || canViewAllRoutes" class="header">Admin</li>
 
-                <li *ngIf="canViewHospitals" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
-                    <a [routerLink]="['/hospitals']"><i class="fa fa-hospital-o"></i><span>Hospitals</span></a>
-                </li>
-
                 <li *ngIf="canViewUsers" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
                     <a [routerLink]="['/users']"><i class="fa fa-users"></i><span>Users</span></a>
                 </li>
@@ -222,6 +224,11 @@
 
                 <li *ngIf="canViewSettings" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
                     <a [routerLink]="['/settings']"><i class="fa fa-gear"></i><span>Settings</span></a>
+                </li>
+
+                <li class="header">Support</li>
+                <li [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }" class="sidebar-help-link">
+                    <a [routerLink]="['/help']"><i class="fa fa-question-circle"></i><span>Help Center</span></a>
                 </li>
 
                 <li [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }" class="sidebar-account-action">

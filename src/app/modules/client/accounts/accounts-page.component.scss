@@ -105,6 +105,7 @@
   }
 
   .accounts-filter-grid {
+    align-items: end;
     display: grid;
     gap: 12px;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -139,10 +140,40 @@
   }
 
   .accounts-filter-actions {
-    align-items: end;
+    align-self: end;
+    display: grid;
+    gap: 6px;
+  }
+
+  .accounts-filter-actions__label {
+    color: transparent;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    min-height: 13px;
+    text-transform: uppercase;
+    user-select: none;
+  }
+
+  .accounts-filter-actions__row {
+    align-items: center;
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     gap: 8px;
+    min-height: 40px;
+  }
+
+  .accounts-filter-actions__row .btn-primary {
+    height: 40px;
+    min-height: 40px;
+    padding-bottom: 0;
+    padding-top: 0;
+    width: 100%;
+  }
+
+  .accounts-filter-presets {
+    grid-column: 1 / -1;
   }
 
   .accounts-preset-row {
@@ -182,6 +213,14 @@
   .btn-primary:focus {
     background: var(--accounts-teal-dark);
     border-color: var(--accounts-teal-dark);
+  }
+
+  .accounts-panel + .accounts-panel {
+    margin-top: 14px;
+  }
+
+  .accounts-panel .accounts-panel-head:not(:first-child) {
+    border-top: 1px solid var(--accounts-line);
   }
 
   .accounts-loading {
@@ -283,9 +322,38 @@
     color: #2563eb;
   }
 
-  .accounts-summary-grid--dashboard,
-  .accounts-summary-grid--doctor {
+  .accounts-summary-grid--dashboard {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .accounts-summary-grid--doctor {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 14px 16px 16px;
+  }
+
+  .accounts-kpi-card.is-highlight {
+    border-color: rgba(1, 156, 157, 0.35);
+    box-shadow: 0 8px 24px rgba(1, 156, 157, 0.08);
+  }
+
+  .btn-primary,
+  .accounts-preset-btn,
+  .accounts-segment-btn,
+  .accounts-nav-tab {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    line-height: 1.2;
+  }
+
+  .accounts-mobile-row p {
+    color: var(--accounts-muted);
+    font-size: 12px;
+    margin: 0;
+  }
+
+  .accounts-mobile-row strong {
+    font-size: 13px;
   }
 
   .accounts-summary-grid--ledger {

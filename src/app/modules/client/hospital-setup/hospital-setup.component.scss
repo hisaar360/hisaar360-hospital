@@ -1,0 +1,417 @@
+.hospital-setup-page {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.hospital-setup-page__header {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.hospital-setup-page__intro h2 {
+  margin: 0 0 4px;
+}
+
+.hospital-setup-page__intro p {
+  color: #6b7280;
+  margin: 0;
+  max-width: 52ch;
+}
+
+.hospital-setup-page__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.hospital-setup-more {
+  position: relative;
+}
+
+.hospital-setup-more__menu {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  display: grid;
+  min-width: 240px;
+  padding: 6px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+}
+
+.hospital-setup-more__menu button {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  font-size: 13px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.hospital-setup-more__menu button:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.hospital-setup-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.hospital-setup-tabs button {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  font-size: 13px;
+  min-height: 34px;
+  padding: 6px 14px;
+  white-space: nowrap;
+}
+
+.hospital-setup-tabs button.is-active {
+  background: var(--rx-blue, #1168c8);
+  border-color: var(--rx-blue, #1168c8);
+  color: #fff;
+}
+
+.hospital-setup-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.hospital-setup-toolbar {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hospital-setup-toolbar label {
+  display: grid;
+  flex: 1 1 220px;
+  font-size: 10px;
+  font-weight: 700;
+  gap: 2px;
+  letter-spacing: 0.04em;
+  min-width: 160px;
+  text-transform: uppercase;
+}
+
+.hospital-setup-toolbar label span {
+  color: #64748b;
+  line-height: 1.2;
+  min-height: 12px;
+}
+
+.hospital-setup-toolbar input,
+.hospital-setup-toolbar select {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  min-height: 32px;
+  padding: 6px 10px;
+  text-transform: none;
+}
+
+.hospital-setup-toolbar input {
+  flex: 1 1 220px;
+}
+
+.hospital-setup-table-wrap {
+  overflow-x: auto;
+}
+
+.hospital-setup-table {
+  border-collapse: collapse;
+  min-width: 720px;
+  width: 100%;
+}
+
+.hospital-setup-table th,
+.hospital-setup-table td {
+  border-bottom: 1px solid #eef2f7;
+  font-size: 13px;
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.sort-btn {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.actions-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.empty-cell {
+  color: #6b7280;
+  text-align: center;
+}
+
+.status-pill {
+  background: #f3f4f6;
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  text-transform: capitalize;
+}
+
+.status-pill.is-active {
+  background: #eaf3ff;
+  color: #1168c8;
+}
+
+.hospital-setup-hint {
+  color: #64748b;
+  font-size: 12px;
+  margin: 0;
+}
+
+.hospital-setup-hint--lead {
+  font-size: 13px;
+}
+
+.hospital-setup-loading {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.btn-light,
+.btn-primary {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  display: inline-flex;
+  font-size: 12px;
+  min-height: 34px;
+  padding: 6px 12px;
+  text-decoration: none;
+  align-items: center;
+}
+
+.btn-primary {
+  background: var(--rx-blue, #1168c8);
+  border-color: var(--rx-blue, #1168c8);
+  color: #fff;
+}
+
+.birth-cert-settings {
+  gap: 10px;
+}
+
+.birth-cert-settings__note {
+  color: #475569;
+  font-size: 13px;
+  margin: 0;
+}
+
+.birth-accordion {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+
+.birth-accordion__head {
+  background: #f8fafc;
+  border: 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 14px;
+  text-align: left;
+  width: 100%;
+}
+
+.birth-accordion.is-open .birth-accordion__head {
+  background: #eef4ff;
+}
+
+.birth-accordion__body {
+  border-top: 1px solid #eef2f7;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 12px 14px 14px;
+}
+
+.birth-accordion__body label {
+  display: grid;
+  font-size: 12px;
+  gap: 6px;
+}
+
+.birth-accordion__body label.full {
+  grid-column: 1 / -1;
+}
+
+.birth-accordion__body input,
+.birth-accordion__body textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  padding: 8px 10px;
+}
+
+.birth-cert-settings__save {
+  background: #fff;
+  border-top: 1px solid #eef2f7;
+  bottom: 0;
+  margin: 0 -12px -12px;
+  padding: 12px;
+  position: sticky;
+  z-index: 5;
+}
+
+.hospital-setup-modal {
+  inset: 0;
+  position: fixed;
+  z-index: 1000;
+}
+
+.hospital-setup-modal__backdrop {
+  background: rgba(15, 23, 42, 0.45);
+  inset: 0;
+  position: absolute;
+}
+
+.hospital-setup-modal__panel {
+  background: #fff;
+  border-radius: 12px;
+  display: grid;
+  gap: 12px;
+  left: 50%;
+  max-height: calc(100vh - 32px);
+  max-width: 520px;
+  overflow: auto;
+  padding: 16px;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 24px);
+}
+
+.hospital-setup-modal__panel--wide {
+  max-width: 720px;
+}
+
+.hospital-setup-modal__panel header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.hospital-setup-modal__panel header h3 {
+  margin: 0;
+}
+
+.hospital-setup-modal__panel form {
+  display: grid;
+  gap: 10px;
+}
+
+.hospital-setup-modal__panel label {
+  display: grid;
+  font-size: 12px;
+  gap: 6px;
+}
+
+.hospital-setup-modal__panel label.full {
+  grid-column: 1 / -1;
+}
+
+.hospital-setup-modal__grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hospital-setup-modal__panel input,
+.hospital-setup-modal__panel select,
+.hospital-setup-modal__panel textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  padding: 8px 10px;
+}
+
+.hospital-setup-modal__panel footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.ward-dept-picker {
+  border: 1px solid #eef2f7;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.ward-dept-picker__label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.ward-dept-picker__list {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ward-dept-picker__list label {
+  align-items: center;
+  display: flex;
+  font-size: 12px;
+  gap: 6px;
+}
+
+@media (max-width: 768px) {
+  .hospital-setup-page {
+    padding: 12px;
+  }
+
+  .hospital-setup-page__header {
+    flex-direction: column;
+  }
+
+  .hospital-setup-page__actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .birth-accordion__body,
+  .hospital-setup-modal__grid,
+  .ward-dept-picker__list {
+    grid-template-columns: 1fr;
+  }
+}

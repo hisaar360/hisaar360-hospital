@@ -5,6 +5,9 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
+import { HmsDocumentService } from '../../../core/services/hms-document.service';
+import { readCurrentUserName } from '../../../core/utils/hms-document-context.util';
+import { HmsDocumentToolbarComponent } from '../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
 import {
   Hospital,
   LabComparisonRow,
@@ -16,7 +19,7 @@ import {
   LabTestCatalog,
   User,
 } from '../../../shared/models/hospital.model';
-import { buildLabOrderReportHtml, openLabReportPrintWindow } from './lab-order-report.builder';
+import { buildLabOrderReportHtml } from './lab-order-report.builder';
 import { isLabOrderReportReady } from './lab-print-details';
 import {
   buildLabComparisonColumns,
@@ -38,7 +41,7 @@ import {
 
 @Component({
   selector: 'app-lab-order-detail',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, HmsDocumentToolbarComponent],
   templateUrl: './lab-order-detail.component.html',
   styleUrl: './lab-order-detail.component.scss',
 })
@@ -736,29 +739,15 @@ export class LabOrderDetailComponent implements OnInit {
     return this.orderStatusClass(status);
   }
 
-  printReport(): void {
-    if (!this.order) {
-      return;
-    }
-
-    if (!isLabOrderReportReady(this.order)) {
-      this.toastr.error('Complete and verify all tests before printing the PDF report.');
-      return;
-    }
-
-    const opened = openLabReportPrintWindow(
-      buildLabOrderReportHtml({
-        order: this.order,
-        hospital: this.hospital,
-        comparison: this.comparison,
-        reportGeneratedBy: this.currentUser(),
-      })
-    );
-
-    if (!opened) {
-      this.toastr.error('Unable to open print preview.');
-    }
-  }
+  buildLabReportDocumentHtml = (): string => {
+    if (!this.order || !isLabOrderReportReady(this.order)) return '';
+    return buildLabOrderReportHtml({
+      order: this.order,
+      hospital: this.hospital,
+      comparison: this.comparison,
+      reportGeneratedBy: this.currentUser(),
+    });
+  };
 
   private currentUser(): User | null {
     try {

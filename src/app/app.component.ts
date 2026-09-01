@@ -9,12 +9,13 @@ import { Title } from '@angular/platform-browser';
 import { filter } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { AppDialogComponent } from './shared/components/app-dialog/app-dialog.component';
+import { HmsDocumentPreviewComponent } from './shared/components/hms-document-preview/hms-document-preview.component';
 import { PyramidLoaderComponent } from './shared/components/pyramid-loader/pyramid-loader.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, CommonModule, AppDialogComponent, PyramidLoaderComponent],
+  imports: [RouterOutlet, CommonModule, AppDialogComponent, HmsDocumentPreviewComponent, PyramidLoaderComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })

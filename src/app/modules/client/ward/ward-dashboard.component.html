@@ -1,4 +1,4 @@
-<div id="main-content" class="modern-dashboard ward-page-shell ward-dashboard-page">
+<div id="main-content" class="modern-dashboard hms-page ward-page-shell ward-dashboard-page">
   <div class="container-fluid ward-page-container">
     <div class="ward-page-header ward-page-header--compact">
       <div class="ward-page-header__copy">
@@ -61,6 +61,27 @@
           <em *ngIf="card.percent != null">{{ card.percent }}%</em>
         </span>
       </button>
+    </section>
+
+    <section class="ward-panel hms-card" *ngIf="actionRequired.length">
+      <div class="ward-panel__head"><h2>Action Required</h2></div>
+      <div class="ward-action-required-list">
+        <button type="button" class="ward-action-required-item" *ngFor="let item of actionRequired" (click)="navigateTo(item.route)">
+          <i class="fa fa-exclamation-circle"></i> {{ item.label }}
+        </button>
+      </div>
+    </section>
+
+    <section class="ward-panel hms-card" *ngIf="controlCenterPatients.length">
+      <div class="ward-panel__head"><h2>Admitted Patients</h2></div>
+      <div class="ward-control-patient-grid">
+        <article class="ward-control-patient-card" *ngFor="let row of controlCenterPatients">
+          <strong>{{ row['patientName'] }}</strong>
+          <small>MR {{ row['mrn'] }} · {{ row['roomBed'] }}</small>
+          <small>{{ row['doctor'] }} · {{ asString(row['admittedAt']) | date:'short' }}</small>
+          <button type="button" class="hms-btn hms-btn-sm hms-btn-primary" (click)="openControlPanel(asString(row['admissionId']))">Open Control Panel</button>
+        </article>
+      </div>
     </section>
 
     <div class="ward-overview-layout">

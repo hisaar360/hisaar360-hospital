@@ -5,11 +5,14 @@ import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../core/services/backend.service';
+import { buildPatientLedgerDocumentHtml } from '../../../../core/documents/patient-ledger-document.builder';
+import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../../core/utils/hms-document-context.util';
+import { HmsDocumentToolbarComponent } from '../../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
 import { Encounter, EncounterLedger } from '../../../../shared/models/hospital.model';
 
 @Component({
   selector: 'app-encounter-ledger',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HmsDocumentToolbarComponent],
   templateUrl: './encounter-ledger.component.html',
   styleUrl: './encounter-ledger.component.scss',
 })
@@ -123,6 +126,15 @@ export class EncounterLedgerComponent implements OnInit {
   statusBadgeClass(status: string): string {
     return `badge-${status.replace(/_/g, '-')}`;
   }
+
+  buildPatientLedgerHtml = (): string => {
+    if (!this.selectedLedger) return '';
+    return buildPatientLedgerDocumentHtml({
+      ledger: this.selectedLedger,
+      hospital: readStoredHospitalDocumentInfo(),
+      generatedBy: readCurrentUserName(),
+    });
+  };
 
   patientName(encounter: Encounter): string {
     const patient = encounter.patient;

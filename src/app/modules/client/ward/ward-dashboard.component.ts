@@ -19,6 +19,8 @@ import {
   WardWorkflowTab,
 } from './ward-dashboard.models';
 import { WardDataService } from './services/ward-data.service';
+import { BackendService } from '../../../core/services/backend.service';
+import { isLaboratoryModuleEnabled, isPharmacyModuleEnabled } from '../../auth/hospital-modules';
 import { isNurseRole, readStoredRole } from '../../auth/access-control';
 
 type ManageableBedStatus = 'available' | 'on_hold' | 'cleaning' | 'maintenance';
@@ -39,6 +41,8 @@ export class WardDashboardComponent implements OnInit {
   nursingTasks: WardTaskRow[] = [];
   nursingSummary: NursingSummaryRow[] = [];
   monitoringCards: MonitoringCard[] = [];
+  actionRequired: Array<{ key: string; label: string; route: string; priority: string }> = [];
+  controlCenterPatients: Array<Record<string, unknown>> = [];
 
   wardOptions: string[] = [];
   statusFilter: WardRoomStatusFilter = 'all';
@@ -85,10 +89,12 @@ export class WardDashboardComponent implements OnInit {
   constructor(
     private router: Router,
     private toastr: ToastrService,
-    private wardData: WardDataService
+    private wardData: WardDataService,
+    private backend: BackendService
   ) {}
 
   ngOnInit(): void {
+    this.loadControlCenter();
     this.loadDashboard();
   }
 
@@ -128,7 +134,9 @@ export class WardDashboardComponent implements OnInit {
     this.wardData.loadDashboard(this.filters.ward).subscribe({
       next: (data) => {
         this.wardOptions = data.wardOptions;
-        this.kpiCards = data.kpiCards;
+        if (!this.kpiCards.length) {
+          this.kpiCards = data.kpiCards;
+        }
         this.bedSections = data.bedSections;
         this.todaySummary = data.todaySummary;
         this.todayAlerts = data.todayAlerts;
@@ -160,7 +168,85 @@ export class WardDashboardComponent implements OnInit {
 
   refresh(): void {
     this.loadDashboard();
+    this.loadControlCenter();
     this.toastr.success('Ward dashboard refreshed.');
+  }
+
+  loadControlCenter(): void {
+    this.backend.getWardControlCenter().subscribe({
+      next: (data) => {
+        const summary = (data?.['summary'] || {}) as Record<string, number>;
+        this.actionRequired = (Array.isArray(data?.['actionRequired']) ? data['actionRequired'] : [])
+          .filter((item: { key: string; label: string; route: string; priority: string }) => {
+            if (item.key === 'lab') return isLaboratoryModuleEnabled();
+            if (item.key === 'pharmacy') return isPharmacyModuleEnabled();
+            return true;
+          });
+        this.controlCenterPatients = Array.isArray(data?.['patients']) ? (data['patients'] as Array<Record<string, unknown>>) : [];
+
+        const controlKpis: WardKpiCard[] = [
+          { key: 'pending-admissions', label: 'Pending Admissions', value: Number(summary['pendingAdmissions'] || 0), icon: 'fa-hospital-o', tone: 'amber', route: '/ward/admissions' },
+          { key: 'currently-admitted', label: 'Currently Admitted', value: Number(summary['currentlyAdmitted'] || summary['myActivePatients'] || 0), icon: 'fa-user', tone: 'blue', route: '/ward/patient-list' },
+          { key: 'ready-discharge', label: 'Ready for Discharge', value: Number(summary['readyForDischarge'] || 0), icon: 'fa-sign-out', tone: 'teal', route: '/ward/admissions' },
+          { key: 'available-beds', label: 'Available Beds', value: Number(summary['availableBeds'] || 0), icon: 'fa-check', tone: 'green', route: '/ward/bed-management' },
+          { key: 'occupied-beds', label: 'Occupied Beds', value: Number(summary['occupiedBeds'] || 0), icon: 'fa-bed', tone: 'purple', route: '/ward/bed-management' },
+          { key: 'medicines-due', label: 'Medicines Due', value: Number(summary['medicinesDue'] || summary['medicationOverdue'] || 0), icon: 'fa-medkit', tone: 'red', route: '/ward/mar' },
+        ];
+
+        if (isLaboratoryModuleEnabled()) {
+          controlKpis.push({
+            key: 'lab-pending',
+            label: 'Lab Orders Pending',
+            value: Number(summary['labOrdersPending'] || 0),
+            icon: 'fa-flask',
+            tone: 'amber',
+            route: '/laboratory',
+          });
+        }
+
+        if (isPharmacyModuleEnabled()) {
+          controlKpis.push({
+            key: 'pharmacy-pending',
+            label: 'Pharmacy Requests Pending',
+            value: Number(summary['pharmacyRequestsPending'] || 0),
+            icon: 'fa-shopping-cart',
+            tone: 'amber',
+            route: '/pharmacy/ward-requests',
+          });
+        }
+
+        controlKpis.push({
+          key: 'imaging-pending',
+          label: 'Imaging Orders Pending',
+          value: Number(summary['imagingOrdersPending'] || 0),
+          icon: 'fa-picture-o',
+          tone: 'blue',
+          route: '/ward/orders-services',
+        });
+        controlKpis.push({
+          key: 'procedures-today',
+          label: 'Procedures Today',
+          value: Number(summary['proceduresToday'] || 0),
+          icon: 'fa-stethoscope',
+          tone: 'teal',
+          route: '/ward/orders-services',
+        });
+
+        this.kpiCards = controlKpis;
+      },
+      error: () => {
+        this.actionRequired = [];
+        this.controlCenterPatients = [];
+      },
+    });
+  }
+
+  openControlPanel(admissionId: string): void {
+    void this.router.navigate(['/ward/patient-detail', admissionId]);
+  }
+
+  asString(value: unknown): string {
+    return String(value || '');
   }
 
   isOccupiedBed(bed: WardBed): boolean {

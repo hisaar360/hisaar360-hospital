@@ -1,222 +1,211 @@
-<div id="main-content" class="modern-dashboard ward-page-shell ward-patient-detail-page">
-  <div class="container-fluid ward-page-container">
-    <div class="ward-page-header ward-page-header--compact">
-      <div class="ward-page-header__copy">
-        <a routerLink="/ward/patient-list" class="ward-back-link"><i class="fa fa-arrow-left"></i> Back to Patient List</a>
-        <h1>{{ patient?.patientName || 'Patient Detail' }}</h1>
-        <p *ngIf="patient">{{ patient.mrn }} · Bed {{ patient.bedNo }} · {{ patient.wardName }}</p>
+<div id="main-content" class="modern-dashboard hms-page ward-page-shell ward-patient-detail-page" data-testid="ward-patient-control-panel">
+  <div class="container-fluid hms-page-container ward-page-container">
+    <header class="hms-page-header ward-page-header ward-page-header--compact">
+      <div class="hms-page-header__copy ward-page-header__copy">
+        <a routerLink="/ward/patient-list" class="hms-back-link ward-back-link"><i class="fa fa-arrow-left"></i> Back to Patient List</a>
+        <ng-container *ngIf="patient as p">
+          <div class="hms-patient-identity ward-patient-identity ward-control-header">
+            <span class="hms-patient-avatar">{{ patientInitials(p) }}</span>
+            <div class="hms-patient-identity__meta">
+              <span [ngClass]="statusClass(p.status)">{{ statusLabel(p.status) }}</span>
+              <h2>{{ p.patientName }}</h2>
+              <p>
+                MR {{ p.mrn }}
+                <span *ngIf="p.admissionNo"> · Adm {{ p.admissionNo }}</span>
+                · {{ p.wardName }} · {{ p.roomName }} / {{ p.bedNo }}
+              </p>
+            </div>
+          </div>
+        </ng-container>
       </div>
-      <div class="ward-page-header__actions">
-        <label class="ward-header-filter">
-          <span>Ward</span>
-          <select [(ngModel)]="ward">
-            <option *ngFor="let option of wardOptions" [value]="option">{{ option }}</option>
-          </select>
-        </label>
-        <label class="ward-header-filter">
-          <span>Date</span>
-          <input type="date" [(ngModel)]="date" />
-        </label>
-        <label class="ward-header-filter">
-          <span>Shift</span>
-          <select [(ngModel)]="shift">
-            <option *ngFor="let option of shiftOptions" [value]="option">{{ option }}</option>
-          </select>
-        </label>
-      </div>
-    </div>
+    </header>
 
-    <section class="ward-patient-hero ward-panel" *ngIf="patient as p">
-      <div class="ward-patient-hero__main">
-        <div>
-          <span [ngClass]="statusClass(p.status)">{{ statusLabel(p.status) }}</span>
-          <h2>{{ p.patientName }}</h2>
-          <p>{{ p.age }} Y / {{ p.sex }} · {{ p.diagnosis }}</p>
-        </div>
-        <dl class="ward-patient-hero__meta">
-          <div><dt>Bed</dt><dd>{{ p.bedNo }}</dd></div>
-          <div><dt>Room</dt><dd>{{ p.roomName }}</dd></div>
-          <div><dt>Doctor</dt><dd>{{ p.doctorName }}</dd></div>
-          <div><dt>Nurse</dt><dd>{{ p.nurseName || '—' }}</dd></div>
-          <div><dt>Admitted</dt><dd>{{ p.admittedOn | date:'mediumDate' }}</dd></div>
-          <div><dt>Status</dt><dd>{{ statusLabel(p.status) }}</dd></div>
-          <div><dt>Gallery</dt><dd>{{ p.galleryName }}</dd></div>
+    <section class="hms-card ward-panel ward-patient-hero" *ngIf="patient as p">
+      <div class="hms-card-body ward-patient-hero__body">
+        <dl class="hms-summary-strip ward-patient-summary">
+          <div class="hms-summary-tile"><dt>Consultant</dt><dd>{{ p.doctorName }}</dd></div>
+          <div class="hms-summary-tile"><dt>Assigned Nurse</dt><dd>{{ p.nurseName || '—' }}</dd></div>
+          <div class="hms-summary-tile"><dt>Admitted At</dt><dd>{{ p.admittedOn | date:'medium' }}</dd></div>
+          <div class="hms-summary-tile"><dt>Length of Stay</dt><dd>{{ lengthOfStayLabel }}</dd></div>
+          <div class="hms-summary-tile"><dt>Diagnosis</dt><dd>{{ p.diagnosis || '—' }}</dd></div>
+          <div class="hms-summary-tile"><dt>Allergies</dt><dd>{{ p.allergies || '—' }}</dd></div>
+          <div class="hms-summary-tile"><dt>Blood Group</dt><dd>{{ p.bloodGroup || '—' }}</dd></div>
         </dl>
-      </div>
-      <div class="ward-patient-hero__actions">
-        <button type="button" class="btn btn-sm btn-outline-primary" (click)="navigate('/ward/mar')">View MAR</button>
-        <button type="button" class="btn btn-sm btn-outline-primary" (click)="navigate('/ward/vitals')">Record Vitals</button>
-        <button type="button" class="btn btn-sm btn-outline-primary" (click)="navigate('/ward/drips-iv')">View Drips</button>
-        <button type="button" class="btn btn-sm btn-primary" (click)="navigate('/ward/nursing-care')">Nursing Notes</button>
+
+        <div class="hms-quick-actions ward-control-actions">
+          <button *ngIf="canVitals" type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="navigate('/ward/vitals')"><i class="fa fa-heartbeat"></i> Vitals</button>
+          <button *ngIf="canDoctorOrder" type="button" class="hms-btn hms-btn-sm hms-btn-secondary" data-testid="doctor-order-button" (click)="openDoctorOrder()"><i class="fa fa-stethoscope"></i> Doctor Order</button>
+          <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="setTab('medicines')"><i class="fa fa-medkit"></i> Medicine / MAR</button>
+          <button *ngIf="canLab" type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="openDoctorOrder()"><i class="fa fa-flask"></i> Lab Test</button>
+          <button *ngIf="canImaging" type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="openDoctorOrder()"><i class="fa fa-picture-o"></i> X-Ray / Imaging</button>
+          <button *ngIf="canVitals" type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="navigate('/ward/drips-iv')"><i class="fa fa-tint"></i> IV / Drip</button>
+          <button *ngIf="canDoctorOrder" type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="setTab('procedures')"><i class="fa fa-scissors"></i> Procedure</button>
+          <button *ngIf="canVitals" type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="navigate('/ward/nursing-care')"><i class="fa fa-sticky-note-o"></i> Nursing Note</button>
+          <button *ngIf="canVitals" type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="navigate('/ward/io-chart')"><i class="fa fa-bar-chart"></i> I/O</button>
+          <button *ngIf="canBilling" type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="setTab('billing')"><i class="fa fa-file-text-o"></i> Billing</button>
+          <button *ngIf="canPayment" type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="setTab('payments')"><i class="fa fa-money"></i> Payment</button>
+          <button *ngIf="canDischarge" type="button" class="hms-btn hms-btn-sm hms-btn-primary" (click)="setTab('discharge')"><i class="fa fa-sign-out"></i> Discharge</button>
+        </div>
       </div>
     </section>
 
     <div class="ward-detail-layout" *ngIf="patient as p">
-      <section class="ward-panel ward-detail-main">
-        <div class="ward-status-tabs ward-detail-tabs">
+      <section class="hms-card ward-panel ward-detail-main">
+        <section class="ward-updates-feed" *ngIf="patientUpdates.length">
+          <div class="ward-updates-feed__head">
+            <h3>Patient Updates</h3>
+          </div>
+          <article class="ward-update-card" *ngFor="let update of patientUpdates | slice:0:12">
+            <div class="ward-update-card__icon"><i class="fa" [ngClass]="updateIcon(update.type)"></i></div>
+            <div class="ward-update-card__body">
+              <strong>{{ update.title }}</strong>
+              <p>{{ update.description }}</p>
+              <small>
+                {{ update.performedBy }}
+                <span *ngIf="update.recommendedBy"> · Recommended by {{ update.recommendedBy }}</span>
+                · {{ update.timestamp | date:'shortTime' }}
+                · {{ update.status }}
+              </small>
+            </div>
+            <button *ngIf="update.actionRoute" type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="navigateAction(update.actionRoute)">
+              {{ update.actionLabel || 'Open' }}
+            </button>
+          </article>
+        </section>
+
+        <div class="hms-tabs ward-detail-tabs ward-status-tabs">
           <button
             type="button"
-            class="ward-status-tab"
-            *ngFor="let tab of tabs"
-            [class.ward-status-tab--active]="activeTab === tab.key"
+            class="hms-tab ward-status-tab"
+            *ngFor="let tab of visibleTabs"
+            [class.hms-tab--active]="activeTab === tab.key"
             (click)="setTab(tab.key)"
+            [attr.data-testid]="'ward-tab-' + tab.key"
           >
             {{ tab.label }}
           </button>
         </div>
 
-        <div class="ward-detail-content" [ngSwitch]="activeTab">
+        <div class="hms-card-body ward-detail-content" [ngSwitch]="activeTab">
           <div *ngSwitchCase="'overview'">
-            <h3>Today's Summary</h3>
-            <div class="ward-summary-grid">
-              <div><span>Medications Due</span><strong>{{ p.medicationsDue }}</strong></div>
-              <div><span>Vitals Due</span><strong>{{ p.vitalsDue }}</strong></div>
-              <div><span>Drips Running</span><strong>{{ p.dripsRunning }}</strong></div>
-              <div><span>Nursing Tasks</span><strong>{{ p.nursingTasksDue }}</strong></div>
-              <div><span>Critical Alerts</span><strong>{{ p.criticalAlerts }}</strong></div>
+            <div class="hms-kpi-grid ward-summary-kpis">
+              <article class="hms-kpi-card"><strong>{{ p.medicationsDue }}</strong><small>Medications Due</small></article>
+              <article class="hms-kpi-card"><strong>{{ p.vitalsDue }}</strong><small>Vitals Due</small></article>
+              <article class="hms-kpi-card"><strong>{{ p.dripsRunning }}</strong><small>Drips Running</small></article>
+              <article class="hms-kpi-card"><strong>{{ p.nursingTasksDue }}</strong><small>Nursing Tasks</small></article>
+            </div>
+            <p class="ward-detail-note">Use quick actions above for vitals, orders, medicines, billing, and discharge.</p>
+          </div>
+
+          <div *ngSwitchCase="'admission-plan'">
+            <div *ngIf="admissionRecommendation as rec; else emptyAdmissionPlan">
+              <p><strong>Order No:</strong> {{ rec.orderNo || '—' }} · <strong>Status:</strong> {{ admissionPlanStatusLabel(rec.status) }}</p>
+              <p><strong>Reason:</strong> {{ rec.reason || '—' }}</p>
+              <p><strong>Provisional Diagnosis:</strong> {{ rec.initialDiagnosis || '—' }}</p>
+              <p><strong>Priority:</strong> {{ rec.priority || 'routine' }}</p>
+            </div>
+            <ng-template #emptyAdmissionPlan><p class="ward-detail-note">No linked admission recommendation.</p></ng-template>
+          </div>
+
+          <div *ngSwitchCase="'billing'"><app-ward-billing-panel [admissionId]="admissionId" mode="billing"></app-ward-billing-panel></div>
+          <div *ngSwitchCase="'payments'"><app-ward-billing-panel [admissionId]="admissionId" mode="payments"></app-ward-billing-panel></div>
+          <div *ngSwitchCase="'medicines'">
+            <app-ward-mar-panel
+              [prescriptions]="marPrescriptions"
+              [marActivities]="marActivities"
+              [admissionId]="admissionId"
+              [patientId]="patient?.patientId || ''"
+              [patientMr]="patient?.mrn || ''"
+              [patientFirstName]="patient?.patientName || ''"
+              [patientLastName]="''"
+              [admissionNo]="patient?.admissionNo || ''"
+              [wardLabel]="patient?.wardName || ''"
+              [roomBed]="(patient?.roomName || '') + (patient?.bedNo ? ' / ' + patient?.bedNo : '')"
+              [consultantName]="patient?.doctorName || ''"
+              (refreshed)="reloadMarPanel()"
+            ></app-ward-mar-panel>
+            <app-ward-billing-panel *ngIf="canPharmacyRequest" [admissionId]="admissionId" mode="medicines"></app-ward-billing-panel>
+          </div>
+          <div *ngSwitchCase="'procedures'"><app-ward-billing-panel [admissionId]="admissionId" mode="procedures"></app-ward-billing-panel></div>
+          <div *ngSwitchCase="'discharge'"><app-ward-billing-panel [admissionId]="admissionId" mode="discharge"></app-ward-billing-panel></div>
+          <div *ngSwitchCase="'documents'" class="ward-documents-tab">
+            <p class="ward-detail-note">Preview, PDF, and Print use the same ward document templates.</p>
+            <div class="ward-documents-toolbar-grid">
+              <app-hms-document-toolbar [title]="'Ward Patient Summary'" filename="ward-patient-summary.pdf" [getHtml]="buildPatientSummaryDocument"></app-hms-document-toolbar>
+              <app-hms-document-toolbar [title]="'Vitals Summary'" filename="vitals-summary.pdf" [getHtml]="buildVitalsDocument"></app-hms-document-toolbar>
+              <app-hms-document-toolbar [title]="'Procedure Summary'" filename="procedure-summary.pdf" [getHtml]="buildProcedureDocument"></app-hms-document-toolbar>
+              <app-hms-document-toolbar *ngIf="imagingRows.length" [title]="'Imaging Order'" filename="imaging-order.pdf" [getHtml]="buildImagingDocument"></app-hms-document-toolbar>
             </div>
           </div>
-          <div *ngSwitchCase="'billing'">
-            <app-ward-billing-panel [admissionId]="admissionId" mode="billing"></app-ward-billing-panel>
-          </div>
-          <div *ngSwitchCase="'payments'">
-            <app-ward-billing-panel [admissionId]="admissionId" mode="payments"></app-ward-billing-panel>
-          </div>
-          <div *ngSwitchCase="'medicines'">
-            <app-ward-billing-panel [admissionId]="admissionId" mode="medicines"></app-ward-billing-panel>
-          </div>
-          <div *ngSwitchCase="'procedures'">
-            <app-ward-billing-panel [admissionId]="admissionId" mode="procedures"></app-ward-billing-panel>
-          </div>
-          <div *ngSwitchCase="'operations'">
-            <app-ward-billing-panel [admissionId]="admissionId" mode="operations"></app-ward-billing-panel>
-          </div>
-          <div *ngSwitchCase="'doctor-visits'">
-            <app-ward-billing-panel [admissionId]="admissionId" mode="doctor-visits"></app-ward-billing-panel>
-          </div>
-          <div *ngSwitchCase="'discharge'">
-            <app-ward-billing-panel [admissionId]="admissionId" mode="discharge"></app-ward-billing-panel>
-          </div>
-          <div *ngSwitchCase="'settlement'">
-            <app-ward-billing-panel [admissionId]="admissionId" mode="settlement"></app-ward-billing-panel>
-          </div>
-          <div *ngSwitchCase="'vitals'">
-            <p class="ward-detail-note">Latest vitals for this admission.</p>
-            <ul class="ward-detail-list" *ngIf="vitalsRows.length; else emptyTab">
-              <li *ngFor="let row of vitalsRows">
-                <span>{{ row.cells['bp'] || 'Vitals' }} · {{ row.cells['temp'] }} · SpO2 {{ row.cells['spo2'] }}</span>
-                <strong>{{ row.cells['recordedAt'] || row.cells['status'] }}</strong>
-              </li>
+
+          <div *ngSwitchCase="'orders'">
+            <ul class="ward-detail-list" *ngIf="orderRows.length; else emptyTab">
+              <li *ngFor="let row of orderRows"><span>{{ rowTitle(row) }}</span><strong>{{ rowStatus(row) }}</strong></li>
             </ul>
           </div>
-          <div *ngSwitchCase="'mar'">
-            <p class="ward-detail-note">Medication administration for this admission.</p>
-            <ul class="ward-detail-list" *ngIf="marRows.length; else emptyTab">
-              <li *ngFor="let row of marRows">
-                <span>{{ rowTitle(row) }}</span>
-                <strong>{{ rowStatus(row) }}</strong>
-              </li>
+          <ng-container *ngSwitchCase="'lab'">
+          <div *ngIf="canLab">
+            <ul class="ward-detail-list" *ngIf="labRows.length; else emptyTab">
+              <li *ngFor="let row of labRows"><span>{{ rowTitle(row) }}</span><strong>{{ rowStatus(row) }}</strong></li>
+            </ul>
+          </div>
+          </ng-container>
+          <div *ngSwitchCase="'imaging'">
+            <ul class="ward-detail-list" *ngIf="imagingRows.length; else emptyTab">
+              <li *ngFor="let row of imagingRows"><span>{{ rowTitle(row) }}</span><strong>{{ rowStatus(row) }}</strong></li>
+            </ul>
+          </div>
+          <div *ngSwitchCase="'vitals'">
+            <ul class="ward-detail-list" *ngIf="vitalsRows.length; else emptyTab">
+              <li *ngFor="let row of vitalsRows"><span>{{ row.cells['bp'] || 'Vitals' }}</span><strong>{{ row.cells['recordedAt'] || row.cells['status'] }}</strong></li>
             </ul>
           </div>
           <div *ngSwitchCase="'drips'">
-            <p class="ward-detail-note">IV fluids linked to this admission.</p>
             <ul class="ward-detail-list" *ngIf="dripRows.length; else emptyTab">
-              <li *ngFor="let row of dripRows">
-                <span>{{ row.cells['fluid'] }} · {{ row.cells['rate'] }}</span>
-                <strong>{{ row.cells['status'] }}</strong>
-              </li>
+              <li *ngFor="let row of dripRows"><span>{{ row.cells['fluid'] }}</span><strong>{{ row.cells['status'] }}</strong></li>
             </ul>
           </div>
           <div *ngSwitchCase="'nursing'">
-            <p class="ward-detail-note">Nursing notes and care tasks.</p>
             <ul class="ward-detail-list" *ngIf="nursingRows.length; else emptyTab">
-              <li *ngFor="let row of nursingRows">
-                <span>{{ rowTitle(row) }}</span>
-                <strong>{{ rowStatus(row) }}</strong>
-              </li>
-            </ul>
-          </div>
-          <div *ngSwitchCase="'lab'">
-            <p class="ward-detail-note">Lab and service orders linked to this admission.</p>
-            <ul class="ward-detail-list" *ngIf="labRows.length; else emptyTab">
-              <li *ngFor="let row of labRows">
-                <span>{{ rowTitle(row) }}</span>
-                <strong>{{ rowStatus(row) }}</strong>
-              </li>
-            </ul>
-          </div>
-          <div *ngSwitchCase="'care'">
-            <p class="ward-detail-note">Nursing care plan items for this admission.</p>
-            <ul class="ward-detail-list" *ngIf="carePlanRows.length; else emptyTab">
-              <li *ngFor="let row of carePlanRows">
-                <span>{{ rowTitle(row) }}</span>
-                <strong>{{ rowStatus(row) }}</strong>
-              </li>
-            </ul>
-          </div>
-          <div *ngSwitchCase="'orders'">
-            <p class="ward-detail-note">Doctor and ward orders for this admission.</p>
-            <ul class="ward-detail-list" *ngIf="orderRows.length; else emptyTab">
-              <li *ngFor="let row of orderRows">
-                <span>{{ rowTitle(row) }}</span>
-                <strong>{{ rowStatus(row) }}</strong>
-              </li>
+              <li *ngFor="let row of nursingRows"><span>{{ rowTitle(row) }}</span><strong>{{ rowStatus(row) }}</strong></li>
             </ul>
           </div>
           <div *ngSwitchCase="'io'">
-            <p class="ward-detail-note">Intake / output entries for this admission.</p>
             <ul class="ward-detail-list" *ngIf="ioRows.length; else emptyTab">
-              <li *ngFor="let row of ioRows">
-                <span>{{ row.cells['intake'] || 'I/O' }} / {{ row.cells['output'] }}</span>
-                <strong>{{ row.cells['balance'] || row.cells['status'] }}</strong>
+              <li *ngFor="let row of ioRows"><span>{{ row.cells['intake'] }} / {{ row.cells['output'] }}</span><strong>{{ row.cells['balance'] }}</strong></li>
+            </ul>
+          </div>
+          <div *ngSwitchCase="'history'">
+            <ul class="ward-detail-list" *ngIf="admissionHistory.length; else emptyTab">
+              <li *ngFor="let item of admissionHistory">
+                <span>{{ item.admissionNo || 'Admission' }} · {{ item.admittedAt | date:'mediumDate' }} · {{ item.consultant }}</span>
+                <strong>{{ item.status }} · {{ item.roomBed }}</strong>
               </li>
             </ul>
           </div>
-          <div *ngSwitchCase="'handover'">
-            <p class="ward-detail-note">Shift handovers for this admission.</p>
-            <ul class="ward-detail-list" *ngIf="handoverRows.length; else emptyTab">
-              <li *ngFor="let row of handoverRows">
-                <span>{{ row.cells['shift'] || 'Handover' }} · {{ row.cells['nurse'] }}</span>
-                <strong>{{ row.cells['status'] }}</strong>
-              </li>
-            </ul>
-          </div>
-          <div *ngSwitchCase="'timeline'">
-            <p class="ward-detail-note">Recent ward activity for this admission.</p>
-            <ul class="ward-detail-list" *ngIf="timelineRows.length; else emptyTab">
-              <li *ngFor="let row of timelineRows">
-                <span>{{ rowTitle(row) }}</span>
-                <strong>{{ rowStatus(row) }}</strong>
-              </li>
-            </ul>
-          </div>
+
           <ng-template #emptyTab>
-            <div class="ward-empty-state ward-empty-state--compact">
+            <div class="hms-empty-state ward-empty-state ward-empty-state--compact">
               <h3>No records yet</h3>
-              <p>Use the actions above to add the first entry.</p>
+              <p>Use quick actions to add the first entry.</p>
             </div>
           </ng-template>
         </div>
       </section>
-
-      <aside class="ward-panel ward-detail-side">
-        <div class="ward-panel__head"><h2>Quick Links</h2></div>
-        <div class="ward-side-links">
-          <button type="button" (click)="navigate('/ward/mar')">MAR / Medications</button>
-          <button type="button" (click)="navigate('/ward/vitals')">Vitals & Observations</button>
-          <button type="button" (click)="navigate('/ward/drips-iv')">Drips / IV Fluids</button>
-          <button type="button" (click)="navigate('/ward/io-chart')">I/O Chart</button>
-          <button type="button" (click)="navigate('/ward/orders-services')">Orders & Services</button>
-          <button type="button" (click)="navigate('/ward/admissions')">Discharge Clearance</button>
-        </div>
-      </aside>
     </div>
 
-    <section class="ward-empty-state ward-panel" *ngIf="!patient">
-      <div class="ward-empty-state__icon"><i class="fa fa-user-md"></i></div>
+    <app-ward-doctor-order-modal
+      [open]="doctorOrderOpen"
+      [admissionId]="admissionId"
+      [patientId]="patient?.patientId || ''"
+      [doctors]="doctors"
+      (closed)="doctorOrderOpen = false"
+      (saved)="onDoctorOrderSaved()"
+    ></app-ward-doctor-order-modal>
+
+    <section class="hms-empty-state ward-empty-state hms-card ward-panel" *ngIf="!patient && !loading">
       <h3>Admission not found</h3>
-      <p>This admission is not available in your hospital scope, or the nurse is not assigned to this patient.</p>
-      <a routerLink="/ward/patient-list" class="btn btn-sm btn-primary">Back to Patient List</a>
+      <a routerLink="/ward/patient-list" class="hms-btn hms-btn-primary">Back to Patient List</a>
     </section>
   </div>
 </div>
