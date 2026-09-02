@@ -105,8 +105,17 @@ export function buildArticleSearchIndex(article: HelpArticle) {
   };
 }
 
+const ARTICLE_INDEX_CACHE = new Map<string, ReturnType<typeof buildArticleSearchIndex>>();
+
+function getArticleSearchIndex(article: HelpArticle) {
+  if (!ARTICLE_INDEX_CACHE.has(article.slug)) {
+    ARTICLE_INDEX_CACHE.set(article.slug, buildArticleSearchIndex(article));
+  }
+  return ARTICLE_INDEX_CACHE.get(article.slug)!;
+}
+
 function scoreArticle(article: HelpArticle, query: string, roleKey: string, preferredGuideSlugs: string[] = []): HelpSearchResult | null {
-  const index = buildArticleSearchIndex(article);
+  const index = getArticleSearchIndex(article);
   const tokens = query.split(/\s+/).filter(Boolean);
   let score = 0;
   const matchedFields = new Set<string>();

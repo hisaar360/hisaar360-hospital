@@ -4,11 +4,14 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../../core/services/backend.service';
+import { buildInvoiceDocumentHtml } from '../../../../../core/documents/invoice-document.builder';
+import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../../../core/utils/hms-document-context.util';
+import { HmsDocumentToolbarComponent } from '../../../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
 import { Bill } from '../../../../../shared/models/hospital.model';
 
 @Component({
   selector: 'app-invoice-detail',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, HmsDocumentToolbarComponent],
   templateUrl: './invoice-detail.component.html',
   styleUrl: './invoice-detail.component.scss',
 })
@@ -35,6 +38,15 @@ export class InvoiceDetailComponent implements OnInit {
         });
     }
   }
+
+  buildInvoiceDocumentHtml = (): string => {
+    if (!this.bill) return '';
+    return buildInvoiceDocumentHtml({
+      bill: this.bill,
+      hospital: readStoredHospitalDocumentInfo(),
+      generatedBy: readCurrentUserName(),
+    });
+  };
 
   patientName(): string {
     const patient = this.bill?.patient;

@@ -126,10 +126,19 @@
       </section>
 
       <section class="modal-section">
-        <div class="section-head">
-          <h4>Payment History</h4>
-          <span class="section-count">{{ data.payments.length }}</span>
+        <div class="section-head section-head--with-toolbar">
+          <div>
+            <h4>Payment History</h4>
+            <span class="section-count">{{ data.payments.length }}</span>
+          </div>
+          <app-hms-document-toolbar
+            *ngIf="selectedReceiptPayment"
+            [title]="'Payment Receipt'"
+            [filename]="selectedReceiptPayment.paymentNo + '.pdf'"
+            [getHtml]="buildPaymentReceiptHtml"
+          ></app-hms-document-toolbar>
         </div>
+        <p class="payment-help" *ngIf="data.payments.length">Select a payment to export its receipt.</p>
 
         <div class="table-responsive d-none d-md-block">
           <table class="table detail-table mb-0">
@@ -143,7 +152,12 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let payment of data.payments">
+              <tr
+                *ngFor="let payment of data.payments"
+                class="payment-history-row"
+                [class.is-selected]="isReceiptSelected(payment)"
+                (click)="selectReceiptPayment(payment)"
+              >
                 <td class="receipt-no">{{ payment.paymentNo }}</td>
                 <td>{{ payment.method }}</td>
                 <td><span class="type-pill">{{ payment.type }}</span></td>
@@ -158,7 +172,12 @@
         </div>
 
         <div class="mobile-stack d-md-none">
-          <article class="payment-card" *ngFor="let payment of data.payments">
+          <article
+            class="payment-card"
+            *ngFor="let payment of data.payments"
+            [class.is-selected]="isReceiptSelected(payment)"
+            (click)="selectReceiptPayment(payment)"
+          >
             <div class="payment-card__top">
               <strong>{{ payment.paymentNo }}</strong>
               <span>{{ payment.amount | number:'1.0-0' }}</span>

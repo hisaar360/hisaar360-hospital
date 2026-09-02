@@ -42,6 +42,7 @@ import { AccountsPageComponent } from './accounts/accounts-page.component';
 import { DoctorPerformancePageComponent } from './accounts/doctor-performance-page.component';
 import { DepartmentPerformancePageComponent } from './accounts/department-performance-page.component';
 import { HelpCenterComponent } from './help/help-center.component';
+import { NotificationsPageComponent } from './notifications/notifications-page.component';
 
 const HOSPITAL_DASHBOARD_ACCESS = ['hospital_dashboard.read'];
 const DOCTOR_READ_ACCESS = ['doctors.read'];
@@ -147,6 +148,11 @@ export const clientRoutes: Routes = [
         path: 'help/:slug',
         component: HelpCenterComponent,
         data: { title: 'Hisaar360 HMS Help Center' },
+      },
+      {
+        path: 'notifications',
+        component: NotificationsPageComponent,
+        data: { title: 'Hisaar360 Hospital Management System | Notifications' },
       },
       {
         path: 'doctor-dashboard',

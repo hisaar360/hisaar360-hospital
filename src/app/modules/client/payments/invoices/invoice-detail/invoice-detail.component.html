@@ -20,6 +20,12 @@
           </span>
         </div>
         <div class="pharmacy-hero-actions">
+          <app-hms-document-toolbar
+            [title]="'Invoice'"
+            [filename]="current.billNo + '.pdf'"
+            [getHtml]="buildInvoiceDocumentHtml"
+            [disabled]="loading"
+          ></app-hms-document-toolbar>
           <a class="btn btn-default" routerLink="/payments">Patient Payments</a>
           <a class="btn btn-outline-primary" routerLink="/payments/invoices">All Invoices</a>
         </div>

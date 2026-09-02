@@ -1,231 +1,240 @@
-<div id="main-content">
-  <div class="container-fluid">
-    <div class="block-header">
-      <div class="row clearfix">
-        <div class="col-lg-6 col-md-12 col-sm-12">
-          <h1>Hospital Overview</h1>
-          <span>{{ todayLabel }} · doctors, patients, appointments, lab, and revenue</span>
-        </div>
-        <div class="col-lg-6 col-md-12 col-sm-12 text-lg-right">
-          <button type="button" class="btn btn-primary" (click)="loadSummary()" [disabled]="loading">
-            <i class="fa" [ngClass]="loading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
-            Refresh
-          </button>
-          <a class="btn btn-default ml-1" routerLink="/appointments">Appointments</a>
-          <a class="btn btn-default ml-1" routerLink="/laboratory">Laboratory</a>
-        </div>
+<div id="main-content" class="hms-dashboard">
+  <div class="hms-dashboard__shell">
+    <header class="hms-dashboard__header">
+      <div>
+        <h1>Hospital Overview</h1>
+        <p>{{ todayLabel }} · doctors, patients, appointments, lab, and revenue</p>
       </div>
+      <button type="button" class="hms-btn hms-btn-secondary" (click)="loadSummary()" [disabled]="loading">
+        <i class="fa" [ngClass]="loading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
+        Refresh
+      </button>
+    </header>
+
+    <div class="hms-dashboard__tabs">
+      <button type="button" [class.active]="activeTab === 'overview'" (click)="setTab('overview')">Overview</button>
+      <button type="button" [class.active]="activeTab === 'appointments'" (click)="setTab('appointments')">Appointments</button>
+      <button type="button" *ngIf="labEnabled" [class.active]="activeTab === 'laboratory'" (click)="setTab('laboratory')">Laboratory</button>
     </div>
 
-    <div class="row clearfix">
-      <div class="col-lg-2 col-md-4 col-sm-6" *ngFor="let card of statCards">
-        <div class="card">
-          <div class="body">
-            <div class="top_counter">
-              <div class="icon"><i class="fa" [ngClass]="card.icon"></i></div>
-              <div class="content">
-                <div class="text">{{ card.label }}</div>
-                <h5 class="number" *ngIf="!card.isCurrency">{{ loading ? '...' : card.value }}</h5>
-                <h5 class="number" *ngIf="card.isCurrency">
-                  {{ loading ? '...' : (card.value | currency:'PKR':'symbol-narrow':'1.0-0') }}
-                </h5>
+    <section class="hms-dashboard__kpis">
+      <article class="hms-kpi-card" *ngFor="let card of primaryKpis" [ngClass]="card.tone">
+        <div class="hms-kpi-card__icon"><i class="fa" [ngClass]="card.icon"></i></div>
+        <div>
+          <span>{{ card.label }}</span>
+          <strong *ngIf="!card.isCurrency">{{ loading ? '...' : card.value }}</strong>
+          <strong *ngIf="card.isCurrency">{{ loading ? '...' : (card.value | currency:'PKR':'symbol-narrow':'1.0-0') }}</strong>
+          <small>{{ card.hint }}</small>
+        </div>
+      </article>
+    </section>
+
+    <section class="hms-dashboard__kpis hms-dashboard__kpis--secondary">
+      <article class="hms-kpi-card hms-kpi-card--compact" *ngFor="let card of secondaryKpis" [ngClass]="card.tone">
+        <span>{{ card.label }}</span>
+        <strong *ngIf="!card.isCurrency">{{ loading ? '...' : card.value }}</strong>
+        <strong *ngIf="card.isCurrency">{{ loading ? '...' : (card.value | currency:'PKR':'symbol-narrow':'1.0-0') }}</strong>
+        <small>{{ card.hint }}</small>
+      </article>
+    </section>
+
+    <ng-container [ngSwitch]="activeTab">
+      <div *ngSwitchCase="'overview'" class="hms-dashboard__grid">
+        <section class="hms-panel" *ngIf="canSeeRevenue">
+          <div class="hms-panel__head">
+            <h2>Revenue Overview</h2>
+            <small>All time GL posted revenue</small>
+          </div>
+          <div class="hms-revenue-summary">
+            <strong>{{ loading ? '...' : (summary.totalRevenue | currency:'PKR':'symbol-narrow':'1.0-0') }}</strong>
+            <span>Total Revenue</span>
+          </div>
+        </section>
+
+        <section class="hms-panel">
+          <div class="hms-panel__head">
+            <h2>Today's Snapshot</h2>
+            <small>Appointment status mix</small>
+          </div>
+          <apx-chart
+            *ngIf="!loading"
+            [series]="todayDonut.series"
+            [chart]="todayDonut.chart"
+            [labels]="todayDonut.labels"
+            [colors]="todayDonut.colors"
+            [legend]="todayDonut.legend"
+            [dataLabels]="todayDonut.dataLabels"
+            [stroke]="todayDonut.stroke"
+            [plotOptions]="todayDonut.plotOptions"
+          ></apx-chart>
+          <p class="hms-empty" *ngIf="loading">Loading chart...</p>
+        </section>
+
+        <section class="hms-panel">
+          <div class="hms-panel__head">
+            <h2>Quick Actions</h2>
+            <small>Role-aware shortcuts</small>
+          </div>
+          <div class="hms-quick-actions">
+            <a
+              *ngFor="let action of quickActions"
+              class="hms-quick-action"
+              [routerLink]="action.route"
+              [queryParams]="action.queryParams"
+            >
+              <i class="fa" [ngClass]="action.icon"></i>
+              <span>{{ action.label }}</span>
+            </a>
+          </div>
+        </section>
+
+        <section class="hms-panel hms-panel--wide">
+          <div class="hms-panel__head">
+            <h2>Today's Operations</h2>
+            <small>Compact daily activity</small>
+          </div>
+          <apx-chart
+            *ngIf="!loading"
+            [series]="operationsBar.series"
+            [chart]="operationsBar.chart"
+            [xaxis]="operationsBar.xaxis"
+            [colors]="operationsBar.colors"
+            [plotOptions]="operationsBar.plotOptions"
+            [dataLabels]="operationsBar.dataLabels"
+            [stroke]="operationsBar.stroke"
+          ></apx-chart>
+          <p class="hms-empty" *ngIf="loading">Loading chart...</p>
+        </section>
+
+        <section class="hms-panel">
+          <div class="hms-panel__head hms-panel__head--split">
+            <div>
+              <h2>Upcoming Appointments</h2>
+              <small>Next pending or confirmed visits</small>
+            </div>
+            <a routerLink="/appointments" class="hms-link">View all</a>
+          </div>
+          <div class="hms-list">
+            <article *ngFor="let appointment of summary.upcomingAppointments" class="hms-list-item">
+              <div>
+                <strong>{{ appointmentPatientName(appointment) }}</strong>
+                <small>{{ doctorName(appointment) }} · {{ appointment.appointmentDate | date:'mediumDate' }}</small>
               </div>
-            </div>
-            <small class="text-muted">{{ card.hint }}</small>
+              <span class="badge" [ngClass]="statusClass(appointment.status)">{{ statusLabel(appointment.status) }}</span>
+            </article>
+            <p class="hms-empty" *ngIf="!loading && !summary.upcomingAppointments.length">No upcoming appointments.</p>
           </div>
-        </div>
-      </div>
-    </div>
+        </section>
 
-    <div class="row clearfix">
-      <div class="col-lg-2 col-md-4 col-sm-6">
-        <div class="card">
-          <div class="body">
-            <small class="text-muted">Today Pending</small>
-            <h5 class="mb-0">{{ loading ? '...' : (summary.todayPendingAppointments || 0) }}</h5>
+        <section class="hms-panel">
+          <div class="hms-panel__head hms-panel__head--split">
+            <div>
+              <h2>Recent Patients</h2>
+              <small>Latest registrations</small>
+            </div>
+            <a routerLink="/patients/all-patients" class="hms-link">View all</a>
           </div>
-        </div>
-      </div>
-      <div class="col-lg-2 col-md-4 col-sm-6">
-        <div class="card">
-          <div class="body">
-            <small class="text-muted">Today Confirmed</small>
-            <h5 class="mb-0">{{ loading ? '...' : (summary.todayConfirmedAppointments || 0) }}</h5>
+          <div class="hms-list">
+            <a
+              *ngFor="let patient of summary.recentPatients"
+              class="hms-list-item hms-list-item--link"
+              [routerLink]="['/patients/patient-profile', patient._id]"
+            >
+              <span class="hms-avatar">{{ patientInitials(patient) }}</span>
+              <div>
+                <strong>{{ patientName(patient) }}</strong>
+                <small>{{ patient.patientNo }} · {{ relativeTime(patient.createdAt) }}</small>
+              </div>
+            </a>
+            <p class="hms-empty" *ngIf="!loading && !summary.recentPatients.length">No recent patients.</p>
           </div>
-        </div>
-      </div>
-      <div class="col-lg-2 col-md-4 col-sm-6">
-        <div class="card">
-          <div class="body">
-            <small class="text-muted">Today Completed</small>
-            <h5 class="mb-0">{{ loading ? '...' : (summary.todayCompletedAppointments || 0) }}</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-3 col-md-6 col-sm-6">
-        <div class="card">
-          <div class="body">
-            <small class="text-muted">Consultation Fees Today</small>
-            <h5 class="mb-0">{{ loading ? '...' : ((summary.todayFeesCollected || 0) | currency:'PKR':'symbol-narrow':'1.0-0') }}</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-3 col-md-6 col-sm-6">
-        <div class="card">
-          <div class="body">
-            <small class="text-muted">Total Revenue</small>
-            <h5 class="mb-0">{{ loading ? '...' : (summary.totalRevenue | currency:'PKR':'symbol-narrow':'1.0-0') }}</h5>
-          </div>
-        </div>
-      </div>
-    </div>
+        </section>
 
-    <div class="row clearfix row-deck">
-      <div class="col-lg-8 col-md-12">
-        <div class="card">
-          <div class="header">
-            <h2>Today's Appointments <small>Hospital-wide schedule for today</small></h2>
-            <ul class="header-dropdown">
-              <li><span class="badge badge-default">{{ summary.todayAppointmentsList?.length || 0 }} listed</span></li>
-            </ul>
-          </div>
-          <div class="body">
-            <div class="table-responsive">
-              <table class="table table-hover mb-0">
-                <thead>
-                  <tr>
-                    <th>Patient</th>
-                    <th>Doctor</th>
-                    <th>Time</th>
-                    <th>Status</th>
-                    <th>Fee</th>
-                  </tr>
-                </thead>
-                <tbody *ngIf="!loading && (summary.todayAppointmentsList?.length || 0) > 0">
-                  <tr *ngFor="let appointment of summary.todayAppointmentsList">
-                    <td>
-                      <strong>{{ appointmentPatientName(appointment) }}</strong>
-                      <div class="text-muted small">{{ appointment.appointmentNo }}</div>
-                    </td>
-                    <td>{{ doctorName(appointment) }}</td>
-                    <td>{{ appointment.startTime || '-' }}</td>
-                    <td><span class="badge" [ngClass]="statusClass(appointment.status)">{{ statusLabel(appointment.status) }}</span></td>
-                    <td>{{ appointment.consultationFee || 0 | currency:'PKR':'symbol-narrow':'1.0-0' }}</td>
-                  </tr>
-                </tbody>
-                <tbody *ngIf="loading">
-                  <tr><td colspan="5" class="text-center py-4"><i class="fa fa-spinner fa-spin"></i> Loading appointments...</td></tr>
-                </tbody>
-                <tbody *ngIf="!loading && !(summary.todayAppointmentsList?.length || 0)">
-                  <tr><td colspan="5" class="text-center py-4 text-muted">There are no appointments today.</td></tr>
-                </tbody>
-              </table>
+        <section class="hms-panel">
+          <div class="hms-panel__head hms-panel__head--split">
+            <div>
+              <h2>Activity Feed</h2>
+              <small>Recent system activity</small>
             </div>
+            <a routerLink="/audit-logs" class="hms-link" *ngIf="canSeeAuditLogs">View all activity</a>
           </div>
-        </div>
+          <div class="hms-list">
+            <article *ngFor="let item of summary.activityFeed || []" class="hms-list-item">
+              <div>
+                <strong>{{ activityLabel(item) }}</strong>
+                <small>{{ item.userName || 'System' }} · {{ relativeTime(item.createdAt) }}</small>
+              </div>
+              <span class="hms-tag">{{ item.module }}</span>
+            </article>
+            <p class="hms-empty" *ngIf="!loading && !(summary.activityFeed || []).length">No operations yet today.</p>
+          </div>
+        </section>
       </div>
-      <div class="col-lg-4 col-md-12">
-        <div class="card">
-          <div class="header">
-            <h2>Today's Appointment Mix <small>Pending, confirmed, completed</small></h2>
-          </div>
-          <div class="body">
-            <apx-chart
-              [series]="todayDonut.series"
-              [chart]="todayDonut.chart"
-              [labels]="todayDonut.labels"
-              [colors]="todayDonut.colors"
-              [legend]="todayDonut.legend"
-              [dataLabels]="todayDonut.dataLabels"
-              [stroke]="todayDonut.stroke"
-              [plotOptions]="todayDonut.plotOptions"
-            ></apx-chart>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <div class="row clearfix row-deck">
-      <div class="col-lg-4 col-md-12">
-        <div class="card">
-          <div class="header">
-            <h2>Today's Operations <small>Appointments, lab, prescriptions, and fees</small></h2>
-          </div>
-          <div class="body">
-            <apx-chart
-              [series]="operationsBar.series"
-              [chart]="operationsBar.chart"
-              [xaxis]="operationsBar.xaxis"
-              [colors]="operationsBar.colors"
-              [plotOptions]="operationsBar.plotOptions"
-              [dataLabels]="operationsBar.dataLabels"
-              [stroke]="operationsBar.stroke"
-            ></apx-chart>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-4 col-md-12">
-        <div class="card">
-          <div class="header">
-            <h2>Upcoming Appointments <small>Next pending or confirmed visits</small></h2>
-          </div>
-          <div class="body">
-            <div class="table-responsive">
-              <table class="table table-hover mb-0">
-                <thead>
-                  <tr>
-                    <th>Patient</th>
-                    <th>Doctor</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody *ngIf="!loading && summary.upcomingAppointments.length > 0">
-                  <tr *ngFor="let appointment of summary.upcomingAppointments">
-                    <td>{{ appointmentPatientName(appointment) }}</td>
-                    <td>{{ doctorName(appointment) }}</td>
-                    <td>{{ appointment.appointmentDate | date:'mediumDate' }}</td>
-                    <td><span class="badge" [ngClass]="statusClass(appointment.status)">{{ statusLabel(appointment.status) }}</span></td>
-                  </tr>
-                </tbody>
-                <tbody *ngIf="!loading && summary.upcomingAppointments.length === 0">
-                  <tr><td colspan="4" class="text-center py-4 text-muted">No upcoming appointments.</td></tr>
-                </tbody>
-              </table>
+      <div *ngSwitchCase="'appointments'" class="hms-dashboard__stack">
+        <section class="hms-panel">
+          <div class="hms-panel__head hms-panel__head--split">
+            <div>
+              <h2>Today's Appointments</h2>
+              <small>{{ summary.todayAppointmentsList?.length || 0 }} listed</small>
             </div>
           </div>
-        </div>
-      </div>
-      <div class="col-lg-4 col-md-12">
-        <div class="card">
-          <div class="header">
-            <h2>Recent Patients <small>Latest registrations</small></h2>
+          <div class="hms-table-wrap">
+            <table class="hms-table">
+              <thead>
+                <tr>
+                  <th>Patient</th>
+                  <th>Doctor</th>
+                  <th>Time</th>
+                  <th>Status</th>
+                  <th>Fee</th>
+                </tr>
+              </thead>
+              <tbody *ngIf="!loading && (summary.todayAppointmentsList?.length || 0) > 0">
+                <tr *ngFor="let appointment of summary.todayAppointmentsList">
+                  <td>
+                    <strong>{{ appointmentPatientName(appointment) }}</strong>
+                    <small>{{ appointment.appointmentNo }}</small>
+                  </td>
+                  <td>{{ doctorName(appointment) }}</td>
+                  <td>{{ appointment.startTime || '-' }}</td>
+                  <td><span class="badge" [ngClass]="statusClass(appointment.status)">{{ statusLabel(appointment.status) }}</span></td>
+                  <td>{{ appointment.consultationFee || 0 | currency:'PKR':'symbol-narrow':'1.0-0' }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="hms-empty" *ngIf="!loading && !(summary.todayAppointmentsList?.length || 0)">
+              No appointments scheduled for today. Enjoy the free time!
+            </p>
           </div>
-          <div class="body">
-            <div class="table-responsive">
-              <table class="table table-hover mb-0">
-                <thead>
-                  <tr>
-                    <th>Patient</th>
-                    <th>Phone</th>
-                    <th>Gender</th>
-                  </tr>
-                </thead>
-                <tbody *ngIf="!loading && summary.recentPatients.length > 0">
-                  <tr *ngFor="let patient of summary.recentPatients">
-                    <td>{{ patientName(patient) }}</td>
-                    <td>{{ patient.phone || '-' }}</td>
-                    <td>{{ patient.gender || '-' }}</td>
-                  </tr>
-                </tbody>
-                <tbody *ngIf="!loading && summary.recentPatients.length === 0">
-                  <tr><td colspan="3" class="text-center py-4 text-muted">No recent patients.</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        </section>
+
+        <section class="hms-panel">
+          <div class="hms-panel__head"><h2>Appointment Mix</h2></div>
+          <apx-chart
+            *ngIf="!loading"
+            [series]="todayDonut.series"
+            [chart]="todayDonut.chart"
+            [labels]="todayDonut.labels"
+            [colors]="todayDonut.colors"
+            [legend]="todayDonut.legend"
+            [dataLabels]="todayDonut.dataLabels"
+            [stroke]="todayDonut.stroke"
+            [plotOptions]="todayDonut.plotOptions"
+          ></apx-chart>
+        </section>
       </div>
-    </div>
+
+      <div *ngSwitchCase="'laboratory'" class="hms-dashboard__stack">
+        <section class="hms-panel">
+          <div class="hms-panel__head">
+            <h2>Lab Tests Today</h2>
+            <strong class="hms-stat-inline">{{ loading ? '...' : (summary.todayLabOrders || 0) }}</strong>
+          </div>
+          <p class="hms-empty" *ngIf="!loading && !(summary.todayLabOrders || 0)">No new lab orders today.</p>
+          <a routerLink="/laboratory" class="hms-btn hms-btn-primary">Open Laboratory</a>
+        </section>
+      </div>
+    </ng-container>
   </div>
 </div>

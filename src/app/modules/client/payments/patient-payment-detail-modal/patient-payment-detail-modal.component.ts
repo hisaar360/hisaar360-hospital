@@ -4,14 +4,19 @@ import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../core/services/backend.service';
+import { buildPaymentReceiptDocumentHtml } from '../../../../core/documents/patient-ledger-document.builder';
+import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../../core/utils/hms-document-context.util';
+import { HmsDocumentToolbarComponent } from '../../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
 import {
+  LedgerPayment,
   PatientPaymentDetail,
+  PatientPaymentDetailPayment,
   PatientPaymentSourceSummary,
 } from '../../../../shared/models/hospital.model';
 
 @Component({
   selector: 'app-patient-payment-detail-modal',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HmsDocumentToolbarComponent],
   templateUrl: './patient-payment-detail-modal.component.html',
   styleUrl: './patient-payment-detail-modal.component.scss',
 })
@@ -30,6 +35,7 @@ export class PatientPaymentDetailModalComponent implements OnChanges {
   paymentMethod = 'cash';
   paymentType: 'partial' | 'final' | 'advance' = 'partial';
   paymentNote = '';
+  selectedReceiptPayment: PatientPaymentDetailPayment | null = null;
 
   constructor(
     private backend: BackendService,
@@ -60,6 +66,8 @@ export class PatientPaymentDetailModalComponent implements OnChanges {
           this.detail = detail;
           this.collectAmount = Math.max(detail.totals.balance, 0);
           this.discountAmount = 0;
+          const payments = detail.payments || [];
+          this.selectedReceiptPayment = payments.length ? payments[payments.length - 1] : null;
         },
         error: (err: { error?: { message?: string } }) => this.toastr.error(err?.error?.message || 'Unable to load payment details'),
       });
@@ -204,6 +212,27 @@ export class PatientPaymentDetailModalComponent implements OnChanges {
     runPayment();
   }
 
+  selectReceiptPayment(payment: PatientPaymentDetailPayment): void {
+    this.selectedReceiptPayment = payment;
+  }
+
+  isReceiptSelected(payment: PatientPaymentDetailPayment): boolean {
+    return this.selectedReceiptPayment?._id === payment._id;
+  }
+
+  buildPaymentReceiptHtml = (): string => {
+    if (!this.detail || !this.selectedReceiptPayment) return '';
+    const encounter = this.detail.encounters.find((item) => item._id === this.detail?.primaryEncounterId);
+    return buildPaymentReceiptDocumentHtml({
+      payment: this.selectedReceiptPayment as unknown as LedgerPayment,
+      patient: this.detail.patient,
+      encounterNo: encounter?.encounterNo || this.detail.primaryEncounterId || '—',
+      hospital: readStoredHospitalDocumentInfo(),
+      generatedBy: readCurrentUserName(),
+      receivedBy: readCurrentUserName(),
+    });
+  };
+
   sourceLabel(sourceType: string): string {
     const map: Record<string, string> = {
       appointment: 'Appointment',
@@ -227,5 +256,6 @@ export class PatientPaymentDetailModalComponent implements OnChanges {
     this.paymentMethod = 'cash';
     this.paymentType = 'partial';
     this.paymentNote = '';
+    this.selectedReceiptPayment = null;
   }
 }

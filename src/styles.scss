@@ -4,8 +4,16 @@
 
 html,
 body {
-  height: 100%;
+  height: auto;
   max-width: 100%;
+  min-height: 100%;
+}
+
+html:not(.pos-route-active),
+body:not(.pos-route-active) {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 html.pos-route-active,
@@ -9885,14 +9893,44 @@ body,
 }
 
 @media screen and (max-width: 1280px) {
+  html:not(.pos-route-active),
+  body:not(.pos-route-active) {
+    height: auto;
+    overflow-y: auto !important;
+  }
+
+  #wrapper,
+  app-layout,
+  .wrapper,
+  .layout-main {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .wrapper {
+    display: block;
+  }
+
+  .wrapper > .sidebar {
+    height: 0;
+    max-width: 0;
+    overflow: visible;
+    width: 0;
+  }
+
   #main-content {
     width: 100% !important;
     float: none;
     min-width: 0;
     max-width: 100%;
     box-sizing: border-box;
+    height: auto;
+    min-height: calc(100vh - 75px);
+    overflow: visible;
     padding-left: 12px;
     padding-right: 12px;
+    padding-bottom: 24px;
   }
 
   .navbar-fixed-top {

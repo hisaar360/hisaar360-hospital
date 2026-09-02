@@ -51,9 +51,13 @@ export class HospitalNotificationService {
 
   refresh(): Observable<HospitalNotificationItem[]> {
     return this.backend.listNotifications({ limit: 50 }).pipe(
-      map((data) => (Array.isArray(data?.items) ? data.items : []) as HospitalNotificationItem[]),
-      map((items) => items.filter((item) => this.isModuleVisible(item))),
-      tap((items) => {
+      map((data) => {
+        const items = ((Array.isArray(data?.items) ? data.items : []) as HospitalNotificationItem[]).filter((item) =>
+          this.isModuleVisible(item)
+        );
+        return { data, items };
+      }),
+      tap(({ data, items }) => {
         const actionableTypes = new Set([
           'ADMISSION_RECOMMENDED',
           'MEDICINE_REQUEST_CREATED',
@@ -71,8 +75,11 @@ export class HospitalNotificationService {
         }
         items.forEach((item) => this.knownIds.add(item._id));
         this.itemsSubject.next(items);
-        this.unreadSubject.next(items.filter((item) => !item.isRead).length);
+        this.unreadSubject.next(
+          typeof data?.unreadCount === 'number' ? data.unreadCount : items.filter((item) => !item.isRead).length
+        );
       }),
+      map(({ items }) => items),
       catchError(() => {
         this.itemsSubject.next([]);
         this.unreadSubject.next(0);
@@ -81,12 +88,63 @@ export class HospitalNotificationService {
     );
   }
 
+  fetchAll(unreadOnly = false): Observable<{ items: HospitalNotificationItem[]; unreadCount: number }> {
+    return this.backend.listNotifications({ limit: 100, unreadOnly }).pipe(
+      map((data) => ({
+        items: ((Array.isArray(data?.items) ? data.items : []) as HospitalNotificationItem[]).filter((item) =>
+          this.isModuleVisible(item)
+        ),
+        unreadCount: data?.unreadCount ?? 0,
+      })),
+      catchError(() => of({ items: [], unreadCount: 0 }))
+    );
+  }
+
   markRead(id: string): Observable<unknown> {
-    return this.backend.markNotificationRead(id).pipe(tap(() => this.refresh().subscribe()));
+    return this.backend.markNotificationRead(id).pipe(
+      tap((response: unknown) => {
+        const payload = response as { unreadCount?: number };
+        if (typeof payload?.unreadCount === 'number') {
+          this.updateItemReadState(id);
+          this.unreadSubject.next(payload.unreadCount);
+          return;
+        }
+        this.markReadLocal(id);
+      })
+    );
   }
 
   markAllRead(): Observable<unknown> {
-    return this.backend.markAllNotificationsRead().pipe(tap(() => this.refresh().subscribe()));
+    return this.backend.markAllNotificationsRead().pipe(
+      tap((response: unknown) => {
+        const payload = response as { unreadCount?: number };
+        this.markAllReadLocal();
+        if (typeof payload?.unreadCount === 'number') {
+          this.unreadSubject.next(payload.unreadCount);
+        }
+      })
+    );
+  }
+
+  markReadLocal(id: string): void {
+    const wasUnread = Boolean(this.itemsSubject.value.find((item) => item._id === id && !item.isRead));
+    this.updateItemReadState(id);
+    if (wasUnread) {
+      this.unreadSubject.next(Math.max(0, this.unreadSubject.value - 1));
+    }
+  }
+
+  markAllReadLocal(): void {
+    const next = this.itemsSubject.value.map((item) => ({ ...item, isRead: true, readAt: new Date().toISOString() }));
+    this.itemsSubject.next(next);
+    this.unreadSubject.next(0);
+  }
+
+  private updateItemReadState(id: string): void {
+    const next = this.itemsSubject.value.map((item) =>
+      item._id === id ? { ...item, isRead: true, readAt: new Date().toISOString() } : item
+    );
+    this.itemsSubject.next(next);
   }
 
   private isModuleVisible(item: HospitalNotificationItem): boolean {

@@ -73,6 +73,8 @@ Department Performance, Help Center, smoke 13/13, backend 65/65, Angular build P
 | Shared toolbar | PASS | PASS | PASS | PASS |
 | Accounts reports | PASS | PASS | PASS | PASS |
 | Patient Ledger | PASS | PASS | PASS | PASS |
+| Invoice | PASS | PASS | PASS | PASS |
+| Payment Receipt | PASS | PASS | PASS | PASS |
 | Lab report | PASS | PASS | PASS | PASS |
 | Birth certificate | PASS | PASS | PASS | PASS |
 | Admission recommendation | PASS | PASS | PASS | PASS |

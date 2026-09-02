@@ -1,23 +1,26 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
-import { AsyncPipe, NgClass, NgFor, NgIf } from '@angular/common';
+import { Router, RouterLink } from '@angular/router';
+import { NgClass, NgFor, NgIf } from '@angular/common';
 import { BackendService } from '../../../core/services/backend.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { HospitalNotificationService, HospitalNotificationItem } from '../../../core/services/hospital-notification.service';
 import { NotificationSoundService } from '../../../core/services/notification-sound.service';
 import { User } from '../../../shared/models/hospital.model';
 import { readStoredPermissions, resolveDefaultRoute } from '../../auth/access-control';
+import { GlobalSearchComponent } from './global-search.component';
 
 @Component({
   selector: 'app-header',
-  imports: [CommonModule, NgIf, NgFor, NgClass, AsyncPipe],
+  imports: [CommonModule, NgIf, NgFor, NgClass, RouterLink, GlobalSearchComponent],
   templateUrl: './header.component.html',
   styleUrl: './header.component.scss',
 })
 export class HeaderComponent implements OnInit {
   isFullScreen!: boolean;
-  menuOpen = false;
+  drawerOpen = false;
+  unreadCount = 0;
+  notificationItems: HospitalNotificationItem[] = [];
   private readonly posPermissions = [
     'sales.create',
     'sales.read',
@@ -38,6 +41,8 @@ export class HeaderComponent implements OnInit {
   ngOnInit(): void {
     if (this.notifications.canSeeNotifications()) {
       this.notifications.startPolling();
+      this.notifications.items$.subscribe((items) => (this.notificationItems = items.slice(0, 8)));
+      this.notifications.unreadCount$.subscribe((count) => (this.unreadCount = count));
     }
   }
 
@@ -69,16 +74,29 @@ export class HeaderComponent implements OnInit {
     document.getElementsByClassName('overlay')[0].classList.toggle('open');
   }
 
-  toggleNotificationMenu(): void {
-    this.menuOpen = !this.menuOpen;
+  toggleNotificationDrawer(): void {
+    this.drawerOpen = !this.drawerOpen;
+  }
+
+  closeNotificationDrawer(): void {
+    this.drawerOpen = false;
   }
 
   openNotification(item: HospitalNotificationItem): void {
-    void this.notifications.markRead(item._id).subscribe();
+    if (!item.isRead) {
+      this.notifications.markReadLocal(item._id);
+      void this.notifications.markRead(item._id).subscribe();
+    }
     if (item.actionRoute) {
       void this.router.navigateByUrl(item.actionRoute);
     }
-    this.menuOpen = false;
+    this.drawerOpen = false;
+  }
+
+  markAllRead(): void {
+    if (!this.unreadCount) return;
+    this.notifications.markAllReadLocal();
+    void this.notifications.markAllRead().subscribe();
   }
 
   toggleMute(event: Event): void {

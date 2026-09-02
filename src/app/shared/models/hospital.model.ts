@@ -1226,6 +1226,15 @@ export interface DashboardStatusBreakdown {
   noShow: number;
 }
 
+export interface DashboardActivityItem {
+  _id: string;
+  action: string;
+  module: string;
+  summary: string;
+  createdAt: string;
+  userName?: string | null;
+}
+
 export interface DashboardSummary {
   totalPatients: number;
   totalDoctors: number;
@@ -1247,6 +1256,7 @@ export interface DashboardSummary {
   recentPatients: Patient[];
   upcomingAppointments: Appointment[];
   todayAppointmentsList?: Appointment[];
+  activityFeed?: DashboardActivityItem[];
 }
 
 export interface DataTablesResponse<T> {

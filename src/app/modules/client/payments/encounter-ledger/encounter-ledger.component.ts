@@ -5,10 +5,10 @@ import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../core/services/backend.service';
-import { buildPatientLedgerDocumentHtml } from '../../../../core/documents/patient-ledger-document.builder';
+import { buildPatientLedgerDocumentHtml, buildPaymentReceiptDocumentHtml } from '../../../../core/documents/patient-ledger-document.builder';
 import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../../core/utils/hms-document-context.util';
 import { HmsDocumentToolbarComponent } from '../../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
-import { Encounter, EncounterLedger } from '../../../../shared/models/hospital.model';
+import { Encounter, EncounterLedger, LedgerPayment } from '../../../../shared/models/hospital.model';
 
 @Component({
   selector: 'app-encounter-ledger',
@@ -33,6 +33,7 @@ export class EncounterLedgerComponent implements OnInit {
   paymentMethod = 'cash';
   paymentType = 'partial';
   paymentNote = '';
+  selectedReceiptPayment: LedgerPayment | null = null;
 
   constructor(
     private backend: BackendService,
@@ -73,6 +74,7 @@ export class EncounterLedgerComponent implements OnInit {
   openLedger(encounterId: string): void {
     this.selectedEncounterId = encounterId;
     this.showDetailPanel = true;
+    this.selectedReceiptPayment = null;
     this.ledgerLoading = true;
     this.backend
       .getEncounterLedger(encounterId)
@@ -80,6 +82,8 @@ export class EncounterLedgerComponent implements OnInit {
       .subscribe({
         next: (ledger) => {
           this.selectedLedger = ledger;
+          const payments = ledger.payments || [];
+          this.selectedReceiptPayment = payments.length ? payments[payments.length - 1] : null;
         },
         error: (err) => this.toastr.error(err?.error?.message || 'Unable to load patient ledger'),
       });
@@ -125,6 +129,26 @@ export class EncounterLedgerComponent implements OnInit {
 
   statusBadgeClass(status: string): string {
     return `badge-${status.replace(/_/g, '-')}`;
+  }
+
+  buildPaymentReceiptHtml = (): string => {
+    if (!this.selectedLedger || !this.selectedReceiptPayment) return '';
+    return buildPaymentReceiptDocumentHtml({
+      payment: this.selectedReceiptPayment,
+      patient: this.selectedLedger.encounter.patient,
+      encounterNo: this.selectedLedger.encounter.encounterNo,
+      hospital: readStoredHospitalDocumentInfo(),
+      generatedBy: readCurrentUserName(),
+      receivedBy: readCurrentUserName(),
+    });
+  };
+
+  selectReceiptPayment(payment: LedgerPayment): void {
+    this.selectedReceiptPayment = payment;
+  }
+
+  isReceiptSelected(payment: LedgerPayment): boolean {
+    return this.selectedReceiptPayment?._id === payment._id;
   }
 
   buildPatientLedgerHtml = (): string => {

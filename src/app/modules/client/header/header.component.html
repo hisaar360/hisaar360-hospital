@@ -1,190 +1,86 @@
 <!-- Page top navbar -->
-<nav class="navbar navbar-fixed-top">
-    <div style="height: 54px;" class="container-fluid">
-        <div class="navbar-left">
-            <div class="navbar-btn">
-                <a href="javascript:void(0);" (click)="goHome()"><img src="assets/hisar1.png" alt="Hisaar360 Logo" class="img-fluid logo"></a>
-                <button type="button" (click)="mToggoleMenu()" class="btn-toggle-offcanvas"><i
-                        class="fa fa-align-left"></i></button>
-            </div>
-        </div>
-        <div class="navbar-right">
-            <div id="navbar-menu">
-                <ul class="nav navbar-nav">
-                    <!-- <li class="dropdown hidden-xs">
-                        <a href="javascript:void(0);" class="dropdown-toggle icon-menu-bar" data-toggle="dropdown">
-                            <i class="fa fa-envelope-o"></i>
-                            <span class="notification-dot msg">4</span>
-                        </a>
-                        <ul class="dropdown-menu right_chat email mt-0 animation-li-delay">
-                            <li class="header theme-bg gradient mt-0 text-light">You have 4 New eMail</li>
-                            <li>
-                                <a href="javascript:void(0);">
-                                    <div class="media">
-                                        <img class="media-object " src="assets/images/xs/avatar4.jpg" alt="">
-                                        <div class="media-body">
-                                            <span class="name">James Wert <small class="float-right font-12">Just
-                                                    now</small></span>
-                                            <span class="message">Update GitHub</span>
-                                        </div>
-                                    </div>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="javascript:void(0);">
-                                    <div class="media">
-                                        <img class="media-object" src="assets/images/xs/avatar1.jpg" alt="">
-                                        <div class="media-body">
-                                            <span class="name">Folisise Chosielie <small
-                                                    class="float-right font-12">12min ago</small></span>
-                                            <span class="message">New Messages</span>
-                                        </div>
-                                    </div>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="javascript:void(0);">
-                                    <div class="media">
-                                        <img class="media-object" src="assets/images/xs/avatar5.jpg" alt="">
-                                        <div class="media-body">
-                                            <span class="name">Louis Henry <small class="float-right font-12">38min
-                                                    ago</small></span>
-                                            <span class="message">Design bug fix</span>
-                                        </div>
-                                    </div>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="javascript:void(0);">
-                                    <div class="media mb-0">
-                                        <img class="media-object" src="assets/images/xs/avatar2.jpg" alt="">
-                                        <div class="media-body">
-                                            <span class="name">Debra Stewart <small class="float-right font-12">2hr
-                                                    ago</small></span>
-                                            <span class="message">Fix Bug</span>
-                                        </div>
-                                    </div>
-                                </a>
-                            </li>
-                        </ul>
-                    </li> -->
-                    <!-- <li class="dropdown">
-                        <a href="javascript:void(0);" class="dropdown-toggle icon-menu-bar" data-toggle="dropdown">
-                            <i class="fa fa-bell-o"></i>
-                            <span class="notification-dot info">4</span>
-                        </a>
-                        <ul class="dropdown-menu feeds_widget mt-0 animation-li-delay">
-                            <li class="header theme-bg gradient mt-0 text-light">You have 4 New Notifications</li>
-                            <li>
-                                <a href="#">
-                                    <div class="mr-4"><i class="fa fa-check text-red"></i></div>
-                                    <div class="feeds-body">
-                                        <h4 class="title text-danger">Issue Fixed <small
-                                                class="float-right text-muted font-12">9:10 AM</small></h4>
-                                        <small>WE have fix all Design bug with Responsive</small>
-                                    </div>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="#">
-                                    <div class="mr-4"><i class="fa fa-user text-info"></i></div>
-                                    <div class="feeds-body">
-                                        <h4 class="title text-info">New User <small
-                                                class="float-right text-muted font-12">9:15 AM</small></h4>
-                                        <small>I feel great! Thanks team</small>
-                                    </div>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="#">
-                                    <div class="mr-4"><i class="fa fa-question-circle text-warning"></i></div>
-                                    <div class="feeds-body">
-                                        <h4 class="title text-warning">Server Warning <small
-                                                class="float-right text-muted font-12">9:17 AM</small></h4>
-                                        <small>Your connection is not private</small>
-                                    </div>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="#">
-                                    <div class="mr-4"><i class="fa fa-thumbs-o-up text-success"></i></div>
-                                    <div class="feeds-body">
-                                        <h4 class="title text-success">2 New Feedback <small
-                                                class="float-right text-muted font-12">9:22 AM</small></h4>
-                                        <small>It will give a smart finishing to your site</small>
-                                    </div>
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-                    <li class="dropdown language-menu hidden-xs">
-                        <a href="javascript:void(0);" class="dropdown-toggle icon-menu-bar" data-toggle="dropdown"><i
-                                class="fa fa-language"></i></a>
-                        <div class="dropdown-menu language_widget mt-0">
-                            <a class="dropdown-item pt-2 pb-2" href="javascript:void(0);"><img
-                                    src="assets/images/flag/us.svg" alt="US English"> US English</a>
-                            <a class="dropdown-item pt-2 pb-2" href="javascript:void(0);"><img
-                                    src="assets/images/flag/gb.svg" alt="UK English"> UK English</a>
-                            <div class="dropdown-divider"></div>
-                            <a class="dropdown-item pt-2 pb-2" href="javascript:void(0);"><img
-                                    src="assets/images/flag/russia.svg" alt="Russian"> Russian</a>
-                            <a class="dropdown-item pt-2 pb-2" href="javascript:void(0);"><img
-                                    src="assets/images/flag/arabia.svg" alt="Arabic"> Arabic</a>
-                            <a class="dropdown-item pt-2 pb-2" href="javascript:void(0);"><img
-                                    src="assets/images/flag/france.svg" alt="French"> French</a>
-                        </div>
-                    </li> -->
-                    <li *ngIf="notifications.canSeeNotifications()" class="dropdown hms-notification-menu" [class.open]="menuOpen">
-                        <a href="javascript:void(0);" class="dropdown-toggle icon-menu-bar" data-testid="notification-bell" (click)="toggleNotificationMenu()" title="Notifications">
-                            <i class="fa fa-bell-o"></i>
-                            <span class="notification-dot info" *ngIf="((notifications.unreadCount$ | async) || 0) > 0">{{ ((notifications.unreadCount$ | async) || 0) > 9 ? '9+' : (notifications.unreadCount$ | async) }}</span>
-                        </a>
-                        <ul class="dropdown-menu feeds_widget mt-0 animation-li-delay hms-notification-panel" *ngIf="menuOpen">
-                            <li class="header theme-bg gradient mt-0 text-light d-flex justify-content-between align-items-center">
-                                <span>Latest Updates</span>
-                                <button type="button" class="btn btn-link btn-sm text-light" data-testid="notification-mute" (click)="toggleMute($event)" title="Toggle sound">
-                                    <i class="fa" [ngClass]="notificationSound.muted ? 'fa-volume-off' : 'fa-volume-up'"></i>
-                                </button>
-                            </li>
-                            <li *ngFor="let item of (notifications.items$ | async)?.slice(0, 8)" data-testid="notification-item">
-                                <a href="javascript:void(0);" (click)="openNotification(item)">
-                                    <div class="mr-4"><i class="fa fa-info-circle text-info"></i></div>
-                                    <div class="feeds-body">
-                                        <h4 class="title">{{ item.title }} <small class="float-right text-muted font-12">{{ item.createdAt | date:'shortTime' }}</small></h4>
-                                        <small>{{ item.message }}</small>
-                                    </div>
-                                </a>
-                            </li>
-                            <li *ngIf="!(notifications.items$ | async)?.length">
-                                <a href="javascript:void(0);"><small class="p-3 d-block">No notifications yet.</small></a>
-                            </li>
-                        </ul>
-                    </li>
-                    <li *ngIf="canOpenPos" class="hidden-xs">
-                        <a href="javascript:void(0);" (click)="openPos()" class="icon-menu-bar pos-open-link"
-                            title="Open POS">
-                            <i class="fa fa-shopping-cart"></i>
-                            <span>Open POS</span>
-                        </a>
-                    </li>
-                    <li class="hidden-xs">
-                        <a href="javascript:void(0);" (click)="goToSettings()" class="icon-menu-bar"
-                            title="Settings">
-                            <i class="fa fa-gear"></i>
-                        </a>
-                    </li>
-                    <!-- <li><a href="javascript:void(0);" (click)="openRightMenu()" class="right_toggle icon-menu-bar"
-                            title="Right Menu"><i class="fa fa-comments-o"></i></a></li> -->
-                    <li class="hidden-xs">
-                        <a *ngIf="!isFullScreen" href="javascript:void(0);" (click)="openfullScreen()"
-                            id="btnFullscreen" class="icon-menu-bar"><i class="fa fa-arrows-alt"></i></a>
-                        <a *ngIf="isFullScreen" href="javascript:void(0);" (click)="closeFullScreen()"
-                            id="btnFullscreen" class="icon-menu-bar"><i class="fa fa-arrows-alt"></i></a>
-                    </li>
-                    <li><a (click)="logout()" href="javascript:void(0)" class="icon-menu-bar"><i
-                                class="fa fa-power-off"></i></a></li>
-                </ul>
-            </div>
-        </div>
+<nav class="navbar navbar-fixed-top hms-header">
+  <div class="hms-header__inner container-fluid">
+    <div class="navbar-left hms-header__left">
+      <div class="navbar-btn">
+        <a href="javascript:void(0);" (click)="goHome()"><img src="assets/hisar1.png" alt="Hisaar360 Logo" class="img-fluid logo"></a>
+        <button type="button" (click)="mToggoleMenu()" class="btn-toggle-offcanvas"><i class="fa fa-align-left"></i></button>
+      </div>
+      <app-global-search class="hms-header__search"></app-global-search>
     </div>
+    <div class="navbar-right">
+      <div id="navbar-menu">
+        <ul class="nav navbar-nav">
+          <li *ngIf="notifications.canSeeNotifications()" class="hms-notification-trigger">
+            <a href="javascript:void(0);" class="icon-menu-bar" data-testid="notification-bell" (click)="toggleNotificationDrawer()" title="Notifications">
+              <i class="fa fa-bell-o"></i>
+              <span class="notification-dot info" *ngIf="unreadCount > 0">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
+            </a>
+          </li>
+          <li *ngIf="canOpenPos" class="hidden-xs">
+            <a href="javascript:void(0);" (click)="openPos()" class="icon-menu-bar pos-open-link" title="Open POS">
+              <i class="fa fa-shopping-cart"></i>
+              <span>Open POS</span>
+            </a>
+          </li>
+          <li class="hidden-xs">
+            <a href="javascript:void(0);" (click)="goToSettings()" class="icon-menu-bar" title="Settings">
+              <i class="fa fa-gear"></i>
+            </a>
+          </li>
+          <li class="hidden-xs">
+            <a *ngIf="!isFullScreen" href="javascript:void(0);" (click)="openfullScreen()" id="btnFullscreen" class="icon-menu-bar"><i class="fa fa-arrows-alt"></i></a>
+            <a *ngIf="isFullScreen" href="javascript:void(0);" (click)="closeFullScreen()" id="btnFullscreen" class="icon-menu-bar"><i class="fa fa-arrows-alt"></i></a>
+          </li>
+          <li><a (click)="logout()" href="javascript:void(0)" class="icon-menu-bar"><i class="fa fa-power-off"></i></a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
 </nav>
+
+<div class="hms-notification-backdrop" *ngIf="drawerOpen && notifications.canSeeNotifications()" (click)="closeNotificationDrawer()"></div>
+<aside class="hms-notification-drawer" *ngIf="notifications.canSeeNotifications()" [class.open]="drawerOpen" data-testid="notification-drawer">
+  <header class="hms-notification-drawer__header">
+    <div>
+      <h2>Latest Updates</h2>
+      <p>{{ unreadCount }} unread</p>
+    </div>
+    <div class="hms-notification-drawer__actions">
+      <button type="button" class="btn btn-link btn-sm" data-testid="notification-mute" (click)="toggleMute($event)" title="Toggle sound">
+        <i class="fa" [ngClass]="notificationSound.muted ? 'fa-volume-off' : 'fa-volume-up'"></i>
+      </button>
+      <button type="button" class="btn btn-link btn-sm" data-testid="mark-all-read" [disabled]="!unreadCount" (click)="markAllRead()">
+        Mark all as read
+      </button>
+      <button type="button" class="btn btn-link btn-sm" (click)="closeNotificationDrawer()">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
+  </header>
+
+  <div class="hms-notification-drawer__list">
+    <article
+      *ngFor="let item of notificationItems"
+      class="hms-notification-item"
+      [class.unread]="!item.isRead"
+      data-testid="notification-item"
+      (click)="openNotification(item)"
+    >
+      <div class="hms-notification-item__icon"><i class="fa fa-info-circle"></i></div>
+      <div class="hms-notification-item__body">
+        <div class="hms-notification-item__head">
+          <strong>{{ item.title }}</strong>
+          <small>{{ item.createdAt | date:'shortTime' }}</small>
+        </div>
+        <p>{{ item.message }}</p>
+      </div>
+      <span class="hms-notification-item__dot" *ngIf="!item.isRead"></span>
+    </article>
+    <p class="hms-notification-drawer__empty" *ngIf="!notificationItems.length">No notifications yet.</p>
+  </div>
+
+  <footer class="hms-notification-drawer__footer">
+    <a routerLink="/notifications" (click)="closeNotificationDrawer()" data-testid="view-all-notifications">View all notifications</a>
+  </footer>
+</aside>

@@ -2,7 +2,7 @@
 HISAAR360 HOSPITAL MANAGEMENT SYSTEM
 Frontend Application Context  |  Angular Hospital HMS Software
 ================================================================================
-Last updated: 2026-09-01
+Last updated: 2026-09-02
 Document type: Product architecture, UX, and engineering context
 Canonical product name: Hisaar360 Hospital Management System
 Short name: Hisaar360 HMS
@@ -499,6 +499,35 @@ Landing for Ward Admin / Nurse: /ward/dashboard
   GET /hospital-dashboard/summary          (hospital_dashboard.read)
   GET /hospital-dashboard/doctor-summary   (doctor daily view)
   POST /hospital-dashboard/doctor-summary/email
+
+  Dashboard UI (2026-09-02):
+  - /dashboard — redesigned Hospital Overview with tabs (Overview / Appointments / Lab)
+  - KPI cards, Today's Snapshot donut, Today's Operations bar, Quick Actions (role-aware)
+  - Revenue Overview + financial KPIs gated by accounts/reports permissions
+  - Recent Patients, Upcoming Appointments, Activity Feed (audit logs from summary.activityFeed)
+  - Mobile/tablet responsive grid (390×844 target)
+  - Header global search (⌘K): patients, appointments (appointmentNo), doctors — debounced ~280ms
+
+--- 7.9 Notifications --------------------------------------------------------
+
+  GET    /api/v1/notifications              list (unreadCount = total unread for user)
+  PATCH  /api/v1/notifications/:id/read     mark one read (returns notification + unreadCount)
+  PATCH  /api/v1/notifications/read-all     mark all for current user/hospital
+
+  Frontend:
+  - Bell + badge in header (server-backed unread count)
+  - Right-side notification drawer: Latest Updates, mute, mark all read, View all
+  - /notifications full page with All/Unread filters
+  - Read state persisted on server; deep links via actionRoute preserved
+  - Module gating: ward/lab/pharmacy/clinical notifications hidden when module disabled
+
+--- 7.10 Help Center performance (2026-09-02) ----------------------------------
+
+  /help — no redesign; scroll performance optimized:
+  - Cached guide view-models (no template method recompute on scroll)
+  - Article search index cached per slug
+  - Desktop/mobile workflow blocks conditionally rendered (*ngIf), not both in DOM
+  - All 26 help unit tests passing
 
 
 ================================================================================

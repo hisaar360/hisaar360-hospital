@@ -1,0 +1,67 @@
+<div id="main-content" class="notifications-page hms-page">
+  <div class="notifications-shell">
+    <header class="notifications-header">
+      <div>
+        <a routerLink="/dashboard" class="notifications-back hidden-desktop"><i class="fa fa-arrow-left"></i></a>
+        <h1>Notifications</h1>
+        <p class="notifications-subtitle">Latest updates across your hospital</p>
+      </div>
+      <div class="notifications-actions">
+        <button type="button" class="hms-btn hms-btn-secondary hms-btn-sm" (click)="toggleMute()" data-testid="notification-mute">
+          <i class="fa" [ngClass]="sound.muted ? 'fa-volume-off' : 'fa-volume-up'"></i>
+          {{ sound.muted ? 'Unmute' : 'Mute' }}
+        </button>
+        <button
+          type="button"
+          class="hms-btn hms-btn-secondary hms-btn-sm"
+          (click)="markAllRead()"
+          [disabled]="!unreadCount"
+          data-testid="mark-all-read"
+        >
+          Mark all as read
+        </button>
+      </div>
+    </header>
+
+    <div class="notifications-banner">
+      <span>Latest Updates</span>
+      <i class="fa fa-bullhorn"></i>
+    </div>
+
+    <div class="notifications-filters">
+      <button type="button" class="notifications-filter" [class.active]="filter === 'all'" (click)="setFilter('all')">All</button>
+      <button type="button" class="notifications-filter" [class.active]="filter === 'unread'" (click)="setFilter('unread')">
+        Unread
+        <span *ngIf="unreadCount" class="notifications-filter__badge">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
+      </button>
+    </div>
+
+    <div class="notifications-list" *ngIf="!loading; else loadingState">
+      <article
+        *ngFor="let item of items"
+        class="notification-card"
+        [class.notification-card--unread]="!item.isRead"
+        data-testid="notification-item"
+        (click)="openNotification(item)"
+      >
+        <div class="notification-card__icon"><i class="fa fa-info-circle"></i></div>
+        <div class="notification-card__body">
+          <div class="notification-card__head">
+            <h3>{{ item.title }}</h3>
+            <time>{{ item.createdAt | date:'shortTime' }}</time>
+          </div>
+          <p>{{ item.message }}</p>
+          <span class="notification-card__module">{{ item.module }}</span>
+        </div>
+        <button type="button" class="notification-card__open" (click)="openNotification(item); $event.stopPropagation()">
+          Open
+        </button>
+      </article>
+      <p class="notifications-empty" *ngIf="!items.length">No new notifications.</p>
+    </div>
+
+    <ng-template #loadingState>
+      <div class="notifications-loading"><i class="fa fa-spinner fa-spin"></i> Loading notifications...</div>
+    </ng-template>
+  </div>
+</div>

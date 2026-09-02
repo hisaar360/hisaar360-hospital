@@ -189,7 +189,16 @@
             </div>
 
             <div class="ledger-section">
-              <h4>Payments</h4>
+              <div class="ledger-section-head">
+                <h4>Payments</h4>
+                <app-hms-document-toolbar
+                  *ngIf="selectedReceiptPayment"
+                  [title]="'Payment Receipt'"
+                  [filename]="selectedReceiptPayment.paymentNo + '.pdf'"
+                  [getHtml]="buildPaymentReceiptHtml"
+                ></app-hms-document-toolbar>
+              </div>
+              <p class="ledger-help" *ngIf="ledger.payments.length">Select a payment row to export its receipt.</p>
               <div class="table-responsive">
                 <table class="table table-hover ledger-table mb-0">
                   <thead>
@@ -202,7 +211,12 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let payment of ledger.payments">
+                    <tr
+                      *ngFor="let payment of ledger.payments"
+                      class="ledger-payment-row"
+                      [class.is-selected]="isReceiptSelected(payment)"
+                      (click)="selectReceiptPayment(payment)"
+                    >
                       <td>{{ payment.paymentNo }}</td>
                       <td>{{ payment.type }}</td>
                       <td>{{ payment.method }}</td>

@@ -74,7 +74,8 @@ Most financial and clinical documents now use the same **Preview → PDF → Pri
 | Module | Documents |
 |--------|-----------|
 | Accounts | GL, Journal, Cash/Bank books, Receivables/Payables, Collections, Trial Balance, P&L, Audit, Reconciliation, Patient Profitability, CoA |
-| Payments | Patient Ledger (encounter detail panel) |
+| Payments | Patient Ledger, **Payment Receipt** (select payment row) |
+| Invoices | **Invoice detail** (`/payments/invoices/invoice-detail/:id`) |
 | Laboratory | Verified lab report |
 | Prescription | Admission recommendation |
 | Ward | MAR sheet, patient summary, vitals, procedures, imaging order, running bill, discharge statement |

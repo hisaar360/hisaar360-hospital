@@ -65,18 +65,18 @@
           <button type="button" class="hms-btn hms-btn-secondary hms-btn-sm" (click)="clearSearch()">Browse All Guides</button>
         </div>
 
-        <article *ngFor="let article of displayedResults" class="help-guide-card help-guide-card--search">
+        <article *ngFor="let card of searchGuideCards" class="help-guide-card help-guide-card--search">
           <div class="help-guide-card__main">
-            <small class="help-guide-card__category">{{ article.category }}</small>
-            <h4 [innerHTML]="highlight(article.title)"></h4>
-            <p class="help-guide-card__who">{{ articleRoleLabel(article) }}</p>
-            <p [innerHTML]="highlight(articleSummary(article))"></p>
-            <p class="help-guide-card__path" *ngIf="articleNavigationLabel(article) as navLabel">
+            <small class="help-guide-card__category">{{ card.article.category }}</small>
+            <h4 [innerHTML]="card.titleHtml || card.article.title"></h4>
+            <p class="help-guide-card__who">{{ card.roleLabel }}</p>
+            <p [innerHTML]="card.summaryHtml || card.summary"></p>
+            <p class="help-guide-card__path" *ngIf="card.navigationLabel">
               <i class="fa fa-map-signs"></i>
-              <span [innerHTML]="highlight(navLabel)"></span>
+              <span [innerHTML]="card.navigationHtml || card.navigationLabel"></span>
             </p>
           </div>
-          <button type="button" class="hms-btn hms-btn-primary hms-btn-sm help-guide-card__action" (click)="openArticle(article)">
+          <button type="button" class="hms-btn hms-btn-primary hms-btn-sm help-guide-card__action" (click)="openArticle(card.article)">
             Open Guide
           </button>
         </article>
@@ -189,7 +189,7 @@
           <p class="help-section__note">{{ activeWorkflow.description }}</p>
         </div>
 
-        <div class="help-workflow help-workflow--desktop">
+        <div class="help-workflow help-workflow--desktop" *ngIf="!showMobileWorkflow">
           <ng-container *ngFor="let block of activeWorkflow.desktopBlocks">
             <h3 *ngIf="block.type === 'heading'" class="help-workflow__heading">{{ block.text }}</h3>
             <p *ngIf="block.type === 'note'" class="help-workflow__note">{{ block.text }}</p>
@@ -243,7 +243,7 @@
           </ng-container>
         </div>
 
-        <div class="help-workflow help-workflow--mobile">
+        <div class="help-workflow help-workflow--mobile" *ngIf="showMobileWorkflow">
           <ng-container *ngFor="let step of activeWorkflow.mobileSteps; let last = last">
             <p *ngIf="!step.number && step.muted" class="help-flow-step__note">{{ step.label }}</p>
             <h3 *ngIf="!step.number && step.accent && !step.muted" class="help-flow-step__heading">{{ step.label }}</h3>
@@ -304,21 +304,21 @@
             </button>
           </div>
 
-          <article *ngFor="let article of results" class="help-guide-card">
+          <article *ngFor="let card of guideCards" class="help-guide-card">
             <div class="help-guide-card__main">
-              <small class="help-guide-card__category">{{ article.category }}</small>
-              <h4>{{ article.title }}</h4>
-              <p class="help-guide-card__who">{{ articleRoleLabel(article) }}</p>
-              <p>{{ articleSummary(article) }}</p>
-              <p class="help-guide-card__path" *ngIf="articleNavigationLabel(article) as navLabel">
+              <small class="help-guide-card__category">{{ card.article.category }}</small>
+              <h4>{{ card.article.title }}</h4>
+              <p class="help-guide-card__who">{{ card.roleLabel }}</p>
+              <p>{{ card.summary }}</p>
+              <p class="help-guide-card__path" *ngIf="card.navigationLabel">
                 <i class="fa fa-map-signs"></i>
-                <span>{{ navLabel }}</span>
+                <span>{{ card.navigationLabel }}</span>
               </p>
               <div class="help-guide-card__roles">
-                <span *ngFor="let role of roleChips(article)" class="help-role-chip">{{ role }}</span>
+                <span *ngFor="let role of card.roleChips" class="help-role-chip">{{ role }}</span>
               </div>
             </div>
-            <button type="button" class="hms-btn hms-btn-primary hms-btn-sm help-guide-card__action" (click)="openArticle(article)">
+            <button type="button" class="hms-btn hms-btn-primary hms-btn-sm help-guide-card__action" (click)="openArticle(card.article)">
               Open Guide
             </button>
           </article>

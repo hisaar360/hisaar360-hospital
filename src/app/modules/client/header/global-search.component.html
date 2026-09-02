@@ -1,0 +1,44 @@
+<div class="hms-global-search" data-testid="global-search">
+  <div class="hms-global-search__field">
+    <i class="fa fa-search" aria-hidden="true"></i>
+    <input
+      #searchInput
+      type="search"
+      [value]="query"
+      (input)="onInput($any($event.target).value)"
+      (focus)="open = !!query.trim()"
+      placeholder="Search patients, appointments, doctors..."
+      aria-label="Global search"
+      autocomplete="off"
+    />
+    <span class="hms-global-search__shortcut">⌘K</span>
+  </div>
+
+  <div class="hms-global-search__panel" *ngIf="open">
+    <div class="hms-global-search__loading" *ngIf="loading">
+      <i class="fa fa-spinner fa-spin"></i> Searching...
+    </div>
+    <ng-container *ngIf="!loading">
+      <section *ngFor="let group of groups" class="hms-global-search__group">
+        <h4>{{ group.label }}</h4>
+        <button
+          type="button"
+          class="hms-global-search__result"
+          *ngFor="let item of group.items"
+          (click)="openResult(item)"
+        >
+          <span class="hms-global-search__icon">
+            <i class="fa" [ngClass]="item.kind === 'patient' ? 'fa-user' : item.kind === 'doctor' ? 'fa-user-md' : 'fa-calendar'"></i>
+          </span>
+          <span class="hms-global-search__copy">
+            <strong>{{ item.title }}</strong>
+            <small>{{ item.subtitle }}</small>
+            <small class="text-muted" *ngIf="item.meta">{{ item.meta }}</small>
+          </span>
+          <span class="hms-global-search__open">Open</span>
+        </button>
+      </section>
+      <p class="hms-global-search__empty" *ngIf="!groups.length">No results found.</p>
+    </ng-container>
+  </div>
+</div>

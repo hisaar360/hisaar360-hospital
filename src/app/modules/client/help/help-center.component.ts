@@ -64,6 +64,17 @@ const ROLE_CHIP_LABELS: Record<string, string> = {
   accountant: 'Accountant',
 };
 
+interface HelpGuideCardView {
+  article: HelpArticle;
+  summary: string;
+  roleLabel: string;
+  navigationLabel: string;
+  roleChips: string[];
+  titleHtml?: SafeHtml;
+  summaryHtml?: SafeHtml;
+  navigationHtml?: SafeHtml;
+}
+
 @Component({
   selector: 'app-help-center',
   standalone: true,
@@ -86,6 +97,26 @@ export class HelpCenterComponent implements OnInit, OnDestroy {
   readonly quickTasks: HelpQuickTask[] = HELP_QUICK_TASKS;
   readonly moduleGuides: HelpModuleGuide[] = HELP_MODULE_GUIDES;
 
+  visibleRoleFilters: Array<(typeof HELP_ROLE_FILTERS)[number]> = [...HELP_ROLE_FILTERS];
+  activeWorkflow: HelpRoleWorkflowConfig = resolveRoleWorkflow('', {
+    clinical: true,
+    pharmacy: true,
+    laboratory: true,
+    ward: true,
+    accounts: true,
+    nursery: true,
+    setup: true,
+  });
+  visibleModuleGuides: HelpModuleGuide[] = [];
+  visibleQuickTasks: HelpQuickTask[] = [];
+  commonTasks: HelpQuickTask[] = [];
+  isSearchActive = false;
+  guidesHeading = 'All guides';
+  displayedResults: HelpArticle[] = HELP_ARTICLES;
+  guideCards: HelpGuideCardView[] = [];
+  searchGuideCards: HelpGuideCardView[] = [];
+  showMobileWorkflow = false;
+
   private permissions = readStoredPermissions();
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -99,6 +130,7 @@ export class HelpCenterComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.recentSearches = readHelpSearchHistory();
     this.selectedRole = readStoredHelpRole();
+    this.showMobileWorkflow = typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false;
     this.refreshResults();
 
     this.route.paramMap.subscribe((params) => {
@@ -129,49 +161,62 @@ export class HelpCenterComponent implements OnInit, OnDestroy {
     }
   }
 
-  get visibleRoleFilters() {
-    return this.roleFilters.filter((role) => isHelpRoleVisible(role.key as HelpRoleKey, this.moduleFlags));
-  }
-
-  get activeWorkflow(): HelpRoleWorkflowConfig {
-    return resolveRoleWorkflow(this.selectedRole, this.moduleFlags);
-  }
-
-  get visibleModuleGuides(): HelpModuleGuide[] {
-    const visible = this.moduleGuides.filter(
-      (guide) => isHelpModuleVisible(guide.module, this.moduleFlags) && this.canAccessModuleGuide(guide)
+  private rebuildViewModel(): void {
+    const moduleFlags = this.moduleFlags;
+    this.visibleRoleFilters = this.roleFilters.filter((role) =>
+      isHelpRoleVisible(role.key as HelpRoleKey, moduleFlags)
     );
-    return filterModuleGuidesForRole(visible, this.selectedRole, () => true);
-  }
-
-  get visibleQuickTasks(): HelpQuickTask[] {
-    return filterQuickTasksForRole(this.quickTasks, this.selectedRole, (task) => {
+    this.activeWorkflow = resolveRoleWorkflow(this.selectedRole, moduleFlags);
+    const visibleModuleGuides = this.moduleGuides.filter(
+      (guide) => isHelpModuleVisible(guide.module, moduleFlags) && this.canAccessModuleGuide(guide)
+    );
+    this.visibleModuleGuides = filterModuleGuidesForRole(visibleModuleGuides, this.selectedRole, () => true);
+    this.visibleQuickTasks = filterQuickTasksForRole(this.quickTasks, this.selectedRole, (task) => {
       const article = getHelpArticleBySlug(task.slug);
       if (!article) return true;
       return (
-        isHelpModuleVisible(article.module, this.moduleFlags) &&
+        isHelpModuleVisible(article.module, moduleFlags) &&
         filterHelpArticlesByRole([article], this.selectedRole).length > 0
       );
     });
+    const commonSlugs = new Set(this.activeWorkflow.commonTaskSlugs);
+    this.commonTasks = this.visibleQuickTasks.filter((task) => commonSlugs.has(task.slug)).slice(0, 5);
+    this.isSearchActive = Boolean(this.searchQuery.trim());
+    this.guidesHeading = this.isSearchActive ? 'Search results' : this.selectedCategory ? this.selectedCategory : 'All guides';
+    this.displayedResults = this.isSearchActive ? this.searchResults.map((item) => item.article) : this.results;
+    this.guideCards = this.results.map((article) => this.buildGuideCard(article));
+    this.searchGuideCards = this.displayedResults.map((article) => this.buildGuideCard(article, true));
   }
 
-  get commonTasks(): HelpQuickTask[] {
-    const slugs = new Set(this.activeWorkflow.commonTaskSlugs);
-    return this.visibleQuickTasks.filter((task) => slugs.has(task.slug)).slice(0, 5);
+  private buildGuideCard(article: HelpArticle, withHighlight = false): HelpGuideCardView {
+    const card: HelpGuideCardView = {
+      article,
+      summary: buildArticleSummary(article),
+      roleLabel: buildArticleRoleLabel(article),
+      navigationLabel: buildArticleNavigationLabel(article),
+      roleChips: this.buildRoleChips(article),
+    };
+    if (withHighlight && this.searchQuery.trim()) {
+      card.titleHtml = this.sanitizer.bypassSecurityTrustHtml(highlightSearchText(article.title, this.searchQuery));
+      card.summaryHtml = this.sanitizer.bypassSecurityTrustHtml(highlightSearchText(card.summary, this.searchQuery));
+      if (card.navigationLabel) {
+        card.navigationHtml = this.sanitizer.bypassSecurityTrustHtml(
+          highlightSearchText(card.navigationLabel, this.searchQuery)
+        );
+      }
+    }
+    return card;
   }
 
-  get isSearchActive(): boolean {
-    return Boolean(this.searchQuery.trim());
-  }
-
-  get guidesHeading(): string {
-    if (this.isSearchActive) return 'Search results';
-    if (this.selectedCategory) return this.selectedCategory;
-    return 'All guides';
-  }
-
-  get displayedResults(): HelpArticle[] {
-    return this.isSearchActive ? this.searchResults.map((item) => item.article) : this.results;
+  private buildRoleChips(article: HelpArticle): string[] {
+    if (article.roles?.length) {
+      return article.roles.map((role) => ROLE_CHIP_LABELS[role] || role);
+    }
+    return article.whoCan
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .slice(0, 3);
   }
 
   private get moduleFlags() {
@@ -400,6 +445,7 @@ export class HelpCenterComponent implements OnInit, OnDestroy {
       if (commitHistory) {
         this.recentSearches = rememberHelpSearchTerm(trimmed);
       }
+      this.rebuildViewModel();
       return;
     }
 
@@ -413,5 +459,6 @@ export class HelpCenterComponent implements OnInit, OnDestroy {
     this.results = filterHelpArticlesByRole(this.results, this.selectedRole);
     this.results = this.results.filter((article) => isHelpModuleVisible(article.module, this.moduleFlags));
     this.results = rankArticlesForRole(this.results, this.selectedRole);
+    this.rebuildViewModel();
   }
 }
