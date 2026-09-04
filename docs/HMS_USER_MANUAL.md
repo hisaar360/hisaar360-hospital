@@ -107,10 +107,10 @@ Tree:
 - Laboratory / Pharmacy (only when those modules are enabled)
 - Support
 
-Admin flow: select date, click an area, choose shift, fill an open position, save draft, then publish. Click **+ Fill Open Position** to assign without re-selecting date, area, shift, or role.
+Admin flow: select date, click an area, choose shift, fill an open position, save draft, then publish. **Assign Staff** / **Bulk Assign** open a 4-step drawer (Select Area → Choose Shift → Select Staff → Review). The drawer appears immediately; eligible staff are ranked from bootstrap data (no extra fan-out). **Set Coverage** if a shift has no requirement.
 
-**Bulk Assign** opens a 5-step modal: Where → When → Who → Review → Save Draft or Publish. Conflicts are shown before commit. Overlap remains **409 ROSTER_CONFLICT**.
+Patient **Assign Nurse** on Patient List is a separate bed-assignment modal. It does not load the Duty Roster tree.
 
-Preview / PDF / Print use the shared HMS document system (weekly landscape, day portrait). Start Tutorial on the page for a short walkthrough. Staff without create/update permission see My Duty only.
+Preview / PDF / Print use the shared HMS document toolbar (one Print). Staff without create/update permission see My Duty only.
 
 For defects, provide MR No, Encounter No, receipt number, and timestamp.

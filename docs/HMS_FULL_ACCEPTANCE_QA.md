@@ -102,10 +102,10 @@ npm run seed:nursery-demo
 
 | Suite | Result |
 |-------|--------|
-| Backend | **80/80 PASS** (`npm test`) |
-| Frontend focused | **32/32 PASS** (help-search, duty-roster util, role workflows) |
+| Backend | **81/81 PASS** (`npm test`) |
+| Frontend focused | **37/37 PASS** (help-search, duty-roster util, role workflows) |
 | Angular build | **PASS** |
-| Help Center | included in 32/32 |
+| Help Center | included in 37/37 |
 
 ## Duty Roster / Ward UI (2026-09-03)
 
@@ -116,7 +116,7 @@ npm run seed:nursery-demo
 | Duty Roster mental model | Date → Area → Shift → Coverage → Staff |
 | Tree drilldown | Ward → Ward Level / Room → Staff. Lab/Pharmacy nodes only if modules enabled. |
 | Open Shift | + Fill Open Position prefills date, area, shift, role. |
-| Bulk Assign | 5-step modal. Preview then `POST /ward-billing/roster/bulk`. Conflicts reported; no silent partial commit when atomic. |
+| Bulk Assign | 4-step drawer. Preview then `POST /ward-billing/roster/bulk`. Conflicts reported; no silent partial commit when atomic. |
 | Conflict | 409 `ROSTER_CONFLICT` remains authoritative. |
 | Draft / Publish | Save Draft uses create; Publish uses update. |
 | Copy Previous Week | Existing preview + copy-week. |

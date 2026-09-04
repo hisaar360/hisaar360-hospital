@@ -1,14 +1,17 @@
 <div class="hms-doc-toolbar" [class.is-disabled]="disabled">
   <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="preview()" [disabled]="disabled">
+    <i *ngIf="withIcons" class="fa fa-eye" aria-hidden="true"></i>
     Preview
   </button>
   <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="downloadPdf()" [disabled]="disabled || pdfLoading">
-    {{ pdfLoading ? 'PDF…' : 'PDF' }}
+    <i *ngIf="withIcons" class="fa fa-file-pdf-o" aria-hidden="true"></i>
+    {{ pdfLoading ? 'PDF…' : pdfLabel }}
   </button>
   <button *ngIf="showExcel" type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="exportExcel()" [disabled]="disabled">
     Excel
   </button>
   <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="printDocument()" [disabled]="disabled">
+    <i *ngIf="withIcons" class="fa fa-print" aria-hidden="true"></i>
     Print
   </button>
 </div>

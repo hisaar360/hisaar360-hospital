@@ -10,6 +10,9 @@ import {
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import { User } from '../../../shared/models/hospital.model';
 import {
   PatientStatus,
   PatientStatusTab,
@@ -43,6 +46,16 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
 
   openMenuAdmissionId: string | null = null;
   previewPatient: WardPatient | null = null;
+  assignNursePatient: WardPatient | null = null;
+  nurseCandidates: User[] = [];
+  visibleNurses: User[] = [];
+  nurseSearch = '';
+  selectedAssignNurseId = '';
+  nursesLoading = false;
+  nursesError = false;
+  assigningNurse = false;
+  private nurseCache: User[] | null = null;
+  private previousBodyOverflow = '';
   isMobileView = false;
   pageSize = 10;
   currentPage = 1;
@@ -83,6 +96,7 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.closePreview();
+    this.closeAssignNurse();
   }
 
   @HostListener('window:resize')
@@ -107,6 +121,10 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {
+    if (this.assignNursePatient) {
+      this.closeAssignNurse();
+      return;
+    }
     if (this.previewPatient) {
       this.closePreview();
     }
@@ -328,8 +346,78 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
   }
 
   assignNurse(patient: WardPatient): void {
-    void this.router.navigate(['/ward/nurses-staff'], {
-      queryParams: { admissionId: patient.admissionId, patientId: patient.patientId },
+    this.assignNursePatient = patient;
+    this.selectedAssignNurseId = patient.nurseId || '';
+    this.nurseSearch = '';
+    this.nursesError = false;
+    this.previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    this.loadNurses();
+    this.cdr.markForCheck();
+  }
+
+  closeAssignNurse(): void {
+    this.assignNursePatient = null;
+    this.assigningNurse = false;
+    document.body.style.overflow = this.previousBodyOverflow || '';
+    this.cdr.markForCheck();
+  }
+
+  onNurseSearch(): void {
+    this.applyNurseFilter();
+  }
+
+  private loadNurses(): void {
+    if (this.nurseCache) {
+      this.nurseCandidates = this.nurseCache;
+      this.applyNurseFilter();
+      return;
+    }
+    this.nursesLoading = true;
+    this.wardData.loadWardStaff().pipe(catchError(() => of([] as User[]))).subscribe({
+      next: (users) => {
+        this.nurseCache = users || [];
+        this.nurseCandidates = this.nurseCache;
+        this.nursesLoading = false;
+        this.applyNurseFilter();
+      },
+      error: () => {
+        this.nursesLoading = false;
+        this.nursesError = true;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private applyNurseFilter(): void {
+    const query = this.nurseSearch.trim().toLowerCase();
+    const nurses = this.nurseCandidates.filter((user) => {
+      const role = String(user.role?.name || '').toLowerCase();
+      return role.includes('nurse') || role === 'ward admin';
+    });
+    const list = (nurses.length ? nurses : this.nurseCandidates).filter((user) => user.status !== 'inactive');
+    this.visibleNurses = query
+      ? list.filter((user) => [user.name, user.role?.name, user.email].join(' ').toLowerCase().includes(query))
+      : list.slice(0, 80);
+    this.cdr.markForCheck();
+  }
+
+  confirmAssignNurse(): void {
+    const patient = this.assignNursePatient;
+    if (!patient?.admissionId || !this.selectedAssignNurseId || this.assigningNurse) return;
+    this.assigningNurse = true;
+    this.wardData.assignNurse(patient.admissionId, this.selectedAssignNurseId).subscribe({
+      next: () => {
+        this.assigningNurse = false;
+        this.toastr.success('Nurse assigned.');
+        this.closeAssignNurse();
+        this.loadPatients();
+      },
+      error: (err) => {
+        this.assigningNurse = false;
+        this.toastr.error(err?.error?.message || 'Failed to assign nurse.');
+        this.cdr.markForCheck();
+      },
     });
   }
 

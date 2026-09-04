@@ -1,122 +1,195 @@
 <div id="main-content" class="hms-page ward-page-shell duty-roster-page">
   <div class="ward-page-container">
-    <header class="ward-page-header ward-page-header--compact">
-      <div>
-        <h1>Duty Roster Management</h1>
-        <p>Date → Area → Shift → Coverage → Staff</p>
+    <header class="duty-roster-header">
+      <div class="duty-title-block">
+        <div class="duty-title-row">
+          <h1 class="duty-desktop-title">Duty Roster Management</h1>
+          <h1 class="duty-mobile-title">Duty Roster</h1>
+          <label class="duty-mobile-cal" aria-label="Choose date">
+            <i class="fa fa-calendar" aria-hidden="true"></i>
+            <input type="date" [(ngModel)]="selectedDate" (ngModelChange)="onDateChange()">
+          </label>
+        </div>
+        <p class="duty-roster-breadcrumb">{{ breadcrumb.join(' > ') }}</p>
       </div>
-      <div class="ward-page-header__actions">
-        <button type="button" class="hms-btn hms-btn-secondary" (click)="startTutorial()">? Help</button>
+      <div class="duty-roster-toolbar-actions" *ngIf="!myDutyOnly">
+        <button type="button" class="hms-btn hms-btn-secondary" (click)="startTutorial()">
+          <i class="fa fa-question-circle" aria-hidden="true"></i> Help
+        </button>
         <app-hms-document-toolbar
           [title]="rosterDocTitle"
           [filename]="rosterDocFilename"
           [orientation]="rosterDocOrientation"
           [getHtml]="rosterDocumentHtml"
+          pdfLabel="Export PDF"
+          [withIcons]="true"
         ></app-hms-document-toolbar>
-        <ng-container *ngIf="!myDutyOnly">
-          <button type="button" class="hms-btn hms-btn-secondary" (click)="openBulk()" [disabled]="!canCreate">Bulk Assign</button>
-          <button type="button" class="hms-btn hms-btn-primary" (click)="openAssign('Nurse')" [disabled]="!canCreate">+ Add Assignment</button>
-          <button type="button" class="hms-btn hms-btn-secondary" (click)="previewCopy()">Copy Previous Week</button>
-          <button type="button" class="hms-btn hms-btn-secondary" data-tour="publish" (click)="publish()" [disabled]="!canUpdate">Publish Roster</button>
-        </ng-container>
+        <button type="button" class="hms-btn hms-btn-secondary duty-btn-accent" (click)="openBulk()" [disabled]="!canCreate || drawerBusy">
+          <i class="fa fa-users" aria-hidden="true"></i> Bulk Assign
+        </button>
+        <button type="button" class="hms-btn hms-btn-primary" (click)="openAssign('Nurse')" [disabled]="!canCreate || drawerBusy">
+          <i class="fa fa-plus" aria-hidden="true"></i> Add Assignment
+        </button>
+        <button type="button" class="hms-btn hms-btn-secondary" (click)="previewCopy()">
+          <i class="fa fa-clone" aria-hidden="true"></i> Copy Previous Week
+        </button>
+        <button type="button" class="hms-btn hms-btn-secondary" data-tour="publish" (click)="publish()" [disabled]="!canUpdate">
+          <i class="fa fa-check" aria-hidden="true"></i> Publish Roster
+        </button>
       </div>
     </header>
 
-    <nav class="duty-roster-mobile-tabs">
-      <button type="button" [class.active]="mobileTab === 'overview'" (click)="mobileTab = 'overview'">Overview</button>
-      <button type="button" [class.active]="mobileTab === 'schedule'" (click)="mobileTab = 'schedule'; viewMode = 'week'">Schedule</button>
-      <button type="button" [class.active]="mobileTab === 'tree'" (click)="mobileTab = 'tree'; viewMode = 'tree'">Tree</button>
-    </nav>
-
-    <section class="ward-kpi-grid">
-      <article class="ward-kpi-card"><span class="ward-kpi-card__copy"><strong>{{ kpis.onDuty }}</strong><small>On Duty Today</small></span></article>
-      <article class="ward-kpi-card"><span class="ward-kpi-card__copy"><strong>{{ kpis.openShifts }}</strong><small>Open Shifts</small></span></article>
-      <article class="ward-kpi-card"><span class="ward-kpi-card__copy"><strong>{{ kpis.nurses }}</strong><small>Nurses Scheduled</small></span></article>
-      <article class="ward-kpi-card"><span class="ward-kpi-card__copy"><strong>{{ kpis.pending }}</strong><small>Pending Changes</small></span></article>
+    <section class="ward-kpi-grid duty-kpi-grid">
+      <article class="ward-kpi-card duty-kpi duty-kpi--teal">
+        <span class="ward-kpi-card__icon duty-kpi__icon"><i class="fa fa-user-md" aria-hidden="true"></i></span>
+        <span class="ward-kpi-card__copy">
+          <strong>{{ kpis.onDuty }}</strong>
+          <small>On Duty Today</small>
+        </span>
+      </article>
+      <article class="ward-kpi-card duty-kpi duty-kpi--blue">
+        <span class="ward-kpi-card__icon duty-kpi__icon"><i class="fa fa-clock-o" aria-hidden="true"></i></span>
+        <span class="ward-kpi-card__copy">
+          <strong>{{ kpis.openShifts }}</strong>
+          <small>Open Shifts</small>
+        </span>
+      </article>
+      <article class="ward-kpi-card duty-kpi duty-kpi--purple">
+        <span class="ward-kpi-card__icon duty-kpi__icon"><i class="fa fa-stethoscope" aria-hidden="true"></i></span>
+        <span class="ward-kpi-card__copy">
+          <strong>{{ kpis.nurses }}</strong>
+          <small>Nurses Scheduled</small>
+        </span>
+      </article>
+      <article class="ward-kpi-card duty-kpi duty-kpi--orange">
+        <span class="ward-kpi-card__icon duty-kpi__icon"><i class="fa fa-pencil" aria-hidden="true"></i></span>
+        <span class="ward-kpi-card__copy">
+          <strong>{{ kpis.pending }}</strong>
+          <small>Pending Changes</small>
+        </span>
+      </article>
     </section>
 
-    <div class="duty-roster-toolbar" data-tour="date">
-      <label>Date <input type="date" [(ngModel)]="selectedDate" (ngModelChange)="load()"></label>
-      <div class="duty-roster-views">
-        <button type="button" [class.active]="viewMode === 'tree'" (click)="viewMode = 'tree'">Tree</button>
-        <button type="button" [class.active]="viewMode === 'day'" (click)="viewMode = 'day'">Day</button>
-        <button type="button" [class.active]="viewMode === 'week'" (click)="viewMode = 'week'">Week</button>
+    <div class="duty-control-bar" data-tour="date">
+      <label class="duty-date-field">
+        Date
+        <input type="date" [(ngModel)]="selectedDate" (ngModelChange)="onDateChange()">
+      </label>
+      <div class="duty-control-group">
+        <span>View</span>
+        <div class="duty-seg" role="group" aria-label="View">
+          <button type="button" [class.active]="viewMode === 'tree'" (click)="setViewMode('tree')">Tree</button>
+          <button type="button" [class.active]="viewMode === 'list'" (click)="setViewMode('list')">List</button>
+        </div>
       </div>
-      <div class="duty-roster-views">
-        <button type="button" [class.active]="groupBy === 'shift'" (click)="groupBy = 'shift'">Group by Shift</button>
-        <button type="button" [class.active]="groupBy === 'area'" (click)="groupBy = 'area'">Group by Area</button>
+      <div class="duty-control-group">
+        <span>Period</span>
+        <div class="duty-seg" role="group" aria-label="Period">
+          <button type="button" [class.active]="viewMode !== 'week'" (click)="setViewMode(viewMode === 'list' ? 'list' : 'tree')">Day</button>
+          <button type="button" [class.active]="viewMode === 'week'" (click)="setViewMode('week')">Week</button>
+        </div>
+      </div>
+      <div class="duty-control-group">
+        <span>Group By</span>
+        <div class="duty-seg" role="group" aria-label="Group by">
+          <button type="button" [class.active]="groupBy === 'shift'" (click)="setGroupBy('shift')">Shift</button>
+          <button type="button" [class.active]="groupBy === 'area'" (click)="setGroupBy('area')">Area</button>
+        </div>
       </div>
     </div>
 
-    <p class="duty-roster-breadcrumb">{{ breadcrumb.join(' > ') }}</p>
+    <div class="duty-mobile-date">
+      <button type="button" (click)="shiftDate(-1)" aria-label="Previous day"><i class="fa fa-chevron-left"></i></button>
+      <strong>{{ formattedSelectedDate() }}</strong>
+      <button type="button" (click)="shiftDate(1)" aria-label="Next day"><i class="fa fa-chevron-right"></i></button>
+    </div>
 
-    <div class="duty-roster-shell" [class.duty-roster-shell--mobile-tree]="mobileTab === 'tree'">
-      <aside class="duty-roster-tree" data-tour="tree">
-        <h3>Hospital Resource Tree</h3>
-        <ng-container *ngTemplateOutlet="treeList; context: { $implicit: tree }"></ng-container>
+    <div class="duty-shift-cards">
+      <button type="button" *ngFor="let shift of shifts" class="duty-shift-card" [attr.data-shift]="shift" [class.active]="selectedShift === shift" [attr.aria-pressed]="selectedShift === shift" (click)="selectShift(shift)">
+        <i class="fa" [ngClass]="shiftIcon(shift)" aria-hidden="true"></i>
+        <span>{{ shiftLabel(shift) }}</span>
+        <small>{{ timesFor(shift).startTime }} – {{ timesFor(shift).endTime }}</small>
+      </button>
+    </div>
+
+    <div class="duty-roster-shell" [class.is-week]="viewMode === 'week'" [class.is-list]="viewMode === 'list'">
+      <aside class="duty-tree-panel" data-tour="tree">
+        <h3>Resource Tree</h3>
+        <label class="duty-search">
+          <i class="fa fa-search" aria-hidden="true"></i>
+          <input type="search" [(ngModel)]="treeSearch" placeholder="Search area, ward, room..." (ngModelChange)="onTreeSearch()">
+        </label>
+        <ng-container *ngTemplateOutlet="treeList; context: { $implicit: tree, chipRooms: false }"></ng-container>
       </aside>
 
-      <section class="duty-roster-center">
-        <div class="duty-roster-shifts">
-          <button type="button" *ngFor="let shift of shifts" [class.active]="selectedShift === shift" (click)="selectShift(shift)">
-            {{ shiftLabel(shift) }}
-            <small>{{ timesFor(shift).startTime }}–{{ timesFor(shift).endTime }}</small>
-          </button>
-        </div>
-
-        <div class="ward-panel" *ngIf="viewMode !== 'week'" data-tour="coverage">
-          <div class="ward-panel__head">
+      <section class="duty-center">
+        <div class="ward-panel duty-roster-table" *ngIf="viewMode !== 'week'" data-tour="coverage">
+          <div class="duty-table-head">
             <div>
-              <h2>{{ selectedNode.label }} — {{ shiftLabel(selectedShift) }}</h2>
-              <small>{{ selectedDate }} · {{ scopedAssignments.length }} assigned</small>
+              <h2>Roster — {{ selectedNode.label }} · {{ shiftLabel(selectedShift) }} Shift ({{ shiftTimes.startTime }}–{{ shiftTimes.endTime }})</h2>
+              <small>{{ selectedDate }}</small>
             </div>
-            <button type="button" class="hms-btn hms-btn-primary" *ngIf="canCreate" (click)="openAssign(assignRole)">+ Assign Staff</button>
+            <span class="duty-assigned-badge">{{ scopedRows.length }} Assigned</span>
+            <button type="button" class="hms-btn hms-btn-primary" *ngIf="canCreate" (click)="openAssign(assignRole)" [disabled]="drawerBusy">Assign Staff</button>
           </div>
 
-          <ng-container *ngIf="showAllShiftCoverage; else singleCoverage">
-            <div class="duty-coverage-shift" *ngFor="let block of coverageByShift">
-              <h3>{{ shiftLabel(block.shift) }}</h3>
-              <div class="duty-coverage">
-                <article *ngFor="let row of block.rows">
-                  <strong>{{ row.role }}</strong>
-                  <span>Required {{ row.required }}</span>
-                  <span>Assigned {{ row.assigned }}</span>
-                  <span class="open" *ngIf="row.open">Open {{ row.open }}</span>
-                  <button type="button" data-tour="open-position" *ngIf="row.open && canCreate" (click)="selectShift(block.shift); openAssign(row.role)">+ Fill Open Position</button>
-                </article>
-                <p *ngIf="!block.rows.length">No coverage requirement for {{ shiftLabel(block.shift) }}.</p>
-              </div>
-            </div>
-          </ng-container>
-          <ng-template #singleCoverage>
-            <div class="duty-coverage">
-              <article *ngFor="let row of coverageRows">
-                <strong>{{ row.role }}</strong>
-                <span>Required {{ row.required }}</span>
-                <span>Assigned {{ row.assigned }}</span>
-                <span class="open" *ngIf="row.open">Open {{ row.open }}</span>
-                <button type="button" data-tour="open-position" *ngIf="row.open && canCreate" (click)="openAssign(row.role)">+ Fill Open Position</button>
-              </article>
-              <p *ngIf="!coverageRows.length">No coverage requirement set. Assign staff, then optionally save a required count.</p>
-            </div>
-          </ng-template>
+          <div class="duty-table-tools">
+            <label class="duty-search">
+              <i class="fa fa-search" aria-hidden="true"></i>
+              <input type="search" [(ngModel)]="tableSearch" placeholder="Search staff..." (ngModelChange)="refreshDerived()">
+            </label>
+          </div>
 
-          <div class="duty-assignment-list">
-            <article *ngFor="let row of scopedAssignments">
-              <strong>{{ staffName(row) }}</strong>
-              <small>{{ row['staffRole'] }} · {{ row['startTime'] }}–{{ row['endTime'] }} · {{ row['status'] }}</small>
-            </article>
-            <p *ngIf="!scopedAssignments.length">No one assigned yet. Click an open position or Assign Staff.</p>
+          <div class="duty-table-wrap">
+            <table class="duty-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Staff Name</th>
+                  <th>Role</th>
+                  <th>Department / Area</th>
+                  <th>Ward / Room</th>
+                  <th>Shift</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of scopedRows; trackBy: trackRow">
+                  <td><input type="checkbox" [checked]="selectedRowIds.has(trackRow(0, row))" (change)="toggleRow(trackRow(0, row), $any($event.target).checked)" [attr.aria-label]="'Select ' + staffName(row)"></td>
+                  <td>
+                    <div class="duty-staff-cell">
+                      <img *ngIf="staffPhoto(row)" class="ward-avatar" [src]="staffPhoto(row)" [alt]="staffName(row)">
+                      <span *ngIf="!staffPhoto(row)" class="ward-avatar">{{ staffInitials(staffName(row)) }}</span>
+                      <span>
+                        <strong>{{ staffName(row) }}</strong>
+                        <small *ngIf="staffNo(row)">{{ staffNo(row) }}</small>
+                      </span>
+                    </div>
+                  </td>
+                  <td><span class="duty-role-chip" [ngClass]="roleClass(row['staffRole'])">{{ row['staffRole'] || 'Staff' }}</span></td>
+                  <td>{{ areaLabel(row) }}</td>
+                  <td>{{ roomLabel(row) }}</td>
+                  <td><span class="duty-shift-chip">{{ shiftLabel('' + (row['shift'] || selectedShift)) }}</span></td>
+                  <td>{{ row['startTime'] }}–{{ row['endTime'] }}</td>
+                </tr>
+                <tr *ngIf="!scopedRows.length">
+                  <td colspan="7" class="duty-empty-cell">No one assigned yet. Click Assign Staff or fill an open position.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="duty-table-foot">
+            Showing {{ scopedRows.length ? 1 : 0 }} to {{ scopedRows.length }} of {{ scopedRows.length }} entries
           </div>
         </div>
 
         <div class="ward-panel" *ngIf="viewMode === 'week'">
           <h2>Week {{ weekFrom }} – {{ weekTo }}</h2>
           <div class="duty-week-grid">
-            <div *ngFor="let day of weekDays()" class="duty-week-col" [class.is-selected]="day === selectedDate" (click)="selectedDate = day; refreshCoverage()">
+            <div *ngFor="let day of weekDays" class="duty-week-col" [class.is-selected]="day === selectedDate" (click)="selectedDate = day; refreshDerived()">
               <strong>{{ day }}</strong>
               <div *ngFor="let shift of shifts" class="duty-week-shift" [attr.data-shift]="shift">
-                <small>{{ shiftLabel(shift) }}</small>
+                <small>{{ shiftLabel(shift) }} · {{ timesFor(shift).startTime }}–{{ timesFor(shift).endTime }}</small>
                 <span *ngFor="let row of assignmentsFor(day, shift)">{{ staffName(row) }}</span>
               </div>
             </div>
@@ -124,138 +197,238 @@
         </div>
       </section>
 
-      <aside class="duty-roster-detail">
-        <h3>Coverage / Selected Area</h3>
-        <p><strong>{{ selectedNode.label }}</strong></p>
-        <p>{{ shiftLabel(selectedShift) }} · {{ selectedDate }}</p>
-        <ul>
-          <li *ngFor="let row of coverageRows">{{ row.role }}: {{ row.assigned }}/{{ row.required || row.assigned }} {{ row.open ? '(' + row.open + ' open)' : '' }}</li>
-        </ul>
-        <button type="button" class="hms-btn hms-btn-primary" *ngIf="canCreate" (click)="openAssign('Nurse')">Assign Nurse</button>
+      <aside class="duty-coverage-panel">
+        <h3>Coverage Summary</h3>
+        <p class="duty-coverage-meta"><strong>{{ selectedNode.label }}</strong></p>
+        <p class="duty-coverage-meta">{{ shiftLabel(selectedShift) }} Shift · {{ shiftTimes.startTime }}–{{ shiftTimes.endTime }}</p>
+
+        <div class="duty-donut-wrap">
+          <div class="duty-donut" [style.background]="donutStyle">
+            <div class="duty-donut__hole">
+              <strong>{{ coverageSummary.required || coverageSummary.assigned }}</strong>
+              <small>{{ hasCoverageRequirement ? 'Total Required' : 'Assigned' }}</small>
+            </div>
+          </div>
+          <ul class="duty-donut-legend">
+            <li><i class="is-assigned"></i> Assigned {{ coverageSummary.assigned }} <em *ngIf="hasCoverageRequirement">({{ coverageSummary.percent }}%)</em></li>
+            <li><i class="is-open"></i> Open {{ coverageSummary.open }}</li>
+            <li><i class="is-over"></i> Overstaffed {{ coverageSummary.overstaffed }}</li>
+          </ul>
+        </div>
+
+        <p class="duty-empty" *ngIf="!hasCoverageRequirement">No coverage requirement configured for this shift.</p>
+
+        <div class="duty-role-bars" *ngIf="coverageRows.length">
+          <h4>Role Breakdown</h4>
+          <article *ngFor="let row of coverageRows">
+            <span>{{ row.role }}</span>
+            <strong>{{ row.assigned }}/{{ row.required || row.assigned }}</strong>
+            <div class="duty-bar"><span [style.width.%]="row.required ? (row.assigned / row.required) * 100 : 0"></span></div>
+          </article>
+        </div>
+
+        <p class="duty-open-note" *ngIf="coverageSummary.open" data-tour="open-position">
+          {{ coverageSummary.open }} open position{{ coverageSummary.open === 1 ? '' : 's' }}. Review and assign staff to complete coverage.
+          <button type="button" class="duty-link" *ngIf="canCreate" (click)="fillOpen(coverageRows[0].role || 'Nurse')">Fill Open Position</button>
+        </p>
+
+        <div class="duty-coverage-actions">
+          <button type="button" class="hms-btn hms-btn-secondary" *ngIf="canUpdate && !hasCoverageRequirement" (click)="openCoverage()">Set Coverage</button>
+          <button type="button" class="hms-btn hms-btn-primary" *ngIf="canCreate" (click)="openAssign('Nurse')" [disabled]="drawerBusy">Assign Staff</button>
+        </div>
       </aside>
     </div>
+
+    <section class="duty-mobile-board">
+      <article class="duty-mobile-coverage">
+        <header>
+          <h3>Coverage Summary</h3>
+          <small>{{ shiftLabel(selectedShift) }} Shift · {{ shiftTimes.startTime }}–{{ shiftTimes.endTime }}</small>
+        </header>
+        <div class="duty-mobile-coverage__body">
+          <div class="duty-donut" [style.background]="donutStyle">
+            <div class="duty-donut__hole">
+              <strong>{{ coverageSummary.assigned }}</strong>
+              <small>Assigned</small>
+            </div>
+          </div>
+          <ul class="duty-mobile-stats">
+            <li><i class="is-assigned"></i><span>Assigned</span><strong>{{ coverageSummary.assigned }}</strong></li>
+            <li><span>Total Posts</span><strong>{{ coverageSummary.required || coverageSummary.assigned }}</strong></li>
+            <li><span>Coverage</span><strong>{{ coverageSummary.percent }}%</strong></li>
+            <li><i class="is-open"></i><span>Open Posts</span><strong>{{ coverageSummary.open }}</strong></li>
+          </ul>
+        </div>
+      </article>
+      <div class="duty-mobile-list-head">
+        <h3>Staff Assignments ({{ scopedRows.length }})</h3>
+        <label class="duty-search duty-search--compact">
+          <i class="fa fa-search" aria-hidden="true"></i>
+          <input type="search" [(ngModel)]="tableSearch" placeholder="Search staff..." (ngModelChange)="refreshDerived()">
+        </label>
+      </div>
+      <article class="duty-mobile-card" *ngFor="let row of scopedRows; trackBy: trackRow">
+        <img *ngIf="staffPhoto(row)" class="ward-avatar" [src]="staffPhoto(row)" [alt]="staffName(row)">
+        <span *ngIf="!staffPhoto(row)" class="ward-avatar">{{ staffInitials(staffName(row)) }}</span>
+        <div class="duty-mobile-card__copy">
+          <strong>{{ staffName(row) }}</strong>
+          <small *ngIf="staffNo(row)">{{ staffNo(row) }}</small>
+          <span class="duty-role-chip" [ngClass]="roleClass(row['staffRole'])">{{ row['staffRole'] || 'Staff' }}</span>
+          <p><i class="fa fa-map-marker" aria-hidden="true"></i> {{ areaLabel(row) }} · {{ roomLabel(row) }}</p>
+        </div>
+        <i class="fa fa-chevron-right duty-mobile-card__chevron" aria-hidden="true"></i>
+      </article>
+      <p class="duty-empty" *ngIf="!scopedRows.length">No assignments for this shift.</p>
+      <p class="duty-table-foot" *ngIf="scopedRows.length">Showing {{ scopedRows.length }} of {{ scopedRows.length }} assignments.</p>
+    </section>
   </div>
 </div>
 
-<ng-template #treeList let-nodes>
-  <ul>
-    <li *ngFor="let node of nodes">
-      <button type="button" [class.active]="selectedNode.id === node.id" (click)="selectNode(node)">{{ node.label }}</button>
-      <ng-container *ngIf="node.children?.length">
-        <ng-container *ngTemplateOutlet="treeList; context: { $implicit: node.children }"></ng-container>
+<button type="button" class="duty-fab" *ngIf="canCreate && !myDutyOnly" (click)="openAssign('Nurse')" [disabled]="drawerBusy">
+  <i class="fa fa-plus" aria-hidden="true"></i> Add Assignment
+</button>
+
+<ng-template #treeList let-nodes let-chipRooms="chipRooms">
+  <ul class="duty-tree" [class.duty-tree--chips]="chipRooms">
+    <li *ngFor="let node of nodes; trackBy: trackNode" [attr.data-type]="node.type">
+      <div class="duty-tree-row" *ngIf="!(chipRooms && node.type === 'ROOM')">
+        <button type="button" class="duty-tree-toggle" *ngIf="node.children?.length" (click)="toggleExpand(node, $event)" [attr.aria-expanded]="isExpanded(node.id)">{{ isExpanded(node.id) ? '▾' : '▸' }}</button>
+        <button type="button" class="duty-tree-label" [class.active]="selectedNode.id === node.id" (click)="selectNode(node)">
+          <span>{{ node.label }}</span>
+          <em>{{ areaCount(node) }}</em>
+        </button>
+      </div>
+      <button type="button" *ngIf="chipRooms && node.type === 'ROOM'" class="duty-room-chip" [class.active]="selectedNode.id === node.id" (click)="selectNode(node)">{{ node.label }}</button>
+      <ng-container *ngIf="isExpanded(node.id) && node.children?.length">
+        <ng-container *ngTemplateOutlet="treeList; context: { $implicit: visibleChildren(node), chipRooms: chipRooms }"></ng-container>
       </ng-container>
     </li>
   </ul>
 </ng-template>
 
-<div class="duty-assign-backdrop" *ngIf="showAssign" (click)="showAssign = false"></div>
-<aside class="duty-assign-panel" *ngIf="showAssign" data-tour="staff">
-  <h3>Assign Staff</h3>
-  <p>{{ selectedDate }} · {{ selectedNode.label }} · {{ shiftLabel(selectedShift) }}</p>
-  <label>Role <input [(ngModel)]="assignRole"></label>
-  <div class="duty-staff-list">
-    <button type="button" *ngFor="let person of eligibleStaff" [class.active]="selectedStaffId === person['_id']" (click)="selectedStaffId = $any(person)['_id']">
-      <span class="ward-avatar">{{ staffInitials(person['name']) }}</span>
-      <span>
-        <strong>{{ person['name'] }}</strong>
-        <small>{{ person['role'] }} · {{ person.availability }}</small>
-      </span>
-    </button>
-  </div>
-  <label>Notes <textarea [(ngModel)]="notes"></textarea></label>
-  <div class="duty-assign-actions">
-    <button type="button" class="hms-btn hms-btn-secondary" (click)="showAssign = false">Cancel</button>
-    <button type="button" class="hms-btn hms-btn-primary" data-tour="draft" (click)="saveAssignment()">Save Draft</button>
-  </div>
-</aside>
-
-<div class="duty-assign-panel" *ngIf="copyPreview">
-  <h3>Copy Previous Week</h3>
-  <p>Assignments: {{ copyPreview['assignments'] }} · Safe: {{ copyPreview['safe'] }} · Conflicts: {{ copyPreview['conflicts'] }}</p>
-  <button type="button" class="hms-btn hms-btn-secondary" (click)="copyPreview = null">Cancel</button>
-  <button type="button" class="hms-btn hms-btn-primary" (click)="confirmCopy()">Confirm Copy</button>
-</div>
-
-<div class="duty-assign-backdrop" *ngIf="showBulk" (click)="showBulk = false"></div>
-<aside class="duty-bulk-panel" *ngIf="showBulk">
+<div class="duty-assign-backdrop" *ngIf="showDrawer" (click)="closeDrawer()"></div>
+<aside class="duty-drawer" *ngIf="showDrawer" role="dialog" aria-modal="true" [attr.aria-label]="drawerTitle" data-tour="staff">
+  <div class="duty-drawer-handle" aria-hidden="true"></div>
   <header>
     <div>
-      <h3>Bulk Assign</h3>
-      <p>Step {{ bulkStep }} of 5</p>
+      <h3>{{ drawerTitle }}</h3>
+      <p>{{ selectedDate }} · {{ selectedNode.label }} · {{ shiftLabel(selectedShift) }}</p>
     </div>
-    <button type="button" class="hms-btn hms-btn-secondary" (click)="showBulk = false">Close</button>
+    <button type="button" class="duty-close" (click)="closeDrawer()" aria-label="Close">×</button>
   </header>
 
-  <section *ngIf="bulkStep === 1">
-    <h4>Where</h4>
-    <p>Select a ward, room, department, OPD, lab, pharmacy or support area.</p>
-    <div class="duty-bulk-tree">
-      <ng-container *ngTemplateOutlet="bulkTree; context: { $implicit: tree }"></ng-container>
-    </div>
-    <p *ngIf="bulkArea"><strong>Selected:</strong> {{ bulkArea.label }}</p>
-  </section>
+  <ol class="duty-steps">
+    <li [class.active]="drawerStep === 1" [class.done]="drawerStep > 1"><button type="button" (click)="goDrawerStep(1)"><span>1</span> Select Area</button></li>
+    <li [class.active]="drawerStep === 2" [class.done]="drawerStep > 2"><button type="button" (click)="goDrawerStep(2)"><span>2</span> Choose Shift</button></li>
+    <li [class.active]="drawerStep === 3" [class.done]="drawerStep > 3"><button type="button" (click)="goDrawerStep(3)"><span>3</span> Select Staff</button></li>
+    <li [class.active]="drawerStep === 4"><button type="button" (click)="goDrawerStep(4)"><span>4</span> Review</button></li>
+  </ol>
 
-  <section *ngIf="bulkStep === 2">
-    <h4>When</h4>
-    <label class="duty-check"><input type="checkbox" [(ngModel)]="bulkUseRange"> Use date range</label>
-    <div *ngIf="bulkUseRange" class="duty-bulk-range">
-      <label>From <input type="date" [(ngModel)]="bulkFrom"></label>
-      <label>To <input type="date" [(ngModel)]="bulkTo"></label>
-    </div>
-    <div *ngIf="!bulkUseRange" class="duty-day-pills">
-      <button type="button" *ngFor="let day of weekDayLabels; let i = index" [class.active]="bulkDays.includes(i)" (click)="toggleBulkDay(i)">{{ day }}</button>
-    </div>
-    <div class="duty-roster-views">
-      <button type="button" *ngFor="let shift of bulkShifts" [class.active]="bulkShift === shift" (click)="bulkShift = shift">{{ shiftLabel(shift) }}</button>
-    </div>
-  </section>
+  <div class="duty-drawer-body">
+    <section id="duty-step-1" [class.is-current]="drawerStep === 1">
+      <h4>1. Select Area</h4>
+      <ng-container *ngTemplateOutlet="treeList; context: { $implicit: tree, chipRooms: true }"></ng-container>
+      <p *ngIf="selectedNode"><strong>Selected:</strong> {{ selectedNode.label }}</p>
+    </section>
 
-  <section *ngIf="bulkStep === 3">
-    <h4>Who</h4>
-    <label>Role
-      <select [(ngModel)]="bulkRole">
-        <option *ngFor="let role of bulkRoles" [value]="role">{{ role }}</option>
-      </select>
-    </label>
-    <div class="duty-staff-list">
-      <button type="button" *ngFor="let person of bulkEligibleStaff" [class.active]="bulkStaffId === person['_id']" (click)="bulkStaffId = $any(person)['_id']">
-        <span class="ward-avatar">{{ staffInitials(person['name']) }}</span>
-        <span>
-          <strong>{{ person['name'] }}</strong>
-          <small>{{ person['role'] }} · {{ person.availability }}</small>
-        </span>
-      </button>
-    </div>
-  </section>
+    <section id="duty-step-2" [class.is-current]="drawerStep === 2">
+      <h4>2. Choose Shift</h4>
+      <div class="duty-shift-cards duty-shift-cards--drawer">
+        <button type="button" *ngFor="let shift of shifts" class="duty-shift-card" [attr.data-shift]="shift" [class.active]="selectedShift === shift" (click)="onDrawerShift(shift)">
+          <i class="fa" [ngClass]="shiftIcon(shift)" aria-hidden="true"></i>
+          <span>{{ shiftLabel(shift) }}</span>
+          <small>{{ timesFor(shift).startTime }} – {{ timesFor(shift).endTime }}</small>
+        </button>
+      </div>
+      <ng-container *ngIf="drawerMode === 'bulk'">
+        <label class="duty-check"><input type="checkbox" [(ngModel)]="bulkUseRange"> Use date range</label>
+        <div *ngIf="bulkUseRange" class="duty-bulk-range">
+          <label>From <input type="date" [(ngModel)]="bulkFrom"></label>
+          <label>To <input type="date" [(ngModel)]="bulkTo"></label>
+        </div>
+        <div *ngIf="!bulkUseRange" class="duty-day-pills">
+          <button type="button" *ngFor="let day of weekDayLabels; let i = index" [class.active]="bulkDays.includes(i)" (click)="toggleBulkDay(i)">{{ day }}</button>
+        </div>
+      </ng-container>
+    </section>
 
-  <section *ngIf="bulkStep === 4 || bulkStep === 5">
-    <h4>Review</h4>
-    <p>{{ bulkPreview.length }} assignments · {{ bulkConflictCount }} conflicts</p>
-    <article class="duty-bulk-row" *ngFor="let row of bulkPreview" [class.is-conflict]="row.conflict">
-      <strong>{{ row.staffName }}</strong>
-      <small>{{ row.area }} · {{ row.shift }} · {{ row.date }}</small>
-      <em *ngIf="row.conflict">Conflict</em>
-    </article>
-  </section>
+    <section id="duty-step-3" [class.is-current]="drawerStep === 3">
+      <h4>3. Select Staff <em *ngIf="selectedStaffCount">{{ selectedStaffCount }} selected</em></h4>
+      <div class="duty-staff-tools">
+        <label class="duty-search duty-search--grow">
+          <i class="fa fa-search" aria-hidden="true"></i>
+          <input type="search" [(ngModel)]="staffSearch" placeholder="Search staff by name, role or ID..." (ngModelChange)="onStaffSearch()">
+        </label>
+        <select [(ngModel)]="assignRole" (ngModelChange)="onAssignRoleChange()">
+          <option *ngFor="let role of bulkRoles" [value]="role">{{ role }}</option>
+        </select>
+      </div>
+      <p class="duty-selected-count">{{ selectedStaffCount }} selected <button type="button" class="duty-link" *ngIf="selectedStaffCount" (click)="clearStaffSelection()">Clear selection</button></p>
+      <div class="duty-staff-list" *ngIf="!staffLoading && !staffError">
+        <label *ngFor="let person of visibleStaff; trackBy: trackStaff" class="duty-staff-row">
+          <input type="checkbox" [checked]="isStaffSelected(person['_id'])" (change)="toggleStaff('' + person['_id'], $any($event.target).checked)">
+          <img *ngIf="personPhoto(person)" class="ward-avatar" [src]="personPhoto(person)" [alt]="'' + person['name']">
+          <span *ngIf="!personPhoto(person)" class="ward-avatar">{{ staffInitials(person['name']) }}</span>
+          <span>
+            <strong>{{ person['name'] }}</strong>
+            <small>{{ person['employeeNo'] || person['role'] }} · {{ person.availability }}</small>
+          </span>
+          <em class="duty-role-chip" [ngClass]="roleClass(person['role'])">{{ person['role'] }}</em>
+        </label>
+        <p class="duty-empty" *ngIf="!visibleStaff.length">No eligible staff found. Try another role, shift, or area.</p>
+      </div>
+      <div class="duty-skeleton" *ngIf="staffLoading">
+        <span *ngFor="let n of [1,2,3,4]"></span>
+      </div>
+      <div class="duty-empty" *ngIf="staffError">
+        Unable to load eligible staff
+        <button type="button" class="hms-btn hms-btn-secondary" (click)="rebuildEligibleStaff()">Retry</button>
+      </div>
+    </section>
 
-  <footer class="duty-assign-actions">
-    <button type="button" class="hms-btn hms-btn-secondary" *ngIf="bulkStep > 1" (click)="prevBulkStep()">Back</button>
-    <button type="button" class="hms-btn hms-btn-primary" *ngIf="bulkStep < 5" (click)="nextBulkStep()">Next</button>
-    <button type="button" class="hms-btn hms-btn-secondary" *ngIf="bulkStep === 5" (click)="saveBulk('draft')" [disabled]="bulkSaving">Save as Draft</button>
-    <button type="button" class="hms-btn hms-btn-primary" *ngIf="bulkStep === 5" (click)="saveBulk('published')" [disabled]="bulkSaving || !canUpdate">Assign / Publish</button>
+    <section id="duty-step-4" [class.is-current]="drawerStep === 4">
+      <h4>4. Review & Assign</h4>
+      <p>You've selected {{ selectedStaffCount }} staff · {{ selectedNode.label }} · {{ shiftLabel(selectedShift) }} Shift</p>
+      <article class="duty-bulk-row" *ngFor="let row of bulkPreview" [class.is-conflict]="row.conflict">
+        <strong>{{ row.staffName }}</strong>
+        <small>{{ row.area }} · {{ row.date }} · {{ row.shift }} · {{ row.time }}</small>
+        <em *ngIf="row.conflict">Scheduling Conflict. {{ row.conflictText }}</em>
+      </article>
+    </section>
+  </div>
+
+  <footer class="duty-drawer-footer">
+    <button type="button" class="hms-btn hms-btn-secondary" (click)="closeDrawer()">Cancel</button>
+    <button type="button" class="hms-btn hms-btn-secondary" data-tour="draft" (click)="saveAssignment('draft')" [disabled]="saving || !selectedStaffCount">Save Draft</button>
+    <button type="button" class="hms-btn hms-btn-primary" (click)="drawerStep < 4 ? nextDrawerStep() : saveAssignment(canUpdate ? 'published' : 'draft')" [disabled]="saving">
+      {{ drawerStep < 4 ? 'Next' : (drawerMode === 'bulk' ? 'Assign Staff' : 'Assign') }}
+    </button>
   </footer>
 </aside>
 
-<ng-template #bulkTree let-nodes>
-  <ul>
-    <li *ngFor="let node of nodes">
-      <button type="button" [class.active]="bulkArea?.id === node.id" (click)="selectBulkArea(node)">{{ node.label }}</button>
-      <ng-container *ngIf="node.children?.length">
-        <ng-container *ngTemplateOutlet="bulkTree; context: { $implicit: node.children }"></ng-container>
-      </ng-container>
-    </li>
-  </ul>
-</ng-template>
+<div class="duty-assign-backdrop" *ngIf="showCoverage" (click)="closeCoverage()"></div>
+<aside class="duty-modal" *ngIf="showCoverage" role="dialog" aria-modal="true" aria-label="Set Coverage">
+  <header>
+    <h3>Set Coverage</h3>
+    <button type="button" class="duty-close" (click)="closeCoverage()" aria-label="Close">×</button>
+  </header>
+  <p>{{ selectedNode.label }} · {{ shiftLabel(selectedShift) }} · {{ selectedDate }}</p>
+  <label>Role <input [(ngModel)]="coverageRole"></label>
+  <label>Required Staff Count <input type="number" min="0" [(ngModel)]="coverageRequired"></label>
+  <footer class="duty-drawer-footer">
+    <button type="button" class="hms-btn hms-btn-secondary" (click)="closeCoverage()">Cancel</button>
+    <button type="button" class="hms-btn hms-btn-primary" (click)="saveCoverage()" [disabled]="coverageSaving || !canUpdate">Save Coverage</button>
+  </footer>
+</aside>
+
+<div class="duty-modal" *ngIf="copyPreview">
+  <h3>Copy Previous Week</h3>
+  <p>Assignments: {{ copyPreview['assignments'] }} · Safe: {{ copyPreview['safe'] }} · Conflicts: {{ copyPreview['conflicts'] }}</p>
+  <footer class="duty-drawer-footer">
+    <button type="button" class="hms-btn hms-btn-secondary" (click)="dismissCopy()">Cancel</button>
+    <button type="button" class="hms-btn hms-btn-primary" (click)="confirmCopy()">Confirm Copy</button>
+  </footer>
+</div>
 
 <div class="duty-tutorial-offer" *ngIf="tutorialOffer && !tutorialActive">
   <p>Take a short Duty Roster walkthrough?</p>
@@ -266,7 +439,7 @@
 <div class="duty-tutorial" *ngIf="tutorialActive" [ngStyle]="tutorialStyle">
   <strong>Step {{ tutorialIndex + 1 }} of {{ tutorialSteps.length }}</strong>
   <p>{{ tutorialText }}</p>
-  <div class="duty-assign-actions">
+  <div class="duty-drawer-footer">
     <button type="button" class="hms-btn hms-btn-secondary" (click)="skipTutorial()">Skip</button>
     <button type="button" class="hms-btn hms-btn-secondary" [disabled]="tutorialIndex === 0" (click)="goTutorial(tutorialIndex - 1)">Previous</button>
     <button type="button" class="hms-btn hms-btn-primary" (click)="goTutorial(tutorialIndex + 1)">{{ tutorialIndex === tutorialSteps.length - 1 ? 'Close' : 'Next' }}</button>

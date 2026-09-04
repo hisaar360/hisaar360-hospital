@@ -267,5 +267,35 @@
         <button type="button" class="btn btn-sm btn-primary" (click)="assignNurse(patient)">Assign Nurse</button>
       </div>
     </aside>
+
+    <div class="ward-drawer-backdrop" *ngIf="assignNursePatient" (click)="closeAssignNurse()"></div>
+    <aside class="ward-assign-nurse" *ngIf="assignNursePatient as patient" role="dialog" aria-modal="true" aria-label="Assign Nurse">
+      <header>
+        <h3>Assign Nurse</h3>
+        <button type="button" class="ward-drawer__close" (click)="closeAssignNurse()" aria-label="Close">×</button>
+      </header>
+      <div class="ward-assign-nurse__context">
+        <p><strong>{{ patient.patientName }}</strong></p>
+        <p>{{ patient.mrn }} · {{ patient.wardName }} · {{ patient.roomName }} / {{ patient.bedNo }}</p>
+        <p>Current Nurse: {{ displayValue(patient.nurseName) }}</p>
+      </div>
+      <input type="search" [(ngModel)]="nurseSearch" placeholder="Search nurse..." (ngModelChange)="onNurseSearch()">
+      <div class="ward-assign-nurse__list" *ngIf="!nursesLoading && !nursesError">
+        <label *ngFor="let nurse of visibleNurses">
+          <input type="radio" name="assign-nurse" [value]="nurse._id" [(ngModel)]="selectedAssignNurseId">
+          <span>
+            <strong>{{ nurse.name }}</strong>
+            <small>{{ nurse.role?.name || 'Nurse' }}</small>
+          </span>
+        </label>
+        <p *ngIf="!visibleNurses.length">No eligible nurses found.</p>
+      </div>
+      <p *ngIf="nursesLoading">Loading nurses…</p>
+      <p *ngIf="nursesError">Unable to load nurses.</p>
+      <footer>
+        <button type="button" class="btn btn-sm btn-default" (click)="closeAssignNurse()">Cancel</button>
+        <button type="button" class="btn btn-sm btn-primary" (click)="confirmAssignNurse()" [disabled]="assigningNurse || !selectedAssignNurseId">Assign Nurse</button>
+      </footer>
+    </aside>
   </div>
 </div>

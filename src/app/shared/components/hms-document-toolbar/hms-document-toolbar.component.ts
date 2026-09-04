@@ -15,6 +15,8 @@ export class HmsDocumentToolbarComponent {
   @Input({ required: true }) title = '';
   @Input({ required: true }) filename = 'document.pdf';
   @Input() orientation: HmsDocumentOrientation = 'portrait';
+  @Input() pdfLabel = 'PDF';
+  @Input() withIcons = false;
   @Input() showExcel = false;
   @Input() disabled = false;
   @Input({ required: true }) getHtml!: () => string;

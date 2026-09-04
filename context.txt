@@ -2,7 +2,7 @@
 HISAAR360 HOSPITAL MANAGEMENT SYSTEM
 Frontend Application Context  |  Angular Hospital HMS Software
 ================================================================================
-Last updated: 2026-09-03
+Last updated: 2026-09-04
 Document type: Product architecture, UX, and engineering context
 Canonical product name: Hisaar360 Hospital Management System
 Short name: Hisaar360 HMS
@@ -955,11 +955,19 @@ ORDERS & SERVICES / WARD INVENTORY
 DUTY ROSTER
   Mental model: Date → Area → Shift → Coverage → Staff
   Tree-first on /ward/duty-roster; bootstrap GET /ward-billing/roster/bootstrap
+    returns compact staff (id, name, role, employeeNo, department, photo, status)
+    — not full User serialize / permission arrays / listUsers()
+  Resource tree starts collapsed; rooms render only when a ward is expanded
+  Assign Staff drawer opens immediately (OnPush). Eligible staff ranked in-memory
+    with an assignment index (O(n+m)), cached, filtered, capped. switchMap cancels
+    stale bootstrap loads. Staff checkbox never calls /roster/bulk/preview.
+  Assign Nurse on Patient List is a separate bed-assignment modal using GET /ward/staff
+    compact items. It does not load the Duty Roster tree.
   Open position pre-fills date/area/shift/role
-  Bulk Assign: POST /ward-billing/roster/bulk/preview and /bulk
-  Conflict: 409 ROSTER_CONFLICT
-  Documents: HmsDocumentService (no roster-specific jsPDF)
-  Tutorial: page-scoped Start Tutorial / ? Help (not TutorialV2)
+  Bulk Assign: 4-step drawer; POST /ward-billing/roster/bulk/preview only on Review
+  Conflict: 409 ROSTER_CONFLICT shown as Scheduling Conflict
+  Documents: HmsDocumentService toolbar Help | Preview | Export PDF | Print (one Print)
+  Tutorial: page-scoped Start Tutorial / Help (not TutorialV2)
   Staff without create/update see My Duty only
 
 

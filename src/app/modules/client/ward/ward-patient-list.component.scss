@@ -368,7 +368,69 @@
   }
 }
 
+.ward-assign-nurse {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+  display: grid;
+  gap: 10px;
+  max-height: calc(100dvh - 72px);
+  max-width: 440px;
+  overflow: auto;
+  padding: 16px;
+  position: fixed;
+  right: 16px;
+  top: 72px;
+  width: min(440px, calc(100vw - 24px));
+  z-index: 40;
+}
+
+.ward-assign-nurse header,
+.ward-assign-nurse footer {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.ward-assign-nurse__context,
+.ward-assign-nurse__list label {
+  background: #f8fafc;
+  border: 1px solid var(--ward-border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.ward-assign-nurse__list {
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.ward-assign-nurse__list label {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.ward-assign-nurse input[type='search'] {
+  border: 1px solid var(--ward-border);
+  border-radius: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+}
+
 @media (max-width: 768px) {
+  .ward-assign-nurse {
+    border-radius: 16px 16px 0 0;
+    bottom: 0;
+    left: 0;
+    max-height: min(88dvh, 640px);
+    right: 0;
+    top: auto;
+    width: 100%;
+  }
   .ward-filter-toolbar--in-panel {
     display: grid;
     grid-template-columns: 1fr 1fr;

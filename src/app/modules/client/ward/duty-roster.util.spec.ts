@@ -1,4 +1,15 @@
-import { calculateCoverage, expandBulkDates, rankEligibleStaff, staffAlreadyAssigned } from './duty-roster.util';
+import {
+  buildStaffAssignmentIndex,
+  calculateCoverage,
+  coverageTotals,
+  expandBulkDates,
+  filterRankedStaff,
+  rankEligibleStaff,
+  shouldReloadRosterBootstrap,
+  shouldRunBulkPreview,
+  staffAlreadyAssigned,
+  staffIdOf,
+} from './duty-roster.util';
 
 describe('duty-roster.util', () => {
   it('calculates required assigned and open counts', () => {
@@ -23,14 +34,14 @@ describe('duty-roster.util', () => {
     expect(rows.find((row) => row.role === 'Doctor')?.open).toBe(1);
   });
 
-  it('detects a staff member already assigned to the same slot', () => {
+  it('detects a staff member already assigned to an overlapping slot', () => {
     expect(
       staffAlreadyAssigned(
         [{ staffUserId: 'u1', rosterDate: '2026-09-03', startTime: '07:00', endTime: '15:00', status: 'scheduled' }],
         'u1',
         '2026-09-03',
-        '07:00',
-        '15:00'
+        '10:00',
+        '18:00'
       )
     ).toBeTrue();
   });
@@ -45,7 +56,7 @@ describe('duty-roster.util', () => {
     ]);
   });
 
-  it('ranks available matching staff first', () => {
+  it('ranks available matching staff first using an assignment index', () => {
     const ranked = rankEligibleStaff(
       [
         { _id: 'n2', name: 'Busy Nurse', role: 'Nurse' },
@@ -58,5 +69,49 @@ describe('duty-roster.util', () => {
     expect(ranked[0]['_id']).toBe('n1');
     expect(ranked[0].availability).toBe('Available');
     expect(ranked.find((row) => row['_id'] === 'n2')?.availability).toBe('Already Assigned');
+  });
+
+  it('indexes assignments once per staff id instead of nested scans', () => {
+    const index = buildStaffAssignmentIndex([
+      { staffUserId: { _id: 'n1' }, rosterDate: '2026-09-04', startTime: '07:00', endTime: '15:00' },
+      { staffUserId: 'n1', rosterDate: '2026-09-05', startTime: '23:00', endTime: '07:00' },
+      { staffUserId: 'n2', rosterDate: '2026-09-04', startTime: '07:00', endTime: '15:00', status: 'cancelled' },
+    ]);
+    expect(index.get('n1')?.length).toBe(2);
+    expect(index.has('n2')).toBeFalse();
+    expect(staffIdOf({ _id: 'abc' })).toBe('abc');
+  });
+
+  it('does not call bulk preview on checkbox toggles', () => {
+    expect(shouldRunBulkPreview('staff-toggle')).toBeFalse();
+    expect(shouldRunBulkPreview('open')).toBeFalse();
+    expect(shouldRunBulkPreview('review')).toBeTrue();
+  });
+
+  it('filters incompatible staff out of the first-choice list', () => {
+    const ranked = rankEligibleStaff(
+      [
+        { _id: 'n1', name: 'Maria', role: 'Nurse' },
+        { _id: 'd1', name: 'Dr Aoun', role: 'Doctor' },
+        { _id: 'n2', name: 'Inactive', role: 'Nurse', status: 'inactive' },
+      ],
+      [],
+      { role: 'Nurse', date: '2026-09-04', startTime: '07:00', endTime: '15:00' }
+    );
+    const visible = filterRankedStaff(ranked, { hideIncompatible: true, search: 'mar' });
+    expect(visible.map((row) => row['_id'])).toEqual(['n1']);
+  });
+
+  it('does not refetch bootstrap on tree, shift, staff toggle, or assign open', () => {
+    expect(shouldReloadRosterBootstrap('tree')).toBeFalse();
+    expect(shouldReloadRosterBootstrap('shift')).toBeFalse();
+    expect(shouldReloadRosterBootstrap('staff-toggle')).toBeFalse();
+    expect(shouldReloadRosterBootstrap('open-assign')).toBeFalse();
+    expect(shouldReloadRosterBootstrap('date')).toBeTrue();
+  });
+
+  it('summarizes coverage without fabricating required counts', () => {
+    expect(coverageTotals([])).toEqual({ required: 0, assigned: 0, open: 0, overstaffed: 0, percent: 0 });
+    expect(coverageTotals([{ role: 'Nurse', required: 2, assigned: 1, open: 1 }]).percent).toBe(50);
   });
 });

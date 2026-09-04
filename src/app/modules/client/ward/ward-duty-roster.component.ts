@@ -1,7 +1,19 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  DestroyRef,
+  HostListener,
+  OnDestroy,
+  OnInit,
+  inject,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
+import { Subject, of } from 'rxjs';
+import { catchError, finalize, switchMap } from 'rxjs/operators';
 import { BackendService } from '../../../core/services/backend.service';
 import { buildDutyRosterDocumentHtml } from '../../../core/documents/duty-roster-document.builder';
 import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../core/utils/hms-document-context.util';
@@ -9,12 +21,22 @@ import { HmsDocumentToolbarComponent } from '../../../shared/components/hms-docu
 import { hasPermission } from '../../auth/access-control';
 import { isClinicalModuleEnabled, isLaboratoryModuleEnabled, isPharmacyModuleEnabled, isWardModuleEnabled } from '../../auth/hospital-modules';
 import {
+  ELIGIBLE_STAFF_PAGE_SIZE,
   ROSTER_SHIFT_TIMES,
+  RankedStaff,
   RosterCoverageRow,
   calculateCoverage,
+  coverageDonutStyle,
+  coverageTotals,
   expandBulkDates,
+  filterRankedStaff,
+  initialExpandedTreeIds,
   rankEligibleStaff,
+  shouldRunBulkPreview,
+  staffDisplayNo,
+  staffIdOf,
   toYmd,
+  weekDatesFrom,
 } from './duty-roster.util';
 
 interface TreeNode {
@@ -33,7 +55,9 @@ interface BulkPreviewRow {
   area: string;
   shift: string;
   date: string;
+  time: string;
   conflict: boolean;
+  conflictText: string;
   payload: Record<string, unknown>;
 }
 
@@ -41,7 +65,7 @@ const TUTORIAL_STEPS = [
   { target: 'date', text: 'Choose the day or week you want to schedule.' },
   { target: 'tree', text: 'Select a Ward, Room, Department, OPD area, Laboratory or Pharmacy.' },
   { target: 'coverage', text: 'Required shows how many staff you need. Assigned shows how many are scheduled. Open shows what is still missing.' },
-  { target: 'open-position', text: 'Click an open position to quickly fill a missing shift.' },
+  { target: 'open-position', text: 'Click an open position or Set Coverage if this shift has no requirement yet.' },
   { target: 'staff', text: 'Available staff are shown first. Conflicting assignments are clearly marked.' },
   { target: 'draft', text: 'Save changes while you continue building the roster.' },
   { target: 'publish', text: 'Publish the roster when it is ready for staff.' },
@@ -55,46 +79,76 @@ const TUTORIAL_STORAGE = 'hms-duty-roster-tutorial-seen';
   imports: [CommonModule, FormsModule, HmsDocumentToolbarComponent],
   templateUrl: './ward-duty-roster.component.html',
   styleUrl: './ward-duty-roster.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class WardDutyRosterComponent implements OnInit {
+export class WardDutyRosterComponent implements OnInit, OnDestroy {
+  private readonly backend = inject(BackendService);
+  private readonly toastr = inject(ToastrService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly load$ = new Subject<void>();
+  private previousBodyOverflow = '';
+  private rankedStaff: RankedStaff[] = [];
+  private assignmentIndexStamp = '';
+
   loading = false;
+  saving = false;
+  drawerBusy = false;
   selectedDate = new Date().toISOString().slice(0, 10);
-  viewMode: 'tree' | 'day' | 'week' = 'tree';
+  viewMode: 'tree' | 'list' | 'day' | 'week' = 'tree';
   groupBy: 'shift' | 'area' = 'shift';
-  mobileTab: 'overview' | 'schedule' | 'tree' = 'overview';
   selectedShift = 'morning';
   selectedNode: TreeNode = { id: 'hospital', label: 'Hospital', type: 'HOSPITAL' };
   tree: TreeNode[] = [];
   assignments: Array<Record<string, unknown>> = [];
   staff: Array<Record<string, unknown>> = [];
   coverageRows: RosterCoverageRow[] = [];
+  coverageSummary = coverageTotals([]);
+  donutStyle = coverageDonutStyle(this.coverageSummary);
+  scopedRows: Array<Record<string, unknown>> = [];
+  selectedRowIds = new Set<string>();
   requirements: Array<{ role: string; requiredCount: number; shift?: string; areaId?: string; dayOfWeek?: number }> = [];
-  showAssign = false;
-  assignRole = 'Nurse';
-  selectedStaffId = '';
-  notes = '';
-  copyPreview: Record<string, unknown> | null = null;
+  kpis = { onDuty: 0, openShifts: 0, nurses: 0, pending: 0 };
+  treeSearch = '';
+  staffSearch = '';
+  tableSearch = '';
+  weekFrom = '';
+  weekTo = '';
+  weekDays: string[] = [];
+  breadcrumb = ['Home', 'Duty Roster'];
+  expandedIds = new Set(initialExpandedTreeIds());
+  areaCounts = new Map<string, number>();
+
   myDutyOnly = false;
   canCreate = hasPermission('ward.roster.create');
   canUpdate = hasPermission('ward.roster.update');
   readonly shifts = ['morning', 'afternoon', 'night'] as const;
-  readonly bulkShifts = ['morning', 'afternoon', 'night', 'on_call', 'custom'] as const;
   readonly weekDayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  readonly bulkRoles = ['Doctor', 'Nurse', 'Reception', 'Lab', 'Pharmacy', 'Support'];
+  readonly bulkRoles = ['All Roles', 'Doctor', 'Nurse', 'Reception', 'Lab', 'Pharmacy', 'Support'];
 
-  showBulk = false;
-  bulkStep = 1;
-  bulkArea: TreeNode | null = null;
+  showDrawer = false;
+  drawerMode: 'assign' | 'bulk' = 'assign';
+  drawerStep = 1;
+  notes = '';
+  assignRole = 'Nurse';
+  visibleStaff: RankedStaff[] = [];
+  selectedStaffIds = new Set<string>();
+  staffError = false;
+  staffLoading = false;
+
   bulkDays: number[] = [0, 1, 2, 3, 4];
   bulkUseRange = false;
   bulkFrom = '';
   bulkTo = '';
-  bulkShift = 'morning';
-  bulkRole = 'Nurse';
-  bulkStaffId = '';
   bulkPreview: BulkPreviewRow[] = [];
-  bulkSaving = false;
+  previewRequestCount = 0;
 
+  showCoverage = false;
+  coverageRole = 'Nurse';
+  coverageRequired = 1;
+  coverageSaving = false;
+
+  copyPreview: Record<string, unknown> | null = null;
   tutorialActive = false;
   tutorialOffer = false;
   tutorialIndex = 0;
@@ -102,108 +156,62 @@ export class WardDutyRosterComponent implements OnInit {
   readonly tutorialSteps = TUTORIAL_STEPS;
   rosterDocumentHtml = () => this.buildRosterHtml();
 
-  constructor(
-    private backend: BackendService,
-    private toastr: ToastrService
-  ) {}
-
   ngOnInit(): void {
     this.myDutyOnly = !this.canCreate && !this.canUpdate;
+    this.refreshWeekWindow();
     this.bulkFrom = this.weekFrom;
     this.bulkTo = this.weekTo;
+    this.load$.pipe(
+      switchMap(() => {
+        this.loading = true;
+        this.cdr.markForCheck();
+        return this.backend.getDutyRosterBootstrap({ from: this.weekFrom, to: this.weekTo }).pipe(
+          catchError(() =>
+            this.backend.listWardRoster({ from: this.weekFrom, to: this.weekTo }).pipe(
+              catchError(() => of([])),
+              switchMap((items) =>
+                of({
+                  wards: [],
+                  rooms: [],
+                  departments: [],
+                  assignments: items || [],
+                  coverage: this.requirements,
+                  staff: this.staff,
+                } as Record<string, unknown>)
+              )
+            )
+          ),
+          finalize(() => {
+            this.loading = false;
+            this.cdr.markForCheck();
+          })
+        );
+      }),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe((data) => this.applyBootstrap(data));
     this.load();
     if (this.canCreate && !localStorage.getItem(TUTORIAL_STORAGE)) {
       this.tutorialOffer = true;
     }
   }
 
-  get weekFrom(): string {
-    const date = new Date(this.selectedDate);
-    const day = date.getDay();
-    date.setDate(date.getDate() - ((day + 6) % 7));
-    return date.toISOString().slice(0, 10);
+  ngOnDestroy(): void {
+    this.unlockBody();
   }
 
-  get weekTo(): string {
-    const date = new Date(this.weekFrom);
-    date.setDate(date.getDate() + 6);
-    return date.toISOString().slice(0, 10);
-  }
-
-  get breadcrumb(): string[] {
-    return ['Duty Roster', this.selectedNode.type === 'HOSPITAL' ? 'Hospital' : this.selectedNode.label, this.shiftLabel(this.selectedShift)];
-  }
-
-  get scopedAssignments(): Array<Record<string, unknown>> {
-    return this.assignments.filter((row) => {
-      if (toYmd(row['rosterDate'] as string) !== this.selectedDate) return false;
-      if (this.selectedNode.type === 'HOSPITAL' || this.selectedNode.type === 'GROUP') return true;
-      if (this.selectedNode.roomId) return String(row['roomId'] || '') === this.selectedNode.roomId;
-      if (this.selectedNode.departmentId) return String(row['departmentId'] || '') === this.selectedNode.departmentId;
-      if (this.selectedNode.wardId) {
-        return String(row['wardId'] || row['areaId'] || '') === this.selectedNode.wardId;
-      }
-      return String(row['areaType'] || '') === this.selectedNode.type;
-    });
-  }
-
-  get kpis() {
-    const today = this.assignments.filter((row) => toYmd(row['rosterDate'] as string) === this.selectedDate && row['status'] !== 'cancelled');
-    const open = this.coverageRows.reduce((sum, row) => sum + row.open, 0);
-    return {
-      onDuty: today.length,
-      openShifts: open,
-      nurses: today.filter((row) => String(row['staffRole'] || '').toLowerCase().includes('nurse')).length,
-      pending: today.filter((row) => row['status'] === 'draft').length,
-    };
-  }
-
-  get eligibleStaff(): Array<Record<string, unknown> & { availability: string }> {
-    return rankEligibleStaff(this.staff, this.assignments, {
-      role: this.assignRole,
-      date: this.selectedDate,
-      startTime: this.shiftTimes.startTime,
-      endTime: this.shiftTimes.endTime,
-      wardId: this.selectedNode.wardId,
-    });
-  }
-
-  get bulkEligibleStaff(): Array<Record<string, unknown> & { availability: string }> {
-    const date = this.bulkDates[0] || this.selectedDate;
-    const times = ROSTER_SHIFT_TIMES[this.bulkShift] || ROSTER_SHIFT_TIMES['morning'];
-    return rankEligibleStaff(this.staff, this.assignments, {
-      role: this.bulkRole,
-      date,
-      startTime: times.startTime,
-      endTime: times.endTime,
-      wardId: this.bulkArea?.wardId,
-    });
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.showCoverage) {
+      this.showCoverage = false;
+      this.unlockBody();
+      this.cdr.markForCheck();
+      return;
+    }
+    if (this.showDrawer) this.closeDrawer();
   }
 
   get shiftTimes() {
     return this.timesFor(this.selectedShift);
-  }
-
-  timesFor(shift: string) {
-    return ROSTER_SHIFT_TIMES[shift] || ROSTER_SHIFT_TIMES['morning'];
-  }
-
-  get coverageByShift(): Array<{ shift: string; rows: RosterCoverageRow[] }> {
-    return this.shifts.map((shift) => ({
-      shift,
-      rows: calculateCoverage(this.scopedAssignments.filter((row) => String(row['shift'] || '') === shift), this.shiftRequirements(shift), shift),
-    }));
-  }
-
-  get showAllShiftCoverage(): boolean {
-    return this.selectedNode.type === 'WARD' && !this.selectedNode.roomId;
-  }
-
-  get bulkDates(): string[] {
-    if (this.bulkUseRange) {
-      return expandBulkDates({ from: this.bulkFrom, to: this.bulkTo });
-    }
-    return expandBulkDates({ weekFrom: this.weekFrom, days: this.bulkDays });
   }
 
   get rosterDocTitle(): string {
@@ -222,37 +230,47 @@ export class WardDutyRosterComponent implements OnInit {
     return this.tutorialSteps[this.tutorialIndex]?.text || '';
   }
 
-  get bulkConflictCount(): number {
-    return this.bulkPreview.filter((row) => row.conflict).length;
+  get drawerTitle(): string {
+    return this.drawerMode === 'bulk' ? 'Bulk Assign Staff' : 'Assign Staff';
+  }
+
+  get selectedStaffCount(): number {
+    return this.selectedStaffIds.size;
+  }
+
+  get hasCoverageRequirement(): boolean {
+    return this.coverageRows.some((row) => row.required > 0);
+  }
+
+  timesFor(shift: string) {
+    return ROSTER_SHIFT_TIMES[shift] || ROSTER_SHIFT_TIMES['morning'];
+  }
+
+  shiftLabel(shift: string): string {
+    return ROSTER_SHIFT_TIMES[shift]?.label || shift;
   }
 
   load(): void {
-    this.loading = true;
-    this.backend.getDutyRosterBootstrap({ from: this.weekFrom, to: this.weekTo }).subscribe({
-      next: (data) => {
-        const wards = (data['wards'] as Array<Record<string, unknown>>) || [];
-        const rooms = (data['rooms'] as Array<Record<string, unknown>>) || [];
-        const departments = (data['departments'] as Array<Record<string, unknown>>) || [];
-        this.assignments = (data['assignments'] as Array<Record<string, unknown>>) || [];
-        this.staff = (data['staff'] as Array<Record<string, unknown>>) || [];
-        this.requirements = (data['coverage'] as typeof this.requirements) || [];
-        this.tree = this.buildTree(wards, rooms, departments);
-        this.refreshCoverage();
-        this.loading = false;
-      },
-      error: () => {
-        this.backend.listWardRoster({ from: this.weekFrom, to: this.weekTo }).subscribe({
-          next: (items) => {
-            this.assignments = items || [];
-            this.refreshCoverage();
-            this.loading = false;
-          },
-          error: () => {
-            this.loading = false;
-          },
-        });
-      },
-    });
+    this.refreshWeekWindow();
+    this.load$.next();
+  }
+
+  onDateChange(): void {
+    this.refreshWeekWindow();
+    this.load();
+  }
+
+  private applyBootstrap(data: Record<string, unknown>): void {
+    const wards = (data['wards'] as Array<Record<string, unknown>>) || [];
+    const rooms = (data['rooms'] as Array<Record<string, unknown>>) || [];
+    const departments = (data['departments'] as Array<Record<string, unknown>>) || [];
+    this.assignments = (data['assignments'] as Array<Record<string, unknown>>) || [];
+    this.staff = (data['staff'] as Array<Record<string, unknown>>) || [];
+    this.requirements = (data['coverage'] as typeof this.requirements) || [];
+    this.tree = this.buildTree(wards, rooms, departments);
+    this.rankedStaff = [];
+    this.assignmentIndexStamp = '';
+    this.refreshDerived();
   }
 
   buildTree(
@@ -272,12 +290,7 @@ export class WardDutyRosterComponent implements OnInit {
           type: 'WARD',
           wardId: String(ward['_id']),
           children: [
-            {
-              id: `${ward['_id']}-level`,
-              label: 'Ward Level',
-              type: 'WARD',
-              wardId: String(ward['_id']),
-            },
+            { id: `${ward['_id']}-level`, label: 'Ward Level', type: 'WARD', wardId: String(ward['_id']) },
             ...rooms
               .filter((room) => String(room['wardId'] || '') === String(ward['_id']))
               .map((room) => ({
@@ -313,37 +326,127 @@ export class WardDutyRosterComponent implements OnInit {
         ],
       });
     }
-    if (isLaboratoryModuleEnabled()) {
-      children.push({ id: 'lab', label: 'Laboratory', type: 'LABORATORY' });
-    }
-    if (isPharmacyModuleEnabled()) {
-      children.push({ id: 'pharmacy', label: 'Pharmacy', type: 'PHARMACY' });
-    }
+    if (isLaboratoryModuleEnabled()) children.push({ id: 'lab', label: 'Laboratory', type: 'LABORATORY' });
+    if (isPharmacyModuleEnabled()) children.push({ id: 'pharmacy', label: 'Pharmacy', type: 'PHARMACY' });
     children.push({ id: 'support', label: 'Support', type: 'SUPPORT' });
     return [{ id: 'hospital', label: 'Hospital', type: 'HOSPITAL', children }];
   }
 
+  visibleChildren(node: TreeNode): TreeNode[] {
+    if (!node.children?.length || !this.isExpanded(node.id)) return [];
+    const query = this.treeSearch.trim().toLowerCase();
+    if (!query) return node.children;
+    return node.children.filter((child) => this.nodeMatches(child, query));
+  }
+
+  nodeMatches(node: TreeNode, query: string): boolean {
+    if (node.label.toLowerCase().includes(query)) return true;
+    return Boolean(node.children?.some((child) => this.nodeMatches(child, query)));
+  }
+
+  isExpanded(id: string): boolean {
+    return this.expandedIds.has(id);
+  }
+
+  toggleExpand(node: TreeNode, event?: Event): void {
+    event?.stopPropagation();
+    if (!node.children?.length) return;
+    if (this.expandedIds.has(node.id)) this.expandedIds.delete(node.id);
+    else this.expandedIds.add(node.id);
+    this.cdr.markForCheck();
+  }
+
   selectNode(node: TreeNode): void {
-    if (node.type === 'GROUP') {
-      this.selectedNode = node;
-      this.refreshCoverage();
-      return;
-    }
     this.selectedNode = node;
-    this.refreshCoverage();
+    if (node.children?.length) this.expandedIds.add(node.id);
+    this.refreshDerived();
   }
 
   selectShift(shift: string): void {
     this.selectedShift = shift;
-    this.refreshCoverage();
+    this.refreshDerived();
   }
 
-  refreshCoverage(): void {
-    this.coverageRows = calculateCoverage(this.scopedAssignments, this.shiftRequirements(this.selectedShift), this.selectedShift);
+  shiftCount(date: string, shift: string): number {
+    return this.assignments.filter(
+      (row) => toYmd(row['rosterDate'] as string) === date && String(row['shift'] || '') === shift && row['status'] !== 'cancelled'
+    ).length;
+  }
+
+  assignmentsFor(date: string, shift: string): Array<Record<string, unknown>> {
+    return this.assignments.filter(
+      (row) => toYmd(row['rosterDate'] as string) === date && String(row['shift'] || '') === shift && row['status'] !== 'cancelled'
+    );
+  }
+
+  areaCount(node: TreeNode): number {
+    return this.areaCounts.get(node.id) || 0;
+  }
+
+  private refreshWeekWindow(): void {
+    const date = new Date(`${this.selectedDate}T00:00:00`);
+    const day = date.getDay();
+    date.setDate(date.getDate() - ((day + 6) % 7));
+    this.weekFrom = toYmd(date);
+    const end = new Date(`${this.weekFrom}T00:00:00`);
+    end.setDate(end.getDate() + 6);
+    this.weekTo = toYmd(end);
+    this.weekDays = weekDatesFrom(this.weekFrom);
+  }
+
+  refreshDerived(): void {
+    const today = this.assignments.filter(
+      (row) => toYmd(row['rosterDate'] as string) === this.selectedDate && row['status'] !== 'cancelled'
+    );
+    this.scopedRows = today.filter((row) => this.rowInSelectedArea(row));
+    if (this.selectedShift) {
+      this.scopedRows = this.scopedRows.filter((row) => String(row['shift'] || '') === this.selectedShift);
+    }
+    if (this.tableSearch.trim()) {
+      const query = this.tableSearch.trim().toLowerCase();
+      this.scopedRows = this.scopedRows.filter((row) =>
+        [this.staffName(row), row['staffRole'], this.areaLabel(row)].join(' ').toLowerCase().includes(query)
+      );
+    }
+    this.coverageRows = calculateCoverage(this.scopedRows, this.shiftRequirements(this.selectedShift), this.selectedShift);
+    this.coverageSummary = coverageTotals(this.coverageRows);
+    this.donutStyle = coverageDonutStyle(this.coverageSummary);
+    this.kpis = {
+      onDuty: today.length,
+      openShifts: this.coverageSummary.open,
+      nurses: today.filter((row) => String(row['staffRole'] || '').toLowerCase().includes('nurse')).length,
+      pending: today.filter((row) => row['status'] === 'draft').length,
+    };
+    this.breadcrumb = ['Home', 'Duty Roster', this.selectedNode.label, `${this.shiftLabel(this.selectedShift)} Shift`];
+    this.rebuildAreaCounts(today);
+    this.cdr.markForCheck();
+  }
+
+  private rebuildAreaCounts(today: Array<Record<string, unknown>>): void {
+    const counts = new Map<string, number>();
+    const visit = (node: TreeNode) => {
+      const count = today.filter((row) => this.rowMatchesNode(row, node) && String(row['shift'] || '') === this.selectedShift).length;
+      counts.set(node.id, count);
+      node.children?.forEach(visit);
+    };
+    this.tree.forEach(visit);
+    this.areaCounts = counts;
+  }
+
+  private rowInSelectedArea(row: Record<string, unknown>): boolean {
+    return this.rowMatchesNode(row, this.selectedNode);
+  }
+
+  private rowMatchesNode(row: Record<string, unknown>, node: TreeNode): boolean {
+    if (node.type === 'HOSPITAL' || node.type === 'GROUP') return true;
+    if (node.roomId) return String(row['roomId'] || '') === node.roomId;
+    if (node.departmentId) return String(row['departmentId'] || '') === node.departmentId;
+    if (node.wardId) return String(row['wardId'] || row['areaId'] || '') === node.wardId;
+    return String(row['areaType'] || '') === node.type;
   }
 
   shiftRequirements(shift: string) {
-    const day = new Date(this.selectedDate).getDay();
+    const day = new Date(`${this.selectedDate}T00:00:00`).getDay();
     return this.requirements.filter((item) => {
       if (item.shift && item.shift !== shift) return false;
       if (item.dayOfWeek !== undefined && item.dayOfWeek !== day) return false;
@@ -354,15 +457,29 @@ export class WardDutyRosterComponent implements OnInit {
     });
   }
 
-  shiftLabel(shift: string): string {
-    return ROSTER_SHIFT_TIMES[shift]?.label || shift;
-  }
-
   staffName(row: Record<string, unknown>): string {
     const staff = row['staffUserId'];
     if (staff && typeof staff === 'object') return String((staff as Record<string, unknown>)['name'] || 'Staff');
     const match = this.staff.find((item) => String(item['_id']) === String(staff));
     return String(match?.['name'] || 'Staff');
+  }
+
+  staffNo(row: Record<string, unknown>): string {
+    const staff = row['staffUserId'];
+    if (staff && typeof staff === 'object') return staffDisplayNo(staff as Record<string, unknown>);
+    const match = this.staff.find((item) => String(item['_id']) === String(staff));
+    return match ? staffDisplayNo(match) : '';
+  }
+
+  staffPhoto(row: Record<string, unknown>): string {
+    const staff = row['staffUserId'];
+    if (staff && typeof staff === 'object') return String((staff as Record<string, unknown>)['photoUrl'] || '');
+    const match = this.staff.find((item) => String(item['_id']) === String(staff));
+    return String(match?.['photoUrl'] || '');
+  }
+
+  personPhoto(person: Record<string, unknown>): string {
+    return String(person['photoUrl'] || '');
   }
 
   staffInitials(name: unknown): string {
@@ -374,47 +491,344 @@ export class WardDutyRosterComponent implements OnInit {
     return String(row['wardLabel'] || row['areaType'] || 'Area');
   }
 
-  openAssign(role = 'Nurse'): void {
-    if (!this.canCreate) return;
-    this.assignRole = role;
-    this.selectedStaffId = '';
+  roomLabel(row: Record<string, unknown>): string {
+    return String(row['roomLabel'] || row['wardLabel'] || '—');
+  }
+
+  roleClass(role: unknown): string {
+    const value = String(role || '').toLowerCase();
+    if (value.includes('nurse')) return 'is-nurse';
+    if (value.includes('doctor')) return 'is-doctor';
+    if (value.includes('ward boy') || value.includes('wardboy')) return 'is-wardboy';
+    if (value.includes('clean')) return 'is-cleaner';
+    if (value.includes('lab')) return 'is-lab';
+    return 'is-staff';
+  }
+
+  trackNode = (_: number, node: TreeNode) => node.id;
+  trackRow = (_: number, row: Record<string, unknown>) => String(row['_id'] || '');
+  trackStaff = (_: number, person: RankedStaff) => String(person['_id'] || '');
+
+  toggleRow(id: string, checked: boolean): void {
+    if (checked) this.selectedRowIds.add(id);
+    else this.selectedRowIds.delete(id);
+  }
+
+  openAssign(role = this.assignRole, mode: 'assign' | 'bulk' = 'assign'): void {
+    if (!this.canCreate || this.drawerBusy) return;
+    this.drawerBusy = true;
+    this.drawerMode = mode;
+    this.assignRole = role || 'Nurse';
     this.notes = '';
-    this.showAssign = true;
+    this.staffSearch = '';
+    this.selectedStaffIds = new Set();
+    this.bulkPreview = [];
+    this.staffError = false;
+    this.showDrawer = true;
+    this.drawerStep = mode === 'bulk' && !this.selectedNode.wardId && this.selectedNode.type !== 'WARD' ? 1 : mode === 'assign' ? 3 : 1;
+    this.lockBody();
+    this.rebuildEligibleStaff();
+    this.cdr.markForCheck();
     if (this.tutorialActive && this.tutorialSteps[this.tutorialIndex]?.target === 'open-position') {
       this.goTutorial(this.tutorialIndex + 1);
     }
   }
 
-  saveAssignment(): void {
-    if (!this.selectedStaffId) {
-      this.toastr.warning('Choose a staff member');
+  openBulk(): void {
+    this.openAssign(this.assignRole, 'bulk');
+  }
+
+  fillOpen(role: string): void {
+    this.openAssign(role, 'assign');
+  }
+
+  closeDrawer(): void {
+    this.showDrawer = false;
+    this.drawerBusy = false;
+    this.saving = false;
+    this.unlockBody();
+    this.cdr.markForCheck();
+  }
+
+  onStaffSearch(): void {
+    this.applyStaffFilter();
+  }
+
+  onAssignRoleChange(): void {
+    this.rebuildEligibleStaff();
+  }
+
+  setViewMode(mode: 'tree' | 'list' | 'day' | 'week'): void {
+    this.viewMode = mode;
+    this.cdr.markForCheck();
+  }
+
+  setGroupBy(value: 'shift' | 'area'): void {
+    this.groupBy = value;
+    this.cdr.markForCheck();
+  }
+
+  onTreeSearch(): void {
+    const query = this.treeSearch.trim().toLowerCase();
+    if (query) this.expandMatching(this.tree, query);
+    this.cdr.markForCheck();
+  }
+
+  private expandMatching(nodes: TreeNode[], query: string): boolean {
+    let matched = false;
+    for (const node of nodes) {
+      const childMatch = node.children?.length ? this.expandMatching(node.children, query) : false;
+      const selfMatch = node.label.toLowerCase().includes(query);
+      if (childMatch || selfMatch) {
+        this.expandedIds.add(node.id);
+        matched = true;
+      }
+    }
+    return matched;
+  }
+
+  onDrawerShift(shift: string): void {
+    this.selectShift(shift);
+    this.rebuildEligibleStaff();
+  }
+
+  closeCoverage(): void {
+    this.showCoverage = false;
+    this.unlockBody();
+    this.cdr.markForCheck();
+  }
+
+  dismissCopy(): void {
+    this.copyPreview = null;
+    this.cdr.markForCheck();
+  }
+
+  rebuildEligibleStaff(): void {
+    this.staffLoading = true;
+    this.staffError = false;
+    try {
+      const stamp = `${this.selectedDate}|${this.selectedShift}|${this.assignRole}|${this.assignments.length}|${this.staff.length}`;
+      if (this.assignmentIndexStamp !== stamp || !this.rankedStaff.length) {
+        const times = this.timesFor(this.selectedShift);
+        this.rankedStaff = rankEligibleStaff(this.staff, this.assignments, {
+          role: this.assignRole === 'All Roles' ? '' : this.assignRole,
+          date: this.selectedDate,
+          startTime: times.startTime,
+          endTime: times.endTime,
+          wardId: this.selectedNode.wardId,
+        });
+        this.assignmentIndexStamp = stamp;
+      }
+      this.applyStaffFilter();
+    } catch {
+      this.staffError = true;
+      this.visibleStaff = [];
+    } finally {
+      this.staffLoading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private applyStaffFilter(): void {
+    this.visibleStaff = filterRankedStaff(this.rankedStaff, {
+      search: this.staffSearch,
+      role: this.assignRole === 'All Roles' ? '' : this.assignRole,
+      hideIncompatible: true,
+      limit: ELIGIBLE_STAFF_PAGE_SIZE,
+    });
+    this.cdr.markForCheck();
+  }
+
+  toggleStaff(id: string, checked: boolean): void {
+    if (!shouldRunBulkPreview('staff-toggle')) {
+      /* preview is intentionally skipped on checkbox */
+    }
+    if (checked) this.selectedStaffIds.add(id);
+    else this.selectedStaffIds.delete(id);
+    this.cdr.markForCheck();
+  }
+
+  isStaffSelected(id: unknown): boolean {
+    return this.selectedStaffIds.has(String(id));
+  }
+
+  clearStaffSelection(): void {
+    this.selectedStaffIds = new Set();
+    this.cdr.markForCheck();
+  }
+
+  nextDrawerStep(): void {
+    if (this.drawerStep === 1 && this.selectedNode.type === 'GROUP') {
+      this.toastr.warning('Select a ward, room, or area first');
       return;
     }
+    if (this.drawerStep === 3 && !this.selectedStaffIds.size) {
+      this.toastr.warning('Select eligible staff');
+      return;
+    }
+    if (this.drawerStep === 3) this.buildBulkPreview();
+    this.drawerStep = Math.min(4, this.drawerStep + 1);
+    this.goDrawerStep(this.drawerStep);
+  }
+
+  prevDrawerStep(): void {
+    this.drawerStep = Math.max(1, this.drawerStep - 1);
+    this.cdr.markForCheck();
+  }
+
+  shiftIcon(shift: string): string {
+    if (shift === 'night') return 'fa-moon-o';
+    if (shift === 'afternoon') return 'fa-cloud';
+    return 'fa-sun-o';
+  }
+
+  goDrawerStep(step: number): void {
+    this.drawerStep = step;
+    if (step === 4) this.buildBulkPreview();
+    this.cdr.markForCheck();
+    requestAnimationFrame(() => {
+      document.getElementById(`duty-step-${step}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
+
+  private assignmentDates(): string[] {
+    if (this.drawerMode !== 'bulk') return [this.selectedDate];
+    if (this.bulkUseRange) return expandBulkDates({ from: this.bulkFrom, to: this.bulkTo });
+    return expandBulkDates({ weekFrom: this.weekFrom, days: this.bulkDays });
+  }
+
+  toggleBulkDay(index: number): void {
+    this.bulkDays = this.bulkDays.includes(index)
+      ? this.bulkDays.filter((day) => day !== index)
+      : [...this.bulkDays, index].sort();
+  }
+
+  buildBulkPreview(): void {
+    if (!shouldRunBulkPreview('review')) return;
+    const times = this.timesFor(this.selectedShift);
+    const dates = this.assignmentDates();
+    const rows: BulkPreviewRow[] = [];
+    for (const staffId of this.selectedStaffIds) {
+      const person = this.staff.find((item) => String(item['_id']) === staffId);
+      for (const date of dates) {
+        const payload = {
+          staffUserId: staffId,
+          staffRole: this.assignRole === 'All Roles' ? String(person?.['role'] || 'Staff') : this.assignRole,
+          wardId: this.selectedNode.wardId,
+          wardLabel: this.selectedNode.label,
+          areaType: this.areaTypeFromNode(this.selectedNode),
+          areaId: this.selectedNode.wardId || this.selectedNode.id,
+          roomId: this.selectedNode.roomId,
+          departmentId: this.selectedNode.departmentId,
+          rosterDate: date,
+          startTime: times.startTime,
+          endTime: times.endTime,
+          shift: this.selectedShift,
+          status: 'draft',
+          notes: this.notes,
+        };
+        const existing = this.assignments.find((row) => {
+          if (staffIdOf(row['staffUserId']) !== staffId) return false;
+          if (toYmd(row['rosterDate'] as string) !== date) return false;
+          if (row['status'] === 'cancelled') return false;
+          return String(row['startTime']) === times.startTime || String(row['shift']) === this.selectedShift;
+        });
+        rows.push({
+          staffName: String(person?.['name'] || 'Staff'),
+          role: String(payload.staffRole),
+          area: this.selectedNode.label,
+          shift: this.shiftLabel(this.selectedShift),
+          date,
+          time: `${times.startTime}–${times.endTime}`,
+          conflict: Boolean(existing),
+          conflictText: existing
+            ? `${person?.['name'] || 'Staff'} is already assigned to ${this.areaLabel(existing)} from ${existing['startTime']}–${existing['endTime']}.`
+            : '',
+          payload,
+        });
+      }
+    }
+    this.bulkPreview = rows;
+    this.previewRequestCount += 1;
+  }
+
+  saveAssignment(status: 'draft' | 'published'): void {
+    if (this.saving) return;
+    if (!this.bulkPreview.length) this.buildBulkPreview();
+    const items = this.bulkPreview.filter((row) => !row.conflict).map((row) => ({ ...row.payload, status }));
+    if (!items.length) {
+      this.toastr.error('No safe assignments to save. Resolve conflicts first.');
+      return;
+    }
+    this.saving = true;
+    const request$ =
+      items.length === 1
+        ? this.backend.createWardRosterShift(items[0])
+        : this.backend.previewBulkDutyRoster({ items }).pipe(
+            switchMap((preview) => {
+              const conflicts = Number(preview['conflicts'] || 0);
+              if (conflicts) {
+                throw Object.assign(new Error('Scheduling Conflict'), {
+                  error: { code: 'ROSTER_CONFLICT', message: this.conflictSummary() },
+                  status: 409,
+                });
+              }
+              return this.backend.bulkCreateDutyRoster({ items, status, atomic: true });
+            })
+          );
+    request$.subscribe({
+      next: (data) => {
+        this.saving = false;
+        const count = Number((data as Record<string, unknown>)?.['createdCount'] || items.length);
+        this.toastr.success(`${count} assignment${count === 1 ? '' : 's'} saved`);
+        this.closeDrawer();
+        this.load();
+      },
+      error: (error) => {
+        this.saving = false;
+        this.toastr.error(this.rosterConflictMessage(error, 'Could not save assignment'));
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private conflictSummary(): string {
+    const row = this.bulkPreview.find((item) => item.conflict);
+    return row?.conflictText || 'Scheduling Conflict';
+  }
+
+  openCoverage(): void {
+    this.coverageRole = this.assignRole || 'Nurse';
+    this.coverageRequired = Math.max(1, this.coverageRows.find((row) => row.role === this.coverageRole)?.required || this.scopedRows.length + 1);
+    this.showCoverage = true;
+    this.lockBody();
+    this.cdr.markForCheck();
+  }
+
+  saveCoverage(): void {
+    if (this.coverageSaving || !this.canUpdate) return;
+    this.coverageSaving = true;
     this.backend
-      .createWardRosterShift({
-        staffUserId: this.selectedStaffId,
-        staffRole: this.assignRole,
-        wardId: this.selectedNode.wardId,
-        wardLabel: this.selectedNode.label,
+      .upsertDutyRosterCoverage({
         areaType: this.areaTypeFromNode(this.selectedNode),
         areaId: this.selectedNode.wardId || this.selectedNode.id,
-        roomId: this.selectedNode.roomId,
-        departmentId: this.selectedNode.departmentId,
-        rosterDate: this.selectedDate,
-        startTime: this.shiftTimes.startTime,
-        endTime: this.shiftTimes.endTime,
+        dayOfWeek: new Date(`${this.selectedDate}T00:00:00`).getDay(),
         shift: this.selectedShift,
-        status: 'draft',
-        notes: this.notes,
+        role: this.coverageRole,
+        requiredCount: this.coverageRequired,
       })
       .subscribe({
         next: () => {
-          this.toastr.success('Assignment saved as draft');
-          this.showAssign = false;
+          this.coverageSaving = false;
+          this.showCoverage = false;
+          this.unlockBody();
+          this.toastr.success('Coverage requirement saved');
           this.load();
         },
-        error: (error) => {
-          this.toastr.error(this.rosterConflictMessage(error, 'Could not save assignment'));
+        error: () => {
+          this.coverageSaving = false;
+          this.toastr.error('Could not save coverage');
+          this.cdr.markForCheck();
         },
       });
   }
@@ -423,6 +837,7 @@ export class WardDutyRosterComponent implements OnInit {
     this.backend.previewCopyDutyRosterWeek({ from: this.weekFrom, to: this.weekTo }).subscribe({
       next: (data) => {
         this.copyPreview = data;
+        this.cdr.markForCheck();
       },
       error: () => this.toastr.error('Could not preview previous week'),
     });
@@ -450,144 +865,16 @@ export class WardDutyRosterComponent implements OnInit {
     });
   }
 
-  weekDays(): string[] {
-    return Array.from({ length: 7 }, (_, index) => {
-      const date = new Date(this.weekFrom);
-      date.setDate(date.getDate() + index);
-      return date.toISOString().slice(0, 10);
-    });
+  shiftDate(offset: number): void {
+    const date = new Date(`${this.selectedDate}T00:00:00`);
+    date.setDate(date.getDate() + offset);
+    this.selectedDate = toYmd(date);
+    this.onDateChange();
   }
 
-  assignmentsFor(date: string, shift: string): Array<Record<string, unknown>> {
-    return this.assignments.filter((row) => toYmd(row['rosterDate'] as string) === date && String(row['shift'] || '') === shift);
-  }
-
-  openBulk(): void {
-    if (!this.canCreate) return;
-    this.showBulk = true;
-    this.bulkStep = 1;
-    this.bulkArea = this.selectedNode.type === 'GROUP' || this.selectedNode.type === 'HOSPITAL' ? null : this.selectedNode;
-    this.bulkShift = this.selectedShift;
-    this.bulkRole = this.assignRole || 'Nurse';
-    this.bulkStaffId = '';
-    this.bulkPreview = [];
-  }
-
-  selectBulkArea(node: TreeNode): void {
-    if (node.type === 'GROUP' || node.type === 'HOSPITAL') return;
-    this.bulkArea = node;
-  }
-
-  toggleBulkDay(index: number): void {
-    this.bulkDays = this.bulkDays.includes(index)
-      ? this.bulkDays.filter((day) => day !== index)
-      : [...this.bulkDays, index].sort();
-  }
-
-  nextBulkStep(): void {
-    if (this.bulkStep === 1 && !this.bulkArea) {
-      this.toastr.warning('Select an area first');
-      return;
-    }
-    if (this.bulkStep === 2 && !this.bulkDates.length) {
-      this.toastr.warning('Select at least one day');
-      return;
-    }
-    if (this.bulkStep === 3 && !this.bulkStaffId) {
-      this.toastr.warning('Select eligible staff');
-      return;
-    }
-    if (this.bulkStep === 3) {
-      this.buildBulkPreview();
-    }
-    this.bulkStep = Math.min(5, this.bulkStep + 1);
-  }
-
-  prevBulkStep(): void {
-    this.bulkStep = Math.max(1, this.bulkStep - 1);
-  }
-
-  buildBulkPreview(): void {
-    const area = this.bulkArea;
-    const person = this.staff.find((item) => String(item['_id']) === this.bulkStaffId);
-    const times = ROSTER_SHIFT_TIMES[this.bulkShift] || ROSTER_SHIFT_TIMES['morning'];
-    this.bulkPreview = this.bulkDates.map((date) => {
-      const payload = {
-        staffUserId: this.bulkStaffId,
-        staffRole: this.bulkRole,
-        wardId: area?.wardId,
-        wardLabel: area?.label,
-        areaType: this.areaTypeFromNode(area),
-        areaId: area?.wardId || area?.id,
-        roomId: area?.roomId,
-        departmentId: area?.departmentId,
-        rosterDate: date,
-        startTime: times.startTime,
-        endTime: times.endTime,
-        shift: this.bulkShift,
-        status: 'draft',
-      };
-      const conflict = this.assignments.some((row) => {
-        const staffId = String((row['staffUserId'] as { _id?: string } | undefined)?._id || row['staffUserId'] || '');
-        return staffId === this.bulkStaffId && toYmd(row['rosterDate'] as string) === date && row['status'] !== 'cancelled'
-          && String(row['startTime']) === times.startTime && String(row['endTime']) === times.endTime;
-      });
-      return {
-        staffName: String(person?.['name'] || 'Staff'),
-        role: this.bulkRole,
-        area: area?.label || 'Area',
-        shift: this.shiftLabel(this.bulkShift),
-        date,
-        conflict,
-        payload,
-      };
-    });
-  }
-
-  saveBulk(status: 'draft' | 'published'): void {
-    const safe = this.bulkPreview.filter((row) => !row.conflict);
-    if (!safe.length) {
-      this.toastr.error('No safe assignments to save. Resolve conflicts first.');
-      return;
-    }
-    if (this.bulkConflictCount) {
-      this.toastr.warning(`${this.bulkConflictCount} conflicted rows will be skipped.`);
-    }
-    this.bulkSaving = true;
-    this.backend
-      .previewBulkDutyRoster({ items: safe.map((row) => row.payload) })
-      .subscribe({
-        next: (preview) => {
-          const conflicts = Number(preview['conflicts'] || 0);
-          if (conflicts && status === 'published') {
-            this.bulkSaving = false;
-            this.toastr.error('Conflicts remain. Backend returned ROSTER_CONFLICT preview.');
-            return;
-          }
-          this.backend
-            .bulkCreateDutyRoster({
-              items: safe.map((row) => ({ ...row.payload, status })),
-              status,
-              atomic: conflicts === 0,
-            })
-            .subscribe({
-              next: (data) => {
-                this.bulkSaving = false;
-                this.showBulk = false;
-                this.toastr.success(`${data['createdCount'] || 0} assignments saved${data['skippedCount'] ? `, ${data['skippedCount']} skipped` : ''}`);
-                this.load();
-              },
-              error: (error) => {
-                this.bulkSaving = false;
-                this.toastr.error(this.rosterConflictMessage(error, 'Bulk assign failed'));
-              },
-            });
-        },
-        error: () => {
-          this.bulkSaving = false;
-          this.toastr.error('Could not validate bulk assignments');
-        },
-      });
+  formattedSelectedDate(): string {
+    const date = new Date(`${this.selectedDate}T00:00:00`);
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   private rosterConflictCode(error: { error?: Record<string, unknown>; status?: number } | null | undefined): string {
@@ -604,12 +891,13 @@ export class WardDutyRosterComponent implements OnInit {
     const body = error?.error || {};
     const code = this.rosterConflictCode(error);
     const apiMessage = String(body['message'] || '').trim();
-    if (code === 'ROSTER_CONFLICT') {
-      if (apiMessage && !/^overlapping roster shift exists$/i.test(apiMessage)) {
-        return apiMessage;
+    if (error?.status === 409 || code === 'ROSTER_CONFLICT') {
+      if (apiMessage && !/^overlapping roster shift exists$/i.test(apiMessage) && apiMessage !== '[object Object]') {
+        return apiMessage.startsWith('Scheduling') ? apiMessage : `Scheduling Conflict. ${apiMessage}`;
       }
-      return 'Scheduling conflict: this staff member already has an overlapping shift.';
+      return this.conflictSummary() || 'Scheduling Conflict. This staff member already has an overlapping shift.';
     }
+    if (apiMessage === '[object Object]') return fallback;
     return apiMessage || fallback;
   }
 
@@ -625,6 +913,7 @@ export class WardDutyRosterComponent implements OnInit {
     this.tutorialActive = false;
     this.tutorialOffer = false;
     localStorage.setItem(TUTORIAL_STORAGE, '1');
+    this.cdr.markForCheck();
   }
 
   goTutorial(index: number): void {
@@ -634,39 +923,40 @@ export class WardDutyRosterComponent implements OnInit {
     }
     this.tutorialIndex = index;
     const target = this.tutorialSteps[index].target;
-    if (target === 'staff' && !this.showAssign && this.canCreate) {
-      this.showAssign = true;
+    if (target === 'staff' && !this.showDrawer && this.canCreate) {
+      this.openAssign(this.assignRole);
     }
     this.placeTutorial();
   }
 
   private placeTutorial(): void {
-    const target = this.tutorialSteps[this.tutorialIndex]?.target;
-    const element = document.querySelector(`[data-tour="${target}"]`) as HTMLElement | null;
-    if (!element) {
-      this.tutorialStyle = { top: '88px', left: '24px' };
-      return;
-    }
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const position = () => {
+    this.cdr.markForCheck();
+    requestAnimationFrame(() => {
+      const target = this.tutorialSteps[this.tutorialIndex]?.target;
+      const element = document.querySelector(`[data-tour="${target}"]`) as HTMLElement | null;
+      if (!element) {
+        this.tutorialStyle = { top: '88px', left: '24px' };
+        this.cdr.markForCheck();
+        return;
+      }
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       const rect = element.getBoundingClientRect();
       this.tutorialStyle = {
         top: `${Math.min(window.innerHeight - 180, Math.max(16, rect.bottom + 12))}px`,
         left: `${Math.min(window.innerWidth - 360, Math.max(16, rect.left))}px`,
       };
-    };
-    position();
-    requestAnimationFrame(() => requestAnimationFrame(position));
-    window.addEventListener('scrollend', position, { once: true });
+      this.cdr.markForCheck();
+    });
   }
 
   buildRosterHtml(): string {
-    const rows = (this.viewMode === 'week'
-      ? this.assignments.filter((row) => {
-          const date = toYmd(row['rosterDate'] as string);
-          return date >= this.weekFrom && date <= this.weekTo && row['status'] !== 'cancelled';
-        })
-      : this.assignments.filter((row) => toYmd(row['rosterDate'] as string) === this.selectedDate && row['status'] !== 'cancelled')
+    const rows = (
+      this.viewMode === 'week'
+        ? this.assignments.filter((row) => {
+            const date = toYmd(row['rosterDate'] as string);
+            return date >= this.weekFrom && date <= this.weekTo && row['status'] !== 'cancelled';
+          })
+        : this.assignments.filter((row) => toYmd(row['rosterDate'] as string) === this.selectedDate && row['status'] !== 'cancelled')
     ).map((row) => ({
       staff: this.staffName(row),
       role: String(row['staffRole'] || 'Staff'),
@@ -678,9 +968,10 @@ export class WardDutyRosterComponent implements OnInit {
       date: toYmd(row['rosterDate'] as string),
     }));
 
-    const groups = this.viewMode === 'week'
-      ? this.groupRosterRows(rows, (row) => `${row.area} · ${row.shift}`)
-      : this.groupRosterRows(rows, (row) => `${row.date || this.selectedDate} · ${row.area} · ${row.shift}`);
+    const groups =
+      this.viewMode === 'week'
+        ? this.groupRosterRows(rows, (row) => `${row.area} · ${row.shift}`)
+        : this.groupRosterRows(rows, (row) => `${row.date || this.selectedDate} · ${row.area} · ${row.shift}`);
 
     return buildDutyRosterDocumentHtml({
       title: this.rosterDocTitle,
@@ -710,5 +1001,16 @@ export class WardDutyRosterComponent implements OnInit {
     const type = node?.type || 'WARD';
     if (type === 'GROUP' || type === 'HOSPITAL') return 'WARD';
     return type;
+  }
+
+  private lockBody(): void {
+    this.previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+
+  private unlockBody(): void {
+    if (!this.showDrawer && !this.showCoverage) {
+      document.body.style.overflow = this.previousBodyOverflow || '';
+    }
   }
 }

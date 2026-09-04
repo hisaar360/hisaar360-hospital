@@ -20,6 +20,13 @@ export interface RosterAssignmentLike {
   startTime?: string;
   endTime?: string;
   status?: string;
+  wardLabel?: string;
+}
+
+export interface RankedStaff extends Record<string, unknown> {
+  availability: string;
+  rank: number;
+  name?: string;
 }
 
 export const ROSTER_SHIFT_TIMES: Record<string, { startTime: string; endTime: string; label: string }> = {
@@ -31,10 +38,21 @@ export const ROSTER_SHIFT_TIMES: Record<string, { startTime: string; endTime: st
   custom: { startTime: '08:00', endTime: '14:00', label: 'Custom' },
 };
 
+export const ELIGIBLE_STAFF_PAGE_SIZE = 80;
+
 export const toYmd = (value: string | Date | undefined): string => {
   if (!value) return '';
   if (typeof value === 'string') return value.slice(0, 10);
   return value.toISOString().slice(0, 10);
+};
+
+export const staffIdOf = (value: unknown): string => {
+  if (!value) return '';
+  if (typeof value === 'object') {
+    const record = value as { _id?: unknown };
+    return String(record._id || '');
+  }
+  return String(value);
 };
 
 export const assignmentInScope = (
@@ -72,6 +90,32 @@ export const calculateCoverage = (
     roles.set(role, current);
   }
   return [...roles.values()];
+};
+
+export const coverageTotals = (
+  rows: RosterCoverageRow[]
+): { required: number; assigned: number; open: number; overstaffed: number; percent: number } => {
+  const required = rows.reduce((sum, row) => sum + row.required, 0);
+  const assigned = rows.reduce((sum, row) => sum + row.assigned, 0);
+  const open = rows.reduce((sum, row) => sum + row.open, 0);
+  const overstaffed = Math.max(0, assigned - required);
+  return {
+    required,
+    assigned,
+    open,
+    overstaffed,
+    percent: required ? Math.round((Math.min(assigned, required) / required) * 100) : 0,
+  };
+};
+
+export const coverageDonutStyle = (totals: { required: number; assigned: number; open: number; overstaffed: number }): string => {
+  if (!totals.required && !totals.assigned) {
+    return 'conic-gradient(#e2e8f0 0 360deg)';
+  }
+  const base = Math.max(totals.required, totals.assigned, 1);
+  const assignedDeg = (totals.assigned / base) * 360;
+  const openDeg = assignedDeg + (totals.open / base) * 360;
+  return `conic-gradient(#0f9d9c 0 ${assignedDeg}deg, #f59e0b ${assignedDeg}deg ${openDeg}deg, #cbd5e1 ${openDeg}deg 360deg)`;
 };
 
 const parseYmd = (value: string): Date => {
@@ -114,45 +158,37 @@ export const expandBulkDates = (options: {
   return [];
 };
 
-export const rankEligibleStaff = (
-  staff: Array<Record<string, unknown>>,
-  assignments: RosterAssignmentLike[],
-  context: { role: string; date: string; startTime: string; endTime: string; wardId?: string }
-): Array<Record<string, unknown> & { availability: string; rank: number; name?: string }> => {
-  return staff
-    .map((person) => {
-      const id = String(person['_id'] || '');
-      const role = String(person['role'] || '');
-      const inactive = ['inactive', 'disabled'].includes(String(person['status'] || '').toLowerCase());
-      const busy = staffAlreadyAssigned(assignments, id, context.date, context.startTime, context.endTime);
-      const roleMatch = !context.role || role.toLowerCase().includes(context.role.toLowerCase());
-      const assignmentCount = assignments.filter((row) => {
-        const staffId = String((row.staffUserId as { _id?: string } | undefined)?._id || row.staffUserId || '');
-        return staffId === id && row.status !== 'cancelled';
-      }).length;
-      const sameArea = context.wardId
-        ? assignments.some((row) => {
-            const staffId = String((row.staffUserId as { _id?: string } | undefined)?._id || row.staffUserId || '');
-            return staffId === id && String(row.wardId || row.areaId || '') === context.wardId;
-          })
-        : false;
+export const parseTimeToMinutes = (value: string): number => {
+  const [hours, minutes] = String(value || '00:00').split(':').map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
+};
 
-      let availability = 'Available';
-      if (inactive) availability = 'Unavailable';
-      else if (busy) availability = 'Already Assigned';
-      else if (!roleMatch) availability = 'Other role';
+export const toShiftRange = (startTime: string, endTime: string): { start: number; end: number } => {
+  const start = parseTimeToMinutes(startTime);
+  let end = parseTimeToMinutes(endTime);
+  if (end <= start) end += 24 * 60;
+  return { start, end };
+};
 
-      let rank = 0;
-      if (roleMatch) rank += 100;
-      if (availability === 'Available') rank += 50;
-      if (sameArea) rank += 20;
-      if (busy) rank -= 40;
-      if (inactive) rank -= 100;
-      rank -= assignmentCount;
+export const rangesOverlap = (leftStart: string, leftEnd: string, rightStart: string, rightEnd: string): boolean => {
+  const left = toShiftRange(leftStart, leftEnd);
+  const right = toShiftRange(rightStart, rightEnd);
+  return left.start < right.end && right.start < left.end;
+};
 
-      return { ...person, availability, rank, name: String(person['name'] || '') };
-    })
-    .sort((left, right) => right.rank - left.rank || (left.name || '').localeCompare(right.name || ''));
+export const buildStaffAssignmentIndex = (
+  assignments: RosterAssignmentLike[]
+): Map<string, RosterAssignmentLike[]> => {
+  const index = new Map<string, RosterAssignmentLike[]>();
+  for (const row of assignments) {
+    if (row.status === 'cancelled') continue;
+    const id = staffIdOf(row.staffUserId);
+    if (!id) continue;
+    const current = index.get(id);
+    if (current) current.push(row);
+    else index.set(id, [row]);
+  }
+  return index;
 };
 
 export const staffAlreadyAssigned = (
@@ -162,10 +198,102 @@ export const staffAlreadyAssigned = (
   startTime: string,
   endTime: string
 ): boolean => {
-  return assignments.some((row) => {
-    if (String((row.staffUserId as { _id?: string })?._id || row.staffUserId) !== staffUserId) return false;
-    if (toYmd(row.rosterDate) !== date) return false;
-    if (row.status === 'cancelled') return false;
-    return String(row.startTime) === startTime && String(row.endTime) === endTime;
+  return assignments.some((row) => assignmentOverlapsSlot(row, staffUserId, date, startTime, endTime));
+};
+
+export const assignmentOverlapsSlot = (
+  row: RosterAssignmentLike,
+  staffUserId: string,
+  date: string,
+  startTime: string,
+  endTime: string
+): boolean => {
+  if (staffIdOf(row.staffUserId) !== staffUserId) return false;
+  if (toYmd(row.rosterDate) !== date) return false;
+  if (row.status === 'cancelled') return false;
+  return rangesOverlap(String(row.startTime || ''), String(row.endTime || ''), startTime, endTime);
+};
+
+export const rankEligibleStaff = (
+  staff: Array<Record<string, unknown>>,
+  assignments: RosterAssignmentLike[],
+  context: { role: string; date: string; startTime: string; endTime: string; wardId?: string }
+): RankedStaff[] => {
+  const index = buildStaffAssignmentIndex(assignments);
+  return staff
+    .map((person) => rankOneStaff(person, index.get(String(person['_id'] || '')) || [], context))
+    .sort((left, right) => right.rank - left.rank || (left.name || '').localeCompare(right.name || ''));
+};
+
+const rankOneStaff = (
+  person: Record<string, unknown>,
+  ownAssignments: RosterAssignmentLike[],
+  context: { role: string; date: string; startTime: string; endTime: string; wardId?: string }
+): RankedStaff => {
+  const role = String(person['role'] || '');
+  const inactive = ['inactive', 'disabled'].includes(String(person['status'] || '').toLowerCase());
+  const busy = ownAssignments.some((row) =>
+    assignmentOverlapsSlot(row, String(person['_id'] || ''), context.date, context.startTime, context.endTime)
+  );
+  const roleMatch = !context.role || role.toLowerCase().includes(context.role.toLowerCase());
+  const sameArea = context.wardId
+    ? ownAssignments.some((row) => String(row.wardId || row.areaId || '') === context.wardId)
+    : false;
+
+  let availability = 'Available';
+  if (inactive) availability = 'Unavailable';
+  else if (busy) availability = 'Already Assigned';
+  else if (!roleMatch) availability = 'Other role';
+
+  let rank = 0;
+  if (roleMatch) rank += 100;
+  if (availability === 'Available') rank += 50;
+  if (sameArea) rank += 20;
+  if (busy) rank -= 40;
+  if (inactive) rank -= 100;
+  rank -= ownAssignments.length;
+
+  return { ...person, availability, rank, name: String(person['name'] || '') };
+};
+
+export const filterRankedStaff = (
+  staff: RankedStaff[],
+  options: { search?: string; role?: string; hideIncompatible?: boolean; limit?: number }
+): RankedStaff[] => {
+  const query = String(options.search || '').trim().toLowerCase();
+  const role = String(options.role || '').trim().toLowerCase();
+  const filtered = staff.filter((person) => {
+    if (options.hideIncompatible && (person.availability === 'Unavailable' || person.availability === 'Other role')) {
+      return false;
+    }
+    if (role && !String(person['role'] || '').toLowerCase().includes(role) && person.availability === 'Other role') {
+      return false;
+    }
+    if (!query) return true;
+    const haystack = [person['name'], person['role'], person['employeeNo'], person['department'], person.availability]
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(query);
+  });
+  const limit = options.limit ?? ELIGIBLE_STAFF_PAGE_SIZE;
+  return filtered.slice(0, limit);
+};
+
+export const shouldRunBulkPreview = (reason: 'staff-toggle' | 'review' | 'open'): boolean => reason === 'review';
+
+export const initialExpandedTreeIds = (): string[] => ['hospital', 'wards'];
+
+export const staffDisplayNo = (person: Record<string, unknown>): string => {
+  return String(person['employeeNo'] || person['employeeCode'] || '').trim();
+};
+
+export const shouldReloadRosterBootstrap = (reason: 'date' | 'tree' | 'shift' | 'staff-toggle' | 'open-assign'): boolean =>
+  reason === 'date';
+
+export const weekDatesFrom = (weekFrom: string): string[] => {
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = parseYmd(weekFrom);
+    date.setDate(date.getDate() + index);
+    return formatYmd(date);
   });
 };
