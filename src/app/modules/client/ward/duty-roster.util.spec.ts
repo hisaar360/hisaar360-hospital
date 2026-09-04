@@ -1,5 +1,6 @@
 import {
   buildStaffAssignmentIndex,
+  buildRosterWeekMatrix,
   calculateCoverage,
   coverageTotals,
   expandBulkDates,
@@ -113,5 +114,41 @@ describe('duty-roster.util', () => {
   it('summarizes coverage without fabricating required counts', () => {
     expect(coverageTotals([])).toEqual({ required: 0, assigned: 0, open: 0, overstaffed: 0, percent: 0 });
     expect(coverageTotals([{ role: 'Nurse', required: 2, assigned: 1, open: 1 }]).percent).toBe(50);
+  });
+
+  it('builds a week matrix grouped by ward with M/A/N counts', () => {
+    const matrix = buildRosterWeekMatrix({
+      from: '2026-08-31',
+      to: '2026-09-01',
+      groupBy: 'ward',
+      wards: [{ _id: 'w1', name: 'Medical Ward' }],
+      coverage: [{ areaId: 'w1', areaType: 'WARD', dayOfWeek: 1, role: 'Nurse', requiredCount: 2 }],
+      assignments: [
+        {
+          wardId: 'w1',
+          wardLabel: 'Medical Ward',
+          areaType: 'WARD',
+          staffUserId: 'n1',
+          staffRole: 'Nurse',
+          rosterDate: '2026-08-31',
+          shift: 'morning',
+          status: 'scheduled',
+        },
+        {
+          wardId: 'w1',
+          staffUserId: 'n2',
+          staffRole: 'Nurse',
+          rosterDate: '2026-08-31',
+          shift: 'night',
+          status: 'scheduled',
+        },
+      ],
+    });
+    expect(matrix.groupBy).toBe('ward');
+    expect(matrix.rows[0].label).toBe('Medical Ward');
+    expect(matrix.rows[0].days['2026-08-31'].morning).toBe(1);
+    expect(matrix.rows[0].days['2026-08-31'].night).toBe(1);
+    expect(matrix.rows[0].days['2026-08-31'].assigned).toBe(2);
+    expect(matrix.rows[0].days['2026-08-31'].short).toBeFalse();
   });
 });

@@ -1865,6 +1865,12 @@ export class BackendService {
     );
   }
 
+  getDutyRosterWeekMatrix(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.wardBilling}/roster/week-matrix`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
   upsertDutyRosterCoverage(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
     return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/roster/coverage`, payload).pipe(
       map((response) => this.unwrapData(response))

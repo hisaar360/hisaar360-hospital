@@ -99,6 +99,8 @@ Use Help Center search for: admit, room, operation, baby, birth certificate, inv
 
 Mental model: **Date → Area → Shift → Coverage → Staff**.
 
+**Multiple staff per shift:** the same ward/area, date, and Morning/Afternoon/Night can list many people. In Week view, click a shift chip to open the staff popover (green **N Staff** badge, avatar/name/role/time list, **+N more**, **View all N staff**). View all syncs the center day table to that area/shift/date.
+
 Tree:
 
 - Hospital → Wards → Ward → Ward Level / Room → Staff
@@ -112,5 +114,35 @@ Admin flow: select date, click an area, choose shift, fill an open position, sav
 Patient **Assign Nurse** on Patient List is a separate bed-assignment modal. It does not load the Duty Roster tree.
 
 Preview / PDF / Print use the shared HMS document toolbar (one Print). Staff without create/update permission see My Duty only.
+
+Demo seed (dev/QA, Pakistani names, not CURSOR_QA display names):
+
+```bash
+cd hisaar360-hospital-backend
+npm run seed:ward-roster-demo
+```
+
+## Birth certificate — View & verify
+
+1. Birth Records → find record → **Issue Certificate** (when verified)
+2. **View Certificate** opens the full certificate preview (document modal above record UI)
+3. **View Record** shows metadata only
+4. Preview / PDF / Print reprint the **same** certificate number and version (correction creates a new version; ordinary reprint does not)
+5. Public QR: `/verify/birth/:code` → **VALID** (no CNIC/billing internals)
+
+## Doctor ne recommend kar diya — ab kya?
+
+**Sawal:** Doctor ne patient ward mein admit karne ke liye recommend kar diya. Ab kya karna hai?
+
+**Jawab (flow):**
+
+1. Doctor Consultation → Admission Recommendation (patient **recommended**, not admitted)
+2. Ward Reception → `/ward/admissions` → **Pending Admissions**
+3. Open recommendation → **Review & Admit**
+4. Select Ward → Room → Bed (+ consultant / advance if needed)
+5. Confirm → Admission Encounter + occupied bed
+6. Open **Patient Control Panel** for vitals, MAR, lab, pharmacy, transfer, billing, discharge
+
+Recommendation alone creates **no** bed charge and **no** admission encounter.
 
 For defects, provide MR No, Encounter No, receipt number, and timestamp.

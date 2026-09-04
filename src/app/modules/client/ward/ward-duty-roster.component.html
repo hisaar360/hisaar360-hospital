@@ -91,10 +91,9 @@
       </div>
       <div class="duty-control-group">
         <span>Group By</span>
-        <div class="duty-seg" role="group" aria-label="Group by">
-          <button type="button" [class.active]="groupBy === 'shift'" (click)="setGroupBy('shift')">Shift</button>
-          <button type="button" [class.active]="groupBy === 'area'" (click)="setGroupBy('area')">Area</button>
-        </div>
+        <select class="duty-group-select" [ngModel]="groupBy" (ngModelChange)="setGroupBy($event)" aria-label="Group by">
+          <option *ngFor="let option of groupByOptions" [value]="option.value">{{ option.label }}</option>
+        </select>
       </div>
     </div>
 
@@ -183,15 +182,142 @@
           </div>
         </div>
 
-        <div class="ward-panel" *ngIf="viewMode === 'week'">
-          <h2>Week {{ weekFrom }} – {{ weekTo }}</h2>
-          <div class="duty-week-grid">
-            <div *ngFor="let day of weekDays" class="duty-week-col" [class.is-selected]="day === selectedDate" (click)="selectedDate = day; refreshDerived()">
-              <strong>{{ day }}</strong>
-              <div *ngFor="let shift of shifts" class="duty-week-shift" [attr.data-shift]="shift">
-                <small>{{ shiftLabel(shift) }} · {{ timesFor(shift).startTime }}–{{ timesFor(shift).endTime }}</small>
-                <span *ngFor="let row of assignmentsFor(day, shift)">{{ staffName(row) }}</span>
-              </div>
+        <div class="ward-panel duty-week-panel" *ngIf="viewMode === 'week'">
+          <div class="duty-week-head">
+            <div>
+              <h2>Week {{ weekFrom }} – {{ weekTo }}</h2>
+              <p class="duty-week-caption" *ngIf="showGroupedWeekMatrix">Showing duty roster grouped by {{ groupByCaption }}.</p>
+            </div>
+            <div class="duty-week-nav">
+              <button type="button" class="hms-btn hms-btn-secondary" (click)="shiftWeek(-1)" aria-label="Previous week">
+                <i class="fa fa-chevron-left" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="hms-btn hms-btn-secondary" (click)="goToday()">Today</button>
+              <button type="button" class="hms-btn hms-btn-secondary" (click)="shiftWeek(1)" aria-label="Next week">
+                <i class="fa fa-chevron-right" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="duty-matrix-wrap" *ngIf="showGroupedWeekMatrix">
+            <table class="duty-matrix">
+              <thead>
+                <tr>
+                  <th class="duty-matrix__group">{{ groupByCaption }}</th>
+                  <th *ngFor="let day of weekDays" [class.is-today]="isToday(day)">
+                    <strong>{{ weekdayName(day) }}</strong>
+                    <small>{{ day.slice(5) }}</small>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="duty-matrix__root">
+                  <td colspan="8">
+                    <button type="button" class="duty-matrix__toggle" (click)="toggleMatrixRoot()">
+                      <i class="fa" [ngClass]="isMatrixRootExpanded() ? 'fa-chevron-down' : 'fa-chevron-right'" aria-hidden="true"></i>
+                      Hospital {{ groupByCaption }}s
+                      <em>{{ weekMatrix.rows.length }} groups · {{ matrixStaffTotal }} staff</em>
+                    </button>
+                  </td>
+                </tr>
+                <ng-container *ngIf="isMatrixRootExpanded()">
+                  <tr *ngFor="let row of weekMatrix.rows">
+                    <td class="duty-matrix__group">
+                      <strong>{{ row.label }}</strong>
+                      <small *ngIf="row.meta">{{ row.meta }}</small>
+                      <small>{{ row.staffCount }} staff</small>
+                    </td>
+                    <td
+                      *ngFor="let day of weekDays"
+                      class="duty-matrix__cell"
+                      [class.is-today]="isToday(day)"
+                      [class.is-selected]="day === selectedDate"
+                      [class.is-short]="matrixCell(row.id, day).short"
+                      (click)="selectMatrixCell(day, row.id)"
+                    >
+                      <div class="duty-matrix__shifts">
+                        <button
+                          type="button"
+                          class="duty-matrix-shift is-morning"
+                          (click)="openMatrixShiftPopover(day, row, 'morning', $event)"
+                        >
+                          <span>Morning</span>
+                          <small>07:00 – 15:00</small>
+                          <em><i class="fa fa-user" aria-hidden="true"></i> {{ matrixCell(row.id, day).morning }}</em>
+                        </button>
+                        <button
+                          type="button"
+                          class="duty-matrix-shift is-afternoon"
+                          (click)="openMatrixShiftPopover(day, row, 'afternoon', $event)"
+                        >
+                          <span>Afternoon</span>
+                          <small>15:00 – 23:00</small>
+                          <em><i class="fa fa-user" aria-hidden="true"></i> {{ matrixCell(row.id, day).afternoon }}</em>
+                        </button>
+                        <button
+                          type="button"
+                          class="duty-matrix-shift is-night"
+                          (click)="openMatrixShiftPopover(day, row, 'night', $event)"
+                        >
+                          <span>Night</span>
+                          <small>23:00 – 07:00</small>
+                          <em><i class="fa fa-user" aria-hidden="true"></i> {{ matrixCell(row.id, day).night }}</em>
+                        </button>
+                      </div>
+                      <div class="duty-matrix__ratio">
+                        {{ matrixCell(row.id, day).assigned }} / {{ matrixCell(row.id, day).required || matrixCell(row.id, day).assigned }}
+                        <i *ngIf="matrixCell(row.id, day).short" class="fa fa-exclamation-circle" aria-hidden="true"></i>
+                      </div>
+                    </td>
+                  </tr>
+                </ng-container>
+                <tr *ngIf="!weekMatrix.rows.length">
+                  <td class="duty-empty-cell" [attr.colspan]="weekDays.length + 1">No grouped assignments for this week.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="duty-week-grid" *ngIf="!showGroupedWeekMatrix">
+            <div
+              *ngFor="let day of weekDays"
+              class="duty-week-col"
+              [class.is-today]="isToday(day)"
+              [class.is-selected]="day === selectedDate"
+              (click)="selectWeekDay(day)"
+            >
+              <header class="duty-week-col__head">
+                <strong>{{ weekdayName(day) }}</strong>
+                <em *ngIf="isToday(day)">Today</em>
+                <small>{{ day }}</small>
+              </header>
+              <article
+                *ngFor="let shift of shifts"
+                class="duty-week-shift"
+                [attr.data-shift]="shift"
+                [class.is-active]="day === selectedDate && selectedShift === shift"
+                (click)="selectWeekShift(day, shift, $event)"
+              >
+                <div class="duty-week-shift__head">
+                  <i class="fa" [ngClass]="shiftIcon(shift)" aria-hidden="true"></i>
+                  <div>
+                    <strong>{{ shiftLabel(shift) }} Shift</strong>
+                    <small>{{ timesFor(shift).startTime }} – {{ timesFor(shift).endTime }}</small>
+                  </div>
+                </div>
+                <div class="duty-week-people">
+                  <div *ngFor="let row of weekShiftPreview(day, shift); trackBy: trackRow" class="duty-week-person">
+                    <img *ngIf="staffPhoto(row)" class="ward-avatar ward-avatar--sm" [src]="staffPhoto(row)" [alt]="staffName(row)">
+                    <span *ngIf="!staffPhoto(row)" class="ward-avatar ward-avatar--sm">{{ staffInitials(staffName(row)) }}</span>
+                    <span>
+                      <b>{{ staffName(row) }}</b>
+                      <small>{{ roleAbbrev(row['staffRole']) }}</small>
+                    </span>
+                  </div>
+                  <p class="duty-week-empty" *ngIf="!assignmentsFor(day, shift).length">— Unassigned</p>
+                </div>
+                <footer>{{ assignmentsFor(day, shift).length }} Assigned</footer>
+              </article>
             </div>
           </div>
         </div>
@@ -233,7 +359,7 @@
         </p>
 
         <div class="duty-coverage-actions">
-          <button type="button" class="hms-btn hms-btn-secondary" *ngIf="canUpdate && !hasCoverageRequirement" (click)="openCoverage()">Set Coverage</button>
+          <button type="button" class="hms-btn hms-btn-secondary duty-btn-accent" *ngIf="canUpdate && !hasCoverageRequirement" (click)="openCoverage()">Set Coverage</button>
           <button type="button" class="hms-btn hms-btn-primary" *ngIf="canCreate" (click)="openAssign('Nurse')" [disabled]="drawerBusy">Assign Staff</button>
         </div>
       </aside>
@@ -402,6 +528,46 @@
     <button type="button" class="hms-btn hms-btn-secondary" data-tour="draft" (click)="saveAssignment('draft')" [disabled]="saving || !selectedStaffCount">Save Draft</button>
     <button type="button" class="hms-btn hms-btn-primary" (click)="drawerStep < 4 ? nextDrawerStep() : saveAssignment(canUpdate ? 'published' : 'draft')" [disabled]="saving">
       {{ drawerStep < 4 ? 'Next' : (drawerMode === 'bulk' ? 'Assign Staff' : 'Assign') }}
+    </button>
+  </footer>
+</aside>
+
+<div class="duty-shift-popover-backdrop" *ngIf="matrixPopover" (click)="closeMatrixPopover()"></div>
+<aside
+  class="duty-shift-popover"
+  *ngIf="matrixPopover"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="matrixPopover.areaLabel + ' ' + matrixPopover.shiftLabel"
+  (click)="$event.stopPropagation()"
+>
+  <header class="duty-shift-popover__head">
+    <div>
+      <h3>{{ matrixPopover.areaLabel }} – {{ matrixPopover.shiftLabel }} Shift</h3>
+      <p>{{ matrixPopover.timeLabel }} · {{ matrixPopover.dateLabel }}</p>
+    </div>
+    <span class="duty-shift-popover__badge">
+      <i class="fa fa-user" aria-hidden="true"></i>
+      {{ matrixPopover.total }} Staff
+    </span>
+  </header>
+  <div class="duty-shift-popover__list">
+    <article *ngFor="let row of matrixPopover.preview; trackBy: trackRow" class="duty-shift-popover__person">
+      <img *ngIf="staffPhoto(row)" class="ward-avatar ward-avatar--sm" [src]="staffPhoto(row)" [alt]="staffName(row)">
+      <span *ngIf="!staffPhoto(row)" class="ward-avatar ward-avatar--sm">{{ staffInitials(staffName(row)) }}</span>
+      <div class="duty-shift-popover__copy">
+        <strong>{{ staffName(row) }}</strong>
+        <small>{{ row['staffRole'] || 'Staff' }}</small>
+      </div>
+      <em>{{ row['startTime'] || timesFor(matrixPopover.shift).startTime }} – {{ row['endTime'] || timesFor(matrixPopover.shift).endTime }}</em>
+    </article>
+    <p class="duty-week-empty" *ngIf="!matrixPopover.total">No staff assigned for this shift.</p>
+  </div>
+  <footer class="duty-shift-popover__foot">
+    <p *ngIf="matrixPopover.moreCount > 0">+{{ matrixPopover.moreCount }} more staff</p>
+    <button type="button" class="duty-shift-popover__view-all" (click)="viewAllMatrixStaff()">
+      <i class="fa fa-users" aria-hidden="true"></i>
+      View all {{ matrixPopover.total }} staff
     </button>
   </footer>
 </aside>

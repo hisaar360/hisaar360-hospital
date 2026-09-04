@@ -25,12 +25,16 @@ import {
   ROSTER_SHIFT_TIMES,
   RankedStaff,
   RosterCoverageRow,
+  RosterGroupBy,
+  RosterWeekMatrix,
+  buildRosterWeekMatrix,
   calculateCoverage,
   coverageDonutStyle,
   coverageTotals,
   expandBulkDates,
   filterRankedStaff,
   initialExpandedTreeIds,
+  normalizeRosterGroupBy,
   rankEligibleStaff,
   shouldRunBulkPreview,
   staffDisplayNo,
@@ -96,18 +100,42 @@ export class WardDutyRosterComponent implements OnInit, OnDestroy {
   drawerBusy = false;
   selectedDate = new Date().toISOString().slice(0, 10);
   viewMode: 'tree' | 'list' | 'day' | 'week' = 'tree';
-  groupBy: 'shift' | 'area' = 'shift';
+  groupBy: RosterGroupBy = 'shift';
   selectedShift = 'morning';
   selectedNode: TreeNode = { id: 'hospital', label: 'Hospital', type: 'HOSPITAL' };
   tree: TreeNode[] = [];
   assignments: Array<Record<string, unknown>> = [];
   staff: Array<Record<string, unknown>> = [];
+  wardsCatalog: Array<Record<string, unknown>> = [];
+  departmentsCatalog: Array<Record<string, unknown>> = [];
+  weekMatrix: RosterWeekMatrix = {
+    groupBy: 'area',
+    from: '',
+    to: '',
+    days: [],
+    label: 'Hospital Area',
+    rows: [],
+  };
+  expandedMatrixGroups = new Set<string>(['root']);
+  matrixPopover: {
+    day: string;
+    dateLabel: string;
+    areaId: string;
+    areaLabel: string;
+    shift: string;
+    shiftLabel: string;
+    timeLabel: string;
+    total: number;
+    moreCount: number;
+    preview: Array<Record<string, unknown>>;
+    all: Array<Record<string, unknown>>;
+  } | null = null;
   coverageRows: RosterCoverageRow[] = [];
   coverageSummary = coverageTotals([]);
   donutStyle = coverageDonutStyle(this.coverageSummary);
   scopedRows: Array<Record<string, unknown>> = [];
   selectedRowIds = new Set<string>();
-  requirements: Array<{ role: string; requiredCount: number; shift?: string; areaId?: string; dayOfWeek?: number }> = [];
+  requirements: Array<{ role: string; requiredCount: number; shift?: string; areaId?: string; areaType?: string; dayOfWeek?: number }> = [];
   kpis = { onDuty: 0, openShifts: 0, nurses: 0, pending: 0 };
   treeSearch = '';
   staffSearch = '';
@@ -125,6 +153,14 @@ export class WardDutyRosterComponent implements OnInit, OnDestroy {
   readonly shifts = ['morning', 'afternoon', 'night'] as const;
   readonly weekDayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   readonly bulkRoles = ['All Roles', 'Doctor', 'Nurse', 'Reception', 'Lab', 'Pharmacy', 'Support'];
+  readonly groupByOptions: Array<{ value: RosterGroupBy; label: string }> = [
+    { value: 'shift', label: 'Shift' },
+    { value: 'area', label: 'Area' },
+    { value: 'department', label: 'Department' },
+    { value: 'ward', label: 'Ward' },
+    { value: 'role', label: 'Role' },
+    { value: 'staff', label: 'Staff' },
+  ];
 
   showDrawer = false;
   drawerMode: 'assign' | 'bulk' = 'assign';
@@ -165,7 +201,11 @@ export class WardDutyRosterComponent implements OnInit, OnDestroy {
       switchMap(() => {
         this.loading = true;
         this.cdr.markForCheck();
-        return this.backend.getDutyRosterBootstrap({ from: this.weekFrom, to: this.weekTo }).pipe(
+        return this.backend.getDutyRosterBootstrap({
+          from: this.weekFrom,
+          to: this.weekTo,
+          groupBy: this.groupBy === 'shift' ? 'area' : this.groupBy,
+        }).pipe(
           catchError(() =>
             this.backend.listWardRoster({ from: this.weekFrom, to: this.weekTo }).pipe(
               catchError(() => of([])),
@@ -266,7 +306,12 @@ export class WardDutyRosterComponent implements OnInit, OnDestroy {
     const departments = (data['departments'] as Array<Record<string, unknown>>) || [];
     this.assignments = (data['assignments'] as Array<Record<string, unknown>>) || [];
     this.staff = (data['staff'] as Array<Record<string, unknown>>) || [];
+    this.wardsCatalog = wards;
+    this.departmentsCatalog = departments;
     this.requirements = (data['coverage'] as typeof this.requirements) || [];
+    if (data['weekMatrix'] && typeof data['weekMatrix'] === 'object') {
+      this.weekMatrix = data['weekMatrix'] as RosterWeekMatrix;
+    }
     this.tree = this.buildTree(wards, rooms, departments);
     this.rankedStaff = [];
     this.assignmentIndexStamp = '';
@@ -368,15 +413,150 @@ export class WardDutyRosterComponent implements OnInit, OnDestroy {
   }
 
   shiftCount(date: string, shift: string): number {
+    const target = this.normalizeShiftKey(shift);
     return this.assignments.filter(
-      (row) => toYmd(row['rosterDate'] as string) === date && String(row['shift'] || '') === shift && row['status'] !== 'cancelled'
+      (row) =>
+        toYmd(row['rosterDate'] as string) === date &&
+        this.normalizeShiftKey(row['shift']) === target &&
+        row['status'] !== 'cancelled'
     ).length;
   }
 
+  weekShiftPreview(date: string, shift: string): Array<Record<string, unknown>> {
+    return this.assignmentsFor(date, shift).slice(0, 8);
+  }
+
+  private normalizeShiftKey(shift: unknown): string {
+    const value = String(shift || '').toLowerCase();
+    return value === 'evening' ? 'afternoon' : value;
+  }
+
   assignmentsFor(date: string, shift: string): Array<Record<string, unknown>> {
+    const target = this.normalizeShiftKey(shift);
     return this.assignments.filter(
-      (row) => toYmd(row['rosterDate'] as string) === date && String(row['shift'] || '') === shift && row['status'] !== 'cancelled'
+      (row) =>
+        toYmd(row['rosterDate'] as string) === date &&
+        this.normalizeShiftKey(row['shift']) === target &&
+        row['status'] !== 'cancelled' &&
+        this.rowInSelectedArea(row)
     );
+  }
+
+  matrixGroupAssignments(day: string, groupId: string, shift: string): Array<Record<string, unknown>> {
+    const target = this.normalizeShiftKey(shift);
+    return this.assignments.filter((row) => {
+      if (toYmd(row['rosterDate'] as string) !== day) return false;
+      if (this.normalizeShiftKey(row['shift']) !== target) return false;
+      if (row['status'] === 'cancelled') return false;
+      return this.rowMatchesMatrixGroup(row, groupId);
+    });
+  }
+
+  private rowMatchesMatrixGroup(row: Record<string, unknown>, groupId: string): boolean {
+    const mode = this.groupBy === 'shift' ? 'area' : this.groupBy;
+    if (mode === 'ward') {
+      return String(row['wardId'] || row['areaId'] || 'unassigned') === groupId;
+    }
+    if (mode === 'department') {
+      const id = String(row['departmentId'] || (row['areaType'] === 'DEPARTMENT' ? row['areaId'] : '') || 'unassigned');
+      return id === groupId;
+    }
+    if (mode === 'role') {
+      return String(row['staffRole'] || 'Staff').trim().toLowerCase() === groupId.toLowerCase();
+    }
+    if (mode === 'staff') {
+      return staffIdOf(row['staffUserId']) === groupId;
+    }
+    return String(row['areaType'] || 'WARD').toUpperCase() === String(groupId).toUpperCase();
+  }
+
+  openMatrixShiftPopover(
+    day: string,
+    group: { id: string; label: string },
+    shift: string,
+    event: Event
+  ): void {
+    event.stopPropagation();
+    const all = this.matrixGroupAssignments(day, group.id, shift);
+    const times = this.timesFor(shift);
+    const date = new Date(`${day}T00:00:00`);
+    this.matrixPopover = {
+      day,
+      dateLabel: date.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }),
+      areaId: group.id,
+      areaLabel: group.label,
+      shift,
+      shiftLabel: this.shiftLabel(shift),
+      timeLabel: `${times.startTime} – ${times.endTime}`,
+      total: all.length,
+      moreCount: Math.max(0, all.length - 8),
+      preview: all.slice(0, 8),
+      all,
+    };
+    this.cdr.markForCheck();
+  }
+
+  closeMatrixPopover(): void {
+    this.matrixPopover = null;
+    this.cdr.markForCheck();
+  }
+
+  viewAllMatrixStaff(): void {
+    const pop = this.matrixPopover;
+    if (!pop) return;
+    this.selectedDate = pop.day;
+    this.selectedShift = pop.shift;
+    this.selectMatrixCell(pop.day, pop.areaId);
+    this.viewMode = 'tree';
+    this.groupBy = this.groupBy === 'shift' ? 'area' : this.groupBy;
+    this.matrixPopover = null;
+    this.refreshDerived();
+    this.cdr.markForCheck();
+    requestAnimationFrame(() => {
+      document.querySelector('.duty-roster-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  weekdayName(day: string): string {
+    return new Date(`${day}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short' });
+  }
+
+  isToday(day: string): boolean {
+    return day === toYmd(new Date());
+  }
+
+  selectWeekDay(day: string): void {
+    this.selectedDate = day;
+    this.refreshDerived();
+  }
+
+  selectWeekShift(day: string, shift: string, event: Event): void {
+    event.stopPropagation();
+    this.selectedDate = day;
+    this.selectedShift = shift;
+    this.refreshDerived();
+  }
+
+  shiftWeek(offset: number): void {
+    this.shiftDate(offset * 7);
+  }
+
+  goToday(): void {
+    this.selectedDate = toYmd(new Date());
+    this.onDateChange();
+  }
+
+  roleAbbrev(role: unknown): string {
+    const value = String(role || '').toLowerCase();
+    if (value.includes('charge')) return 'CN';
+    if (value.includes('head')) return 'HN';
+    if (value.includes('nurse')) return 'RN';
+    if (value.includes('resident')) return 'RD';
+    if (value.includes('doctor')) return 'MD';
+    if (value.includes('ward')) return 'WB';
+    if (value.includes('clean')) return 'CL';
+    if (value.includes('lab')) return 'LT';
+    return (String(role || 'ST').replace(/[^a-z]/gi, '').slice(0, 2) || 'ST').toUpperCase();
   }
 
   areaCount(node: TreeNode): number {
@@ -400,7 +580,8 @@ export class WardDutyRosterComponent implements OnInit, OnDestroy {
     );
     this.scopedRows = today.filter((row) => this.rowInSelectedArea(row));
     if (this.selectedShift) {
-      this.scopedRows = this.scopedRows.filter((row) => String(row['shift'] || '') === this.selectedShift);
+      const target = this.normalizeShiftKey(this.selectedShift);
+      this.scopedRows = this.scopedRows.filter((row) => this.normalizeShiftKey(row['shift']) === target);
     }
     if (this.tableSearch.trim()) {
       const query = this.tableSearch.trim().toLowerCase();
@@ -419,13 +600,29 @@ export class WardDutyRosterComponent implements OnInit, OnDestroy {
     };
     this.breadcrumb = ['Home', 'Duty Roster', this.selectedNode.label, `${this.shiftLabel(this.selectedShift)} Shift`];
     this.rebuildAreaCounts(today);
+    this.rebuildWeekMatrix();
     this.cdr.markForCheck();
+  }
+
+  private rebuildWeekMatrix(): void {
+    this.weekMatrix = buildRosterWeekMatrix({
+      assignments: this.assignments,
+      coverage: this.requirements,
+      wards: this.wardsCatalog,
+      departments: this.departmentsCatalog,
+      staff: this.staff,
+      from: this.weekFrom,
+      to: this.weekTo,
+      groupBy: this.groupBy === 'shift' ? 'area' : this.groupBy,
+    });
   }
 
   private rebuildAreaCounts(today: Array<Record<string, unknown>>): void {
     const counts = new Map<string, number>();
     const visit = (node: TreeNode) => {
-      const count = today.filter((row) => this.rowMatchesNode(row, node) && String(row['shift'] || '') === this.selectedShift).length;
+      const count = today.filter(
+        (row) => this.rowMatchesNode(row, node) && this.normalizeShiftKey(row['shift']) === this.normalizeShiftKey(this.selectedShift)
+      ).length;
       counts.set(node.id, count);
       node.children?.forEach(visit);
     };
@@ -563,9 +760,79 @@ export class WardDutyRosterComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  setGroupBy(value: 'shift' | 'area'): void {
-    this.groupBy = value;
+  setGroupBy(value: RosterGroupBy | string): void {
+    this.groupBy = normalizeRosterGroupBy(value);
+    if (this.groupBy !== 'shift' && this.viewMode !== 'week') {
+      this.viewMode = 'week';
+    }
+    this.rebuildWeekMatrix();
     this.cdr.markForCheck();
+  }
+
+  get showGroupedWeekMatrix(): boolean {
+    return this.viewMode === 'week' && this.groupBy !== 'shift';
+  }
+
+  get groupByCaption(): string {
+    const option = this.groupByOptions.find((item) => item.value === this.groupBy);
+    if (this.groupBy === 'area') return 'Hospital Area';
+    return option?.label || 'Shift';
+  }
+
+  get matrixStaffTotal(): number {
+    return this.weekMatrix.rows.reduce((sum, row) => sum + Number(row.staffCount || 0), 0);
+  }
+
+  matrixCell(rowId: string, day: string) {
+    return this.weekMatrix.rows.find((row) => row.id === rowId)?.days?.[day] || {
+      morning: 0,
+      afternoon: 0,
+      night: 0,
+      assigned: 0,
+      required: 0,
+      open: 0,
+      short: false,
+    };
+  }
+
+  toggleMatrixRoot(): void {
+    if (this.expandedMatrixGroups.has('root')) this.expandedMatrixGroups.delete('root');
+    else this.expandedMatrixGroups.add('root');
+    this.cdr.markForCheck();
+  }
+
+  isMatrixRootExpanded(): boolean {
+    return this.expandedMatrixGroups.has('root');
+  }
+
+  selectMatrixCell(day: string, rowId: string): void {
+    this.selectedDate = day;
+    if (this.groupBy === 'ward') {
+      const ward = this.wardsCatalog.find((item) => String(item['_id']) === rowId);
+      if (ward) {
+        this.selectedNode = {
+          id: rowId,
+          label: String(ward['name'] || 'Ward'),
+          type: 'WARD',
+          wardId: rowId,
+        };
+      }
+    } else if (this.groupBy === 'department') {
+      const dept = this.departmentsCatalog.find((item) => String(item['_id']) === rowId);
+      if (dept) {
+        this.selectedNode = {
+          id: rowId,
+          label: String(dept['name'] || 'Department'),
+          type: 'DEPARTMENT',
+          departmentId: rowId,
+        };
+      }
+    } else if (this.groupBy === 'area') {
+      this.selectedNode = { id: rowId.toLowerCase(), label: this.weekMatrix.rows.find((row) => row.id === rowId)?.label || rowId, type: rowId };
+    } else if (this.groupBy === 'role') {
+      this.assignRole = this.weekMatrix.rows.find((row) => row.id === rowId)?.label || 'Nurse';
+    }
+    this.refreshDerived();
   }
 
   onTreeSearch(): void {

@@ -38,7 +38,7 @@
         <app-hms-document-toolbar
           *ngIf="isReportReady()"
           [title]="'Laboratory Report'"
-          [filename]="(order?.orderNo || 'lab-report') + '.pdf'"
+          [filename]="(current.orderNo || 'lab-report') + '.pdf'"
           [getHtml]="buildLabReportDocumentHtml"
         ></app-hms-document-toolbar>
       </div>

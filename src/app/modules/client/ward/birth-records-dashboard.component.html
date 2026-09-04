@@ -84,8 +84,9 @@
                 <td>{{ record.activeCertificate?.certificateNo || '—' }}</td>
                 <td class="birth-records-actions">
                   <button type="button" class="btn btn-sm btn-light birth-btn-light" *ngIf="canVerify(record)" (click)="verifyRecord(record)">Verify</button>
-                  <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" *ngIf="canIssue(record)" (click)="issueCertificate(record)">Issue</button>
-                  <button type="button" class="btn btn-sm btn-light birth-btn-light" *ngIf="record.activeCertificate" (click)="openCertificate(record)">View</button>
+                  <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" *ngIf="canIssue(record)" (click)="issueCertificate(record)">Issue Certificate</button>
+                  <button type="button" class="btn btn-sm btn-light birth-btn-light" *ngIf="record.activeCertificate" (click)="openCertificateSummary(record)">View Record</button>
+                  <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" *ngIf="record.activeCertificate" (click)="openCertificate(record)">View Certificate</button>
                 </td>
               </tr>
             </tbody>
@@ -102,7 +103,9 @@
             <p>Mother: {{ motherLabel(record) }}</p>
             <div class="birth-records-actions">
               <button type="button" class="btn btn-sm btn-light birth-btn-light" *ngIf="canVerify(record)" (click)="verifyRecord(record)">Verify</button>
-              <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" *ngIf="canIssue(record)" (click)="issueCertificate(record)">Issue</button>
+              <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" *ngIf="canIssue(record)" (click)="issueCertificate(record)">Issue Certificate</button>
+              <button type="button" class="btn btn-sm btn-light birth-btn-light" *ngIf="record.activeCertificate" (click)="openCertificateSummary(record)">View Record</button>
+              <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" *ngIf="record.activeCertificate" (click)="openCertificate(record)">View Certificate</button>
             </div>
           </article>
         </div>

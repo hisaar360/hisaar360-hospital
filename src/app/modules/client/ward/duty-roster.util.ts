@@ -297,3 +297,206 @@ export const weekDatesFrom = (weekFrom: string): string[] => {
     return formatYmd(date);
   });
 };
+
+export type RosterGroupBy = 'shift' | 'area' | 'department' | 'ward' | 'role' | 'staff';
+
+export interface RosterWeekMatrixCell {
+  morning: number;
+  afternoon: number;
+  night: number;
+  assigned: number;
+  required: number;
+  open: number;
+  short: boolean;
+}
+
+export interface RosterWeekMatrixRow {
+  id: string;
+  label: string;
+  meta: string;
+  staffCount: number;
+  days: Record<string, RosterWeekMatrixCell>;
+}
+
+export interface RosterWeekMatrix {
+  groupBy: RosterGroupBy;
+  from: string;
+  to: string;
+  days: string[];
+  label: string;
+  rows: RosterWeekMatrixRow[];
+}
+
+const AREA_TYPE_LABELS: Record<string, string> = {
+  WARD: 'Wards',
+  ROOM: 'Rooms',
+  DEPARTMENT: 'Departments',
+  OPD: 'OPD',
+  LABORATORY: 'Laboratory',
+  PHARMACY: 'Pharmacy',
+  SUPPORT: 'Support',
+};
+
+const emptyWeekCell = (): RosterWeekMatrixCell => ({
+  morning: 0,
+  afternoon: 0,
+  night: 0,
+  assigned: 0,
+  required: 0,
+  open: 0,
+  short: false,
+});
+
+export const normalizeRosterGroupBy = (value: unknown): RosterGroupBy => {
+  const key = String(value || 'shift').trim().toLowerCase();
+  if (key === 'area' || key === 'department' || key === 'ward' || key === 'role' || key === 'staff' || key === 'shift') {
+    return key;
+  }
+  return 'shift';
+};
+
+const groupMetaForAssignment = (
+  row: RosterAssignmentLike & Record<string, unknown>,
+  groupBy: RosterGroupBy,
+  lookups: { wardNames: Record<string, string>; departmentNames: Record<string, string>; staffNames: Record<string, string> }
+): { id: string; label: string; meta?: string } => {
+  if (groupBy === 'ward') {
+    const id = String(row.wardId || row.areaId || 'unassigned');
+    return { id, label: lookups.wardNames[id] || String(row.wardLabel || 'Unassigned') };
+  }
+  if (groupBy === 'department') {
+    const id = String(row.departmentId || (row.areaType === 'DEPARTMENT' ? row.areaId : '') || 'unassigned');
+    return { id, label: lookups.departmentNames[id] || String(row.wardLabel || 'Unassigned') };
+  }
+  if (groupBy === 'role') {
+    const label = String(row.staffRole || 'Staff').trim() || 'Staff';
+    return { id: label.toLowerCase(), label };
+  }
+  if (groupBy === 'staff') {
+    const id = staffIdOf(row.staffUserId) || 'unknown';
+    const staff = row.staffUserId;
+    const name =
+      lookups.staffNames[id] ||
+      (staff && typeof staff === 'object' ? String((staff as Record<string, unknown>)['name'] || 'Staff') : 'Staff');
+    return { id, label: name, meta: String(row.staffRole || '') };
+  }
+  const type = String(row.areaType || 'WARD').toUpperCase();
+  return { id: type, label: AREA_TYPE_LABELS[type] || type };
+};
+
+const requiredForGroupDay = (
+  groupBy: RosterGroupBy,
+  group: { id: string },
+  dateYmd: string,
+  coverage: Array<{ role?: string; requiredCount?: number; shift?: string; areaId?: string; areaType?: string; dayOfWeek?: number }>
+): number => {
+  const dayOfWeek = parseYmd(dateYmd).getDay();
+  return coverage.reduce((sum, row) => {
+    if (Number(row.dayOfWeek) !== dayOfWeek) return sum;
+    if (groupBy === 'ward' || groupBy === 'department') {
+      if (String(row.areaId || '') !== String(group.id)) return sum;
+    } else if (groupBy === 'area') {
+      if (String(row.areaType || '').toUpperCase() !== String(group.id).toUpperCase()) return sum;
+    } else if (groupBy === 'role') {
+      if (String(row.role || '').trim().toLowerCase() !== String(group.id).toLowerCase()) return sum;
+    }
+    return sum + Number(row.requiredCount || 0);
+  }, 0);
+};
+
+export const buildRosterWeekMatrix = (options: {
+  assignments?: Array<RosterAssignmentLike & Record<string, unknown>>;
+  coverage?: Array<{ role?: string; requiredCount?: number; shift?: string; areaId?: string; areaType?: string; dayOfWeek?: number }>;
+  wards?: Array<Record<string, unknown>>;
+  departments?: Array<Record<string, unknown>>;
+  staff?: Array<Record<string, unknown>>;
+  from: string;
+  to: string;
+  groupBy?: RosterGroupBy | string;
+}): RosterWeekMatrix => {
+  const mode = normalizeRosterGroupBy(options.groupBy || 'area');
+  const days = weekDatesFrom(options.from).filter((day) => day >= options.from && day <= options.to);
+  const dayList = days.length ? days : [options.from];
+  const active = (options.assignments || []).filter((row) => String(row.status || '') !== 'cancelled');
+  const wardNames = Object.fromEntries((options.wards || []).map((ward) => [String(ward['_id']), String(ward['name'] || 'Ward')]));
+  const departmentNames = Object.fromEntries(
+    (options.departments || []).map((dept) => [String(dept['_id']), String(dept['name'] || 'Department')])
+  );
+  const staffNames = Object.fromEntries((options.staff || []).map((person) => [String(person['_id']), String(person['name'] || 'Staff')]));
+  const lookups = { wardNames, departmentNames, staffNames };
+  const groups = new Map<string, RosterWeekMatrixRow>();
+  const staffSeen = new Map<string, Set<string>>();
+
+  const ensureGroup = (id: string, label: string, meta = '') => {
+    const key = String(id || 'unassigned');
+    if (!groups.has(key)) {
+      groups.set(key, {
+        id: key,
+        label: label || key,
+        meta,
+        staffCount: 0,
+        days: Object.fromEntries(dayList.map((day) => [day, emptyWeekCell()])),
+      });
+    }
+    return groups.get(key) as RosterWeekMatrixRow;
+  };
+
+  if (mode === 'ward') {
+    for (const ward of options.wards || []) ensureGroup(String(ward['_id']), String(ward['name'] || 'Ward'));
+  } else if (mode === 'department') {
+    for (const dept of options.departments || []) ensureGroup(String(dept['_id']), String(dept['name'] || 'Department'));
+  } else if (mode === 'area') {
+    for (const type of ['WARD', 'DEPARTMENT', 'OPD', 'LABORATORY', 'PHARMACY', 'SUPPORT']) {
+      ensureGroup(type, AREA_TYPE_LABELS[type]);
+    }
+  }
+
+  for (const row of active) {
+    const date = toYmd(row.rosterDate);
+    if (!dayList.includes(date)) continue;
+    const meta = groupMetaForAssignment(row, mode === 'shift' ? 'area' : mode, lookups);
+    const group = ensureGroup(meta.id, meta.label, meta.meta || '');
+    const cell = group.days[date] || emptyWeekCell();
+    let shift = String(row.shift || '').toLowerCase();
+    if (shift === 'evening') shift = 'afternoon';
+    if (shift === 'morning' || shift === 'afternoon' || shift === 'night') cell[shift] += 1;
+    cell.assigned += 1;
+    group.days[date] = cell;
+    const sid = staffIdOf(row.staffUserId);
+    if (sid) {
+      if (!staffSeen.has(group.id)) staffSeen.set(group.id, new Set());
+      staffSeen.get(group.id)?.add(sid);
+    }
+  }
+
+  for (const group of groups.values()) {
+    group.staffCount = staffSeen.get(group.id)?.size || 0;
+    for (const day of dayList) {
+      const cell = group.days[day];
+      cell.required = requiredForGroupDay(mode === 'shift' ? 'area' : mode, group, day, options.coverage || []);
+      cell.open = Math.max(0, cell.required - cell.assigned);
+      cell.short = cell.required > 0 && cell.assigned < cell.required;
+    }
+  }
+
+  const rows = [...groups.values()]
+    .filter((group) => {
+      if (mode === 'staff' || mode === 'role') {
+        return group.staffCount > 0 || Object.values(group.days).some((cell) => cell.assigned > 0);
+      }
+      if (mode === 'area') {
+        return group.staffCount > 0 || Object.values(group.days).some((cell) => cell.assigned > 0 || cell.required > 0);
+      }
+      return true;
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  return {
+    groupBy: mode,
+    from: options.from,
+    to: options.to,
+    days: dayList,
+    label: mode === 'area' ? 'Hospital Area' : mode.charAt(0).toUpperCase() + mode.slice(1),
+    rows,
+  };
+};

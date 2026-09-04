@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
+import { HmsDocumentService } from '../../../core/services/hms-document.service';
 import { HmsDocumentToolbarComponent } from '../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
 import { HmsPatientSearchComponent } from '../../../shared/components/hms-patient-search/hms-patient-search.component';
 import {
@@ -66,7 +67,8 @@ export class BirthRecordsDashboardComponent implements OnInit {
   constructor(
     private backend: BackendService,
     private toastr: ToastrService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private docs: HmsDocumentService
   ) {}
 
   ngOnInit(): void {
@@ -229,6 +231,28 @@ export class BirthRecordsDashboardComponent implements OnInit {
   }
 
   openCertificate(record: BirthRecordItem): void {
+    const cert = record.activeCertificate;
+    if (!cert?._id) return;
+    this.backend.getBirthCertificate(cert._id).subscribe({
+      next: (detail) => {
+        this.selectedRecord = record;
+        this.certificateDetail = detail;
+        this.docs.openPreview({
+          title: 'Hospital Birth Certificate',
+          filename: `${detail.certificateNo || 'birth-certificate'}.pdf`,
+          html: buildBirthCertificatePrintHtml({
+            certificate: detail,
+            verificationCode: detail.publicVerificationCode || '',
+            verificationBaseUrl: detail.verificationBaseUrl || 'https://www.hisaar360.com/verify/birth',
+          }),
+          orientation: 'portrait',
+        });
+      },
+      error: () => this.toastr.error('Unable to load certificate.'),
+    });
+  }
+
+  openCertificateSummary(record: BirthRecordItem): void {
     const cert = record.activeCertificate;
     if (!cert?._id) return;
     this.backend.getBirthCertificate(cert._id).subscribe({
