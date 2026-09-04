@@ -6,7 +6,7 @@
 }
 
 .ward-dashboard-kpis {
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
 }
 
 .ward-kpi-card {
@@ -112,6 +112,105 @@
   gap: 12px;
   grid-template-columns: minmax(0, 1fr) 290px;
   margin-bottom: 12px;
+}
+
+.ward-overview-layout:not(:has(.ward-summary-column)) {
+  grid-template-columns: 1fr;
+}
+
+.ward-action-required-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  padding: 12px;
+}
+
+.ward-action-required-card {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+}
+
+.ward-action-required-card__icon {
+  align-items: center;
+  background: #fef3c7;
+  border-radius: 10px;
+  color: #b45309;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.ward-action-required-card__copy {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ward-action-required-card__copy strong {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ward-action-required-card__copy small {
+  color: var(--ward-muted);
+  font-size: 11px;
+}
+
+.ward-admitted-table {
+  padding: 0 4px 4px;
+}
+
+.ward-admitted-patient {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.ward-avatar {
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 999px;
+  color: #1d4ed8;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.ward-control-patient-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  padding: 12px;
+}
+
+.ward-control-patient-card {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 12px;
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.ward-control-patient-card small {
+  color: var(--ward-muted);
+}
+
+.ward-full-btn {
+  width: 100%;
 }
 
 .ward-bed-panel {
@@ -802,11 +901,17 @@
 @media (max-width: 480px) {
   .ward-dashboard-kpis,
   .ward-monitor-grid,
-  .ward-bed-grid {
-    grid-template-columns: 1fr;
+  .ward-action-required-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ward-action-required-card,
+  .ward-control-patient-card,
+  .ward-full-btn {
+    width: 100%;
   }
 
   .ward-refresh-btn {
-    width: 100%;
+    width: auto;
   }
 }

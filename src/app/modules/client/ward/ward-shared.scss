@@ -334,7 +334,14 @@
 .ward-badge--occupied { background: #dbeafe; color: #1d4ed8; }
 
 .ward-badge--draft,
-.ward-badge--amber { background: #fef3c7; color: #b45309; }
+.ward-badge--amber,
+.ward-badge--requested { background: #fef3c7; color: #b45309; }
+
+.ward-badge--instock,
+.ward-badge--in-stock { background: #dcfce7; color: #15803d; }
+
+.ward-badge--outofstock,
+.ward-badge--out-of-stock { background: #fee2e2; color: #b91c1c; }
 
 .table-actions {
   display: flex;

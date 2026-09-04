@@ -45,6 +45,7 @@ import {
   mapMarRows,
   mapNursingRows,
   mapOrderRows,
+  mapServiceOrderRows,
   mapRoomToWardBed,
   mapRoomToWardRoom,
   mapVitalsRows,
@@ -506,24 +507,41 @@ export class WardDataService {
             (wards.items || []).map((ward) => [String(ward._id), ward.name])
           );
           const stockRows = (inventory.items || []).map((item) => {
-            const product = item['product'] as { name?: string } | undefined;
+            const product = item['product'] as {
+              name?: string;
+              sku?: string;
+              productCode?: string;
+              unit?: string;
+              category?: string;
+            } | undefined;
             const location = item['location'] as { name?: string } | undefined;
+            const qty = Number(item['availableQuantity'] || item['quantity'] || item['qty'] || 0);
+            const reorder = Number(item['reorderLevel'] || 0);
+            const out = qty <= 0;
+            const low = !out && reorder > 0 && qty <= reorder;
+            const status = out ? 'Out of Stock' : low ? 'Low Stock' : 'In Stock';
+            const updated = item['updatedAt'] || item['lastUpdated'];
             return {
               id: String(item['_id']),
               cells: {
                 item: String(item['productName'] || product?.name || item['name'] || item['productId'] || 'Stock'),
-                category: String(item['locationType'] || 'ward'),
-                stock: String(item['availableQuantity'] || item['quantity'] || item['qty'] || 0),
-                reorder: String(item['reorderLevel'] || '—'),
+                code: String(item['sku'] || item['productCode'] || product?.sku || product?.productCode || '—'),
+                category: String(product?.category || item['category'] || item['locationType'] || 'ward'),
+                stock: String(qty),
+                reorder: reorder ? String(reorder) : String(item['reorderLevel'] || '—'),
+                unit: String(item['unit'] || product?.unit || 'pcs'),
                 location: String(item['locationName'] || location?.name || item['locationId'] || 'Ward'),
-                status: Number(item['availableQuantity'] || item['quantity'] || 0) <= 0 ? 'Out' : 'In stock',
-                _tab: 'stock',
+                status,
+                updatedAt: updated ? new Date(String(updated)).toLocaleString() : '—',
+                _tab: out ? 'out' : low ? 'low' : 'stock',
+                _kind: 'stock',
+                _productId: String(item['productId'] || product && (product as { _id?: string })._id || ''),
               },
-              badgeTone: { status: Number(item['availableQuantity'] || item['quantity'] || 0) <= 0 ? 'red' : 'completed' },
+              badgeTone: { status: out ? 'critical' : low ? 'low' : 'completed' },
             };
           });
           const reqRows = (requisitions.items || []).map((item) => {
-            const status = String(item['status'] || 'requested');
+            const statusRaw = String(item['status'] || 'requested').toLowerCase();
             const wardRef = item['wardId'] as { _id?: string; name?: string } | string | undefined;
             const wardId = typeof wardRef === 'object' && wardRef ? String(wardRef._id || '') : String(wardRef || '');
             const wardName =
@@ -531,18 +549,23 @@ export class WardDataService {
               (typeof wardRef === 'object' ? String(wardRef?.name || '') : '') ||
               wardNameById.get(wardId) ||
               wardId;
+            const firstItem = ((item['items'] as Array<Record<string, unknown>>) || [])[0];
             return {
               id: String(item['_id']),
               cells: {
-                item: String(item['requisitionNo'] || 'WRQ'),
+                item: String(firstItem?.['productName'] || item['requisitionNo'] || 'WRQ'),
+                code: String(item['requisitionNo'] || '—'),
                 category: 'Requisition',
                 stock: String(((item['items'] as unknown[]) || []).length),
                 reorder: '—',
-                location: wardName,
-                status,
-                _tab: 'req',
+                unit: 'req',
+                location: wardName || 'Ward',
+                status: statusRaw === 'issued' || statusRaw === 'received' ? 'Issued' : 'Requested',
+                updatedAt: item['updatedAt'] ? new Date(String(item['updatedAt'])).toLocaleString() : '—',
+                _tab: 'requested',
+                _kind: 'requisition',
               },
-              badgeTone: { status: status === 'issued' || status === 'received' ? 'completed' : 'pending' },
+              badgeTone: { status: statusRaw === 'issued' || statusRaw === 'received' ? 'completed' : 'pending' },
             };
           });
           return [...stockRows, ...reqRows] as WardModuleRow[];
@@ -635,13 +658,12 @@ export class WardDataService {
           case 'orders-services':
             rows = [
               ...mapOrderRows(bundle.labOrders, bundle.prescriptions),
-              ...mapWardActivityRows(
+              ...mapServiceOrderRows(
                 bundle.activities.filter(
                   (item) =>
                     item.activityType === 'nursing_task' &&
                     Boolean((item.metadata as Record<string, unknown> | undefined)?.['orderType'])
-                ),
-                'nursing_task'
+                )
               ),
             ];
             break;

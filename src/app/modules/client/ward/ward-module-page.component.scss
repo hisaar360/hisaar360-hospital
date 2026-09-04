@@ -2,6 +2,7 @@
 
 .ward-module-page {
   min-height: 100%;
+  overflow-x: hidden;
 }
 
 .ward-link-btn-inline {
@@ -153,6 +154,81 @@
 
 .table-actions--wide .table-actions__menu {
   flex: 0 0 auto;
+}
+
+.ward-cell-sub {
+  color: var(--ward-muted);
+  display: block;
+  font-size: 10px;
+}
+
+.ward-type-chip {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+}
+
+.ward-type-chip--lab { background: #dbeafe; color: #1d4ed8; }
+.ward-type-chip--medicine { background: #dcfce7; color: #15803d; }
+.ward-type-chip--imaging { background: #ede9fe; color: #6d28d9; }
+.ward-type-chip--procedure { background: #ccfbf1; color: #0f766e; }
+.ward-type-chip--nursing { background: #ffedd5; color: #c2410c; }
+.ward-type-chip--other { background: #f1f5f9; color: #475569; }
+
+.ward-mobile-card-list {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.ward-mobile-card {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 12px;
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.ward-mobile-card__head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.ward-mobile-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.ward-mobile-card__actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.ward-mobile-card__actions .hms-btn {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .ward-data-table-wrap {
+    overflow: visible;
+  }
+
+  .ward-page-header--compact {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .ward-page-header__actions {
+    align-items: center;
+    width: 100%;
+  }
 }
 
 @media (max-width: 1200px) {

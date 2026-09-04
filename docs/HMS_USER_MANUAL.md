@@ -17,6 +17,7 @@ This manual mirrors the in-app **Help Center** at `/help`. Prefer the Help Cente
 | Department Report | `/accounts/department-performance` |
 | Nursery | `/ward/nursery` |
 | Birth Records | `/ward/nursery/birth-records` |
+| Duty Roster | `/ward/duty-roster` |
 | Public certificate verify | `/verify/birth/:code` |
 
 ## Core workflow
@@ -92,6 +93,24 @@ Creates idempotent demo mother `CURSOR_QA_NURSERY_MOTHER`, baby `CURSOR_QA_BABY_
 
 ## Support
 
-Use Help Center search for: admit, room, operation, baby, birth certificate, invoice, ledger, pharmacy, lab.
+Use Help Center search for: admit, room, operation, baby, birth certificate, invoice, ledger, pharmacy, lab, duty roster.
+
+## Duty Roster
+
+Mental model: **Date → Area → Shift → Coverage → Staff**.
+
+Tree:
+
+- Hospital → Wards → Ward → Ward Level / Room → Staff
+- Departments → Staff
+- OPD → Front Desk / Consultation
+- Laboratory / Pharmacy (only when those modules are enabled)
+- Support
+
+Admin flow: select date, click an area, choose shift, fill an open position, save draft, then publish. Click **+ Fill Open Position** to assign without re-selecting date, area, shift, or role.
+
+**Bulk Assign** opens a 5-step modal: Where → When → Who → Review → Save Draft or Publish. Conflicts are shown before commit. Overlap remains **409 ROSTER_CONFLICT**.
+
+Preview / PDF / Print use the shared HMS document system (weekly landscape, day portrait). Start Tutorial on the page for a short walkthrough. Staff without create/update permission see My Duty only.
 
 For defects, provide MR No, Encounter No, receipt number, and timestamp.

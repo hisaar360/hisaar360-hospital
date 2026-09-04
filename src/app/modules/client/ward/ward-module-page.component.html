@@ -29,10 +29,23 @@
             <button type="button" class="btn btn-sm btn-outline-primary" (click)="exportData()" *ngIf="config.layout === 'table'">
               <i class="fa fa-download"></i> Export
             </button>
-            <button type="button" class="btn btn-sm btn-primary ward-refresh-btn" (click)="refresh()">
-              <i class="fa fa-refresh"></i>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary"
+              *ngIf="config.key === 'inventory' && canRequestStock"
+              (click)="requestStock()"
+            >
+              Request Stock
             </button>
-            <button type="button" class="btn btn-sm btn-primary" *ngIf="config.primaryActionLabel" (click)="primaryAction()">
+            <button type="button" class="btn btn-sm btn-primary ward-refresh-btn" (click)="refresh()">
+              <i class="fa fa-refresh"></i> Refresh
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-primary"
+              *ngIf="config.primaryActionLabel && (config.key !== 'inventory' || canAddInventoryItem)"
+              (click)="primaryAction()"
+            >
               <i class="fa fa-plus"></i> {{ config.primaryActionLabel }}
             </button>
           </div>
@@ -109,6 +122,12 @@
             <button type="button" class="btn btn-sm btn-outline-primary" (click)="exportData()" *ngIf="config.layout === 'table'">
               <i class="fa fa-download"></i> Export
             </button>
+            <button type="button" class="btn btn-sm btn-outline-primary" *ngIf="config.key === 'orders-services'" (click)="cycleTypeFilter()">
+              <i class="fa fa-filter"></i> {{ typeFilter || 'Filter' }}
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-primary" *ngIf="config.key === 'orders-services' || config.key === 'inventory'" (click)="toggleSort()">
+              <i class="fa fa-sort"></i> Sort
+            </button>
           </div>
         </div>
       </div>
@@ -130,6 +149,33 @@
         </div>
 
         <ng-template #dataTable>
+          <div class="ward-mobile-card-list" *ngIf="showMobileCards && rows.length; else desktopTable">
+            <article class="ward-mobile-card" *ngFor="let row of paginatedRows; trackBy: trackById">
+              <div class="ward-mobile-card__head">
+                <strong>{{ row.cells['patient'] || row.cells['item'] }}</strong>
+                <span [ngClass]="badgeClass('status', row)">{{ row.cells['status'] }}</span>
+              </div>
+              <small *ngIf="row.cells['patientSub']">{{ row.cells['patientSub'] }}</small>
+              <p *ngIf="row.cells['order']">{{ row.cells['order'] }}</p>
+              <div class="ward-mobile-card__meta">
+                <span *ngIf="row.cells['type']" [ngClass]="typeChipClass(row.cells['type'])">{{ row.cells['type'] }}</span>
+                <span *ngIf="row.cells['doctor']">{{ row.cells['doctor'] }}</span>
+                <span *ngIf="row.cells['priority']">{{ row.cells['priority'] }}</span>
+                <span *ngIf="row.cells['code']">{{ row.cells['code'] }}</span>
+                <span *ngIf="row.cells['stock']">Stock {{ row.cells['stock'] }}</span>
+                <span *ngIf="row.cells['reorder']">Reorder {{ row.cells['reorder'] }}</span>
+                <span *ngIf="row.cells['location']">{{ row.cells['location'] }}</span>
+              </div>
+              <div class="ward-mobile-card__actions">
+                <button type="button" class="hms-btn hms-btn-sm hms-btn-primary" (click)="openRow(row)">View</button>
+                <app-hms-action-menu [items]="overlayMenuItems(row)" (itemSelect)="onOverlayMenuSelect(row, $event)">
+                  <i class="fa fa-ellipsis-v"></i> More
+                </app-hms-action-menu>
+              </div>
+            </article>
+          </div>
+
+          <ng-template #desktopTable>
           <div class="ward-data-table-wrap" *ngIf="rows.length; else emptyState">
             <table class="table table-hover table-custom spacing5 mb-0 ward-data-table">
               <thead>
@@ -141,19 +187,20 @@
               <tbody>
                 <tr *ngFor="let row of paginatedRows; trackBy: trackById">
                   <td *ngFor="let column of config.columns">
-                    <button
-                      type="button"
-                      class="ward-link-btn-inline"
-                      *ngIf="column.type === 'link'; else cellValue"
-                      (click)="openRow(row)"
-                    >
-                      {{ row.cells[column.key] }}
-                    </button>
+                    <ng-container *ngIf="column.type === 'link'; else cellValue">
+                      <button type="button" class="ward-link-btn-inline" (click)="openRow(row)">
+                        {{ row.cells[column.key] }}
+                      </button>
+                      <small class="ward-cell-sub" *ngIf="column.key === 'patient' && row.cells['patientSub']">{{ row.cells['patientSub'] }}</small>
+                    </ng-container>
                     <ng-template #cellValue>
-                      <span *ngIf="column.type === 'badge'; else plainValue" [ngClass]="badgeClass(column.key, row)">
+                      <span *ngIf="column.type === 'badge'" [ngClass]="badgeClass(column.key, row)">
                         {{ row.cells[column.key] }}
                       </span>
-                      <ng-template #plainValue>{{ row.cells[column.key] }}</ng-template>
+                      <span *ngIf="column.type === 'chip'" [ngClass]="typeChipClass(row.cells[column.key])">
+                        {{ row.cells[column.key] }}
+                      </span>
+                      <ng-container *ngIf="column.type !== 'badge' && column.type !== 'chip'">{{ row.cells[column.key] }}</ng-container>
                     </ng-template>
                   </td>
                   <td>
@@ -195,22 +242,16 @@
                       >
                         <i class="fa fa-check"></i> Complete
                       </button>
-                      <div class="table-actions__menu">
-                        <button
-                          type="button"
-                          title="More"
-                          [class.is-active]="isRowMenuOpen(row.id)"
-                          (click)="toggleRowMenu(row, $event)"
-                        >
-                          <i class="fa fa-ellipsis-v"></i>
-                        </button>
-                      </div>
+                      <app-hms-action-menu [items]="overlayMenuItems(row)" (itemSelect)="onOverlayMenuSelect(row, $event)">
+                        <i class="fa fa-ellipsis-v"></i>
+                      </app-hms-action-menu>
                     </div>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
+          </ng-template>
         </ng-template>
       </ng-template>
 
@@ -240,22 +281,6 @@
   </div>
 </div>
 
-<div class="ward-row-menu-backdrop" *ngIf="activeMenuRow" (click)="closeRowMenu()"></div>
-<div
-  class="table-actions__dropdown table-actions__dropdown--fixed"
-  *ngIf="activeMenuRow"
-  [ngStyle]="menuPosition"
-  (click)="$event.stopPropagation()"
->
-  <button
-    type="button"
-    *ngFor="let item of rowMenuItems(activeMenuRow)"
-    [class.is-danger]="item.danger"
-    (click)="handleRowMenuAction(activeMenuRow, item.id)"
-  >
-    {{ item.label }}
-  </button>
-</div>
 
 <app-ward-drip-action-modal
   [open]="dripActionModalOpen"

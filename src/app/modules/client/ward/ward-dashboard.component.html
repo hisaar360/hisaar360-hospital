@@ -2,7 +2,7 @@
   <div class="container-fluid ward-page-container">
     <div class="ward-page-header ward-page-header--compact">
       <div class="ward-page-header__copy">
-        <h1>{{ isNurseView ? 'Nurse Dashboard' : 'Ward & Nursing Center' }}</h1>
+        <h1>{{ isNurseView ? 'Nurse Dashboard' : 'Ward Control Center' }}</h1>
         <p>{{ dashboardSubtitle }}</p>
       </div>
       <div class="ward-page-header__actions">
@@ -23,9 +23,6 @@
             <option *ngFor="let shift of shiftOptions" [value]="shift.value">{{ shift.label }}</option>
           </select>
         </label>
-        <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" (click)="navigateTo('/ward/bed-management')" *ngIf="!isNurseView">
-          <i class="fa fa-bed"></i> Bed Management
-        </button>
         <button type="button" class="btn btn-sm ward-refresh-btn" (click)="refresh()" [disabled]="loading">
           <i class="fa" [ngClass]="loading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
           Refresh
@@ -65,23 +62,78 @@
 
     <section class="ward-panel hms-card" *ngIf="actionRequired.length">
       <div class="ward-panel__head"><h2>Action Required</h2></div>
-      <div class="ward-action-required-list">
-        <button type="button" class="ward-action-required-item" *ngFor="let item of actionRequired" (click)="navigateTo(item.route)">
-          <i class="fa fa-exclamation-circle"></i> {{ item.label }}
-        </button>
+      <div class="ward-action-required-grid">
+        <article class="ward-action-required-card" *ngFor="let item of actionRequired">
+          <span class="ward-action-required-card__icon"><i class="fa" [ngClass]="actionIcon(item.key)"></i></span>
+          <div class="ward-action-required-card__copy">
+            <strong>{{ actionTitle(item) }}</strong>
+            <small>{{ actionDescription(item) }}</small>
+          </div>
+          <button type="button" class="hms-btn hms-btn-sm hms-btn-primary" (click)="navigateTo(item.route)">View</button>
+        </article>
       </div>
     </section>
 
     <section class="ward-panel hms-card" *ngIf="controlCenterPatients.length">
       <div class="ward-panel__head"><h2>Admitted Patients</h2></div>
-      <div class="ward-control-patient-grid">
-        <article class="ward-control-patient-card" *ngFor="let row of controlCenterPatients">
-          <strong>{{ row['patientName'] }}</strong>
-          <small>MR {{ row['mrn'] }} · {{ row['roomBed'] }}</small>
-          <small>{{ row['doctor'] }} · {{ asString(row['admittedAt']) | date:'short' }}</small>
-          <button type="button" class="hms-btn hms-btn-sm hms-btn-primary" (click)="openControlPanel(asString(row['admissionId']))">Open Control Panel</button>
-        </article>
+      <div class="ward-data-table-wrap ward-admitted-table" *ngIf="!isCompactViewport; else admittedCards">
+        <table class="table table-hover table-custom spacing5 mb-0 ward-data-table">
+          <thead>
+            <tr>
+              <th>Patient</th>
+              <th>MR</th>
+              <th>Ward</th>
+              <th>Room / Bed</th>
+              <th>Doctor</th>
+              <th>Nurse</th>
+              <th>Admitted At</th>
+              <th>Status</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of controlCenterPatients">
+              <td>
+                <div class="ward-admitted-patient">
+                  <span class="ward-avatar">{{ patientInitials(row['patientName']) }}</span>
+                  <strong>{{ row['patientName'] }}</strong>
+                </div>
+              </td>
+              <td>{{ row['mrn'] || '—' }}</td>
+              <td>{{ row['ward'] || '—' }}</td>
+              <td>{{ row['roomBed'] || '—' }}</td>
+              <td>{{ row['doctor'] || '—' }}</td>
+              <td>{{ row['nurse'] || '—' }}</td>
+              <td>{{ asString(row['admittedAt']) | date:'short' }}</td>
+              <td><span class="ward-badge ward-badge--completed">{{ clinicalStatus(row) }}</span></td>
+              <td class="text-right">
+                <button type="button" class="hms-btn hms-btn-sm hms-btn-primary" (click)="openControlPanel(asString(row['admissionId']))">
+                  Open Control Panel
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+      <ng-template #admittedCards>
+        <div class="ward-control-patient-grid">
+          <article class="ward-control-patient-card" *ngFor="let row of controlCenterPatients">
+            <div class="ward-admitted-patient">
+              <span class="ward-avatar">{{ patientInitials(row['patientName']) }}</span>
+              <div>
+                <strong>{{ row['patientName'] }}</strong>
+                <small>MR {{ row['mrn'] || '—' }}</small>
+              </div>
+            </div>
+            <small>{{ row['ward'] || 'Ward' }} · {{ row['roomBed'] || '—' }}</small>
+            <small>{{ row['doctor'] || 'Doctor —' }} · {{ row['nurse'] || 'Nurse —' }}</small>
+            <small>{{ asString(row['admittedAt']) | date:'short' }} · {{ clinicalStatus(row) }}</small>
+            <button type="button" class="hms-btn hms-btn-sm hms-btn-primary ward-full-btn" (click)="openControlPanel(asString(row['admissionId']))">
+              Open Control Panel
+            </button>
+          </article>
+        </div>
+      </ng-template>
     </section>
 
     <div class="ward-overview-layout">
@@ -235,8 +287,8 @@
         </div>
       </section>
 
-      <aside class="ward-summary-column">
-        <section class="ward-panel ward-summary-card">
+      <aside class="ward-summary-column" *ngIf="todayAlerts.length || nursingTasks.length || hasNursingSummary">
+        <section class="ward-panel ward-summary-card" *ngIf="todayAlerts.length">
           <div class="ward-panel__head"><h2>Today's Alerts</h2></div>
           <ul class="ward-alert-list">
             <li *ngFor="let row of todayAlerts">
@@ -248,7 +300,7 @@
           </ul>
         </section>
 
-        <section class="ward-panel ward-summary-card">
+        <section class="ward-panel ward-summary-card" *ngIf="nursingTasks.length">
           <div class="ward-panel__head"><h2>Nursing Tasks</h2></div>
           <ul class="ward-task-list">
             <li *ngFor="let task of nursingTasks">
@@ -261,7 +313,7 @@
           <button type="button" class="ward-link-btn" (click)="navigateTo('/ward/nursing-care')">View All Tasks</button>
         </section>
 
-        <section class="ward-panel ward-summary-card">
+        <section class="ward-panel ward-summary-card" *ngIf="hasNursingSummary">
           <div class="ward-panel__head"><h2>Nursing Summary</h2></div>
           <ul class="ward-summary-list ward-summary-list--nursing">
             <li *ngFor="let row of nursingSummary">

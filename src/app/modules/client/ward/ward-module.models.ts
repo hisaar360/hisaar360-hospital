@@ -27,7 +27,7 @@ export interface WardModuleTab {
 export interface WardModuleColumn {
   key: string;
   label: string;
-  type?: 'text' | 'badge' | 'link';
+  type?: 'text' | 'badge' | 'link' | 'chip';
 }
 
 export interface WardModuleRowMeta {

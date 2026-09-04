@@ -81,6 +81,22 @@ describe('help-search.util', () => {
     expect(results.some((item) => item.article.module === 'laboratory')).toBeFalse();
   });
 
+  it('finds duty roster guides including Roman Urdu', () => {
+    expect(topSlug('duty roster')).toBe('how-to-create-duty-roster');
+    expect(topSlug('nurse ki duty kaise lagaye')).toBe('assign-nurse-duty');
+    expect(topSlug('night shift')).toBe('how-to-create-duty-roster');
+    expect(topSlug('who is on duty')).toBe('my-duty-roster');
+    expect(topSlug('bulk assign roster')).toBe('bulk-assign-duty');
+    expect(topSlug('multiple staff duty')).toBe('bulk-assign-duty');
+    expect(topSlug('nurse ki duty lagani hai')).toBe('assign-nurse-duty');
+    expect(topSlug('publish roster')).toBe('publish-duty-roster');
+    expect(topSlug('bulk assign')).toBe('bulk-assign-duty');
+  });
+
+  it('boosts duty roster for ward role', () => {
+    expect(topSlug('duty roster', 'ward')).toBe('how-to-create-duty-roster');
+  });
+
   it('highlights matched phrases safely', () => {
     const html = highlightSearchText('How to Admit a Patient', 'admit');
     expect(html).toContain('<mark class="help-search-mark">Admit</mark>');

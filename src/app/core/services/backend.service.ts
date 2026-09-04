@@ -1859,6 +1859,48 @@ export class BackendService {
     );
   }
 
+  getDutyRosterBootstrap(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.wardBilling}/roster/bootstrap`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  upsertDutyRosterCoverage(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/roster/coverage`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  previewCopyDutyRosterWeek(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/roster/copy-week/preview`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  copyDutyRosterWeek(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/roster/copy-week`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  publishDutyRosterRange(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/roster/publish`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  previewBulkDutyRoster(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/roster/bulk/preview`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  bulkCreateDutyRoster(payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/roster/bulk`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
   listPharmacyWardSettlements(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
     return this.get<PaginatedResponse<Record<string, unknown>>>(`${CONFIG.wardBilling}/pharmacy-settlements`, params).pipe(
       map((response) => this.unwrapData(response))

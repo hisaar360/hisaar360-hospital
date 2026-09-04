@@ -147,12 +147,12 @@ export class AuthService {
     }
 
     this.clearSession();
-    this.redirectToHostedLogin({ forceHosted: true });
+    this.redirectToHostedLogin();
   }
 
   handleAuthFailure(): void {
     this.clearSession();
-    this.redirectToHostedLogin({ forceHosted: true });
+    this.redirectToHostedLogin();
   }
 
   changePassword(payload: {
@@ -204,7 +204,7 @@ export class AuthService {
   }
 
   localLoginUrl(): string {
-    return `${window.location.origin}/login/access`;
+    return `${window.location.origin}/login`;
   }
 
   saveToken(token: string): void {

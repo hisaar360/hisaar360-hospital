@@ -44,16 +44,17 @@
   <header class="hms-notification-drawer__header">
     <div>
       <h2>Latest Updates</h2>
-      <p>{{ unreadCount }} unread</p>
+      <p><span class="hms-notification-unread-dot"></span> {{ unreadCount }} unread</p>
     </div>
     <div class="hms-notification-drawer__actions">
-      <button type="button" class="btn btn-link btn-sm" data-testid="notification-mute" (click)="toggleMute($event)" title="Toggle sound">
+      <button type="button" class="hms-drawer-action" data-testid="notification-mute" (click)="toggleMute($event)" title="Toggle sound">
         <i class="fa" [ngClass]="notificationSound.muted ? 'fa-volume-off' : 'fa-volume-up'"></i>
       </button>
-      <button type="button" class="btn btn-link btn-sm" data-testid="mark-all-read" [disabled]="!unreadCount" (click)="markAllRead()">
+      <button type="button" class="hms-drawer-action hms-drawer-action--text" data-testid="mark-all-read" [disabled]="!unreadCount" (click)="markAllRead()">
+        <i class="fa fa-check"></i>
         Mark all as read
       </button>
-      <button type="button" class="btn btn-link btn-sm" (click)="closeNotificationDrawer()">
+      <button type="button" class="hms-drawer-action" (click)="closeNotificationDrawer()" title="Close">
         <i class="fa fa-times"></i>
       </button>
     </div>
@@ -67,6 +68,7 @@
       data-testid="notification-item"
       (click)="openNotification(item)"
     >
+      <span class="hms-notification-item__timeline" [class.is-unread]="!item.isRead"></span>
       <div class="hms-notification-item__icon"><i class="fa fa-info-circle"></i></div>
       <div class="hms-notification-item__body">
         <div class="hms-notification-item__head">
@@ -75,9 +77,12 @@
         </div>
         <p>{{ item.message }}</p>
       </div>
-      <span class="hms-notification-item__dot" *ngIf="!item.isRead"></span>
+      <i class="fa fa-chevron-right hms-notification-item__chevron"></i>
     </article>
-    <p class="hms-notification-drawer__empty" *ngIf="!notificationItems.length">No notifications yet.</p>
+    <p class="hms-notification-drawer__empty" *ngIf="!notificationItems.length">
+      You're all caught up!<br>
+      We'll notify you when there's something new.
+    </p>
   </div>
 
   <footer class="hms-notification-drawer__footer">

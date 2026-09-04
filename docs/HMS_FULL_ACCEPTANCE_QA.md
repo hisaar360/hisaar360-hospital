@@ -102,9 +102,28 @@ npm run seed:nursery-demo
 
 | Suite | Result |
 |-------|--------|
-| Backend | **72/72 PASS** |
+| Backend | **80/80 PASS** (`npm test`) |
+| Frontend focused | **32/32 PASS** (help-search, duty-roster util, role workflows) |
 | Angular build | **PASS** |
-| Help Center | 26/26 PASS (unchanged) |
+| Help Center | included in 32/32 |
+
+## Duty Roster / Ward UI (2026-09-03)
+
+| Item | Note |
+|------|------|
+| Birth/Nursery Doctor populate | `ref: 'DoctorProfile'` (canonical model). Do not register a second Doctor collection. |
+| Session expiry | Local → `{origin}/login`. Production → `https://hisaar360.com/login`. |
+| Duty Roster mental model | Date → Area → Shift → Coverage → Staff |
+| Tree drilldown | Ward → Ward Level / Room → Staff. Lab/Pharmacy nodes only if modules enabled. |
+| Open Shift | + Fill Open Position prefills date, area, shift, role. |
+| Bulk Assign | 5-step modal. Preview then `POST /ward-billing/roster/bulk`. Conflicts reported; no silent partial commit when atomic. |
+| Conflict | 409 `ROSTER_CONFLICT` remains authoritative. |
+| Draft / Publish | Save Draft uses create; Publish uses update. |
+| Copy Previous Week | Existing preview + copy-week. |
+| PDF / Print | Shared `HmsDocumentService` weekly landscape / day portrait. |
+| Tutorial | Page-scoped Start Tutorial / ? Help. No TutorialV2. |
+| Ward Dashboard | `/ward/dashboard` Ward Control Center. Real control-center data. |
+| Orders / Inventory | Same module pages + shared overlay menu. |
 
 ## FULL CLINICAL BROWSER FLOWS 1–6
 

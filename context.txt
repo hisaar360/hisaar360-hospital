@@ -2,7 +2,7 @@
 HISAAR360 HOSPITAL MANAGEMENT SYSTEM
 Frontend Application Context  |  Angular Hospital HMS Software
 ================================================================================
-Last updated: 2026-09-02
+Last updated: 2026-09-03
 Document type: Product architecture, UX, and engineering context
 Canonical product name: Hisaar360 Hospital Management System
 Short name: Hisaar360 HMS
@@ -45,6 +45,8 @@ RUNTIME
   Local API:       http://localhost:3001/api/v1
   Live API:        https://hmsbackend-faizan99904.fly.dev/api/v1
   Production auth: https://hisaar360.com/login
+  Local expired session / no token: http://localhost:4200/login
+  Production expired session: https://hisaar360.com/login
   Local auth URL:  environment.authPortalLoginUrl
   Auth:            Hisaar360 Central Auth — JWT + SSO
                    Product code HSPTL0012 / key hsptl-hisaar-3299498
@@ -284,6 +286,8 @@ DEPARTMENT
   Hospital department (Cardiology, Gynae, …). Doctors and appointments link here.
 
 DOCTOR (DoctorProfile)
+  Canonical mongoose model name is DoctorProfile (collection doctor_profiles).
+  Birth records and nursery populate DoctorProfile — never a separate Doctor model.
   Clinical doctor profile. May be created with a new login (name/email/password)
   or linked to an existing userId.
   Has consultationFee, availableDays/slots, prescription template settings.
@@ -713,7 +717,8 @@ Ward / rooms
   /ward/dashboard, /ward/bed-management, /ward/patient-list
   /ward/patient-detail/:admissionId
   /ward/admissions, nursing-care, mar, drips-iv, vitals, io-chart,
-    orders-services, shift-handover, inventory, reports, nurses-staff
+    orders-services, shift-handover, inventory, reports, nurses-staff,
+    duty-roster
   /ward-admin            legacy free-text ward notes
   /room-allotment, /alloted-rooms, /add-alloted-rooms
 
@@ -924,9 +929,38 @@ UNIFIED DOCUMENT SYSTEM (2026-09-02)
   - Standard footer: Hisaar360 Hospital Management System
   - Wired: Accounts reports, Doctor/Dept performance, Patient Ledger, Lab report, Birth
     certificate, Admission recommendation, MAR, Ward patient summary/vitals/procedures,
-    Imaging order, Running bill, Discharge statement
+    Imaging order, Running bill, Discharge statement, Duty Roster weekly/day
   - Finance safety: document export is read-only (no ledger/journal/stock side effects)
   - Mobile: CODE READY FOR MOBILE VISUAL QA (preview modal near-fullscreen <=767px)
+
+
+================================================================================
+12. WARD UI + DUTY ROSTER (2026-09-03)
+================================================================================
+
+WARD CONTROL CENTER
+  Route: /ward/dashboard (not main /dashboard)
+  Title: Ward Control Center
+  Data: GET /ward/control-center for KPIs, Action Required, admitted patients
+  Primary patient action: Open Control Panel (visible, not hidden in a menu)
+  Right summary (Today's Alerts / Nursing Tasks / Nursing Summary) only when
+  real API values exist — do not invent counts
+
+ORDERS & SERVICES / WARD INVENTORY
+  Same WardModulePageComponent (no OrdersV2 / independent ward stock)
+  Shared CDK overlay menu (app-hms-action-menu) — last-row menus must not clip
+  Mobile 390px: cards, not a squeezed table
+  Inventory uses pharmacy inventory + ward requisitions
+
+DUTY ROSTER
+  Mental model: Date → Area → Shift → Coverage → Staff
+  Tree-first on /ward/duty-roster; bootstrap GET /ward-billing/roster/bootstrap
+  Open position pre-fills date/area/shift/role
+  Bulk Assign: POST /ward-billing/roster/bulk/preview and /bulk
+  Conflict: 409 ROSTER_CONFLICT
+  Documents: HmsDocumentService (no roster-specific jsPDF)
+  Tutorial: page-scoped Start Tutorial / ? Help (not TutorialV2)
+  Staff without create/update see My Duty only
 
 
 ================================================================================

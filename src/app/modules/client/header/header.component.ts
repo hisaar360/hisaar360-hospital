@@ -75,6 +75,10 @@ export class HeaderComponent implements OnInit {
   }
 
   toggleNotificationDrawer(): void {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      void this.router.navigate(['/notifications']);
+      return;
+    }
     this.drawerOpen = !this.drawerOpen;
   }
 

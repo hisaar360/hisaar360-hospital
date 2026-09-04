@@ -1173,54 +1173,131 @@ export function mapVitalsRows(
     );
 }
 
+export function normalizeOrderType(raw: string): string {
+  const value = String(raw || '').toLowerCase();
+  if (value.includes('lab')) return 'Lab';
+  if (value.includes('med') || value.includes('pharmacy') || value.includes('drug')) return 'Medicine';
+  if (value.includes('imag') || value.includes('radio') || value.includes('x-ray') || value.includes('xray') || value.includes('scan')) {
+    return 'Imaging';
+  }
+  if (value.includes('proc') || value.includes('surg') || value.includes('oper')) return 'Procedure';
+  if (value.includes('nurs')) return 'Nursing';
+  if (['lab', 'medicine', 'imaging', 'procedure', 'nursing', 'other'].includes(value)) {
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+  return raw ? 'Other' : 'Other';
+}
+
 export function mapOrderRows(labOrders: LabOrder[], prescriptions: Prescription[]): WardModuleRow[] {
-  const labRows = labOrders.map((order) =>
-    withModuleMeta(
+  const labRows = labOrders.map((order) => {
+    const completed = ['verified', 'result_entered'].includes(order.status);
+    const progress = ['processing', 'sample_collected'].includes(order.status);
+    const urgent = order.priority === 'urgent';
+    return withModuleMeta(
       {
         id: order._id,
         cells: {
           patient: patientFullName(order.patient),
+          patientSub: order.patient?.patientNo || order.orderNo || '',
           order: order.items?.map((test) => test.testName).join(', ') || 'Lab Order',
           type: 'Lab',
           doctor: order.doctor?.name || '—',
           time: formatDisplayDate(order.createdAt),
-          status: order.status || 'Pending',
-          _tab: ['verified', 'result_entered'].includes(order.status) ? 'completed' : ['processing', 'sample_collected'].includes(order.status) ? 'progress' : 'pending',
+          orderedOn: formatDisplayDate(order.createdAt),
+          priority: urgent ? 'Urgent' : 'Normal',
+          status: completed ? 'Completed' : progress ? 'In Progress' : 'Pending',
+          _tab: completed ? 'completed' : progress ? 'progress' : 'pending',
+          _urgent: urgent ? '1' : '',
+          _source: 'lab',
         },
         badgeTone: {
-          status: ['verified', 'result_entered'].includes(order.status) ? 'completed' : ['processing', 'sample_collected'].includes(order.status) ? 'running' : 'pending',
+          status: completed ? 'completed' : progress ? 'running' : 'pending',
+          priority: urgent ? 'critical' : 'stable',
+          type: 'lab',
         },
         linkRoute: `/ward/patient-detail/${order.patientId}`,
       },
       order.patientId
-    )
-  );
+    );
+  });
 
   const admissionRows = prescriptions.flatMap((prescription) =>
-    (prescription.admissionOrderItems || []).map((order, index) =>
-      withModuleMeta(
+    (prescription.admissionOrderItems || []).map((order, index) => {
+      const completed = order.status === 'completed';
+      const urgent = String((order as { priority?: string }).priority || '').toLowerCase() === 'urgent'
+        || String((order as { priority?: string }).priority || '').toLowerCase() === 'high';
+      const type = normalizeOrderType(order.category || 'Other');
+      return withModuleMeta(
         {
           id: `${prescription._id}-order-${index}`,
           cells: {
             patient: patientFullName(prescription.patient),
+            patientSub: prescription.patient?.patientNo || '',
             order: order.order,
-            type: order.category || 'Service',
+            type,
             doctor: prescription.doctor?.name || '—',
             time: formatDisplayDate(order.orderedOn),
-            status: order.status === 'completed' ? 'Completed' : 'Pending',
-            _tab: order.status === 'completed' ? 'completed' : 'pending',
+            orderedOn: formatDisplayDate(order.orderedOn),
+            priority: urgent ? 'Urgent' : 'Normal',
+            status: completed ? 'Completed' : 'Pending',
+            _tab: completed ? 'completed' : 'pending',
+            _urgent: urgent ? '1' : '',
+            _source: 'admission-order',
           },
           badgeTone: {
-            status: order.status === 'completed' ? 'completed' : 'pending',
+            status: completed ? 'completed' : 'pending',
+            priority: urgent ? 'critical' : 'stable',
+            type: type.toLowerCase(),
           },
           linkRoute: `/ward/patient-detail/${prescription.patientId}`,
         },
         prescription.patientId
-      )
-    )
+      );
+    })
   );
 
   return [...labRows, ...admissionRows];
+}
+
+export function mapServiceOrderRows(activities: WardActivityRecord[]): WardModuleRow[] {
+  return activities
+    .filter((item) => Boolean(item.metadata?.['orderType']))
+    .map((item) => {
+      const completed = item.status === 'completed';
+      const progress = item.status === 'in_progress' || item.status === 'in progress';
+      const urgent = item.priority === 'high' || item.priority === 'critical';
+      const type = normalizeOrderType(String(item.metadata?.['orderType'] || 'Other'));
+      const patientName = item.patient
+        ? `${item.patient.firstName || ''} ${item.patient.lastName || ''}`.trim()
+        : '—';
+      return withModuleMeta(
+        {
+          id: item._id,
+          cells: {
+            patient: patientName,
+            patientSub: String(item.metadata?.['mrn'] || item.metadata?.['admissionNo'] || ''),
+            order: item.title || 'Ward Order',
+            type,
+            doctor: String(item.metadata?.['doctorName'] || '—'),
+            time: formatDisplayDate(item.createdAt),
+            orderedOn: formatDisplayDate(item.createdAt),
+            priority: urgent ? 'Urgent' : 'Normal',
+            status: completed ? 'Completed' : progress ? 'In Progress' : 'Pending',
+            _tab: completed ? 'completed' : progress ? 'progress' : 'pending',
+            _urgent: urgent ? '1' : '',
+            _source: 'ward-order',
+          },
+          badgeTone: {
+            status: completed ? 'completed' : progress ? 'running' : 'pending',
+            priority: urgent ? 'critical' : 'stable',
+            type: type.toLowerCase(),
+          },
+          linkRoute: item.admissionId ? `/ward/patient-detail/${item.admissionId}` : undefined,
+        },
+        item.patientId,
+        item.admissionId
+      );
+    });
 }
 
 export function filterModuleRows(

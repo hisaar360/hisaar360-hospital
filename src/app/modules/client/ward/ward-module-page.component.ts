@@ -18,16 +18,20 @@ import {
   WardModuleRow,
   WardRowMenuItem,
 } from './ward-module.models';
-import { isNurseRole, readStoredRole } from '../../auth/access-control';
+import { hasPermission, isNurseRole, readStoredRole } from '../../auth/access-control';
 import { WardActionModalComponent } from './ward-action-modal.component';
 import { WardDripActionModalComponent } from './ward-drip-action-modal.component';
 import { WardVitalsTrendsComponent } from './ward-vitals-trends.component';
 import { WardDataService } from './services/ward-data.service';
 import { WARD_PATIENT_SHIFT_OPTIONS } from './ward-patient-list.mock';
+import { HmsActionMenuComponent, HmsActionMenuItem } from '../../../shared/components/hms-action-menu/hms-action-menu.component';
+import { HmsDocumentService } from '../../../core/services/hms-document.service';
+import { buildHmsStandardDocumentHtml, buildHmsTableHtml } from '../../../core/utils/hms-document-template.util';
+import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../core/utils/hms-document-context.util';
 
 @Component({
   selector: 'app-ward-module-page',
-  imports: [CommonModule, FormsModule, WardActionModalComponent, WardDripActionModalComponent, WardVitalsTrendsComponent],
+  imports: [CommonModule, FormsModule, WardActionModalComponent, WardDripActionModalComponent, WardVitalsTrendsComponent, HmsActionMenuComponent],
   templateUrl: './ward-module-page.component.html',
   styleUrl: './ward-module-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -65,6 +69,9 @@ export class WardModulePageComponent implements OnInit {
   dripActionRow: WardModuleRow | null = null;
   activeMenuRow: WardModuleRow | null = null;
   menuPosition: Record<string, string> = {};
+  isCompactViewport = typeof window !== 'undefined' && window.innerWidth <= 768;
+  typeFilter = '';
+  sortDesc = true;
   private pendingDripPatch: { rowId: string; status: 'planned' | 'running' | 'completed' } | null = null;
 
   constructor(
@@ -72,8 +79,33 @@ export class WardModulePageComponent implements OnInit {
     private router: Router,
     private toastr: ToastrService,
     private cdr: ChangeDetectorRef,
-    private wardData: WardDataService
+    private wardData: WardDataService,
+    private docs: HmsDocumentService
   ) {}
+
+  get canAddInventoryItem(): boolean {
+    return hasPermission('products.create') || hasPermission('inventory.adjust');
+  }
+
+  get canRequestStock(): boolean {
+    return hasPermission('inventory.adjust') || hasPermission('ward.create');
+  }
+
+  get canAdjustStock(): boolean {
+    return hasPermission('inventory.adjust');
+  }
+
+  get canEditProduct(): boolean {
+    return hasPermission('products.update');
+  }
+
+  get canArchiveProduct(): boolean {
+    return hasPermission('products.delete');
+  }
+
+  get showMobileCards(): boolean {
+    return this.isCompactViewport && (this.config?.key === 'orders-services' || this.config?.key === 'inventory');
+  }
 
   ngOnInit(): void {
     const moduleKey = this.route.snapshot.data['wardModuleKey'] as string;
@@ -92,6 +124,12 @@ export class WardModulePageComponent implements OnInit {
 
   get hideVitalsListTable(): boolean {
     return this.config?.key === 'vitals' && this.hasPatientContext;
+  }
+
+  @HostListener('window:resize')
+  onViewportResize(): void {
+    this.isCompactViewport = window.innerWidth <= 768;
+    this.cdr.markForCheck();
   }
 
   @HostListener('document:click', ['$event'])
@@ -224,13 +262,31 @@ export class WardModulePageComponent implements OnInit {
       items.push({ id: 'accept-handover', label: 'Accept Handover' });
     }
 
-    if (this.config.key === 'orders-services' && row.id && !String(row.id).includes('-')) {
+    if (this.config.key === 'orders-services') {
       const status = String(row.cells['status'] || '').toLowerCase();
-      if (status === 'pending' || status === 'due') {
-        items.push({ id: 'acknowledge-order', label: 'Acknowledge Order' });
+      const type = String(row.cells['type'] || '').toLowerCase();
+      const source = String(row.cells['_source'] || '');
+      const completed = status === 'completed' || status === 'verified' || status === 'result_entered';
+      const inProgress = status === 'in progress' || status === 'in_progress' || status === 'processing';
+      items.push({ id: 'view-details', label: 'View Details' });
+      if (!completed) {
+        items.push({ id: 'update-status', label: 'Update Status' });
       }
-      if (status === 'pending' || status === 'due' || status === 'in progress' || status === 'in_progress') {
-        items.push({ id: 'complete-order', label: 'Complete Order' });
+      if (!completed && !inProgress && (status === 'pending' || status === 'due')) {
+        items.push({ id: 'acknowledge-order', label: 'Mark In Progress' });
+      }
+      if (!completed && (status === 'pending' || status === 'due' || inProgress)) {
+        items.push({ id: 'complete-order', label: 'Mark Completed' });
+      }
+      if (type === 'lab' && !completed && (status === 'pending' || status === 'sample_collected')) {
+        items.push({ id: 'verify-sample', label: 'Verify Sample' });
+      }
+      if (!completed && source === 'ward-order') {
+        items.push({ id: 'reassign-order', label: 'Reassign' });
+      }
+      items.push({ id: 'print-slip', label: 'Print Slip' });
+      if (!completed) {
+        items.push({ id: 'cancel-order', label: 'Cancel', danger: true });
       }
     }
 
@@ -238,8 +294,23 @@ export class WardModulePageComponent implements OnInit {
       items.push({ id: 'administer-mar', label: 'Record Administration' });
     }
 
-    if (this.config.key === 'inventory' && String(row.cells['status'] || '').toLowerCase() === 'requested' && row.id) {
-      items.push({ id: 'issue-requisition', label: 'Issue from store' });
+    if (this.config.key === 'inventory') {
+      items.push({ id: 'view-details', label: 'View Details' });
+      if (String(row.cells['_kind'] || '') === 'requisition' && row.id) {
+        items.push({ id: 'issue-requisition', label: 'Issue Item' });
+      }
+      if (this.canAdjustStock && String(row.cells['_kind'] || '') === 'stock') {
+        items.push({ id: 'issue-item', label: 'Issue Item' });
+        items.push({ id: 'add-stock', label: 'Add Stock' });
+        items.push({ id: 'transfer-stock', label: 'Transfer' });
+        items.push({ id: 'adjust-stock', label: 'Adjust Stock' });
+      }
+      if (this.canEditProduct) {
+        items.push({ id: 'edit-item', label: 'Edit Item' });
+      }
+      if (this.canArchiveProduct && String(row.cells['_kind'] || '') === 'stock') {
+        items.push({ id: 'archive-item', label: 'Delete', danger: true });
+      }
     }
 
     if (patientId) {
@@ -310,24 +381,6 @@ export class WardModulePageComponent implements OnInit {
           error: (err) => this.toastr.error(err?.error?.message || 'Failed to accept handover.'),
         });
         break;
-      case 'acknowledge-order':
-        this.wardData.acknowledgeOrder(row.id).subscribe({
-          next: () => {
-            this.toastr.success('Order acknowledged.');
-            this.refreshRows();
-          },
-          error: (err) => this.toastr.error(err?.error?.message || 'Failed to acknowledge order.'),
-        });
-        break;
-      case 'complete-order':
-        this.wardData.completeOrder(row.id).subscribe({
-          next: () => {
-            this.toastr.success('Order completed.');
-            this.refreshRows();
-          },
-          error: (err) => this.toastr.error(err?.error?.message || 'Failed to complete order.'),
-        });
-        break;
       case 'administer-mar':
         this.primaryAction();
         break;
@@ -339,6 +392,62 @@ export class WardModulePageComponent implements OnInit {
           },
           error: (err) => this.toastr.error(err?.error?.message || 'Failed to issue requisition.'),
         });
+        break;
+      case 'view-details':
+        this.openRow(row);
+        break;
+      case 'update-status':
+      case 'acknowledge-order':
+        if (this.isPersistedActivity(row.id)) {
+          this.wardData.acknowledgeOrder(row.id).subscribe({
+            next: () => {
+              this.toastr.success('Order marked in progress.');
+              this.refreshRows();
+            },
+            error: (err) => this.toastr.error(err?.error?.message || 'Failed to update order.'),
+          });
+        } else {
+          this.toastr.info('Open the source module to update this order.');
+        }
+        break;
+      case 'complete-order':
+        if (this.isPersistedActivity(row.id)) {
+          this.wardData.completeOrder(row.id).subscribe({
+            next: () => {
+              this.toastr.success('Order completed.');
+              this.refreshRows();
+            },
+            error: (err) => this.toastr.error(err?.error?.message || 'Failed to complete order.'),
+          });
+        } else {
+          this.toastr.info('Open the source module to complete this order.');
+        }
+        break;
+      case 'verify-sample':
+        void this.router.navigate(['/laboratory'], { queryParams: { orderId: row.id } });
+        break;
+      case 'reassign-order':
+        this.primaryAction();
+        break;
+      case 'print-slip':
+        this.printOrderSlip(row);
+        break;
+      case 'cancel-order':
+        this.toastr.info('Cancel keeps the order history. Use the source module if a void is required.');
+        break;
+      case 'issue-item':
+      case 'add-stock':
+      case 'adjust-stock':
+        this.primaryAction();
+        break;
+      case 'transfer-stock':
+        void this.router.navigate(['/pharmacy/stock-movements']);
+        break;
+      case 'edit-item':
+        void this.router.navigate(['/pharmacy/products']);
+        break;
+      case 'archive-item':
+        this.toastr.info('Inventory history is kept. Archive the product from Pharmacy Products if needed.');
         break;
     }
     this.cdr.markForCheck();
@@ -551,6 +660,9 @@ export class WardModulePageComponent implements OnInit {
     if (tabKey === 'all') {
       return this.allRows.length;
     }
+    if (tabKey === 'urgent') {
+      return this.allRows.filter((row) => row.cells['_urgent'] === '1' || String(row.cells['priority'] || '').toLowerCase() === 'urgent').length;
+    }
 
     return this.allRows.filter((row) => row.cells['_tab'] === tabKey).length;
   }
@@ -721,11 +833,95 @@ export class WardModulePageComponent implements OnInit {
     });
   }
 
+  overlayMenuItems(row: WardModuleRow): HmsActionMenuItem[] {
+    return this.rowMenuItems(row).map((item) => ({
+      id: item.id,
+      label: item.label,
+      danger: item.danger,
+    }));
+  }
+
+  onOverlayMenuSelect(row: WardModuleRow, item: HmsActionMenuItem): void {
+    this.handleRowMenuAction(row, item.id || item.label);
+  }
+
+  typeChipClass(type: string): string {
+    return `ward-type-chip ward-type-chip--${String(type || 'other').toLowerCase().replace(/\s+/g, '-')}`;
+  }
+
+  toggleSort(): void {
+    this.sortDesc = !this.sortDesc;
+    this.applyTabFilter();
+    this.cdr.markForCheck();
+  }
+
+  cycleTypeFilter(): void {
+    const options = ['', 'Lab', 'Medicine', 'Imaging', 'Procedure', 'Nursing', 'Other'];
+    const index = options.indexOf(this.typeFilter);
+    this.typeFilter = options[(index + 1) % options.length];
+    this.applyTabFilter();
+    this.cdr.markForCheck();
+  }
+
+  requestStock(): void {
+    this.primaryAction();
+  }
+
+  private isPersistedActivity(id: string): boolean {
+    return Boolean(id) && !String(id).includes('-') && /^[a-f\d]{24}$/i.test(id);
+  }
+
+  private printOrderSlip(row: WardModuleRow): void {
+    const html = buildHmsStandardDocumentHtml({
+      title: 'Order Slip',
+      hospital: readStoredHospitalDocumentInfo(),
+      generatedBy: readCurrentUserName(),
+      metaRows: [
+        { label: 'Patient', value: row.cells['patient'] || '—' },
+        { label: 'MR / Ref', value: row.cells['patientSub'] || '—' },
+        { label: 'Order', value: row.cells['order'] || '—' },
+        { label: 'Type', value: row.cells['type'] || '—' },
+        { label: 'Doctor', value: row.cells['doctor'] || '—' },
+        { label: 'Priority', value: row.cells['priority'] || '—' },
+        { label: 'Status', value: row.cells['status'] || '—' },
+      ],
+      bodyHtml: `<section class="hms-doc-section"><h3>Order</h3>${buildHmsTableHtml(
+        ['Field', 'Value'],
+        [
+          ['Ordered On', row.cells['orderedOn'] || row.cells['time'] || '—'],
+          ['Order', row.cells['order'] || '—'],
+        ]
+      )}</section>`,
+    });
+    this.docs.openPreview({
+      title: 'Order Slip',
+      html,
+      filename: 'order-slip.pdf',
+      orientation: 'portrait',
+    });
+  }
+
   private applyTabFilter(): void {
-    this.rows =
+    let next =
       this.activeTab === 'all'
-        ? this.allRows
-        : this.allRows.filter((row) => row.cells['_tab'] === this.activeTab);
+        ? [...this.allRows]
+        : this.activeTab === 'urgent'
+          ? this.allRows.filter((row) => row.cells['_urgent'] === '1' || String(row.cells['priority'] || '').toLowerCase() === 'urgent')
+          : this.allRows.filter((row) => row.cells['_tab'] === this.activeTab);
+
+    if (this.typeFilter && this.config.key === 'orders-services') {
+      next = next.filter((row) => row.cells['type'] === this.typeFilter);
+    }
+
+    if (this.config.key === 'orders-services') {
+      next.sort((left, right) => {
+        const a = String(left.cells['orderedOn'] || left.cells['time'] || '');
+        const b = String(right.cells['orderedOn'] || right.cells['time'] || '');
+        return this.sortDesc ? b.localeCompare(a) : a.localeCompare(b);
+      });
+    }
+
+    this.rows = next;
   }
 
   private filterReportCards(): void {
@@ -741,7 +937,13 @@ export class WardModulePageComponent implements OnInit {
   private kpiValueFromRows(kpi: WardModuleKpi): number {
     const countTab = kpi.countTab;
     if (!countTab || countTab === 'total') {
+      if (this.config.key === 'inventory') {
+        return this.allRows.filter((row) => row.cells['_kind'] === 'stock').length;
+      }
       return this.allRows.length;
+    }
+    if (countTab === 'urgent') {
+      return this.allRows.filter((row) => row.cells['_urgent'] === '1' || String(row.cells['priority'] || '').toLowerCase() === 'urgent').length;
     }
     if (countTab === 'unique-patient') {
       return new Set(this.allRows.map((row) => row.cells['patient'])).size;

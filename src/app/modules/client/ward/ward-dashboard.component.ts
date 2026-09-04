@@ -41,7 +41,8 @@ export class WardDashboardComponent implements OnInit {
   nursingTasks: WardTaskRow[] = [];
   nursingSummary: NursingSummaryRow[] = [];
   monitoringCards: MonitoringCard[] = [];
-  actionRequired: Array<{ key: string; label: string; route: string; priority: string }> = [];
+  actionRequired: Array<{ key: string; title?: string; label: string; description?: string; route: string; priority: string }> = [];
+  isCompactViewport = typeof window !== 'undefined' && window.innerWidth <= 768;
   controlCenterPatients: Array<Record<string, unknown>> = [];
 
   wardOptions: string[] = [];
@@ -124,9 +125,61 @@ export class WardDashboardComponent implements OnInit {
         ? `My assigned patients · ${this.filters.ward} · ${shift}`
         : `My assigned patients · ${shift}`;
     }
-    return this.filters.ward
-      ? `${this.filters.ward} operational overview · ${shift}`
-      : `Ward operational overview · ${shift}`;
+    return 'Admissions, beds, medicines, investigations and nursing actions requiring attention.';
+  }
+
+  get hasNursingSummary(): boolean {
+    return this.nursingSummary.some((row) => Number(row.value) > 0);
+  }
+
+  actionIcon(key: string): string {
+    const icons: Record<string, string> = {
+      admission: 'fa-hospital-o',
+      mar: 'fa-medkit',
+      lab: 'fa-flask',
+      pharmacy: 'fa-shopping-cart',
+      imaging: 'fa-picture-o',
+      discharge: 'fa-sign-out',
+    };
+    return icons[key] || 'fa-exclamation-circle';
+  }
+
+  actionTitle(item: { title?: string; label: string }): string {
+    return item.title || item.label;
+  }
+
+  actionDescription(item: { key: string; description?: string }): string {
+    if (item.description) {
+      return item.description;
+    }
+    const copy: Record<string, string> = {
+      admission: 'Review pending admission recommendations and allocate a bed.',
+      mar: 'Record due or overdue medication administrations.',
+      lab: 'Collect, process, or follow up pending laboratory orders.',
+      pharmacy: 'Issue or follow up pending ward pharmacy requests.',
+      imaging: 'Complete pending imaging or radiology orders.',
+      discharge: 'Complete discharge for patients marked ready.',
+    };
+    return copy[item.key] || 'Open the related ward workflow.';
+  }
+
+  patientInitials(name: unknown): string {
+    const parts = String(name || 'P')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    return ((parts[0]?.[0] || 'P') + (parts[1]?.[0] || '')).toUpperCase();
+  }
+
+  clinicalStatus(row: Record<string, unknown>): string {
+    if (row['clinicalStatus']) {
+      return String(row['clinicalStatus']);
+    }
+    const indicators = (row['indicators'] || {}) as Record<string, boolean>;
+    if (indicators['dischargeReady']) return 'Ready for discharge';
+    if (indicators['medsDue']) return 'Meds due';
+    if (indicators['labPending']) return 'Lab pending';
+    return 'Admitted';
   }
 
   loadDashboard(): void {
@@ -525,6 +578,11 @@ export class WardDashboardComponent implements OnInit {
       : value.includes('isolation')
         ? 'isolation'
         : 'standard';
+  }
+
+  @HostListener('window:resize')
+  onViewportResize(): void {
+    this.isCompactViewport = window.innerWidth <= 768;
   }
 
   @HostListener('document:click', ['$event'])

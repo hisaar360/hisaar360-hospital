@@ -150,27 +150,12 @@
               </td>
               <td>
                 <div class="table-actions table-actions--wide">
-                  <button type="button" title="View" (click)="viewPatient(patient)">
-                    <i class="fa fa-eye"></i>
+                  <button type="button" class="btn btn-sm btn-primary" title="Open Control Panel" (click)="viewPatient(patient)">
+                    Open Control Panel
                   </button>
-                  <button type="button" title="Assign Nurse" (click)="assignNurse(patient)">
-                    <i class="fa fa-user-md"></i>
-                  </button>
-                  <button type="button" title="Transfer Bed" (click)="transferBed(patient)">
-                    <i class="fa fa-random"></i>
-                  </button>
-                  <div class="table-actions__menu">
-                    <button type="button" title="More" (click)="toggleMoreMenu(patient.admissionId, $event)">
-                      <i class="fa fa-ellipsis-v"></i>
-                    </button>
-                    <div class="table-actions__dropdown" *ngIf="isMenuOpen(patient.admissionId)">
-                      <button type="button" (click)="navigateWithAdmission('/ward/mar', patient)">View MAR</button>
-                      <button type="button" (click)="navigateWithAdmission('/ward/vitals', patient)">View Vitals</button>
-                      <button type="button" (click)="navigateWithAdmission('/ward/drips-iv', patient)">View Drips / IV</button>
-                      <button type="button" (click)="navigateWithAdmission('/ward/nursing-care', patient)">Nursing Notes</button>
-                      <button type="button" (click)="navigateWithAdmission('/ward/admissions', patient)">Discharge Clearance</button>
-                    </div>
-                  </div>
+                  <app-hms-action-menu [items]="moreMenuItems" (itemSelect)="onMoreAction(patient, $event)">
+                    <i class="fa fa-ellipsis-v"></i>
+                  </app-hms-action-menu>
                 </div>
               </td>
             </tr>
@@ -197,10 +182,10 @@
               <div><dt>Admitted</dt><dd>{{ formatDate(patient.admittedOn) }}</dd></div>
             </dl>
             <div class="table-actions table-actions--wide">
-              <button type="button" title="View" (click)="viewPatient(patient)"><i class="fa fa-eye"></i></button>
-              <button type="button" title="Assign Nurse" (click)="assignNurse(patient)"><i class="fa fa-user-md"></i></button>
-              <button type="button" title="Transfer" (click)="transferBed(patient)"><i class="fa fa-random"></i></button>
-              <button type="button" title="Preview" (click)="openPreview(patient)"><i class="fa fa-info-circle"></i></button>
+              <button type="button" class="btn btn-sm btn-primary" (click)="viewPatient(patient)">Open Control Panel</button>
+              <app-hms-action-menu [items]="moreMenuItems" (itemSelect)="onMoreAction(patient, $event)">
+                More
+              </app-hms-action-menu>
             </div>
           </article>
         </div>

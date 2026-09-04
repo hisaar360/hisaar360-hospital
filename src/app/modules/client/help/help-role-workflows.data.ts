@@ -136,6 +136,7 @@ export const HELP_ROLE_WORKFLOWS: Record<HelpRoleKey, HelpRoleWorkflowConfig> = 
       'create-rooms-beds',
       'add-doctor-guide',
       'roles-permissions',
+      'how-to-create-duty-roster',
       'accounts-overview',
     ],
     quickTaskSlugs: [
@@ -312,6 +313,8 @@ export const HELP_ROLE_WORKFLOWS: Record<HelpRoleKey, HelpRoleWorkflowConfig> = 
     commonTaskSlugs: [
       'how-to-admit-patient',
       'ward-control-panel',
+      'how-to-create-duty-roster',
+      'assign-nurse-duty',
       'mar-medicine-guide',
       'ward-nursing-care',
       'lab-order-from-ward',

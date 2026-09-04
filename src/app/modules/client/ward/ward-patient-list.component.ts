@@ -20,10 +20,11 @@ import {
 import { WARD_PATIENT_SHIFT_OPTIONS } from './ward-patient-list.mock';
 import { WardDataService } from './services/ward-data.service';
 import { getWardOptionsFromRooms, mapAllotmentToWardPatient } from './services/ward-api.mapper';
+import { HmsActionMenuComponent, HmsActionMenuItem } from '../../../shared/components/hms-action-menu/hms-action-menu.component';
 
 @Component({
   selector: 'app-ward-patient-list',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HmsActionMenuComponent],
   templateUrl: './ward-patient-list.component.html',
   styleUrl: './ward-patient-list.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -305,6 +306,25 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
 
   viewPatient(patient: WardPatient): void {
     void this.router.navigate(['/ward/patient-detail', patient.admissionId]);
+  }
+
+  readonly moreMenuItems: HmsActionMenuItem[] = [
+    { label: 'View MAR' },
+    { label: 'View Vitals' },
+    { label: 'View Drips / IV' },
+    { label: 'Nursing Notes' },
+    { label: 'Discharge Clearance' },
+  ];
+
+  onMoreAction(patient: WardPatient, item: HmsActionMenuItem): void {
+    const routes: Record<string, string> = {
+      'View MAR': '/ward/mar',
+      'View Vitals': '/ward/vitals',
+      'View Drips / IV': '/ward/drips-iv',
+      'Nursing Notes': '/ward/nursing-care',
+      'Discharge Clearance': '/ward/admissions',
+    };
+    this.navigateWithAdmission(routes[item.label], patient);
   }
 
   assignNurse(patient: WardPatient): void {
