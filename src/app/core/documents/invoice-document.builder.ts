@@ -61,10 +61,23 @@ export function buildInvoiceDocumentHtml(context: InvoiceDocumentContext): strin
     metaRows: [
       { label: 'Patient', value: patientDisplayName(bill.patient) },
       { label: 'MR', value: bill.patient?.patientNo || '—' },
+      {
+        label: 'Report Auth Code',
+        value:
+          (bill.patient as { reportAccessCode?: string } | undefined)?.reportAccessCode ||
+          (bill as { reportAccessCode?: string }).reportAccessCode ||
+          '—',
+      },
       { label: 'Source Type', value: bill.sourceType || '—' },
       { label: 'Source No', value: bill.sourceNo || '—' },
     ],
-    bodyHtml,
+    bodyHtml:
+      bodyHtml +
+      `
+    <section class="hms-doc-section">
+      <h3>Online Lab Reports</h3>
+      <p>Visit <strong>https://hisaar360.com/lab-reports</strong> and enter File No plus Report Auth Code from this invoice to view approved lab reports. Do not share the code publicly.</p>
+    </section>`,
     generatedAt: formatHmsDateTime(new Date()),
     generatedBy: context.generatedBy,
   });

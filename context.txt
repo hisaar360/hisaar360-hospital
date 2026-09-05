@@ -509,6 +509,15 @@ Landing for Ward Admin / Nurse: /ward/dashboard
     PATCH .../ledger-items/:itemId/cancel
   Rule: services post charges; cashier collects money separately.
 
+--- 7.7a Bulk Add Medicines ----------------------------------------------------
+  Route (FE): /pharmacy/products/bulk
+  API: POST /api/v1/products/bulk  (permission: products.create)
+  Browser parses Excel/CSV locally; Save All sends ONE JSON payload.
+  Backend runInTransaction creates Product rows + InventoryService.increaseStock
+  opening stock (reason OPENING_STOCK). Products never store current stock.
+  Requires inventory.adjust when any openingStock > 0.
+  Max 500 rows per request.
+
 --- 7.7 Hospital pharmacy POS --------------------------------------------------
 
   Open register session → POS sale (patient can be a pharmacy customer)
@@ -840,20 +849,33 @@ HOSPITAL BIRTH CERTIFICATE (versioned document snapshot)
       snapshot (baby/parents/delivery/signatory) + publicVerificationCode +
       embedded stamp/signature/logo data URLs + qrCodeDataUrl (no extra media/QR HTTP)
   - Print HTML prefers embedded data URLs; resolveAssetUrl() is FE fallback for /api paths
-  - QR verify URL: https://hisaar360.com/verify/birth/:code
-      (Central Auth landing page → auth-backend public proxy → HMS
-       GET /public/birth-certificates/verify/:code)
-  - Local QR: http://localhost:4200/verify/birth/:code
+  - QR verify URL (form page, not direct auto-open):
+      https://hisaar360.com/verify/birth?certificateNo=HBC-…
+      (Landing form → Cloudflare Turnstile captcha → auth-backend proxy →
+       HMS POST/GET /public/birth-certificates/verify)
+  - Local form: http://localhost:4200/verify/birth
+  - Opaque token GET /verify/:code remains supported for legacy links
   - Auth-backend env override: HMS_PUBLIC_API_BASE_URL
-  - Public page also remains on HMS SPA /verify/birth/:code (fallback)
+  - Public page also remains on HMS SPA /verify/birth (fallback form)
   - API: POST /birth-records/:id/certificates, POST /certificates/:id/correct|revoke|print
   - Optional env: API_PUBLIC_ORIGIN (absolutize media when data-URL embed fails)
 
+PUBLIC LAB REPORTS
+  - Landing: https://hisaar360.com/lab-reports
+  - Requires patientNo + reportAccessCode (unique per patient, printed on invoices AND lab reports)
+  - Lab report print QR scans to lab-reports form (?patientNo= prefilled); auth code still required
+  - Captcha via auth-backend Turnstile, then proxy to HMS:
+      POST /api/v1/public/lab-reports/lookup
+      POST /api/v1/public/lab-reports/report
+  - Patient.reportAccessCode generated on create (lazy backfill on getPatientById / bill / lab order)
+
 PUBLIC QR VERIFICATION
-  - Public page: https://hisaar360.com/verify/birth/:code (landing + auth proxy)
-    HMS SPA fallback remains at /verify/birth/:code
-  - API: GET /api/v1/public/birth-certificates/verify/:code (rate limited)
-  - QR encodes opaque token only — never Mongo IDs or CNIC
+  - QR lands on form (not auto-open): https://hisaar360.com/verify/birth?certificateNo=HBC-…
+  - Landing: enter Certificate Number + Cloudflare Turnstile → POST auth proxy → HMS verify
+  - HMS SPA fallback form: /verify/birth (query certificateNo or path legacy code)
+  - API: POST /api/v1/public/birth-certificates/verify { certificateNo }
+        GET  /api/v1/public/birth-certificates/verify/:code (legacy opaque token)
+  - QR must never encode Mongo IDs or CNIC
   - Returns minimal payload: validity, hospital, baby name, DOB, masked mother, version
 
 CERTIFICATE VERSIONING / CIVIL REGISTRATION DISTINCTION

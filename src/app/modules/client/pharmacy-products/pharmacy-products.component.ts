@@ -36,6 +36,8 @@ interface ProductForm {
   maxDiscountValue: string;
 }
 
+type ProductFormSection = 'basic' | 'pricing' | 'batch' | 'optional';
+
 @Component({
   selector: 'app-pharmacy-products',
   standalone: true,
@@ -56,6 +58,12 @@ export class PharmacyProductsComponent implements OnInit {
   editingProductId = '';
   editingOriginalStock = '';
   deletingProductId = '';
+  productSections: Record<ProductFormSection, boolean> = {
+    basic: true,
+    pricing: true,
+    batch: true,
+    optional: true,
+  };
   productUnits = [
     'tablet',
     'capsule',
@@ -79,6 +87,9 @@ export class PharmacyProductsComponent implements OnInit {
     'mcg/ml',
   ];
   productForm: ProductForm = this.getEmptyProductForm();
+  showBulkTip = false;
+
+  private readonly bulkTipStorageKey = 'hms-bulk-medicines-catalog-tip-seen';
 
   constructor(
     private route: ActivatedRoute,
@@ -95,6 +106,16 @@ export class PharmacyProductsComponent implements OnInit {
     });
 
     this.refreshCurrentUser();
+    if (typeof localStorage !== 'undefined' && !localStorage.getItem(this.bulkTipStorageKey)) {
+      this.showBulkTip = true;
+    }
+  }
+
+  dismissBulkTip(): void {
+    this.showBulkTip = false;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(this.bulkTipStorageKey, '1');
+    }
   }
 
   get canViewProducts(): boolean {
@@ -271,6 +292,7 @@ export class PharmacyProductsComponent implements OnInit {
     this.editingOriginalStock = '';
     this.productForm = this.getEmptyProductForm();
     this.productForm.storeId = storeId;
+    this.resetProductSections();
 
     this.productModalOpen = true;
   }
@@ -312,7 +334,21 @@ export class PharmacyProductsComponent implements OnInit {
           ? ''
           : String(product.maxDiscountValue),
     };
+    this.resetProductSections();
     this.productModalOpen = true;
+  }
+
+  toggleProductSection(section: ProductFormSection): void {
+    this.productSections[section] = !this.productSections[section];
+  }
+
+  private resetProductSections(): void {
+    this.productSections = {
+      basic: true,
+      pricing: true,
+      batch: true,
+      optional: true,
+    };
   }
 
   closeProductModal(): void {

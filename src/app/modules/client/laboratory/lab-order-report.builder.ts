@@ -99,8 +99,7 @@ export function buildLabOrderReportHtml(context: LabReportContext): string {
           </div>
         </div>
         <div class="qr-panel">
-          ${qrSvg(`${context.order.orderNo}|${displayValue(patient?.patientNo)}|${patientName(patient)}`)}
-          <span>${escapeHtml(context.order.orderNo)}</span>
+          ${labReportsQrHtml(patient?.patientNo, context.order.orderNo)}
         </div>
       </header>
 
@@ -126,9 +125,9 @@ export function buildLabOrderReportHtml(context: LabReportContext): string {
           <em>${escapeHtml(sourceLabel(context.order.source))}</em>
         </div>
         <div class="patient-box">
-          <span>Patient Number</span>
+          <span>File No</span>
           <strong>${escapeHtml(displayValue(patient?.patientNo))}</strong>
-          <em>Case No: ${escapeHtml(caseNumber(context.order))}</em>
+          <em>Report Auth Code: ${escapeHtml(displayValue(patient?.reportAccessCode))}</em>
         </div>
       </section>
 
@@ -166,6 +165,7 @@ export function buildLabOrderReportHtml(context: LabReportContext): string {
           <p class="system-line">${escapeHtml(systemGeneratedLine)}</p>
           <p class="disclaimer">${escapeHtml(disclaimer)}</p>
           <p>Result(s) relate only to the sample received. Clinical correlation is recommended.</p>
+          <p>Online reports: https://hisaar360.com/lab-reports — use File No and Report Auth Code printed above.</p>
         </div>
         <div class="footer-meta">
           <span>${escapeHtml(labName)}</span>
@@ -406,54 +406,27 @@ function brandMarkHtml(hospital: Hospital | null, labName: string): string {
   return `<div class="brand-mark brand-mark-fallback"><span>${escapeHtml(initials(labName))}</span></div>`;
 }
 
-function qrSvg(value: string): string {
-  const size = 29;
-  const seed = hashString(value);
-  const cells: string[] = [];
-
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      if (isFinderArea(x, y, size)) {
-        continue;
-      }
-
-      const filled = ((seed + x * 17 + y * 31 + x * y * 7) % 11) < 5;
-      if (filled) {
-        cells.push(`<rect x="${x}" y="${y}" width="1" height="1" />`);
-      }
-    }
+function resolveLabReportsPublicUrl(patientNo?: string | null): string {
+  const isBrowserLocal =
+    typeof window !== 'undefined' &&
+    /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])$/i.test(window.location.hostname);
+  const base = isBrowserLocal
+    ? 'http://localhost:4200/lab-reports'
+    : 'https://hisaar360.com/lab-reports';
+  const no = String(patientNo || '').trim();
+  if (!no) {
+    return base;
   }
-
-  return `<svg class="qr-code" viewBox="0 0 ${size} ${size}" aria-label="Report code" role="img">
-    <rect width="${size}" height="${size}" fill="#fff" />
-    ${finderPattern(0, 0)}
-    ${finderPattern(size - 7, 0)}
-    ${finderPattern(0, size - 7)}
-    <g fill="#111827">${cells.join('')}</g>
-  </svg>`;
+  return `${base}?patientNo=${encodeURIComponent(no)}`;
 }
 
-function finderPattern(x: number, y: number): string {
-  return `<g fill="#111827">
-    <rect x="${x}" y="${y}" width="7" height="7" />
-    <rect x="${x + 1}" y="${y + 1}" width="5" height="5" fill="#fff" />
-    <rect x="${x + 2}" y="${y + 2}" width="3" height="3" />
-  </g>`;
-}
-
-function isFinderArea(x: number, y: number, size: number): boolean {
-  return (
-    (x < 8 && y < 8) ||
-    (x >= size - 8 && y < 8) ||
-    (x < 8 && y >= size - 8)
-  );
-}
-
-function hashString(value: string): number {
-  return value.split('').reduce((hash, char) => {
-    const next = (hash << 5) - hash + char.charCodeAt(0);
-    return next >>> 0;
-  }, 2166136261);
+/** Real scannable QR → public lab reports form (patient number prefilled). */
+function labReportsQrHtml(patientNo: string | null | undefined, orderNo: string): string {
+  const url = resolveLabReportsPublicUrl(patientNo);
+  const img = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&ecc=M&margin=4&data=${encodeURIComponent(url)}`;
+  return `<img class="qr-code" src="${escapeAttribute(img)}" alt="Scan for online lab reports" width="96" height="96" />
+    <span>${escapeHtml(orderNo)}</span>
+    <small>Scan → online reports</small>`;
 }
 
 function patientName(patient: LabOrder['patient']): string {
@@ -501,10 +474,6 @@ function patientLocation(order: LabOrder): string {
 
 function consultantName(order: LabOrder): string {
   return displayValue(order.referredBy || order.doctor?.name);
-}
-
-function caseNumber(order: LabOrder): string {
-  return displayValue(order.appointmentId || order.prescriptionId || order._id);
 }
 
 function sourceLabel(source?: string): string {
@@ -747,24 +716,32 @@ function reportStyles(theme: { nameColor: string; borderColor: string }): string
       display: grid;
       gap: 2px;
       justify-items: center;
-      width: 68px;
+      width: 78px;
     }
 
     .qr-code {
       border: 1px solid #111827;
       display: block;
-      height: 54px;
-      width: 54px;
+      height: 60px;
+      width: 60px;
+      object-fit: contain;
+      background: #fff;
     }
 
-    .qr-panel span {
+    .qr-panel span,
+    .qr-panel small {
       color: #202124;
       font-size: 6.5px;
       font-weight: 700;
-      line-height: 1;
-      max-width: 66px;
+      line-height: 1.1;
+      max-width: 76px;
       overflow-wrap: anywhere;
       text-align: center;
+    }
+
+    .qr-panel small {
+      font-weight: 600;
+      color: #5f6368;
     }
 
     .report-title-bar {

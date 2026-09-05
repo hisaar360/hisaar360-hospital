@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
 import {
   FormBuilder,
   FormGroup,
@@ -10,7 +10,6 @@ import {
 import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
-import { AppDialogService } from '../../../core/services/app-dialog.service';
 import { BackendService } from '../../../core/services/backend.service';
 import { LoadingService } from '../../../core/services/loading.service';
 import { compressImageFileToDataUrl } from '../../../core/utils/image-compress.util';
@@ -87,7 +86,13 @@ export class HospitalSetupComponent implements OnInit {
   loading = false;
   syncing = false;
   activeTab: SetupTab = 'departments';
+  showAddMenu = false;
   showMoreMenu = false;
+  showDefaultsModal = false;
+  rowActionDepartment: Department | null = null;
+  rowActionWard: WardOverview | null = null;
+  rowActionMenuTop = 0;
+  rowActionMenuLeft = 0;
   showDepartmentModal = false;
   showWardModal = false;
 
@@ -126,8 +131,8 @@ export class HospitalSetupComponent implements OnInit {
   uploadingBirthImage: '' | 'stamp' | 'signature' = '';
   birthAccordion: Record<string, boolean> = {
     basic: true,
-    branding: true,
-    signatory: true,
+    branding: false,
+    signatory: false,
     qr: false,
     privacy: false,
     display: false,
@@ -143,7 +148,6 @@ export class HospitalSetupComponent implements OnInit {
   constructor(
     private backend: BackendService,
     private toastr: ToastrService,
-    private dialog: AppDialogService,
     private fb: FormBuilder,
     private cdr: ChangeDetectorRef,
     private loadingService: LoadingService
@@ -178,6 +182,16 @@ export class HospitalSetupComponent implements OnInit {
     }
   }
 
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.closeHeaderMenus();
+  }
+
+  @HostListener('window:scroll')
+  onWindowScroll(): void {
+    this.closeRowActions();
+  }
+
   can(permission: string): boolean {
     return this.backend.hasPermission(permission);
   }
@@ -190,6 +204,22 @@ export class HospitalSetupComponent implements OnInit {
     return this.can('ward.create') || this.can('ward.update') || this.can('*');
   }
 
+  get totalRooms(): number {
+    return this.wards.reduce((total, ward) => total + Number(ward.roomsCount || 0), 0);
+  }
+
+  get totalBeds(): number {
+    return this.wards.reduce((total, ward) => total + Number(ward.bedsCount || 0), 0);
+  }
+
+  get totalAvailableBeds(): number {
+    return this.wards.reduce((total, ward) => total + Number(ward.availableBeds || 0), 0);
+  }
+
+  get totalOccupiedBeds(): number {
+    return this.wards.reduce((total, ward) => total + Number(ward.occupiedBeds || 0), 0);
+  }
+
   get defaultVerificationBaseUrlHint(): string {
     const host = typeof window !== 'undefined' ? window.location.hostname : '';
     if (/^(localhost|127\.0\.0\.1)$/i.test(host)) {
@@ -200,15 +230,61 @@ export class HospitalSetupComponent implements OnInit {
 
   setTab(tab: SetupTab): void {
     this.activeTab = tab;
+    this.showAddMenu = false;
+    this.showMoreMenu = false;
+  }
+
+  closeHeaderMenus(): void {
+    this.showAddMenu = false;
+    this.showMoreMenu = false;
+    this.closeRowActions();
+  }
+
+  toggleAddMenu(): void {
+    this.showAddMenu = !this.showAddMenu;
     this.showMoreMenu = false;
   }
 
   toggleMoreMenu(): void {
     this.showMoreMenu = !this.showMoreMenu;
+    this.showAddMenu = false;
   }
 
   toggleBirthSection(key: string): void {
     this.birthAccordion[key] = !this.birthAccordion[key];
+  }
+
+  openDepartmentActions(event: MouseEvent, item: Department): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.positionRowActionMenu(event.currentTarget as HTMLElement);
+    this.rowActionDepartment = item;
+    this.rowActionWard = null;
+  }
+
+  openWardActions(event: MouseEvent, item: WardOverview): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.positionRowActionMenu(event.currentTarget as HTMLElement);
+    this.rowActionWard = item;
+    this.rowActionDepartment = null;
+  }
+
+  closeRowActions(): void {
+    this.rowActionDepartment = null;
+    this.rowActionWard = null;
+  }
+
+  private positionRowActionMenu(trigger: HTMLElement): void {
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = 184;
+    const menuHeight = 118;
+    const viewportWidth = typeof window === 'undefined' ? 1440 : window.innerWidth;
+    const viewportHeight = typeof window === 'undefined' ? 900 : window.innerHeight;
+    this.rowActionMenuLeft = Math.max(12, Math.min(rect.right - menuWidth, viewportWidth - menuWidth - 12));
+    this.rowActionMenuTop = rect.bottom + menuHeight > viewportHeight - 12
+      ? Math.max(12, rect.top - menuHeight - 6)
+      : rect.bottom + 6;
   }
 
   loadOverview(): void {
@@ -508,15 +584,13 @@ export class HospitalSetupComponent implements OnInit {
     return ids.includes(deptId);
   }
 
-  async confirmAddDefaults(): Promise<void> {
-    const confirmed = await this.dialog.confirm({
-      title: 'Add Default Hospital Setup?',
-      message:
-        'This will add any missing standard departments and wards.\nYour existing setup will not be changed.',
-      confirmText: 'Add Defaults',
-      cancelText: 'Cancel',
-    });
-    if (!confirmed) return;
+  confirmAddDefaults(): void {
+    this.showMoreMenu = false;
+    this.showDefaultsModal = true;
+  }
+
+  addDefaultsConfirmed(): void {
+    this.showDefaultsModal = false;
     this.runAddDefaults();
   }
 

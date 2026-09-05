@@ -109,6 +109,9 @@ describe('help-search.util', () => {
     expect(topSlug('nurse ki duty lagani hai')).toBe('assign-nurse-duty');
     expect(topSlug('publish roster')).toBe('publish-duty-roster');
     expect(topSlug('bulk assign')).toBe('bulk-assign-duty');
+    expect(topSlug('bulk medicine')).toBe('bulk-add-medicines');
+    expect(topSlug('excel medicine')).toBe('bulk-add-medicines');
+    expect(topSlug('medicine import')).toBe('bulk-add-medicines');
   });
 
   it('boosts duty roster for ward role', () => {

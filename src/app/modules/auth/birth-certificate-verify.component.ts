@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { BackendService } from '../../core/services/backend.service';
@@ -21,13 +22,15 @@ const MODE_OF_DELIVERY_LABELS: Record<string, string> = {
 
 @Component({
   selector: 'app-birth-certificate-verify',
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './birth-certificate-verify.component.html',
   styleUrl: './birth-certificate-verify.component.scss',
 })
 export class BirthCertificateVerifyComponent implements OnInit {
-  loading = true;
-  code = '';
+  loading = false;
+  submitted = false;
+  certificateNo = '';
+  errorMessage = '';
   result: BirthCertificateVerificationResult | null = null;
   verifiedAt = new Date();
   readonly watermarkTiles = Array.from({ length: 64 });
@@ -39,27 +42,71 @@ export class BirthCertificateVerifyComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.route.queryParamMap.subscribe((params) => {
+      const fromQuery = String(params.get('certificateNo') || '').trim();
+      if (fromQuery) {
+        this.certificateNo = fromQuery;
+      }
+    });
     this.route.paramMap.subscribe((params) => {
-      this.code = String(params.get('code') || '').trim();
-      this.loadVerification();
+      const code = String(params.get('code') || '').trim();
+      if (!code) {
+        return;
+      }
+      // Legacy deep link: opaque token auto-loads once. New QR uses ?certificateNo= form only.
+      if (/^HBC-/i.test(code)) {
+        this.certificateNo = code.toUpperCase();
+        return;
+      }
+      this.loadLegacyOpaque(code);
     });
   }
 
-  private loadVerification(): void {
-    this.loading = true;
+  onVerify(): void {
+    const cert = String(this.certificateNo || '').trim().toUpperCase();
+    this.certificateNo = cert;
+    this.errorMessage = '';
     this.result = null;
-    if (!this.code) {
-      this.loading = false;
-      this.result = { found: false };
+    this.submitted = true;
+    if (!cert || cert.length < 3) {
+      this.errorMessage = 'Enter a valid certificate number (e.g. HBC-2026-000001).';
       return;
     }
+    this.loading = true;
     this.backend
-      .verifyBirthCertificatePublic(this.code)
+      .verifyBirthCertificateByNumber(cert)
       .pipe(finalize(() => (this.loading = false)))
       .subscribe({
         next: (data) => {
           this.result = data;
           this.verifiedAt = new Date();
+          void this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { certificateNo: cert },
+            queryParamsHandling: 'merge',
+            replaceUrl: true,
+          });
+        },
+        error: () => {
+          this.result = { found: false };
+        },
+      });
+  }
+
+  private loadLegacyOpaque(code: string): void {
+    this.loading = true;
+    this.submitted = true;
+    this.result = null;
+    this.backend
+      .verifyBirthCertificatePublic(code)
+      .pipe(finalize(() => (this.loading = false)))
+      .subscribe({
+        next: (data) => {
+          this.result = data;
+          this.verifiedAt = new Date();
+          if (data?.certificateNo) {
+            this.certificateNo = String(data.certificateNo);
+          }
         },
         error: () => {
           this.result = { found: false };
@@ -86,7 +133,7 @@ export class BirthCertificateVerifyComponent implements OnInit {
 
   statusSummary(): string {
     if (!this.result?.found) {
-      return 'This verification code does not match any issued hospital birth certificate.';
+      return 'This certificate number does not match any issued hospital birth certificate.';
     }
     if (this.result.status === 'VALID') {
       return 'This certificate is genuine and matches our hospital records.';
@@ -139,9 +186,7 @@ export class BirthCertificateVerifyComponent implements OnInit {
     if (!raw) return '—';
     const key = raw.toLowerCase().replace(/[\s-]+/g, '_');
     if (MODE_OF_DELIVERY_LABELS[key]) return MODE_OF_DELIVERY_LABELS[key];
-    return raw
-      .replace(/[_-]+/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return raw.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
   formatSex(value?: string | null): string {
@@ -154,8 +199,7 @@ export class BirthCertificateVerifyComponent implements OnInit {
 
   qrImageUrl(): string {
     if (typeof window === 'undefined') return '';
-    const url = window.location.href;
-    return `https://api.qrserver.com/v1/create-qr-code/?size=140x140&ecc=M&margin=6&data=${encodeURIComponent(url)}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=140x140&ecc=M&margin=6&data=${encodeURIComponent(window.location.href)}`;
   }
 
   sealHospitalName(): string {
@@ -165,8 +209,10 @@ export class BirthCertificateVerifyComponent implements OnInit {
   }
 
   verifyAnother(): void {
-    const next = String(window.prompt('Enter verification code') || '').trim();
-    if (!next) return;
-    this.router.navigate(['/verify/birth', next]);
+    this.submitted = false;
+    this.result = null;
+    this.errorMessage = '';
+    this.certificateNo = '';
+    void this.router.navigate(['/verify/birth'], { replaceUrl: true });
   }
 }

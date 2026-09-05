@@ -590,6 +590,15 @@ export const clientRoutes: Routes = [
         canActivate: [roleGuard(PHARMACY_ACCESS)],
       },
       {
+        path: 'pharmacy/products/bulk',
+        loadComponent: () =>
+          import('./bulk-product-import/bulk-product-import.component').then(
+            (m) => m.BulkProductImportComponent
+          ),
+        data: { title: 'Hisaar360 Hospital Management System | Add Bulk Medicines' },
+        canActivate: [roleGuard(['products.create'])],
+      },
+      {
         path: 'pharmacy/customers',
         loadComponent: () =>
           import('./pharmacy-customers/pharmacy-customers.component').then(

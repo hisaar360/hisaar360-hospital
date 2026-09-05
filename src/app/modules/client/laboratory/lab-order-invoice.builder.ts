@@ -105,9 +105,6 @@ export function buildLabInvoiceHtml(order: LabOrder, hospital: Hospital | null):
   const paidAt = order.paidAt ? new Date(order.paidAt).toLocaleString() : '';
   const received = receiverName(order);
   const method = String(order.paymentMethod || 'cash').replace(/^\w/, (letter) => letter.toUpperCase());
-  const ledgerLine = order.encounterId
-    ? 'Posted to hospital ledger'
-    : 'Will post to hospital ledger on save';
 
   return `
     <!doctype html>
@@ -208,6 +205,8 @@ export function buildLabInvoiceHtml(order: LabOrder, hospital: Hospital | null):
             <div class="line">Patient: ${escapeHtml(patientName(order))}</div>
             <div class="line">File No: ${escapeHtml(order.patient?.patientNo || '-')}</div>
             <div class="line">Phone: ${escapeHtml(order.patient?.phone || '-')}</div>
+            <div class="line">Report Auth Code: ${escapeHtml((order.patient as { reportAccessCode?: string } | undefined)?.reportAccessCode || '-')}</div>
+            <div class="line">Online reports: https://hisaar360.com/lab-reports</div>
           </div>
           <hr class="rule" />
           <table>
@@ -233,7 +232,6 @@ export function buildLabInvoiceHtml(order: LabOrder, hospital: Hospital | null):
                    ${paidAt ? `<div class="line">Paid at: ${escapeHtml(paidAt)}</div>` : ''}`
                 : '<div class="line">Payment not received at laboratory.</div>'
             }
-            <div class="line">${escapeHtml(ledgerLine)}</div>
           </div>
           <hr class="rule" />
           ${order.notes ? `<div class="line">Notes: ${escapeHtml(order.notes)}</div><hr class="rule" />` : ''}

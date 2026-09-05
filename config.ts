@@ -45,6 +45,7 @@ export const CONFIG = {
   customers: API_BASE_URL + '/customers',
   suppliers: API_BASE_URL + '/suppliers',
   products: API_BASE_URL + '/products',
+  productsBulk: API_BASE_URL + '/products/bulk',
   inventory: API_BASE_URL + '/inventory',
   stockMovements: API_BASE_URL + '/stock-movements',
   rooms: API_BASE_URL + '/rooms',

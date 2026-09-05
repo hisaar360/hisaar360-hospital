@@ -161,11 +161,12 @@ function buildWatermarkHtml(hospitalName: string): string {
   return `<div class="watermark" aria-hidden="true"><div class="watermark-grid">${tiles}</div></div>`;
 }
 
-/** Public portal hosts /verify/birth/:code — live: hisaar360.com, local: localhost:4200. */
+/** Public portal form page /verify/birth — live: hisaar360.com, local: localhost:4200. */
 export function resolveBirthCertificateVerificationBaseUrl(configured?: string | null): string {
   const trimmed = String(configured || '')
     .trim()
-    .replace(/\/$/, '');
+    .replace(/\/$/, '')
+    .replace(/\/:code$/i, '');
 
   const isBrowserLocal =
     typeof window !== 'undefined' &&
@@ -190,12 +191,18 @@ export function resolveBirthCertificateVerificationBaseUrl(configured?: string |
   return 'https://hisaar360.com/verify/birth';
 }
 
+/** QR / link target: form page with certificate number prefilled (not direct auto-open). */
 export function buildBirthCertificateVerificationUrl(
-  verificationCode: string,
+  certificateNo: string,
   baseUrl?: string | null
 ): string {
   const normalizedBase = resolveBirthCertificateVerificationBaseUrl(baseUrl);
-  return `${normalizedBase}/${encodeURIComponent(verificationCode)}`;
+  const cert = String(certificateNo || '').trim();
+  if (!cert) {
+    return normalizedBase;
+  }
+  const joiner = normalizedBase.includes('?') ? '&' : '?';
+  return `${normalizedBase}${joiner}certificateNo=${encodeURIComponent(cert)}`;
 }
 
 function buildQrImageUrl(verifyUrl: string): string {
@@ -220,8 +227,9 @@ export function buildBirthCertificatePrintHtml(options: {
   const father = snap.father || {};
   const signatory = snap.signatory || {};
   const printOptions = snap.printOptions || {};
-  const verifyUrl = verificationCode
-    ? buildBirthCertificateVerificationUrl(verificationCode, verificationBaseUrl)
+  const certNo = String(certificate.certificateNo || '').trim();
+  const verifyUrl = certNo
+    ? buildBirthCertificateVerificationUrl(certNo, verificationBaseUrl)
     : '';
   const qrImg =
     verifyUrl && printOptions.showQrCode !== false

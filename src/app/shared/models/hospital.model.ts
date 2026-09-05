@@ -270,6 +270,8 @@ export interface Patient {
   _id: string;
   hospitalId: string;
   patientNo: string;
+  /** Printed on invoices for public lab report lookup. */
+  reportAccessCode?: string;
   assignedDoctorId: string;
   assignedDoctor?: User | null;
   firstName: string;

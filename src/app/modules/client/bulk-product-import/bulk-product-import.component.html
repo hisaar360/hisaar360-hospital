@@ -1,0 +1,456 @@
+<div id="main-content" class="pharmacy-page bulk-import-page">
+  <div class="pharmacy-shell">
+    <header class="pharmacy-hero bulk-hero">
+      <div class="pharmacy-hero-main">
+        <a class="bulk-back" routerLink="/pharmacy/products"><i class="fa fa-arrow-left"></i> Back to Medicine Catalog</a>
+        <div class="product-title-line" data-tour="bulk-page-title">
+          <h1>Add Bulk Medicines</h1>
+          <span class="product-context-badge"><i class="fa fa-medkit"></i> Pharmacy</span>
+        </div>
+        <p>
+          Import multiple medicines at once using an Excel/CSV file or add manually in a table.
+          All medicines will be saved in one request.
+        </p>
+      </div>
+      <div class="pharmacy-hero-actions">
+        <button type="button" class="bulk-btn bulk-btn--ghost" (click)="startTutorial()">
+          <i class="fa fa-lightbulb-o"></i> How it works
+        </button>
+      </div>
+    </header>
+
+    <nav class="bulk-steps" aria-label="Bulk import steps">
+      <button type="button" class="bulk-step" [class.is-active]="step === 1" [class.is-done]="step > 1" (click)="step = 1">
+        <span>1</span>
+        <div>
+          <strong>Upload File</strong>
+          <small class="bulk-step-desktop">Import or paste data</small>
+          <small class="bulk-step-mobile">Upload</small>
+        </div>
+      </button>
+      <button type="button" class="bulk-step" [class.is-active]="step === 2" [class.is-done]="step > 2" (click)="rows.length && (step = 2)">
+        <span>2</span>
+        <div>
+          <strong class="bulk-step-desktop">Review &amp; Edit</strong>
+          <strong class="bulk-step-mobile">Review</strong>
+          <small class="bulk-step-desktop">Verify medicine details</small>
+        </div>
+      </button>
+      <button type="button" class="bulk-step" [class.is-active]="step === 3" (click)="goConfirm()">
+        <span>3</span>
+        <div>
+          <strong class="bulk-step-desktop">Confirm &amp; Save</strong>
+          <strong class="bulk-step-mobile">Confirm</strong>
+          <small class="bulk-step-desktop">Add all medicines</small>
+        </div>
+      </button>
+    </nav>
+
+    <section class="bulk-upload-grid">
+      <article class="bulk-card bulk-upload-card">
+        <div class="bulk-upload-icon" aria-hidden="true"><i class="fa fa-file-excel-o"></i></div>
+        <h2>Upload Excel or CSV File</h2>
+        <p>
+          Download our template, fill in the details and upload.
+          Supported formats: .xlsx, .xls, .csv (max 5 MB).
+        </p>
+        <div class="bulk-upload-actions">
+          <label class="bulk-btn bulk-btn--primary bulk-file-btn" data-tour="bulk-upload">
+            <i class="fa fa-upload"></i> {{ parsing ? 'Reading…' : 'Upload File' }}
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+              (change)="onFileSelected($event)"
+              [disabled]="parsing || saving"
+            />
+          </label>
+          <button type="button" class="bulk-btn bulk-btn--outline" data-tour="bulk-template" (click)="downloadTemplate()">
+            <i class="fa fa-download"></i> Download Template
+          </button>
+        </div>
+      </article>
+
+      <aside class="bulk-tips">
+        <h3><i class="fa fa-info-circle"></i> Quick Tips</h3>
+        <ul>
+          <li>Use the provided template for correct format.</li>
+          <li>Required fields: Medicine Name, Type, Strength, Unit, Store, Cost Price.</li>
+          <li>You can add up to {{ maxRows }} medicines at once.</li>
+        </ul>
+      </aside>
+    </section>
+
+    <div class="bulk-or" aria-hidden="true"><span>OR</span></div>
+
+    <section class="bulk-card bulk-preview-card">
+      <div class="bulk-preview-head">
+        <div class="bulk-preview-tabs" data-tour="bulk-preview-tabs">
+          <button type="button" [class.is-active]="previewMode === 'sheet'" (click)="setPreviewMode('sheet')">
+            <span class="bulk-tab-desktop">Spreadsheet Preview</span>
+            <span class="bulk-tab-mobile">Preview{{ rows.length ? ' (' + rows.length + ')' : '' }}</span>
+          </button>
+          <button type="button" [class.is-active]="previewMode === 'manual'" (click)="setPreviewMode('manual')">
+            Add Manually
+          </button>
+        </div>
+
+        <div class="bulk-toolbar">
+          <label class="bulk-search"><i class="fa fa-search"></i><input type="search" [(ngModel)]="search" placeholder="Search in preview..." /></label>
+          <select [(ngModel)]="rowFilter" aria-label="Filter rows">
+            <option value="all">All Rows</option>
+            <option value="valid">Valid only</option>
+            <option value="warnings">Warnings only</option>
+            <option value="errors">Errors only</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="bulk-legend" *ngIf="rows.length">
+        <div class="bulk-legend__item is-err"><strong>Error</strong><span>Blocks Save All — fix the highlighted field first.</span></div>
+        <div class="bulk-legend__item is-warn"><strong>Warning</strong><span>You can still save, but review the field (yellow).</span></div>
+        <div class="bulk-legend__item is-ok"><strong>Valid</strong><span>Ready to import.</span></div>
+      </div>
+
+      <div class="bulk-chips" data-tour="bulk-validation" *ngIf="rows.length">
+        <button type="button" [class.is-active]="rowFilter === 'all'" (click)="setRowFilter('all')">{{ summary.total }} Medicines</button>
+        <button type="button" class="is-ok" [class.is-active]="rowFilter === 'valid'" (click)="setRowFilter('valid')">{{ summary.valid }} Valid</button>
+        <button type="button" class="is-warn" *ngIf="summary.warnings" [class.is-active]="rowFilter === 'warnings'" (click)="setRowFilter('warnings')">{{ summary.warnings }} Warning</button>
+        <button type="button" class="is-err" [class.is-active]="rowFilter === 'errors'" (click)="setRowFilter('errors')">{{ summary.errors }} Error</button>
+      </div>
+
+      <div class="bulk-empty" *ngIf="!rows.length">
+        Upload a file or click <strong>Add Manually</strong> to start building your import list.
+        <div class="bulk-empty-actions">
+          <button type="button" class="bulk-btn bulk-btn--outline" (click)="addManualRow()">
+            <i class="fa fa-plus"></i> Add Medicine Row
+          </button>
+        </div>
+      </div>
+
+      <div class="bulk-table-wrap" data-tour="bulk-preview" *ngIf="rows.length">
+        <table class="bulk-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Medicine Name *</th>
+              <th>Type *</th>
+              <th>SKU</th>
+              <th>Strength *</th>
+              <th>Unit *</th>
+              <th>Category</th>
+              <th>Store *</th>
+              <th>Cost Price</th>
+              <th>Selling Price</th>
+              <th>Opening Stock</th>
+              <th>Batch</th>
+              <th>MFD</th>
+              <th>Expiry</th>
+              <th>Validation</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of filteredRows; let i = index" [class.is-error]="row.status === 'error'" [class.is-warn]="row.status === 'warning'">
+              <td>{{ i + 1 }}</td>
+              <td
+                class="bulk-sticky-name"
+                [class.cell-error]="fieldSeverity(row, 'name') === 'error'"
+                [class.cell-warn]="fieldSeverity(row, 'name') === 'warning'"
+                [attr.title]="fieldIssueMessage(row, 'name') || null"
+              >
+                <strong>{{ displayCell(row.name) }}</strong>
+              </td>
+              <td
+                [class.cell-error]="fieldSeverity(row, 'unit') === 'error'"
+                [class.cell-warn]="fieldSeverity(row, 'unit') === 'warning'"
+                [attr.title]="fieldIssueMessage(row, 'unit') || null"
+              >{{ displayCell(row.unit) }}</td>
+              <td
+                [class.cell-error]="fieldSeverity(row, 'sku') === 'error'"
+                [class.cell-warn]="fieldSeverity(row, 'sku') === 'warning'"
+                [attr.title]="fieldIssueMessage(row, 'sku') || null"
+              >{{ row.sku ? row.sku : 'Auto' }}</td>
+              <td
+                [class.cell-error]="fieldSeverity(row, 'strengthValue') === 'error'"
+                [class.cell-warn]="fieldSeverity(row, 'strengthValue') === 'warning'"
+                [attr.title]="fieldIssueMessage(row, 'strengthValue') || null"
+              >{{ displayCell(row.strengthValue) }}</td>
+              <td
+                [class.cell-error]="fieldSeverity(row, 'strengthUnit') === 'error'"
+                [class.cell-warn]="fieldSeverity(row, 'strengthUnit') === 'warning'"
+                [attr.title]="fieldIssueMessage(row, 'strengthUnit') || null"
+              >{{ displayCell(row.strengthUnit) }}</td>
+              <td
+                [class.cell-error]="fieldSeverity(row, 'categoryName') === 'error'"
+                [class.cell-warn]="fieldSeverity(row, 'categoryName') === 'warning'"
+                [attr.title]="fieldIssueMessage(row, 'categoryName') || null"
+              >{{ displayCell(row.categoryName) }}</td>
+              <td
+                [class.cell-error]="fieldSeverity(row, 'storeName') === 'error'"
+                [class.cell-warn]="fieldSeverity(row, 'storeName') === 'warning'"
+                [attr.title]="fieldIssueMessage(row, 'storeName') || null"
+              >{{ displayCell(row.storeName) }}</td>
+              <td
+                [class.cell-error]="fieldSeverity(row, 'costPrice') === 'error'"
+                [class.cell-warn]="fieldSeverity(row, 'costPrice') === 'warning'"
+                [attr.title]="fieldIssueMessage(row, 'costPrice') || null"
+              >{{ displayCell(row.costPrice) }}</td>
+              <td
+                [class.cell-error]="fieldSeverity(row, 'sellingPrice') === 'error'"
+                [class.cell-warn]="fieldSeverity(row, 'sellingPrice') === 'warning'"
+                [attr.title]="fieldIssueMessage(row, 'sellingPrice') || null"
+              >{{ displayCell(row.sellingPrice) }}</td>
+              <td
+                [class.cell-error]="fieldSeverity(row, 'openingStock') === 'error'"
+                [class.cell-warn]="fieldSeverity(row, 'openingStock') === 'warning'"
+                [attr.title]="fieldIssueMessage(row, 'openingStock') || null"
+              >{{ displayCell(row.openingStock) }}</td>
+              <td>{{ displayCell(row.batchNumber) }}</td>
+              <td
+                [class.cell-error]="fieldSeverity(row, 'mfdDate') === 'error'"
+                [class.cell-warn]="fieldSeverity(row, 'mfdDate') === 'warning'"
+                [attr.title]="fieldIssueMessage(row, 'mfdDate') || null"
+              >{{ displayCell(row.mfdDate) }}</td>
+              <td
+                [class.cell-error]="fieldSeverity(row, 'expiryDate') === 'error'"
+                [class.cell-warn]="fieldSeverity(row, 'expiryDate') === 'warning'"
+                [attr.title]="fieldIssueMessage(row, 'expiryDate') || null"
+              >{{ displayCell(row.expiryDate) }}</td>
+              <td class="bulk-validation-cell">
+                <span class="bulk-status" [class.is-ok]="row.status === 'valid'" [class.is-warn]="row.status === 'warning'" [class.is-err]="row.status === 'error'">
+                  {{ row.status === 'valid' ? 'Valid' : row.status === 'warning' ? (row.warnings.length + ' Warning') : (row.errors.length + ' Error') }}
+                </span>
+                <ul class="bulk-row-issues" *ngIf="row.issues?.length">
+                  <li *ngFor="let issue of row.issues" [class.is-err]="issue.severity === 'error'" [class.is-warn]="issue.severity === 'warning'">
+                    <strong>{{ issue.label }}</strong> — {{ issue.message }}
+                  </li>
+                </ul>
+              </td>
+              <td class="bulk-actions" data-tour="bulk-row-actions">
+                <button type="button" class="bulk-action-btn" title="Edit" (click)="openEditor(row, 'edit'); $event.stopPropagation()">
+                  <i class="fa fa-pencil"></i>
+                </button>
+                <button type="button" class="bulk-action-btn" title="Duplicate / Copy" (click)="duplicateRow(row, $event)">
+                  <i class="fa fa-clone"></i>
+                </button>
+                <button type="button" class="bulk-action-btn is-danger" title="Delete" (click)="deleteRow(row, $event)">
+                  <i class="fa fa-trash"></i>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bulk-mobile-list" data-tour="bulk-preview" *ngIf="rows.length">
+        <article class="bulk-mobile-card" *ngFor="let row of filteredRows; let i = index" [class.is-error]="row.status === 'error'">
+          <header>
+            <div>
+              <span class="bulk-index">{{ i + 1 }}</span>
+              <h3>{{ row.name || 'Untitled medicine' }}</h3>
+              <p>{{ row.unit | titlecase }} — {{ row.strengthValue }} {{ row.strengthUnit }}</p>
+            </div>
+            <button type="button" class="bulk-mobile-delete" data-tour="bulk-row-actions" (click)="deleteRow(row)" aria-label="Delete">
+              <i class="fa fa-trash"></i>
+            </button>
+          </header>
+          <div class="bulk-mobile-actions">
+            <button type="button" class="bulk-btn bulk-btn--ghost" (click)="openEditor(row, 'edit')">Edit</button>
+            <button type="button" class="bulk-btn bulk-btn--ghost" (click)="duplicateRow(row, $event)">Copy</button>
+            <span class="bulk-status" [class.is-ok]="row.status === 'valid'" [class.is-err]="row.status === 'error'" [class.is-warn]="row.status === 'warning'">
+              {{ row.status === 'error' ? (row.errors.length + ' Error') : row.status === 'warning' ? (row.warnings.length + ' Warning') : 'Valid' }}
+            </span>
+          </div>
+          <ul class="bulk-row-issues" *ngIf="row.issues?.length">
+            <li *ngFor="let issue of row.issues" [class.is-err]="issue.severity === 'error'" [class.is-warn]="issue.severity === 'warning'">
+              <strong>{{ issue.label }}</strong> — {{ issue.message }}
+            </li>
+          </ul>
+        </article>
+      </div>
+
+      <footer class="bulk-table-footer" *ngIf="rows.length">
+        <span>{{ summary.total }} rows ready to import</span>
+      </footer>
+    </section>
+  </div>
+
+  <div class="bulk-sticky-bar" data-tour="bulk-save">
+    <label class="bulk-validate-toggle">
+      <input type="checkbox" [(ngModel)]="validateBeforeSave" />
+      <span>
+        <strong>Validate data before saving</strong>
+        <small>Errors block save. Warnings are review-only. Problem fields are highlighted in the table.</small>
+      </span>
+    </label>
+    <div class="bulk-sticky-actions">
+      <a class="bulk-btn bulk-btn--ghost" routerLink="/pharmacy/products">Cancel</a>
+      <button
+        type="button"
+        class="bulk-btn bulk-btn--primary"
+        data-tour="bulk-save-btn"
+        [disabled]="!canSave"
+        (click)="saveAll()"
+      >
+        <i class="fa fa-spinner fa-spin" *ngIf="saving"></i>
+        <i class="fa fa-check" *ngIf="!saving"></i>
+        <span class="bulk-save-desktop" *ngIf="!saving">Save All Medicines</span>
+        <span class="bulk-save-mobile" *ngIf="!saving">Save All{{ rows.length ? ' (' + rows.length + ')' : '' }} Medicines</span>
+        <span *ngIf="saving">Saving {{ rows.length }} medicines…</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="bulk-modal-backdrop" *ngIf="editorOpen && editingRow" (click)="closeEditor()">
+    <div class="bulk-modal" role="dialog" aria-modal="true" [attr.aria-label]="editorMode === 'edit' ? 'Edit medicine' : 'Add medicine'" (click)="$event.stopPropagation()">
+      <header class="bulk-modal__header">
+        <span class="bulk-modal__icon"><i class="fa" [ngClass]="editorMode === 'edit' ? 'fa-pencil' : 'fa-plus'"></i></span>
+        <div>
+          <h3>{{ editorMode === 'edit' ? 'Edit Medicine' : 'Add Medicine' }}</h3>
+          <p>Changes stay in this preview only until you click Save All Medicines.</p>
+        </div>
+        <button type="button" class="bulk-modal__close" (click)="closeEditor()" aria-label="Close"><i class="fa fa-times"></i></button>
+      </header>
+
+      <div class="bulk-modal__body" *ngIf="editingRow as form">
+        <div class="bulk-editor-grid">
+          <label class="field" [class.has-error]="fieldSeverity(form, 'name') === 'error'" [class.has-warn]="fieldSeverity(form, 'name') === 'warning'">
+            <span>Medicine Name *</span>
+            <input [(ngModel)]="form.name" name="bulkEditName" />
+            <small *ngIf="fieldIssueMessage(form, 'name')">{{ fieldIssueMessage(form, 'name') }}</small>
+          </label>
+          <label class="field" [class.has-error]="fieldSeverity(form, 'unit') === 'error'" [class.has-warn]="fieldSeverity(form, 'unit') === 'warning'">
+            <span>Type *</span>
+            <select [(ngModel)]="form.unit" name="bulkEditUnit"><option *ngFor="let unit of productUnits" [value]="unit">{{ unit | titlecase }}</option></select>
+            <small *ngIf="fieldIssueMessage(form, 'unit')">{{ fieldIssueMessage(form, 'unit') }}</small>
+          </label>
+          <label class="field" [class.has-error]="fieldSeverity(form, 'sku') === 'error'">
+            <span>SKU</span>
+            <input [(ngModel)]="form.sku" name="bulkEditSku" placeholder="Auto if empty" />
+            <small *ngIf="fieldIssueMessage(form, 'sku')">{{ fieldIssueMessage(form, 'sku') }}</small>
+          </label>
+          <label class="field" [class.has-error]="fieldSeverity(form, 'strengthValue') === 'error'">
+            <span>Strength *</span>
+            <input [(ngModel)]="form.strengthValue" name="bulkEditStrength" />
+            <small *ngIf="fieldIssueMessage(form, 'strengthValue')">{{ fieldIssueMessage(form, 'strengthValue') }}</small>
+          </label>
+          <label class="field" [class.has-error]="fieldSeverity(form, 'strengthUnit') === 'error'" [class.has-warn]="fieldSeverity(form, 'strengthUnit') === 'warning'">
+            <span>Unit *</span>
+            <select [(ngModel)]="form.strengthUnit" name="bulkEditStrengthUnit"><option *ngFor="let unit of strengthUnits" [value]="unit">{{ unit }}</option></select>
+            <small *ngIf="fieldIssueMessage(form, 'strengthUnit')">{{ fieldIssueMessage(form, 'strengthUnit') }}</small>
+          </label>
+          <label class="field" [class.has-error]="fieldSeverity(form, 'categoryName') === 'error'" [class.has-warn]="fieldSeverity(form, 'categoryName') === 'warning'">
+            <span>Category</span>
+            <select [(ngModel)]="form.categoryId" name="bulkEditCategoryId">
+              <option value="">Use category name</option>
+              <option *ngFor="let category of categories" [value]="category._id">{{ category.name }}</option>
+            </select>
+            <small *ngIf="fieldIssueMessage(form, 'categoryName')">{{ fieldIssueMessage(form, 'categoryName') }}</small>
+          </label>
+          <label class="field" [class.has-error]="fieldSeverity(form, 'categoryName') === 'error'" [class.has-warn]="fieldSeverity(form, 'categoryName') === 'warning'">
+            <span>Category Name</span>
+            <input [(ngModel)]="form.categoryName" name="bulkEditCategoryName" [disabled]="!!form.categoryId" />
+          </label>
+          <label class="field" [class.has-error]="fieldSeverity(form, 'storeName') === 'error'">
+            <span>Store *</span>
+            <select [(ngModel)]="form.storeId" name="bulkEditStoreId">
+              <option *ngFor="let store of stores" [value]="store._id">{{ store.name }}</option>
+            </select>
+            <small *ngIf="fieldIssueMessage(form, 'storeName')">{{ fieldIssueMessage(form, 'storeName') }}</small>
+          </label>
+          <label class="field" [class.has-error]="fieldSeverity(form, 'costPrice') === 'error'">
+            <span>Cost Price *</span>
+            <input type="number" min="0" step="0.01" [(ngModel)]="form.costPrice" name="bulkEditCost" />
+            <small *ngIf="fieldIssueMessage(form, 'costPrice')">{{ fieldIssueMessage(form, 'costPrice') }}</small>
+          </label>
+          <label class="field" [class.has-error]="fieldSeverity(form, 'sellingPrice') === 'error'" [class.has-warn]="fieldSeverity(form, 'sellingPrice') === 'warning'">
+            <span>Selling Price *</span>
+            <input type="number" min="0" step="0.01" [(ngModel)]="form.sellingPrice" name="bulkEditSell" />
+            <small *ngIf="fieldIssueMessage(form, 'sellingPrice')">{{ fieldIssueMessage(form, 'sellingPrice') }}</small>
+          </label>
+          <label class="field" [class.has-error]="fieldSeverity(form, 'openingStock') === 'error'">
+            <span>Opening Stock *</span>
+            <input type="number" min="1" step="1" [(ngModel)]="form.openingStock" name="bulkEditStock" />
+            <small *ngIf="fieldIssueMessage(form, 'openingStock')">{{ fieldIssueMessage(form, 'openingStock') }}</small>
+          </label>
+          <label class="field" [class.has-error]="fieldSeverity(form, 'barcode') === 'error'">
+            <span>Barcode</span>
+            <input [(ngModel)]="form.barcode" name="bulkEditBarcode" />
+            <small *ngIf="fieldIssueMessage(form, 'barcode')">{{ fieldIssueMessage(form, 'barcode') }}</small>
+          </label>
+          <label class="field"><span>Batch</span><input [(ngModel)]="form.batchNumber" name="bulkEditBatch" /></label>
+          <label class="field" [class.has-error]="fieldSeverity(form, 'mfdDate') === 'error'">
+            <span>MFD</span>
+            <input type="date" [(ngModel)]="form.mfdDate" name="bulkEditMfd" />
+            <small *ngIf="fieldIssueMessage(form, 'mfdDate')">{{ fieldIssueMessage(form, 'mfdDate') }}</small>
+          </label>
+          <label class="field" [class.has-error]="fieldSeverity(form, 'expiryDate') === 'error'">
+            <span>Expiry</span>
+            <input type="date" [(ngModel)]="form.expiryDate" name="bulkEditExpiry" />
+            <small *ngIf="fieldIssueMessage(form, 'expiryDate')">{{ fieldIssueMessage(form, 'expiryDate') }}</small>
+          </label>
+          <label class="field"><span>Brand</span><input [(ngModel)]="form.brand" name="bulkEditBrand" /></label>
+          <label class="bulk-discount"><input type="checkbox" [(ngModel)]="form.discountEligible" name="bulkEditDiscount" /><span>Discount Eligible</span></label>
+          <label class="field" *ngIf="form.discountEligible" [class.has-error]="fieldSeverity(form, 'maxDiscountValue') === 'error'">
+            <span>Max Discount Type</span>
+            <select [(ngModel)]="form.maxDiscountType" name="bulkEditDiscountType">
+              <option value="percentage">Percentage</option>
+              <option value="amount">Amount</option>
+            </select>
+          </label>
+          <label class="field" *ngIf="form.discountEligible" [class.has-error]="fieldSeverity(form, 'maxDiscountValue') === 'error'">
+            <span>Max Discount Value *</span>
+            <input type="number" min="0.5" step="0.5" [(ngModel)]="form.maxDiscountValue" name="bulkEditDiscountValue" />
+            <small *ngIf="fieldIssueMessage(form, 'maxDiscountValue')">{{ fieldIssueMessage(form, 'maxDiscountValue') }}</small>
+          </label>
+        </div>
+
+        <div class="bulk-modal__errors" *ngIf="form.issues?.length">
+          <strong>Fix these fields</strong>
+          <ul>
+            <li *ngFor="let issue of form.issues" [class.is-warn]="issue.severity === 'warning'">
+              <b>{{ issue.label }}</b> — {{ issue.message }}
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <footer class="bulk-modal__footer">
+        <button type="button" class="bulk-btn bulk-btn--ghost" (click)="closeEditor()">Cancel</button>
+        <button type="button" class="bulk-btn bulk-btn--primary" (click)="saveEditorRow()">
+          <i class="fa fa-check"></i>
+          {{ editorMode === 'edit' ? 'Save Changes' : 'Add to Preview' }}
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <div class="bulk-tour" *ngIf="tutorialActive">
+    <div class="bulk-tour__dim" (click)="skipTutorial()"></div>
+    <div
+      class="bulk-tour__spot"
+      *ngIf="tutorialRect as spot"
+      [style.top.px]="spot.top"
+      [style.left.px]="spot.left"
+      [style.width.px]="spot.width"
+      [style.height.px]="spot.height"
+    ></div>
+    <div class="bulk-tour__card" [ngStyle]="tutorialCardStyle" *ngIf="activeTutorialStep as tip">
+      <div class="bulk-tour__meta">
+        <span>{{ tutorialProgressLabel }}</span>
+        <button type="button" class="bulk-tour__close" (click)="skipTutorial()" aria-label="Close tutorial">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      <h3>{{ tip.title }}</h3>
+      <p>{{ tip.text }}</p>
+      <div class="bulk-tour__actions">
+        <button type="button" (click)="skipTutorial()">Skip</button>
+        <button type="button" (click)="prevTutorial()" [disabled]="tutorialStep === 0">Back</button>
+        <button type="button" class="is-primary" (click)="nextTutorial()">
+          {{ tutorialStep >= activeTutorialSteps.length - 1 ? 'Finish' : 'Next' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

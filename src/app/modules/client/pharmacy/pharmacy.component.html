@@ -1,221 +1,223 @@
-<div id="main-content" class="pharmacy-page">
+<div id="main-content" class="pharmacy-page pharmacy-dashboard-page">
     <div class="pharmacy-shell">
-        <header class="pharmacy-hero">
-            <div class="pharmacy-hero-main">
+        <header class="pd-hero">
+            <div class="pd-hero__copy">
                 <h1>Pharmacy Dashboard</h1>
-                <p>Today's sales, stock alerts, pending prescriptions, and POS fulfillment</p>
+                <p>Today's sales, stock alerts, pending prescriptions, and POS fulfillment.</p>
             </div>
-            <div class="pharmacy-hero-actions">
-                <a class="btn btn-primary mr-2" [routerLink]="['/pharmacy/products']">
-                    <i class="fa fa-cubes"></i>
-                    Product Management
-                </a>
-                <button type="button" class="btn btn-success mr-2" *ngIf="canOpenPharmacyPos"
-                    (click)="openPharmacyPos()">
-                    <i class="fa fa-shopping-cart"></i>
-                    Open POS
+            <div class="pd-hero__controls">
+                <button type="button" class="pd-date" disabled>
+                    <i class="fa fa-calendar"></i>
+                    <span>{{ dashboardDateLabel || 'Today' }}</span>
                 </button>
-                <a class="btn btn-default" [routerLink]="['/prescriptions']">Prescriptions</a>
+                <div class="pd-hero__actions">
+                    <a class="pd-btn pd-btn--primary" [routerLink]="['/pharmacy/products']">
+                        <i class="fa fa-cube"></i>
+                        <span class="pd-btn__full">Product Management</span>
+                        <span class="pd-btn__short">Product Mgmt</span>
+                    </a>
+                    <button type="button" class="pd-btn pd-btn--teal" *ngIf="canOpenPharmacyPos" (click)="openPharmacyPos()">
+                        <i class="fa fa-shopping-cart"></i>
+                        <span>Open POS</span>
+                    </button>
+                    <a class="pd-btn pd-btn--ghost" [routerLink]="['/prescriptions']">
+                        <i class="fa fa-file-text-o"></i>
+                        <span>Prescriptions</span>
+                    </a>
+                </div>
             </div>
         </header>
 
-        <div class="row clearfix pharmacy-kpi-row" *ngIf="dashboard">
-            <div class="col-md-3 col-sm-6" *ngFor="let card of pharmacyKpiCards">
-                <div class="pharmacy-kpi-card">
+        <section class="pd-kpi" *ngIf="dashboard" aria-label="Pharmacy metrics">
+            <article
+              class="pd-kpi__card"
+              *ngFor="let card of pharmacyKpiCards"
+              [ngClass]="['tone-' + card.tone, card.mobile ? '' : 'is-desktop-only']"
+            >
+                <span class="pd-kpi__icon"><i class="fa" [ngClass]="card.icon"></i></span>
+                <div class="pd-kpi__body">
                     <small>{{ card.label }}</small>
-                    <h4>{{ card.value }}</h4>
+                    <strong>{{ card.value }}</strong>
+                    <em>{{ card.hint }}</em>
                 </div>
-            </div>
-        </div>
+            </article>
+        </section>
 
-        <div class="row clearfix">
-            <div class="col-12">
-                <div class="product-management-card">
-                    <div class="product-management-head">
+        <section class="pd-ops">
+            <header class="pd-section-head">
+                <div>
+                    <h2>Pharmacy Operations</h2>
+                    <p class="pd-ops__desktop-sub">Open pharmacy workflows directly from the dashboard.</p>
+                    <p class="pd-ops__mobile-sub">Open pharmacy workflows directly from your mobile.</p>
+                </div>
+                <div class="pd-ops__banner" aria-hidden="true">
+                    Everything you need to manage your pharmacy. From inventory to sales, all in one place.
+                </div>
+            </header>
+
+            <div class="pd-ops__grid pd-ops__grid--desktop">
+                <a class="pd-ops__tile" *ngFor="let item of desktopOperationLinks" [routerLink]="[item.link]">
+                    <span class="pd-ops__icon"><i class="fa" [ngClass]="item.icon"></i></span>
+                    <span class="pd-ops__copy">
+                        <strong>{{ item.title }}</strong>
+                        <small>{{ item.desc }}</small>
+                    </span>
+                    <i class="fa fa-angle-right pd-ops__chevron"></i>
+                </a>
+            </div>
+
+            <div class="pd-ops__grid pd-ops__grid--mobile">
+                <a class="pd-ops__tile" *ngFor="let item of mobileOperationLinks" [routerLink]="[item.link]">
+                    <span class="pd-ops__icon"><i class="fa" [ngClass]="item.icon"></i></span>
+                    <span class="pd-ops__copy">
+                        <strong>{{ item.title }}</strong>
+                        <small>{{ item.desc }}</small>
+                    </span>
+                    <i class="fa fa-angle-right pd-ops__chevron"></i>
+                </a>
+            </div>
+        </section>
+
+        <section class="pd-queue" id="pharmacy-queue">
+            <header class="pd-section-head pd-queue__head">
+                <div>
+                    <h2 class="pd-queue__desktop-title">Prescription Fulfillment / Patient Queue</h2>
+                    <h2 class="pd-queue__mobile-title">Prescription Queue</h2>
+                    <p>Match prescribed medicines to POS stock and prepare the bill.</p>
+                </div>
+                <div class="pd-queue__tools">
+                    <label class="pd-filter">
+                        <select [(ngModel)]="selectedPatientId" (change)="page = 1; loadPrescriptions()">
+                            <option value="">All patients</option>
+                            <option *ngFor="let patient of patients" [value]="patient._id">{{ patientName(patient) }}</option>
+                        </select>
+                    </label>
+                    <div class="pd-store-pill">
+                        <span class="pd-store-pill__dot" [class.is-ready]="canOpenPharmacyPos"></span>
+                        <span>{{ selectedStoreLabel }} — {{ pharmacyPosHint }}</span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="pd-queue__table-wrap">
+                <table class="pd-queue__table">
+                    <thead>
+                        <tr>
+                            <th>Patient</th>
+                            <th>Doctor</th>
+                            <th>Medicines</th>
+                            <th>POS Match</th>
+                            <th>Follow Up</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let prescription of prescriptions">
+                            <td>
+                                <strong>{{ patientName(prescription.patient) }}</strong>
+                                <a [routerLink]="['/patients/patient-profile', prescription.patientId]">Open profile</a>
+                            </td>
+                            <td>{{ prescription.doctor?.name || '—' }}</td>
+                            <td>
+                                <div class="pd-med" *ngFor="let medicine of tableMedicines(prescription.medicines)">
+                                    <strong>{{ medicine.name }}</strong>
+                                    <small>{{ medicine.dosage || '—' }} | {{ medicine.frequency || '—' }} | {{ medicine.duration || '—' }}</small>
+                                </div>
+                                <small class="pd-more" *ngIf="extraMedicineCount(prescription.medicines)">+{{ extraMedicineCount(prescription.medicines) }} more</small>
+                            </td>
+                            <td>
+                                <ng-container *ngIf="canViewProducts; else noProductAccess">
+                                    <div class="pd-med" *ngFor="let medicine of tableMedicines(prescription.medicines)">
+                                        <span class="pd-match" *ngIf="hasPosMatch(medicine.name); else noMatch" [title]="primaryPosMatchLabel(medicine.name)">
+                                            <i class="fa fa-check-circle"></i> {{ primaryPosMatchLabel(medicine.name) }}
+                                        </span>
+                                        <ng-template #noMatch>
+                                            <span class="pd-match is-miss">No POS medicine match</span>
+                                        </ng-template>
+                                    </div>
+                                </ng-container>
+                                <ng-template #noProductAccess>
+                                    <span class="pd-match is-miss">Permission required</span>
+                                </ng-template>
+                            </td>
+                            <td>{{ prescription.followUpDate ? (prescription.followUpDate | date:'mediumDate') : '—' }}</td>
+                            <td class="pd-queue__actions">
+                                <button type="button" class="pd-btn pd-btn--teal pd-btn--sm" *ngIf="canOpenPharmacyPos" (click)="openPharmacyPos(prescription)">
+                                    <i class="fa fa-shopping-cart"></i> Prepare Bill
+                                </button>
+                                <button type="button" class="pd-btn pd-btn--ghost pd-btn--sm" (click)="openPrintPreview(prescription)">View</button>
+                            </td>
+                        </tr>
+                        <tr *ngIf="!loading && prescriptions.length === 0">
+                            <td colspan="6" class="pd-empty">No prescriptions found</td>
+                        </tr>
+                        <tr *ngIf="loading">
+                            <td colspan="6" class="pd-empty">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pd-queue__cards">
+                <article class="pd-rx-card" *ngFor="let prescription of prescriptions">
+                    <header>
                         <div>
-                            <h3>Pharmacy Operations</h3>
-                            <span>Open pharmacy workflows directly without crowding the dashboard with plain tabs.</span>
+                            <strong>{{ patientName(prescription.patient) }}</strong>
+                            <a [routerLink]="['/patients/patient-profile', prescription.patientId]">Open profile</a>
                         </div>
+                        <ng-container *ngIf="canViewProducts && tableMedicines(prescription.medicines)[0] as firstMed">
+                            <span class="pd-badge is-ok" *ngIf="hasPosMatch(firstMed.name)">{{ primaryPosMatchLabel(firstMed.name) }}</span>
+                            <span class="pd-badge is-miss" *ngIf="!hasPosMatch(firstMed.name)">No POS match</span>
+                        </ng-container>
+                    </header>
+                    <p class="pd-rx-card__doctor">{{ prescription.doctor?.name || '—' }}</p>
+                    <div class="pd-med" *ngFor="let medicine of tableMedicines(prescription.medicines)">
+                        <strong>{{ medicine.name }}</strong>
+                        <small>{{ medicine.dosage || '—' }} | {{ medicine.duration || '—' }}</small>
                     </div>
-                    <div class="body">
-                        <div class="pharmacy-dashboard-grid">
-                            <a class="pharmacy-dashboard-tile" [routerLink]="['/pharmacy/customers']">
-                                <i class="fa fa-users"></i>
-                                <strong>Customers</strong>
-                                <span>Walk-in and repeat POS profiles</span>
-                            </a>
-                            <a class="pharmacy-dashboard-tile" [routerLink]="['/pharmacy/suppliers']">
-                                <i class="fa fa-truck"></i>
-                                <strong>Suppliers</strong>
-                                <span>Vendor records and purchase-side contacts</span>
-                            </a>
-                            <a class="pharmacy-dashboard-tile" [routerLink]="['/pharmacy/inventory']">
-                                <i class="fa fa-cubes"></i>
-                                <strong>Inventory</strong>
-                                <span>Live stock position and valuations</span>
-                            </a>
-                            <a class="pharmacy-dashboard-tile" [routerLink]="['/pharmacy/stock-movements']">
-                                <i class="fa fa-exchange"></i>
-                                <strong>Stock Movements</strong>
-                                <span>Audit every stock in and out event</span>
-                            </a>
-                            <a class="pharmacy-dashboard-tile" [routerLink]="['/pharmacy/transfers']">
-                                <i class="fa fa-random"></i>
-                                <strong>Stock Transfers</strong>
-                                <span>Inter-store stock movement workflow</span>
-                            </a>
-                            <a class="pharmacy-dashboard-tile" [routerLink]="['/pharmacy/sales']">
-                                <i class="fa fa-file-text-o"></i>
-                                <strong>Sales</strong>
-                                <span>Invoices, payment status, and billing flow</span>
-                            </a>
-                            <a class="pharmacy-dashboard-tile" [routerLink]="['/pharmacy/returns/sales']">
-                                <i class="fa fa-undo"></i>
-                                <strong>Sales Returns</strong>
-                                <span>Refund and return completed POS invoices</span>
-                            </a>
-                            <a class="pharmacy-dashboard-tile" [routerLink]="['/pharmacy/payments']">
-                                <i class="fa fa-credit-card"></i>
-                                <strong>Payments</strong>
-                                <span>Track and create payment entries</span>
-                            </a>
-                            <a class="pharmacy-dashboard-tile" [routerLink]="['/pharmacy/register-sessions']">
-                                <i class="fa fa-calculator"></i>
-                                <strong>Register Sessions</strong>
-                                <span>Open, close, and audit cashier shifts</span>
-                            </a>
-                            <a class="pharmacy-dashboard-tile" [routerLink]="['/pharmacy/expenses']">
-                                <i class="fa fa-money"></i>
-                                <strong>Expenses</strong>
-                                <span>Counter costs and petty cash outflow</span>
-                            </a>
-                            <a class="pharmacy-dashboard-tile" [routerLink]="['/pharmacy/reports']">
-                                <i class="fa fa-bar-chart"></i>
-                                <strong>Reports</strong>
-                                <span>Sales, inventory, payments and P&amp;L reports</span>
-                            </a>
-                        </div>
+                    <div class="pd-rx-card__actions">
+                        <button type="button" class="pd-btn pd-btn--teal pd-btn--sm" *ngIf="canOpenPharmacyPos" (click)="openPharmacyPos(prescription)">
+                            <i class="fa fa-shopping-cart"></i> Prepare Bill
+                        </button>
+                        <button type="button" class="pd-btn pd-btn--ghost pd-btn--sm" (click)="openPrintPreview(prescription)">View</button>
                     </div>
-                </div>
+                </article>
+                <div class="pd-empty" *ngIf="!loading && prescriptions.length === 0">No prescriptions found</div>
+                <div class="pd-empty" *ngIf="loading">Loading...</div>
             </div>
-            <div class="col-12">
-                <div class="card">
-                    <div class="body">
-                        <div class="row mb-3">
-                            <div class="col-md-4">
-                                <select class="form-control" [(ngModel)]="selectedPatientId"
-                                    (change)="page = 1; loadPrescriptions()">
-                                    <option value="">All patients</option>
-                                    <option *ngFor="let patient of patients" [value]="patient._id">{{
-                                        patientName(patient) }}</option>
-                                </select>
-                            </div>
-                            <div class="col-md-8 text-md-right text-muted small">
-                                <span *ngIf="productsLoading">Refreshing POS medicine catalog...</span>
-                                <span *ngIf="!canViewProducts">This role needs <code>products.read</code> to see matched
-                                    POS medicines.</span>
-                                <span *ngIf="canViewProducts && !productsLoading">{{ selectedStoreLabel }} · {{
-                                    pharmacyPosHint }}</span>
-                            </div>
-                        </div>
 
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Patient</th>
-                                        <th>Doctor</th>
-                                        <th>Medicines</th>
-                                        <th>POS Match</th>
-                                        <th>Follow Up</th>
-                                        <th class="text-right">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr *ngFor="let prescription of prescriptions">
-                                        <td>
-                                            <div>{{ patientName(prescription.patient) }}</div>
-                                            <a class="small"
-                                                [routerLink]="['/patients/patient-profile', prescription.patientId]">Open
-                                                profile</a>
-                                        </td>
-                                        <td>{{ prescription.doctor?.name || '-' }}</td>
-                                        <td class="medicine-preview-cell">
-                                            <div *ngFor="let medicine of tableMedicines(prescription.medicines)"
-                                                class="medicine-preview-item">
-                                                <div class="font-weight-bold">{{ medicine.name }}</div>
-                                                <div class="text-muted small">
-                                                    {{ medicine.dosage || '-' }} | {{ medicine.frequency || '-' }} | {{
-                                                    medicine.duration || '-' }}
-                                                </div>
-                                            </div>
-                                            <div *ngIf="extraMedicineCount(prescription.medicines)"
-                                                class="medicine-preview-more text-muted small">
-                                                +{{ extraMedicineCount(prescription.medicines) }} more medicine(s)
-                                            </div>
-                                        </td>
-                                        <td class="medicine-preview-cell">
-                                            <ng-container *ngIf="canViewProducts; else noProductAccess">
-                                                <div *ngFor="let medicine of tableMedicines(prescription.medicines)"
-                                                    class="medicine-preview-item">
-                                                    <div *ngIf="getMedicineMatches(medicine.name).length; else noMatch">
-                                                        <div *ngFor="let product of getMedicineMatches(medicine.name)"
-                                                            class="small">
-                                                            <strong>{{ product.name }}</strong>
-                                                            <span class="text-muted">({{ product.sku }})</span>
-                                                            <div class="text-muted">
-                                                                Stock: {{ product.availableQuantity ||
-                                                                product.stockQuantity || '0' }}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <ng-template #noMatch>
-                                                        <span class="text-muted small">No POS medicine match</span>
-                                                    </ng-template>
-                                                </div>
-                                                <div *ngIf="extraMedicineCount(prescription.medicines)"
-                                                    class="medicine-preview-more text-muted small">
-                                                    +{{ extraMedicineCount(prescription.medicines) }} more
-                                                </div>
-                                            </ng-container>
-                                            <ng-template #noProductAccess>
-                                                <span class="text-muted small">Permission required</span>
-                                            </ng-template>
-                                        </td>
-                                        <td>{{ prescription.followUpDate | date:'mediumDate' }}</td>
-                                        <td class="text-right">
-                                            <button type="button" class="btn btn-sm btn-success mr-2"
-                                                *ngIf="canOpenPharmacyPos" (click)="openPharmacyPos(prescription)">
-                                                <i class="fa fa-shopping-cart"></i>
-                                                Prepare Bill
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-primary"
-                                                (click)="openPrintPreview(prescription)">
-                                                <i class="fa fa-view"></i>
-                                                View
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    <tr *ngIf="!loading && prescriptions.length === 0">
-                                        <td colspan="6" class="text-center text-muted">No prescriptions found</td>
-                                    </tr>
-                                    <tr *ngIf="loading">
-                                        <td colspan="6" class="text-center text-muted">Loading...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+            <footer class="pd-pager">
+                <button type="button" class="pd-btn pd-btn--ghost pd-btn--sm" (click)="changePage(page - 1)" [disabled]="page <= 1">Prev</button>
+                <span>Page {{ page }} of {{ totalPages || 1 }}</span>
+                <button type="button" class="pd-btn pd-btn--ghost pd-btn--sm" (click)="changePage(page + 1)" [disabled]="totalPages > 0 && page >= totalPages">Next</button>
+            </footer>
+        </section>
+    </div>
 
-                        <div class="d-flex justify-content-between align-items-center">
-                            <button class="btn btn-default" (click)="changePage(page - 1)"
-                                [disabled]="page <= 1">Prev</button>
-                            <span>Page {{ page }} of {{ totalPages || 1 }}</span>
-                            <button class="btn btn-default" (click)="changePage(page + 1)"
-                                [disabled]="totalPages > 0 && page >= totalPages">Next</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <nav class="pd-bottom-nav" aria-label="Pharmacy mobile navigation">
+        <a routerLink="/pharmacy" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }">
+            <i class="fa fa-th-large"></i><span>Dashboard</span>
+        </a>
+        <a routerLink="/pharmacy/products" routerLinkActive="is-active">
+            <i class="fa fa-cube"></i><span>Catalog</span>
+        </a>
+        <button type="button" (click)="scrollToQueue()">
+            <i class="fa fa-file-text-o"></i><span>Queue</span>
+        </button>
+        <button type="button" [class.is-active]="mobileMoreOpen" (click)="toggleMobileMore()">
+            <i class="fa fa-ellipsis-h"></i><span>More</span>
+        </button>
+    </nav>
+
+    <div class="pd-more-sheet" *ngIf="mobileMoreOpen" (click)="mobileMoreOpen = false">
+        <div class="pd-more-sheet__panel" (click)="$event.stopPropagation()">
+            <h3>More pharmacy links</h3>
+            <a *ngFor="let item of desktopOperationLinks" [routerLink]="[item.link]" (click)="mobileMoreOpen = false">
+                <i class="fa" [ngClass]="item.icon"></i>{{ item.title }}
+            </a>
+            <a routerLink="/pharmacy/products/bulk" *ngIf="canCreateProducts" (click)="mobileMoreOpen = false">
+                <i class="fa fa-table"></i>Bulk Add Medicines
+            </a>
         </div>
     </div>
 

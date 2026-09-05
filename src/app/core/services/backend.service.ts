@@ -922,6 +922,15 @@ export class BackendService {
     return this.post<ProductCatalogItem>(CONFIG.products, payload);
   }
 
+  bulkCreateProducts(payload: Record<string, unknown>): Observable<ApiResponse<{
+    createdCount: number;
+    products: Array<{ _id: string; name: string; sku: string; storeId?: string; openingStock?: number }>;
+    inventoryCreated: number;
+    stockMovementsCreated: number;
+  }>> {
+    return this.post(CONFIG.productsBulk, payload);
+  }
+
   updateProduct(id: string, payload: Record<string, unknown>): Observable<ApiResponse<ProductCatalogItem>> {
     return this.patch<ProductCatalogItem>(`${CONFIG.products}/${id}`, payload);
   }
@@ -1827,6 +1836,13 @@ export class BackendService {
     return this.get<BirthCertificateVerificationResult>(`${CONFIG.baseUrl}/public/birth-certificates/verify/${encodeURIComponent(code)}`).pipe(
       map((response) => this.unwrapData(response))
     );
+  }
+
+  /** Public form verify by certificate number (HBC-…). */
+  verifyBirthCertificateByNumber(certificateNo: string): Observable<BirthCertificateVerificationResult> {
+    return this.post<BirthCertificateVerificationResult>(`${CONFIG.baseUrl}/public/birth-certificates/verify`, {
+      certificateNo: String(certificateNo || '').trim(),
+    }).pipe(map((response) => this.unwrapData(response)));
   }
 
   listWardDoctorVisits(admissionId: string): Observable<Array<Record<string, unknown>>> {

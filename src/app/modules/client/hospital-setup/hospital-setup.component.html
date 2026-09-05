@@ -1,38 +1,33 @@
-<div class="hospital-setup-page" (click)="showMoreMenu = false">
+<div class="hospital-setup-page" (click)="closeHeaderMenus()">
   <header class="hospital-setup-page__header">
     <div class="hospital-setup-page__intro">
-      <h2>Hospital Setup</h2>
-      <p>Configure your hospital's departments, wards, rooms, and documents.</p>
+      <span class="hospital-setup-page__intro-icon"><i class="fa fa-hospital-o"></i></span>
+      <div>
+        <h2>Hospital Setup</h2>
+        <p>Configure your hospital's departments, wards, rooms, beds, and certificate settings.</p>
+      </div>
+    </div>
+    <div class="hospital-setup-page__callout">
+      <i class="fa fa-shield"></i>
+      <span>A well-configured hospital powers<br />better care and smoother operations.</span>
     </div>
     <div class="hospital-setup-page__actions">
-      <button
-        *ngIf="activeTab === 'departments' && can('departments.create')"
-        type="button"
-        class="btn-primary"
-        (click)="openDepartmentModal()"
-      >
-        + Add Department
-      </button>
-      <button
-        *ngIf="activeTab === 'wards' && can('ward.create')"
-        type="button"
-        class="btn-primary"
-        (click)="openWardModal()"
-      >
-        + Add Ward
-      </button>
-      <a *ngIf="activeTab === 'rooms-beds'" routerLink="/ward/bed-management" class="btn-primary">
-        Manage Beds
-      </a>
-      <button
-        *ngIf="activeTab === 'birth-certificates'"
-        type="button"
-        class="btn-primary"
-        (click)="saveBirthCertificateSettings()"
-        [disabled]="savingBirthSettings"
-      >
-        {{ savingBirthSettings ? 'Saving…' : 'Save Settings' }}
-      </button>
+      <div class="hospital-setup-more hospital-setup-add" (click)="$event.stopPropagation()">
+        <button type="button" class="btn-primary hospital-setup-add__toggle" (click)="toggleAddMenu()">
+          <i class="fa fa-plus"></i> Add New <i class="fa fa-angle-down"></i>
+        </button>
+        <div class="hospital-setup-more__menu" *ngIf="showAddMenu">
+          <button *ngIf="can('departments.create')" type="button" (click)="openDepartmentModal(); closeHeaderMenus()">
+            <i class="fa fa-building-o"></i> Add Department
+          </button>
+          <button *ngIf="can('ward.create')" type="button" (click)="openWardModal(); closeHeaderMenus()">
+            <i class="fa fa-bed"></i> Add Ward / Care Unit
+          </button>
+          <a routerLink="/ward/bed-management" (click)="closeHeaderMenus()">
+            <i class="fa fa-th-large"></i> Manage Rooms &amp; Beds
+          </a>
+        </div>
+      </div>
 
       <div class="hospital-setup-more" (click)="$event.stopPropagation()">
         <button type="button" class="btn-light hospital-setup-more__toggle" (click)="toggleMoreMenu()" aria-label="More actions">
@@ -48,16 +43,24 @@
   </header>
 
   <nav class="hospital-setup-tabs" aria-label="Hospital setup sections">
-    <button type="button" [class.is-active]="activeTab === 'departments'" (click)="setTab('departments')">Departments</button>
-    <button type="button" [class.is-active]="activeTab === 'wards'" (click)="setTab('wards')">Wards &amp; Care Units</button>
-    <button type="button" [class.is-active]="activeTab === 'rooms-beds'" (click)="setTab('rooms-beds')">Rooms / Beds</button>
-    <button type="button" [class.is-active]="activeTab === 'birth-certificates'" (click)="setTab('birth-certificates')">Birth Certificate</button>
+    <button type="button" [class.is-active]="activeTab === 'departments'" (click)="setTab('departments')"><i class="fa fa-building-o"></i><span>Departments</span></button>
+    <button type="button" [class.is-active]="activeTab === 'wards'" (click)="setTab('wards')"><i class="fa fa-bed"></i><span>Wards</span></button>
+    <button type="button" [class.is-active]="activeTab === 'rooms-beds'" (click)="setTab('rooms-beds')"><i class="fa fa-briefcase"></i><span>Rooms</span></button>
+    <button type="button" [class.is-active]="activeTab === 'birth-certificates'" (click)="setTab('birth-certificates')"><i class="fa fa-file-text-o"></i><span>Birth Certificate</span></button>
   </nav>
 
-  <div class="hospital-setup-loading" *ngIf="loading"><i class="fa fa-spinner fa-spin"></i> Loading your hospital configuration…</div>
+  <div class="hospital-setup-loading" *ngIf="loading"><span></span> Preparing hospital setup…</div>
 
+  <div class="hospital-setup-dashboard" [class.is-loading]="loading">
   <!-- Departments -->
-  <section *ngIf="activeTab === 'departments' && !loading" class="hospital-setup-card">
+  <section class="hospital-setup-card hospital-setup-section" [class.is-active]="activeTab === 'departments'">
+    <header class="hospital-setup-card__header">
+      <div class="hospital-setup-card__title">
+        <span class="hospital-setup-card__icon is-teal"><i class="fa fa-building-o"></i></span>
+        <div><h3>Departments</h3><p>Manage hospital departments and their details.</p></div>
+      </div>
+      <button *ngIf="can('departments.create')" type="button" class="btn-soft" (click)="openDepartmentModal()"><i class="fa fa-plus"></i> Add Department</button>
+    </header>
     <div class="hospital-setup-toolbar">
       <label>
         <span>Search</span>
@@ -72,7 +75,7 @@
         </select>
       </label>
     </div>
-    <div class="hospital-setup-table-wrap">
+    <div class="hospital-setup-table-wrap hospital-setup-desktop-table">
       <table class="hospital-setup-table">
         <thead>
           <tr>
@@ -85,17 +88,14 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let item of filteredDepartments">
-            <td>{{ item.name }}</td>
-            <td>{{ item.code || '—' }}</td>
-            <td>{{ formatLabel(item.category || 'OTHER') }}</td>
+          <tr *ngFor="let item of filteredDepartments | slice: 0 : 5">
+            <td class="cell-primary" [title]="item.name">{{ item.name }}</td>
+            <td class="cell-ellipsis" [title]="item.code || ''">{{ item.code || '—' }}</td>
+            <td class="cell-ellipsis">{{ formatLabel(item.category || 'OTHER') }}</td>
             <td>{{ doctorCountByDepartment[item._id] || 0 }}</td>
             <td><span class="status-pill" [class.is-active]="item.status === 'active'">{{ item.status }}</span></td>
             <td class="actions-cell">
-              <button *ngIf="can('departments.update')" type="button" class="btn-light" (click)="openDepartmentModal(item)">Edit</button>
-              <button *ngIf="can('departments.update')" type="button" class="btn-light" (click)="toggleDepartmentStatus(item)">
-                {{ item.status === 'active' ? 'Deactivate' : 'Activate' }}
-              </button>
+              <button type="button" class="row-action-trigger" aria-label="Department actions" (click)="openDepartmentActions($event, item)"><i class="fa fa-ellipsis-v"></i></button>
             </td>
           </tr>
           <tr *ngIf="!filteredDepartments.length">
@@ -104,11 +104,37 @@
         </tbody>
       </table>
     </div>
-    <p class="hospital-setup-hint">Inactive departments remain in historical records but are hidden from operational dropdowns.</p>
+    <div class="hospital-setup-mobile-list">
+      <article class="setup-mobile-card" *ngFor="let item of filteredDepartments">
+        <span class="setup-mobile-card__icon"><i class="fa fa-building-o"></i></span>
+        <div class="setup-mobile-card__content">
+          <div class="setup-mobile-card__topline">
+            <strong>{{ item.name }}</strong>
+            <span class="status-pill" [class.is-active]="item.status === 'active'">{{ item.status }}</span>
+          </div>
+          <span>Code: <b>{{ item.code || '—' }}</b></span>
+          <span>Category: {{ formatLabel(item.category || 'OTHER') }}</span>
+          <span class="setup-mobile-card__meta"><i class="fa fa-user-md"></i> {{ doctorCountByDepartment[item._id] || 0 }} doctors</span>
+        </div>
+        <button type="button" class="row-action-trigger" aria-label="Department actions" (click)="openDepartmentActions($event, item)"><i class="fa fa-ellipsis-v"></i></button>
+      </article>
+      <p class="empty-cell" *ngIf="!filteredDepartments.length">No departments found.</p>
+    </div>
+    <footer class="hospital-setup-card__footer">
+      <span>Showing {{ filteredDepartments.length }} of {{ departments.length }} departments</span>
+      <span class="page-chip">1</span>
+    </footer>
   </section>
 
   <!-- Wards -->
-  <section *ngIf="activeTab === 'wards' && !loading" class="hospital-setup-card">
+  <section class="hospital-setup-card hospital-setup-section" [class.is-active]="activeTab === 'wards'">
+    <header class="hospital-setup-card__header">
+      <div class="hospital-setup-card__title">
+        <span class="hospital-setup-card__icon is-blue"><i class="fa fa-bed"></i></span>
+        <div><h3>Wards &amp; Care Units</h3><p>Manage wards and care units across your hospital.</p></div>
+      </div>
+      <button *ngIf="can('ward.create')" type="button" class="btn-soft" (click)="openWardModal()"><i class="fa fa-plus"></i> Add Ward</button>
+    </header>
     <div class="hospital-setup-toolbar">
       <label>
         <span>Search</span>
@@ -123,7 +149,7 @@
         </select>
       </label>
     </div>
-    <div class="hospital-setup-table-wrap">
+    <div class="hospital-setup-table-wrap hospital-setup-desktop-table">
       <table class="hospital-setup-table">
         <thead>
           <tr>
@@ -140,22 +166,18 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let item of filteredWards">
-            <td>{{ item.name }}</td>
-            <td>{{ item.code || '—' }}</td>
+          <tr *ngFor="let item of filteredWards | slice: 0 : 5">
+            <td class="cell-primary" [title]="item.name">{{ item.name }}</td>
+            <td class="cell-ellipsis" [title]="item.code || ''">{{ item.code || '—' }}</td>
             <td>{{ formatLabel(item.type || 'general') }}</td>
             <td>{{ item.departmentMode === 'DEPARTMENT_SPECIFIC' ? 'Department-specific' : 'General' }}</td>
-            <td>{{ wardDepartmentLabels(item) }}</td>
+            <td class="cell-ellipsis" [title]="wardDepartmentLabels(item)">{{ wardDepartmentLabels(item) }}</td>
             <td>{{ formatLabel(item.genderPolicy || 'mixed') }}</td>
             <td>{{ formatLabel(item.ageGroup || 'all') }}</td>
             <td>{{ formatLabel(item.careLevel || 'general') }}</td>
             <td><span class="status-pill" [class.is-active]="item.status === 'active'">{{ item.status }}</span></td>
             <td class="actions-cell">
-              <button *ngIf="can('ward.update')" type="button" class="btn-light" (click)="openWardModal(item)">Edit</button>
-              <button *ngIf="can('ward.update')" type="button" class="btn-light" (click)="toggleWardStatus(item)">
-                {{ item.status === 'active' ? 'Deactivate' : 'Activate' }}
-              </button>
-              <a routerLink="/ward/bed-management" class="btn-light">View Rooms / Beds</a>
+              <button type="button" class="row-action-trigger" aria-label="Ward actions" (click)="openWardActions($event, item)"><i class="fa fa-ellipsis-v"></i></button>
             </td>
           </tr>
           <tr *ngIf="!filteredWards.length">
@@ -164,15 +186,51 @@
         </tbody>
       </table>
     </div>
-    <p class="hospital-setup-hint">Inactive wards are hidden from admission and operational ward selection.</p>
+    <div class="hospital-setup-mobile-list">
+      <article class="setup-mobile-card setup-mobile-card--ward" *ngFor="let item of filteredWards">
+        <div class="setup-mobile-card__topline setup-mobile-card__topline--full">
+          <span class="setup-mobile-card__icon"><i class="fa fa-bed"></i></span>
+          <strong>{{ item.name }}</strong>
+          <span class="status-pill" [class.is-active]="item.status === 'active'">{{ item.status }}</span>
+          <button type="button" class="row-action-trigger" aria-label="Ward actions" (click)="openWardActions($event, item)"><i class="fa fa-ellipsis-v"></i></button>
+        </div>
+        <dl class="setup-mobile-card__facts">
+          <div><dt>Code</dt><dd>{{ item.code || '—' }}</dd></div>
+          <div><dt>Gender</dt><dd>{{ formatLabel(item.genderPolicy || 'mixed') }}</dd></div>
+          <div><dt>Type</dt><dd>{{ formatLabel(item.type || 'general') }}</dd></div>
+          <div><dt>Age Group</dt><dd>{{ formatLabel(item.ageGroup || 'all') }}</dd></div>
+          <div><dt>Department</dt><dd>{{ wardDepartmentLabels(item) }}</dd></div>
+          <div><dt>Care Level</dt><dd>{{ formatLabel(item.careLevel || 'general') }}</dd></div>
+        </dl>
+        <div class="setup-mobile-card__buttons">
+          <button *ngIf="can('ward.update')" type="button" class="btn-light" (click)="openWardModal(item)"><i class="fa fa-pencil"></i> Edit</button>
+          <a routerLink="/ward/bed-management" class="btn-primary">View Rooms / Beds <i class="fa fa-arrow-right"></i></a>
+        </div>
+      </article>
+      <p class="empty-cell" *ngIf="!filteredWards.length">No wards found.</p>
+    </div>
+    <footer class="hospital-setup-card__footer">
+      <span>Showing {{ filteredWards.length }} of {{ wards.length }} wards</span>
+      <span class="page-chip">1</span>
+    </footer>
   </section>
 
   <!-- Rooms / Beds -->
-  <section *ngIf="activeTab === 'rooms-beds' && !loading" class="hospital-setup-card">
-    <p class="hospital-setup-hint hospital-setup-hint--lead">
-      Rooms and beds are operationally managed from Bed Management.
-    </p>
-    <div class="hospital-setup-table-wrap">
+  <section class="hospital-setup-card hospital-setup-section" [class.is-active]="activeTab === 'rooms-beds'">
+    <header class="hospital-setup-card__header">
+      <div class="hospital-setup-card__title">
+        <span class="hospital-setup-card__icon is-blue"><i class="fa fa-bed"></i></span>
+        <div><h3>Rooms / Beds</h3><p>Overview of rooms and beds by ward.</p></div>
+      </div>
+      <a routerLink="/ward/bed-management" class="btn-soft"><i class="fa fa-external-link"></i> Manage All Rooms</a>
+    </header>
+    <div class="room-kpis">
+      <div><strong>{{ totalRooms }}</strong><span>Total Rooms</span></div>
+      <div><strong>{{ totalBeds }}</strong><span>Total Beds</span></div>
+      <div class="is-available"><strong>{{ totalAvailableBeds }}</strong><span>Available</span></div>
+      <div class="is-occupied"><strong>{{ totalOccupiedBeds }}</strong><span>Occupied</span></div>
+    </div>
+    <div class="hospital-setup-table-wrap hospital-setup-desktop-table">
       <table class="hospital-setup-table">
         <thead>
           <tr>
@@ -186,15 +244,15 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let item of wards">
-            <td>{{ item.name }}</td>
+          <tr *ngFor="let item of wards | slice: 0 : 5">
+            <td class="cell-primary" [title]="item.name">{{ item.name }}</td>
             <td>{{ item.roomsCount || 0 }}</td>
             <td>{{ item.bedsCount || 0 }}</td>
             <td>{{ item.availableBeds || 0 }}</td>
             <td>{{ item.occupiedBeds || 0 }}</td>
             <td>{{ item.inactiveBeds || 0 }}</td>
             <td class="actions-cell">
-              <a routerLink="/ward/bed-management" class="btn-light">Manage Rooms &amp; Beds</a>
+              <a routerLink="/ward/bed-management" class="btn-light room-table-action">Manage Beds</a>
             </td>
           </tr>
           <tr *ngIf="!wards.length">
@@ -203,17 +261,47 @@
         </tbody>
       </table>
     </div>
+    <div class="hospital-setup-mobile-list">
+      <article class="setup-mobile-card setup-mobile-card--room" *ngFor="let item of wards">
+        <div class="setup-mobile-card__topline setup-mobile-card__topline--full">
+          <span class="setup-mobile-card__icon"><i class="fa fa-bed"></i></span>
+          <strong>{{ item.name }}</strong>
+        </div>
+        <dl class="room-card-stats">
+          <div><dt>Rooms</dt><dd>{{ item.roomsCount || 0 }}</dd></div>
+          <div><dt>Beds</dt><dd>{{ item.bedsCount || 0 }}</dd></div>
+          <div class="is-available"><dt>Available</dt><dd>{{ item.availableBeds || 0 }}</dd></div>
+          <div class="is-occupied"><dt>Occupied</dt><dd>{{ item.occupiedBeds || 0 }}</dd></div>
+          <div><dt>Inactive</dt><dd>{{ item.inactiveBeds || 0 }}</dd></div>
+        </dl>
+        <a routerLink="/ward/bed-management" class="room-card-manage">Manage Rooms &amp; Beds <i class="fa fa-arrow-right"></i></a>
+      </article>
+      <p class="empty-cell" *ngIf="!wards.length">No wards configured yet.</p>
+    </div>
+    <footer class="hospital-setup-card__footer">
+      <span>Showing {{ wards.length }} wards</span>
+      <span class="page-chip">1</span>
+    </footer>
   </section>
 
   <!-- Birth Certificate -->
-  <section *ngIf="activeTab === 'birth-certificates'" class="hospital-setup-card birth-cert-settings">
+  <section class="hospital-setup-card hospital-setup-section birth-cert-settings" [class.is-active]="activeTab === 'birth-certificates'">
+    <header class="hospital-setup-card__header">
+      <div class="hospital-setup-card__title">
+        <span class="hospital-setup-card__icon is-teal"><i class="fa fa-file-text-o"></i></span>
+        <div><h3>Birth Certificate</h3><p>Configure hospital-issued birth record certificates.</p></div>
+      </div>
+      <button type="button" class="btn-primary birth-save-top" (click)="saveBirthCertificateSettings()" [disabled]="savingBirthSettings">
+        <i class="fa fa-floppy-o"></i> {{ savingBirthSettings ? 'Saving…' : 'Save Settings' }}
+      </button>
+    </header>
     <p class="birth-cert-settings__note">
       Configure hospital-issued birth record certificates for your hospital. These are <strong>not</strong> NADRA B-Form or Union Council civil-registration documents.
     </p>
 
     <div class="birth-accordion" [class.is-open]="birthAccordion['basic']">
-      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('basic')">Basic Settings</button>
-      <div class="birth-accordion__body" *ngIf="birthAccordion['basic']">
+      <button type="button" class="birth-accordion__head" [attr.aria-expanded]="birthAccordion['basic']" (click)="toggleBirthSection('basic')">Basic Settings</button>
+      <div class="birth-accordion__body" [class.is-expanded]="birthAccordion['basic']">
         <label><span>Enable certificates</span><input type="checkbox" [(ngModel)]="birthSettings.enabled" /></label>
         <label><span>Document title</span><input [(ngModel)]="birthSettings.documentTitle" /></label>
         <label><span>Certificate prefix</span><input [(ngModel)]="birthSettings.certificatePrefix" /></label>
@@ -222,8 +310,8 @@
     </div>
 
     <div class="birth-accordion" [class.is-open]="birthAccordion['branding']">
-      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('branding')">Branding &amp; Hospital Seal</button>
-      <div class="birth-accordion__body" *ngIf="birthAccordion['branding']">
+      <button type="button" class="birth-accordion__head" [attr.aria-expanded]="birthAccordion['branding']" (click)="toggleBirthSection('branding')">Branding &amp; Hospital Seal</button>
+      <div class="birth-accordion__body" [class.is-expanded]="birthAccordion['branding']">
         <label><span>Hospital logo URL</span><input [(ngModel)]="birthSettings.logoUrl" placeholder="https://…" /></label>
 
         <div class="birth-upload full">
@@ -267,8 +355,8 @@
     </div>
 
     <div class="birth-accordion" [class.is-open]="birthAccordion['signatory']">
-      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('signatory')">Authorized Signatory (1 signature)</button>
-      <div class="birth-accordion__body" *ngIf="birthAccordion['signatory']">
+      <button type="button" class="birth-accordion__head" [attr.aria-expanded]="birthAccordion['signatory']" (click)="toggleBirthSection('signatory')">Authorized Signatory (1 signature)</button>
+      <div class="birth-accordion__body" [class.is-expanded]="birthAccordion['signatory']">
         <label><span>Signatory name</span><input [(ngModel)]="birthSettings.signatoryName" name="birthSignatoryName" placeholder="e.g. Hospital Medical Director" /></label>
         <label><span>Signatory designation</span><input [(ngModel)]="birthSettings.signatoryDesignation" name="birthSignatoryDesignation" placeholder="e.g. Authorized Signatory" /></label>
 
@@ -311,8 +399,8 @@
     </div>
 
     <div class="birth-accordion" [class.is-open]="birthAccordion['qr']">
-      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('qr')">QR &amp; Verification</button>
-      <div class="birth-accordion__body" *ngIf="birthAccordion['qr']">
+      <button type="button" class="birth-accordion__head" [attr.aria-expanded]="birthAccordion['qr']" (click)="toggleBirthSection('qr')">QR &amp; Verification</button>
+      <div class="birth-accordion__body" [class.is-expanded]="birthAccordion['qr']">
         <label class="full">
           <span>Verification base URL</span>
           <input [(ngModel)]="birthSettings.verificationBaseUrl" [placeholder]="defaultVerificationBaseUrlHint" />
@@ -328,16 +416,16 @@
     </div>
 
     <div class="birth-accordion" [class.is-open]="birthAccordion['privacy']">
-      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('privacy')">Privacy</button>
-      <div class="birth-accordion__body" *ngIf="birthAccordion['privacy']">
+      <button type="button" class="birth-accordion__head" [attr.aria-expanded]="birthAccordion['privacy']" (click)="toggleBirthSection('privacy')">Privacy</button>
+      <div class="birth-accordion__body" [class.is-expanded]="birthAccordion['privacy']">
         <label><span>Show mother CNIC</span><input type="checkbox" [(ngModel)]="birthSettings.showMotherCnic" /></label>
         <label><span>Show father CNIC</span><input type="checkbox" [(ngModel)]="birthSettings.showFatherCnic" /></label>
       </div>
     </div>
 
     <div class="birth-accordion" [class.is-open]="birthAccordion['display']">
-      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('display')">Certificate Display</button>
-      <div class="birth-accordion__body" *ngIf="birthAccordion['display']">
+      <button type="button" class="birth-accordion__head" [attr.aria-expanded]="birthAccordion['display']" (click)="toggleBirthSection('display')">Certificate Display</button>
+      <div class="birth-accordion__body" [class.is-expanded]="birthAccordion['display']">
         <label><span>Show birth weight</span><input type="checkbox" [(ngModel)]="birthSettings.showBirthWeight" /></label>
         <label><span>Show delivery mode</span><input type="checkbox" [(ngModel)]="birthSettings.showDeliveryMode" /></label>
         <label><span>Show revocation reason</span><input type="checkbox" [(ngModel)]="birthSettings.showRevocationReason" /></label>
@@ -345,8 +433,8 @@
     </div>
 
     <div class="birth-accordion" [class.is-open]="birthAccordion['legal']">
-      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('legal')">Legal / Civil Registration Notice</button>
-      <div class="birth-accordion__body" *ngIf="birthAccordion['legal']">
+      <button type="button" class="birth-accordion__head" [attr.aria-expanded]="birthAccordion['legal']" (click)="toggleBirthSection('legal')">Legal / Civil Registration Notice</button>
+      <div class="birth-accordion__body" [class.is-expanded]="birthAccordion['legal']">
         <label class="full"><span>Legal disclaimer</span><textarea rows="4" [(ngModel)]="birthSettings.legalDisclaimer"></textarea></label>
       </div>
     </div>
@@ -357,6 +445,56 @@
       </button>
     </div>
   </section>
+  </div>
+</div>
+
+<!-- Row actions are rendered outside the table so they can never be clipped by a card. -->
+<div
+  *ngIf="rowActionDepartment as item"
+  class="setup-floating-actions"
+  [style.top.px]="rowActionMenuTop"
+  [style.left.px]="rowActionMenuLeft"
+  (click)="$event.stopPropagation()"
+>
+  <button *ngIf="can('departments.update')" type="button" (click)="openDepartmentModal(item); closeRowActions()"><i class="fa fa-pencil"></i> Edit department</button>
+  <button *ngIf="can('departments.update')" type="button" (click)="toggleDepartmentStatus(item); closeRowActions()">
+    <i class="fa" [class.fa-eye-slash]="item.status === 'active'" [class.fa-check-circle]="item.status !== 'active'"></i>
+    {{ item.status === 'active' ? 'Deactivate' : 'Activate' }}
+  </button>
+</div>
+
+<div
+  *ngIf="rowActionWard as item"
+  class="setup-floating-actions"
+  [style.top.px]="rowActionMenuTop"
+  [style.left.px]="rowActionMenuLeft"
+  (click)="$event.stopPropagation()"
+>
+  <button *ngIf="can('ward.update')" type="button" (click)="openWardModal(item); closeRowActions()"><i class="fa fa-pencil"></i> Edit ward</button>
+  <button *ngIf="can('ward.update')" type="button" (click)="toggleWardStatus(item); closeRowActions()">
+    <i class="fa" [class.fa-eye-slash]="item.status === 'active'" [class.fa-check-circle]="item.status !== 'active'"></i>
+    {{ item.status === 'active' ? 'Deactivate' : 'Activate' }}
+  </button>
+  <a routerLink="/ward/bed-management" (click)="closeRowActions()"><i class="fa fa-bed"></i> View rooms &amp; beds</a>
+</div>
+
+<!-- Themed Add Defaults confirmation -->
+<div class="hospital-setup-modal setup-confirm" *ngIf="showDefaultsModal" role="dialog" aria-modal="true" aria-labelledby="setup-defaults-title">
+  <div class="hospital-setup-modal__backdrop" (click)="showDefaultsModal = false"></div>
+  <div class="setup-confirm__panel">
+    <button type="button" class="setup-confirm__close" aria-label="Close" (click)="showDefaultsModal = false"><i class="fa fa-times"></i></button>
+    <span class="setup-confirm__icon"><i class="fa fa-building-o"></i></span>
+    <div class="setup-confirm__copy">
+      <span class="setup-confirm__eyebrow">Hospital Setup</span>
+      <h3 id="setup-defaults-title">Add default departments &amp; wards?</h3>
+      <p>Any missing standard departments and wards will be added. Your existing setup and records will stay unchanged.</p>
+    </div>
+    <div class="setup-confirm__note"><i class="fa fa-shield"></i><span>This is safe to run more than once. Existing items will not be duplicated.</span></div>
+    <footer>
+      <button type="button" class="btn-light" (click)="showDefaultsModal = false">Cancel</button>
+      <button type="button" class="btn-primary" (click)="addDefaultsConfirmed()"><i class="fa fa-plus"></i> Add Defaults</button>
+    </footer>
+  </div>
 </div>
 
 <!-- Department modal -->

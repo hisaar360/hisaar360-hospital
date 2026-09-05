@@ -432,7 +432,10 @@ export const HELP_ROLE_WORKFLOWS: Record<HelpRoleKey, HelpRoleWorkflowConfig> = 
         type: 'row',
         items: [
           step('notify', '7', 'Ward / Doctor Notified', 'ward-notifications-guide', { module: 'laboratory' }),
-          step('print', '8', 'Preview / PDF / Print Report', 'laboratory-orders', { module: 'laboratory' }),
+          step('print', '8', 'Preview / PDF / Print / Invoice Auth Code', 'laboratory-orders', {
+            module: 'laboratory',
+          }),
+          step('public', '9', 'Public Lab Reports Page', 'laboratory-orders', { module: 'laboratory' }),
         ],
       },
     ],
@@ -442,11 +445,18 @@ export const HELP_ROLE_WORKFLOWS: Record<HelpRoleKey, HelpRoleWorkflowConfig> = 
     id: 'pharmacy',
     title: 'Pharmacy Workflow',
     description: 'Issue ward medicines and complete counter sales with stock updates.',
-    commonTaskSlugs: ['pharmacy-ward-medicine', 'pharmacy-ward-medicine'],
-    quickTaskSlugs: ['pharmacy-ward-medicine'],
+    commonTaskSlugs: ['bulk-add-medicines', 'pharmacy-ward-medicine'],
+    quickTaskSlugs: ['bulk-add-medicines', 'pharmacy-ward-medicine'],
     moduleGuideKeys: ['pharmacy'],
-    preferredGuideSlugs: ['pharmacy-ward-medicine'],
+    preferredGuideSlugs: ['bulk-add-medicines', 'pharmacy-ward-medicine'],
     desktopBlocks: [
+      { type: 'heading', text: 'Medicine Catalog' },
+      {
+        type: 'row',
+        items: [
+          step('catalog', '1', 'Bulk Add Medicines', 'bulk-add-medicines', { module: 'pharmacy' }),
+        ],
+      },
       { type: 'heading', text: 'Ward Medicine' },
       {
         type: 'row',

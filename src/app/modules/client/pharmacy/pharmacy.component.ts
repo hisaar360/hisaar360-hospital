@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { finalize, map, Observable, of, switchMap, throwError } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { AppDialogService } from '../../../core/services/app-dialog.service';
@@ -61,7 +61,7 @@ interface PharmacyProductForm {
 @Component({
   selector: 'app-pharmacy',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, PrescriptionPrintSheetComponent],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, PrescriptionPrintSheetComponent],
   templateUrl: './pharmacy.component.html',
   styleUrl: './pharmacy.component.scss',
 })
@@ -114,7 +114,17 @@ export class PharmacyComponent implements OnInit {
   strengthUnits = ['mg', 'ml', 'g', 'mcg', 'IU', '%', 'mg/ml', 'mg/5ml', 'mcg/ml'];
   productForm: PharmacyProductForm = this.getEmptyProductForm();
   dashboard: Record<string, unknown> | null = null;
-  pharmacyKpiCards: Array<{ label: string; value: string | number }> = [];
+  pharmacyKpiCards: Array<{
+    key: string;
+    label: string;
+    value: string | number;
+    hint: string;
+    icon: string;
+    tone: 'green' | 'blue' | 'amber' | 'red' | 'teal' | 'navy';
+    mobile?: boolean;
+  }> = [];
+  dashboardDateLabel = '';
+  mobileMoreOpen = false;
   private readonly requiredPosPermissions = [
     'sales.create',
     'sales.read',
@@ -184,22 +194,106 @@ export class PharmacyComponent implements OnInit {
   }
 
   loadPharmacyDashboard(): void {
+    this.dashboardDateLabel = new Intl.DateTimeFormat('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(new Date());
+
     this.backend.getPharmacyDashboard().subscribe({
       next: (data) => {
         this.dashboard = data;
         const money = (value: unknown) =>
           typeof value === 'number' ? value.toLocaleString() : String(value ?? 0);
+        const openRegister = Boolean(data['openRegister']);
         this.pharmacyKpiCards = [
-          { label: "Today's Sales", value: money(data['todaySales']) },
-          { label: 'Cash Collection', value: money(data['todayCashCollection']) },
-          { label: "Today's Returns", value: money(data['todayReturns']) },
-          { label: 'Counter Receivable', value: money(data['outstandingCounterReceivable']) },
-          { label: 'Low Stock', value: Number(data['lowStock'] ?? 0) },
-          { label: 'Expiring Soon', value: Number(data['expiringSoon'] ?? 0) },
-          { label: 'Out of Stock', value: Number(data['outOfStock'] ?? 0) },
-          { label: 'Pending Rx', value: Number(data['pendingPrescriptions'] ?? 0) },
-          { label: 'Open Register', value: data['openRegister'] ? 'Yes' : 'No' },
-          { label: 'Purchases Today', value: Number(data['purchasesToday'] ?? 0) },
+          {
+            key: 'sales',
+            label: "Today's Sales",
+            value: money(data['todaySales']),
+            hint: 'vs yesterday',
+            icon: 'fa-shopping-cart',
+            tone: 'green',
+            mobile: true,
+          },
+          {
+            key: 'cash',
+            label: 'Cash Collection',
+            value: money(data['todayCashCollection']),
+            hint: 'vs yesterday',
+            icon: 'fa-money',
+            tone: 'blue',
+            mobile: true,
+          },
+          {
+            key: 'returns',
+            label: "Today's Returns",
+            value: money(data['todayReturns']),
+            hint: 'vs yesterday',
+            icon: 'fa-undo',
+            tone: 'amber',
+          },
+          {
+            key: 'receivable',
+            label: 'Counter Receivable',
+            value: money(data['outstandingCounterReceivable']),
+            hint: 'Outstanding counter balance',
+            icon: 'fa-file-text-o',
+            tone: 'navy',
+          },
+          {
+            key: 'low',
+            label: 'Low Stock',
+            value: Number(data['lowStock'] ?? 0),
+            hint: 'Items below threshold',
+            icon: 'fa-exclamation-triangle',
+            tone: 'amber',
+            mobile: true,
+          },
+          {
+            key: 'expiring',
+            label: 'Expiring Soon',
+            value: Number(data['expiringSoon'] ?? 0),
+            hint: 'Within 30 days',
+            icon: 'fa-calendar',
+            tone: 'red',
+          },
+          {
+            key: 'out',
+            label: 'Out of Stock',
+            value: Number(data['outOfStock'] ?? 0),
+            hint: 'Currently unavailable',
+            icon: 'fa-times-circle',
+            tone: 'red',
+          },
+          {
+            key: 'rx',
+            label: 'Pending RX',
+            value: Number(data['pendingPrescriptions'] ?? 0),
+            hint: 'Prescriptions to fulfill',
+            icon: 'fa-medkit',
+            tone: 'blue',
+            mobile: true,
+          },
+          {
+            key: 'register',
+            label: 'Open Register',
+            value: openRegister ? 'Yes' : 'No',
+            hint: openRegister ? 'POS register is open' : 'No open register session',
+            icon: 'fa-calculator',
+            tone: openRegister ? 'green' : 'amber',
+            mobile: true,
+          },
+          {
+            key: 'purchases',
+            label: 'Purchases Today',
+            value: Number(data['purchasesToday'] ?? 0),
+            hint: 'New purchases',
+            icon: 'fa-truck',
+            tone: 'teal',
+            mobile: true,
+          },
         ];
       },
       error: () => {
@@ -207,6 +301,53 @@ export class PharmacyComponent implements OnInit {
         this.pharmacyKpiCards = [];
       },
     });
+  }
+
+  get mobileKpiCards() {
+    return this.pharmacyKpiCards.filter((card) => card.mobile);
+  }
+
+  get desktopOperationLinks() {
+    return [
+      { link: '/pharmacy/customers', icon: 'fa-users', title: 'Customers', desc: 'Walk-in and repeat POS profiles' },
+      { link: '/pharmacy/suppliers', icon: 'fa-truck', title: 'Suppliers', desc: 'Vendor records and purchase-side contacts' },
+      { link: '/pharmacy/inventory', icon: 'fa-cubes', title: 'Inventory', desc: 'Live stock position and valuations' },
+      { link: '/pharmacy/stock-movements', icon: 'fa-exchange', title: 'Stock Movements', desc: 'Audit every stock in and out event' },
+      { link: '/pharmacy/transfers', icon: 'fa-random', title: 'Stock Transfers', desc: 'Inter-store stock movement workflow' },
+      { link: '/pharmacy/sales', icon: 'fa-file-text-o', title: 'Sales', desc: 'Invoices, payment status, and billing flow' },
+      { link: '/pharmacy/returns/sales', icon: 'fa-undo', title: 'Sales Returns', desc: 'Refund and return completed POS invoices' },
+      { link: '/pharmacy/payments', icon: 'fa-credit-card', title: 'Payments', desc: 'Track and create payment entries' },
+      { link: '/pharmacy/register-sessions', icon: 'fa-calculator', title: 'Register Sessions', desc: 'Open, close, and audit cashier shifts' },
+      { link: '/pharmacy/expenses', icon: 'fa-money', title: 'Expenses', desc: 'Counter costs and petty cash outflow' },
+      { link: '/pharmacy/reports', icon: 'fa-bar-chart', title: 'Reports', desc: 'Sales, inventory, payments and P&L reports' },
+    ];
+  }
+
+  get mobileOperationLinks() {
+    return this.desktopOperationLinks.filter((item) =>
+      ['Customers', 'Suppliers', 'Inventory', 'Stock Movements', 'Sales', 'Payments', 'Reports'].includes(item.title)
+    );
+  }
+
+  scrollToQueue(): void {
+    this.mobileMoreOpen = false;
+    if (typeof document === 'undefined') return;
+    document.getElementById('pharmacy-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  toggleMobileMore(): void {
+    this.mobileMoreOpen = !this.mobileMoreOpen;
+  }
+
+  primaryPosMatchLabel(medicineName: string): string {
+    const matches = this.getMedicineMatches(medicineName);
+    if (!matches.length) return '';
+    const product = matches[0];
+    return product.sku ? `${product.name} (${product.sku})` : product.name;
+  }
+
+  hasPosMatch(medicineName: string): boolean {
+    return this.getMedicineMatches(medicineName).length > 0;
   }
 
   get pharmacyPosHint(): string {

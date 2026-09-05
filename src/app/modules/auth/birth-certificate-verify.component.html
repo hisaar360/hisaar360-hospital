@@ -1,4 +1,30 @@
 <div class="verify-page">
+  <section class="verify-form-card" *ngIf="!loading && !result">
+    <p class="verify-form-card__eyebrow">Birth Record Verification</p>
+    <h1>Verify Birth Certificate</h1>
+    <p class="verify-form-card__lead">
+      Check the authenticity of a hospital-issued birth certificate using the certificate number.
+      Production visitors should use
+      <a href="https://hisaar360.com/verify/birth">hisaar360.com/verify/birth</a>
+      (Cloudflare captcha protected).
+    </p>
+    <label class="verify-form-card__label" for="certificateNo">Certificate Number</label>
+    <input
+      id="certificateNo"
+      class="verify-form-card__input"
+      type="text"
+      name="certificateNo"
+      [(ngModel)]="certificateNo"
+      placeholder="Enter certificate number (e.g. HBC-2026-000001)"
+      autocomplete="off"
+      (keyup.enter)="onVerify()"
+    />
+    <p class="verify-form-card__error" *ngIf="errorMessage">{{ errorMessage }}</p>
+    <button class="verify-form-card__btn" type="button" (click)="onVerify()">
+      Verify Certificate
+    </button>
+  </section>
+
   <div class="verify-loading" *ngIf="loading">
     <span class="verify-loading__spinner" aria-hidden="true"></span>
     Verifying certificate…

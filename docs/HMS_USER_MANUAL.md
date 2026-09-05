@@ -137,7 +137,15 @@ npm run seed:ward-roster-demo
 3. **View Certificate** loads one payload: snapshot + embedded seal/signature/logo + QR (no extra broken `/media` calls on the SPA origin)
 4. **View Record** shows metadata only
 5. Preview / PDF / Print reprint the **same** certificate number and version (correction creates a new version; ordinary reprint does not)
-6. Public QR: `https://hisaar360.com/verify/birth/:code` → **VALID** / REVOKED / SUPERSEDED (no CNIC/billing internals). Local landing: `http://localhost:4200/verify/birth/:code`
+6. Public QR opens the **landing verify form**: `https://hisaar360.com/verify/birth?certificateNo=HBC-…` (certificate number prefilled). Visitor completes Cloudflare captcha and clicks **Verify Certificate** — QR does **not** auto-open the certificate.
+7. Local landing form: `http://localhost:4200/verify/birth`
+
+## Public lab reports
+
+1. Each patient gets a unique **Report Auth Code** (printed on lab invoice / report as Report Auth Code; File No = patient file number)
+2. Public page: `https://hisaar360.com/lab-reports` — enter File No + Report Auth Code + Cloudflare captcha
+3. Approved/verified lab orders are listed; View Report opens the selected result
+4. Without the Report Auth Code, reports cannot be listed (prevents random file lookups)
 
 ## Doctor ne recommend kar diya — ab kya?
 
