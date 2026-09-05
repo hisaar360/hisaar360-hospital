@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   FormBuilder,
   FormGroup,
@@ -24,16 +24,17 @@ export class LoginComponent implements OnInit, OnDestroy {
   loading = false;
   ssoLoading = false;
   ssoCode: string | null = null;
+  allowLocalLogin = false;
   loginForm: FormGroup;
 
   private readonly subscriptions = new Subscription();
   private hasStartedSsoLogin = false;
+  private lastSsoCode: string | null = null;
 
   constructor(
     private fb: FormBuilder,
     public authService: AuthService,
     private route: ActivatedRoute,
-    private router: Router,
     private toaster: ToastrService
   ) {
     this.loginForm = this.fb.group({
@@ -43,7 +44,12 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   get showLocalLoginForm(): boolean {
-    return this.authService.shouldUseLocalLogin() && !this.ssoCode;
+    return this.allowLocalLogin && !this.ssoCode;
+  }
+
+  /** SSO handoff: only verification UI — never the hospital login form. */
+  get showSsoVerification(): boolean {
+    return Boolean(this.ssoCode);
   }
 
   ngOnInit(): void {
@@ -51,18 +57,26 @@ export class LoginComponent implements OnInit, OnDestroy {
       this.route.queryParamMap.subscribe((params) => {
         const ssoCode = params.get('ssoCode');
         this.ssoCode = ssoCode;
+        this.allowLocalLogin = params.get('localLogin') === '1';
 
         if (ssoCode) {
           const shouldStart =
-            !this.hasStartedSsoLogin || this.ssoCode !== ssoCode;
+            !this.hasStartedSsoLogin || this.lastSsoCode !== ssoCode;
           if (shouldStart) {
             this.hasStartedSsoLogin = true;
+            this.lastSsoCode = ssoCode;
             this.startSsoLogin();
           }
           return;
         }
 
         this.hasStartedSsoLogin = false;
+        this.lastSsoCode = null;
+
+        // No SSO code → Central Auth portal (local: :4200/login, prod: hisaar360.com).
+        if (!this.allowLocalLogin) {
+          this.authService.redirectToHostedLogin();
+        }
       })
     );
   }
@@ -121,15 +135,7 @@ export class LoginComponent implements OnInit, OnDestroy {
         this.hasStartedSsoLogin = false;
         this.toaster.error(err?.error?.message || 'SSO login failed');
         console.error('SSO login failed:', err);
-
-        if (this.authService.shouldUseLocalLogin()) {
-          void this.router.navigate(['/login/access'], {
-            queryParams: {},
-            replaceUrl: true,
-          });
-        } else {
-          this.authService.redirectToHostedLogin();
-        }
+        this.authService.redirectToHostedLogin();
       },
     });
   }

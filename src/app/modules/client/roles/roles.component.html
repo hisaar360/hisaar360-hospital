@@ -1,167 +1,333 @@
-<div id="main-content">
-  <div class="container-fluid">
-    <div class="block-header">
-      <div class="row clearfix">
-        <div class="col-lg-8 col-md-12 col-sm-12">
-          <h1>Hospital Roles</h1>
-          <span>
-            Default laboratory roles are created automatically (Laboratory Admin, Pathologist, Lab Technician,
-            Lab Receptionist, and Laboratory). Create a custom role if one or two people should run the whole lab.
-          </span>
+<div id="main-content" class="hms-page roles-page" (click)="closeRoleMenu()">
+  <div class="roles-shell">
+    <header class="roles-header">
+      <div class="roles-header__copy">
+        <h1>Hospital Roles</h1>
+        <p>Create and manage hospital roles. Configure permissions to control access across the system.</p>
+      </div>
+
+      <div class="roles-header__tools">
+        <label class="roles-field roles-field--scope">
+          <span>Hospital Scope</span>
+          <select
+            *ngIf="canSelectHospital; else assignedHospitalInfo"
+            [(ngModel)]="selectedHospitalId"
+            (change)="onHospitalChange()"
+          >
+            <option value="">Select Hospital</option>
+            <option *ngFor="let hospital of hospitals" [value]="hospital._id">{{ hospital.name }}</option>
+          </select>
+          <small class="text-muted" *ngIf="hospitalsLoading">Loading hospitals...</small>
+          <ng-template #assignedHospitalInfo>
+            <input [value]="currentHospitalName || currentHospitalId || 'Assigned hospital'" readonly />
+          </ng-template>
+        </label>
+
+        <label class="roles-field roles-field--search">
+          <span class="sr-only">Search roles</span>
+          <i class="fa fa-search" aria-hidden="true"></i>
+          <input
+            type="search"
+            [(ngModel)]="search"
+            placeholder="Search roles or permissions…"
+            (keyup.enter)="onSearchChange()"
+          />
+        </label>
+
+        <div class="roles-header__actions">
+          <button
+            type="button"
+            class="roles-btn roles-btn--teal"
+            *ngIf="can('roles.create')"
+            (click)="startCreateRole()"
+          >
+            <i class="fa fa-plus" aria-hidden="true"></i>
+            Create Role
+          </button>
+          <button
+            type="button"
+            class="roles-btn roles-btn--navy"
+            *ngIf="canEditSelected"
+            [disabled]="saving"
+            (click)="submitRole()"
+          >
+            <i class="fa fa-save" aria-hidden="true"></i>
+            {{ saving ? 'Saving…' : 'Save Role' }}
+          </button>
+          <button type="button" class="roles-btn roles-btn--ghost" *ngIf="canEditSelected" (click)="discardChanges()">
+            Discard
+          </button>
         </div>
       </div>
-    </div>
+    </header>
 
-    <div class="row clearfix">
-      <div class="col-lg-5 col-md-12">
-        <div class="card role-editor-card">
-          <div class="body">
-            <div class="form-group mb-0" *ngIf="canSelectHospital; else assignedHospitalInfo">
-              <label>Hospital Scope</label>
-              <select class="form-control" [(ngModel)]="selectedHospitalId" (change)="onHospitalChange()">
-                <option value="">Select Hospital</option>
-                <option *ngFor="let hospital of hospitals" [value]="hospital._id">{{ hospital.name }}</option>
-              </select>
-              <small class="text-muted" *ngIf="hospitalsLoading">Loading hospitals...</small>
+    <nav class="roles-mobile-tabs" aria-label="Roles sections">
+      <button type="button" [class.is-active]="mobileTab === 'roles'" (click)="setMobileTab('roles')">Roles</button>
+      <button type="button" [class.is-active]="mobileTab === 'editor'" (click)="setMobileTab('editor')">Editor</button>
+      <button type="button" [class.is-active]="mobileTab === 'permissions'" (click)="setMobileTab('permissions')">
+        Permissions
+      </button>
+    </nav>
+
+    <div class="roles-layout">
+      <aside class="roles-master" [class.is-active-pane]="mobileTab === 'roles'">
+        <div class="roles-master__head">
+          <h2>Roles ({{ visibleRoles().length }})</h2>
+          <select class="roles-status-filter" [(ngModel)]="status" (change)="loadRoles()" aria-label="Filter by status">
+            <option value="">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+
+        <div class="roles-master__body" *ngIf="!loading; else rolesLoading">
+          <article
+            class="role-card"
+            *ngFor="let role of visibleRoles()"
+            [class.is-selected]="selectedRoleId === role._id"
+            (click)="selectRole(role)"
+          >
+            <div class="role-card__avatar" [style.background]="avatarColor(role)">
+              <i class="fa fa-user" aria-hidden="true"></i>
             </div>
-            <ng-template #assignedHospitalInfo>
-              <label>Hospital Scope</label>
-              <input class="form-control" [value]="currentHospitalName || currentHospitalId || 'Assigned hospital'" readonly />
-            </ng-template>
+
+            <div class="role-card__main">
+              <div class="role-card__title-row">
+                <h3>{{ role.name }}</h3>
+                <span class="role-badge" [class.role-badge--active]="role.isActive !== false" [class.role-badge--inactive]="role.isActive === false">
+                  {{ role.isActive !== false ? 'Active' : 'Inactive' }}
+                </span>
+                <span class="role-badge role-badge--system" *ngIf="role.isSystemRole">System</span>
+              </div>
+              <p>{{ role.description || 'No description provided.' }}</p>
+              <div class="role-card__meta">{{ permissionCount(role) }} permissions</div>
+              <div class="role-card__tags" *ngIf="visibleCategories(role).length">
+                <span *ngFor="let tag of visibleCategories(role)">{{ tag }}</span>
+                <span class="role-card__more" *ngIf="hiddenCategoryCount(role)">+{{ hiddenCategoryCount(role) }}</span>
+              </div>
+            </div>
+
+            <div class="role-card__aside">
+              <span class="role-card__check" *ngIf="selectedRoleId === role._id" aria-hidden="true">
+                <i class="fa fa-check"></i>
+              </span>
+              <div class="role-card__menu-wrap">
+                <button
+                  type="button"
+                  class="role-card__menu-btn"
+                  aria-label="Role actions"
+                  (click)="toggleRoleMenu(role._id, $event)"
+                >
+                  <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+                </button>
+                <div class="role-card__menu" *ngIf="openMenuRoleId === role._id" (click)="$event.stopPropagation()">
+                  <button type="button" (click)="selectRole(role)">Edit</button>
+                  <button
+                    type="button"
+                    class="is-danger"
+                    *ngIf="can('roles.delete') && !role.isSystemRole"
+                    (click)="deleteRole(role)"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <div class="roles-empty" *ngIf="!visibleRoles().length">
+            <h3>No hospital roles found</h3>
+            <p>Create a custom role or adjust your search filters.</p>
           </div>
         </div>
-      </div>
-    </div>
+      </aside>
 
-    <div class="row clearfix">
-      <div class="col-lg-5 col-md-12" *ngIf="can('roles.create') || can('roles.update') || editingRoleId">
-        <div class="card role-editor-card">
-          <div class="header">
-            <h2>{{ editingRoleId ? 'Edit Hospital Role' : 'Create Hospital Role' }}</h2>
-          </div>
-          <div class="body">
-            <form [formGroup]="roleForm" (ngSubmit)="submitRole()">
-              <div class="form-group">
-                <label>Role Name</label>
-                <input class="form-control" formControlName="name" placeholder="Reception Manager" />
-                <small class="text-danger" *ngIf="roleForm.get('name')?.touched && roleForm.get('name')?.invalid">
+      <section
+        class="roles-detail"
+        [class.is-active-pane]="mobileTab === 'editor' || mobileTab === 'permissions'"
+        *ngIf="can('roles.create') || can('roles.update') || can('roles.read') || editingRoleId || selectedRole"
+      >
+        <form [formGroup]="roleForm" (ngSubmit)="submitRole()" class="roles-detail__form">
+          <div class="roles-detail__editor" [class.is-hidden-mobile]="mobileTab === 'permissions'">
+            <header class="roles-detail__head">
+              <div>
+                <p class="roles-detail__eyebrow">{{ editingRoleId || selectedRole ? 'Editing Role' : 'Create Role' }}</p>
+                <h2>{{ roleForm.get('name')?.value || selectedRole?.name || 'New Role' }}</h2>
+              </div>
+              <div class="roles-detail__badges">
+                <span
+                  class="role-badge"
+                  [class.role-badge--active]="roleForm.get('isActive')?.value !== false"
+                  [class.role-badge--inactive]="roleForm.get('isActive')?.value === false"
+                >
+                  {{ roleForm.get('isActive')?.value !== false ? 'Active' : 'Inactive' }}
+                </span>
+                <span class="role-badge role-badge--system" *ngIf="selectedRole?.isSystemRole">System</span>
+                <span class="role-badge role-badge--custom" *ngIf="!selectedRole?.isSystemRole">Custom</span>
+                <span class="roles-perm-count">
+                  <i class="fa fa-check-circle" aria-hidden="true"></i>
+                  {{ selectedPermissionCount() }} Permissions Assigned
+                </span>
+              </div>
+            </header>
+
+            <div class="roles-detail__fields">
+              <label class="roles-field">
+                <span>Role Name</span>
+                <input formControlName="name" placeholder="Reception Manager" />
+                <small class="roles-field__error" *ngIf="roleForm.get('name')?.touched && roleForm.get('name')?.invalid">
                   Enter at least 2 characters.
                 </small>
+              </label>
+
+              <label class="roles-field">
+                <span>Description</span>
+                <textarea formControlName="description" rows="3" placeholder="Access profile for front desk operations"></textarea>
+              </label>
+
+              <div class="roles-toggle-block">
+                <span class="roles-toggle-block__label">Status</span>
+                <div class="roles-segment" role="group" aria-label="Role status">
+                  <button
+                    type="button"
+                    [class.is-active]="roleForm.get('isActive')?.value === true"
+                    [disabled]="roleForm.disabled"
+                    (click)="setRoleActive(true)"
+                  >
+                    Active
+                  </button>
+                  <button
+                    type="button"
+                    [class.is-active]="roleForm.get('isActive')?.value === false"
+                    [disabled]="roleForm.disabled"
+                    (click)="setRoleActive(false)"
+                  >
+                    Inactive
+                  </button>
+                </div>
               </div>
 
-              <div class="form-group">
-                <label>Description</label>
-                <textarea
-                  class="form-control"
-                  rows="3"
-                  formControlName="description"
-                  placeholder="Access profile for front desk operations"
-                ></textarea>
+              <div class="roles-toggle-block">
+                <span class="roles-toggle-block__label">Role Type</span>
+                <div class="roles-type-pills" aria-label="Role type">
+                  <span class="role-badge" [class.role-badge--active]="roleForm.get('isActive')?.value !== false" [class.role-badge--inactive]="roleForm.get('isActive')?.value === false">
+                    {{ roleForm.get('isActive')?.value !== false ? 'Active' : 'Inactive' }}
+                  </span>
+                  <span class="role-badge role-badge--system" *ngIf="selectedRole?.isSystemRole">System</span>
+                  <span class="role-badge role-badge--custom" *ngIf="!selectedRole?.isSystemRole">Custom</span>
+                </div>
               </div>
+            </div>
+          </div>
 
-              <div class="form-group">
-                <label>Status</label>
-                <select class="form-control" formControlName="isActive">
-                  <option [ngValue]="true">Active</option>
-                  <option [ngValue]="false">Inactive</option>
-                </select>
+          <div class="roles-permissions" [class.is-hidden-mobile]="mobileTab === 'editor'">
+            <div class="roles-permissions__head">
+              <div>
+                <h3>Permissions</h3>
+                <p>Configure module level permissions for this role.</p>
               </div>
+              <div class="roles-permissions__bulk">
+                <button type="button" (click)="expandAllGroups()">
+                  Expand All <i class="fa fa-chevron-down" aria-hidden="true"></i>
+                </button>
+                <button type="button" (click)="collapseAllGroups()">
+                  Collapse All <i class="fa fa-chevron-up" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
 
-              <div class="permission-groups">
-                <div class="permission-group" *ngFor="let group of visiblePermissionGroups">
-                  <div class="permission-group__header">
-                    <h6>{{ group.title }}</h6>
+            <div class="roles-permissions__list">
+              <article class="perm-row" *ngFor="let group of visiblePermissionGroups" [class.is-open]="isGroupExpanded(group.title)">
+                <div class="perm-row__main">
+                  <div class="perm-row__identity">
+                    <span class="perm-row__icon"><i class="fa" [ngClass]="groupIcon(group.title)" aria-hidden="true"></i></span>
+                    <div>
+                      <strong>{{ group.title }}</strong>
+                      <small>{{ groupDescription(group.title) }}</small>
+                    </div>
                   </div>
-                  <label class="permission-option" *ngFor="let permission of group.permissions">
+
+                  <div class="perm-row__checks">
+                    <label class="perm-check">
+                      <input
+                        type="checkbox"
+                        [checked]="allGroupSelected(group)"
+                        [disabled]="roleForm.disabled"
+                        (change)="toggleGroupSelectAll(group, $event)"
+                      />
+                      <span>Select all</span>
+                    </label>
+                    <label class="perm-check" *ngIf="crudKeys(group).view as viewKey">
+                      <input
+                        type="checkbox"
+                        [checked]="hasPermissionSelected(viewKey)"
+                        [disabled]="roleForm.disabled"
+                        (change)="togglePermission(viewKey, $event)"
+                      />
+                      <span>View</span>
+                    </label>
+                    <label class="perm-check" *ngIf="crudKeys(group).create as createKey">
+                      <input
+                        type="checkbox"
+                        [checked]="hasPermissionSelected(createKey)"
+                        [disabled]="roleForm.disabled"
+                        (change)="togglePermission(createKey, $event)"
+                      />
+                      <span>Create</span>
+                    </label>
+                    <label class="perm-check" *ngIf="crudKeys(group).update as updateKey">
+                      <input
+                        type="checkbox"
+                        [checked]="hasPermissionSelected(updateKey)"
+                        [disabled]="roleForm.disabled"
+                        (change)="togglePermission(updateKey, $event)"
+                      />
+                      <span>Update</span>
+                    </label>
+                    <label class="perm-check" *ngIf="crudKeys(group).delete as deleteKey">
+                      <input
+                        type="checkbox"
+                        [checked]="hasPermissionSelected(deleteKey)"
+                        [disabled]="roleForm.disabled"
+                        (change)="togglePermission(deleteKey, $event)"
+                      />
+                      <span>Delete</span>
+                    </label>
+                  </div>
+
+                  <button type="button" class="perm-row__toggle" (click)="toggleGroup(group.title)" [attr.aria-expanded]="isGroupExpanded(group.title)">
+                    <i class="fa" [ngClass]="isGroupExpanded(group.title) ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
+                  </button>
+                </div>
+
+                <div class="perm-row__extra" *ngIf="isGroupExpanded(group.title)">
+                  <label class="perm-option" *ngFor="let permission of group.permissions">
                     <input
                       type="checkbox"
                       [checked]="hasPermissionSelected(permission.key)"
+                      [disabled]="roleForm.disabled"
                       (change)="togglePermission(permission.key, $event)"
                     />
                     <span>{{ permission.label }}</span>
                   </label>
                 </div>
-              </div>
-
-              <div class="editor-actions">
-                <button class="btn btn-primary" type="submit" [disabled]="saving">
-                  {{ saving ? 'Saving...' : editingRoleId ? 'Update Role' : 'Create Role' }}
-                </button>
-                <button class="btn btn-default ml-2" type="button" (click)="resetForm()" *ngIf="editingRoleId">
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-lg-7 col-md-12">
-        <div class="card role-list-card">
-          <div class="header">
-            <h2>Hospital Role Library</h2>
-          </div>
-          <div class="body">
-            <div class="row mb-3">
-              <div class="col-md-8">
-                <input
-                  class="form-control"
-                  [(ngModel)]="search"
-                  placeholder="Search roles by name, description, or permission"
-                  (keyup.enter)="loadRoles()"
-                />
-              </div>
-              <div class="col-md-4">
-                <select class="form-control" [(ngModel)]="status" (change)="loadRoles()">
-                  <option value="">All statuses</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="role-pill-grid" *ngIf="!loading && visibleRoles().length">
-              <article class="role-pill-card" *ngFor="let role of visibleRoles()">
-                <div class="role-pill-card__top">
-                  <div>
-                    <h5>{{ role.name }}</h5>
-                    <p>{{ role.description || 'No description provided.' }}</p>
-                  </div>
-                  <div class="text-right">
-                    <span class="badge d-inline-block mb-1"
-                      [ngClass]="role.isActive !== false ? 'badge-success' : 'badge-warning'">
-                      {{ role.isActive !== false ? 'active' : 'inactive' }}
-                    </span>
-                    <span class="badge badge-info d-block" *ngIf="role.isSystemRole">system</span>
-                  </div>
-                </div>
-
-                <div class="role-pill-card__permissions">
-                  <span class="permission-chip" *ngFor="let permission of role.permissions">
-                    {{ permission }}
-                  </span>
-                </div>
-
-                <div class="role-pill-card__actions">
-                  <button class="btn btn-sm btn-default mr-1" *ngIf="can('roles.update')" (click)="editRole(role)"
-                    [disabled]="role.permissions.includes('*')">
-                    Edit
-                  </button>
-                  <button class="btn btn-sm btn-danger" *ngIf="can('roles.delete')" (click)="deleteRole(role)"
-                    [disabled]="role.isSystemRole">
-                    Delete
-                  </button>
-                </div>
               </article>
             </div>
-
-            <div class="text-center text-muted py-5" *ngIf="loading">Loading hospital roles...</div>
-            <div class="text-center text-muted py-5" *ngIf="!loading && !visibleRoles().length">
-              No hospital roles found.
-            </div>
           </div>
-        </div>
-      </div>
+        </form>
+      </section>
     </div>
+
+    <footer class="roles-sticky-footer" *ngIf="canEditSelected">
+      <button type="button" class="roles-btn roles-btn--ghost" (click)="discardChanges()">Discard</button>
+      <button type="button" class="roles-btn roles-btn--navy" [disabled]="saving" (click)="submitRole()">
+        <i class="fa fa-save" aria-hidden="true"></i>
+        {{ saving ? 'Saving…' : 'Save Role' }}
+      </button>
+    </footer>
   </div>
 </div>
+
+<ng-template #rolesLoading>
+  <div class="roles-empty">Loading hospital roles…</div>
+</ng-template>

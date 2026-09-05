@@ -1,7 +1,7 @@
 .hms-doc-preview-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100050;
+  z-index: 100060;
   background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: stretch;
@@ -36,18 +36,98 @@
 .hms-doc-preview-title {
   font-size: 15px;
   color: #0f172a;
+  min-width: 0;
+
+  strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .hms-doc-preview-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
+  justify-content: flex-end;
+}
+
+.hms-doc-btn {
+  align-items: center;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 12px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+
+  &--outline {
+    background: #fff;
+    border: 1px solid #0d9488;
+    color: #0d9488;
+
+    &:hover:not(:disabled) {
+      background: rgba(13, 148, 136, 0.08);
+      color: #0f766e;
+    }
+  }
+
+  &--ghost {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    color: #64748b;
+
+    &:hover:not(:disabled) {
+      background: #f8fafc;
+      color: #0f172a;
+    }
+  }
+}
+
+.hms-doc-close {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 16px;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+
+  &:hover {
+    background: #f8fafc;
+    color: #0f172a;
+  }
 }
 
 .hms-doc-preview-stage {
   flex: 1;
-  overflow: auto;
-  padding: 20px;
+  overflow: hidden;
+  padding: 0;
+  background: #e2e8f0;
+  display: flex;
+}
+
+.hms-doc-preview-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 70vh;
+  border: 0;
+  background: #fff;
 }
 
 .hms-doc-preview-page {
@@ -76,13 +156,23 @@
   }
 
   .hms-doc-preview-actions {
-    position: sticky;
-    top: 0;
+    justify-content: stretch;
+
+    .hms-doc-btn {
+      flex: 1;
+    }
+
+    .hms-doc-close {
+      margin-left: auto;
+    }
   }
 
   .hms-doc-preview-stage {
-    padding: 12px;
-    overflow: hidden;
+    padding: 0;
+  }
+
+  .hms-doc-preview-frame {
+    min-height: 60vh;
   }
 
   .hms-doc-preview-page {

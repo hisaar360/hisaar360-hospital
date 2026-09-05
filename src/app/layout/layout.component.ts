@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, inject } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
-import { Subscription, filter, map, startWith } from 'rxjs';
+import { Subscription, filter, map, shareReplay, startWith } from 'rxjs';
 import { LeftmenuComponent } from "../modules/client/leftmenu/leftmenu.component";
 import { HeaderComponent } from "../modules/client/header/header.component";
 
@@ -18,7 +18,8 @@ export class LayoutComponent implements OnDestroy {
   readonly hideShell$ = this.router.events.pipe(
     filter((event): event is NavigationEnd => event instanceof NavigationEnd),
     startWith(null),
-    map(() => this.router.url.startsWith('/pharmacy/pos'))
+    map(() => this.router.url.startsWith('/pharmacy/pos')),
+    shareReplay({ bufferSize: 1, refCount: true })
   );
 
   constructor() {

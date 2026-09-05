@@ -85,8 +85,8 @@
                 <td class="birth-records-actions">
                   <button type="button" class="btn btn-sm btn-light birth-btn-light" *ngIf="canVerify(record)" (click)="verifyRecord(record)">Verify</button>
                   <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" *ngIf="canIssue(record)" (click)="issueCertificate(record)">Issue Certificate</button>
-                  <button type="button" class="btn btn-sm btn-light birth-btn-light" *ngIf="record.activeCertificate" (click)="openCertificateSummary(record)">View Record</button>
-                  <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" *ngIf="record.activeCertificate" (click)="openCertificate(record)">View Certificate</button>
+                  <button type="button" class="btn btn-sm btn-light birth-btn-light" *ngIf="record.activeCertificate" (click)="openCertificateSummary(record)" [disabled]="certificateLoading">View Record</button>
+                  <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" *ngIf="record.activeCertificate" (click)="openCertificate(record)" [disabled]="certificateLoading">View Certificate</button>
                 </td>
               </tr>
             </tbody>
@@ -104,8 +104,8 @@
             <div class="birth-records-actions">
               <button type="button" class="btn btn-sm btn-light birth-btn-light" *ngIf="canVerify(record)" (click)="verifyRecord(record)">Verify</button>
               <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" *ngIf="canIssue(record)" (click)="issueCertificate(record)">Issue Certificate</button>
-              <button type="button" class="btn btn-sm btn-light birth-btn-light" *ngIf="record.activeCertificate" (click)="openCertificateSummary(record)">View Record</button>
-              <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" *ngIf="record.activeCertificate" (click)="openCertificate(record)">View Certificate</button>
+              <button type="button" class="btn btn-sm btn-light birth-btn-light" *ngIf="record.activeCertificate" (click)="openCertificateSummary(record)" [disabled]="certificateLoading">View Record</button>
+              <button type="button" class="btn btn-sm ward-bed-mgmt-btn ward-bed-mgmt-btn--primary" *ngIf="record.activeCertificate" (click)="openCertificate(record)" [disabled]="certificateLoading">View Certificate</button>
             </div>
           </article>
         </div>
@@ -211,8 +211,10 @@
             <input [(ngModel)]="recordForm.modeOfDelivery" placeholder="e.g. Normal vaginal delivery" />
           </label>
           <label class="hms-form-field">
-            <span class="hms-form-field__label">Delivered By</span>
-            <input [(ngModel)]="recordForm.deliveredByDoctorId" placeholder="Consultant / clinician name or ID" />
+            <span class="hms-form-field__label">Delivered By (doctor)</span>
+            <input [(ngModel)]="recordForm.deliveredByDoctorId" placeholder="Dr. name who did the delivery / C-section" />
+            <small class="hms-form-field__hint">Appears on the birth certificate as Delivered By.</small>
+            <small class="text-muted">Shown on the birth certificate. Enter the delivering clinician's name.</small>
           </label>
         </div>
       </section>
@@ -258,31 +260,163 @@
   </section>
 </div>
 
-<div class="birth-modal-backdrop" *ngIf="certificateDetail" (click)="certificateDetail = null">
-  <section class="birth-modal birth-modal--wide ward-panel" (click)="$event.stopPropagation()">
-    <header class="ward-panel__head">
-      <div>
-        <h3>{{ certificateDetail.certificateNo }}</h3>
-        <p>Version {{ certificateDetail.version }} · {{ certificateDetail.status }}</p>
+<div class="birth-modal-backdrop" *ngIf="certificateLoading && !certificateDetail" (click)="certificateLoading = false">
+  <section class="birth-modal birth-modal--loading ward-panel" (click)="$event.stopPropagation()">
+    <div class="birth-cert-loading">
+      <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+      <span>Loading certificate…</span>
+      <button type="button" class="btn btn-sm btn-light birth-btn-light" (click)="certificateLoading = false; certificateRequestCancel()">Cancel</button>
+    </div>
+  </section>
+</div>
+
+<div class="birth-modal-backdrop birth-record-view-backdrop" *ngIf="certificateDetail" (click)="closeCertificateSummary()">
+  <section
+    class="birth-record-view"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="birth-record-view-title"
+    (click)="$event.stopPropagation()"
+  >
+    <button type="button" class="birth-record-view__close" aria-label="Close birth record" (click)="closeCertificateSummary()">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+
+    <header class="birth-record-view__header">
+      <div class="birth-record-view__identity">
+        <span class="birth-record-view__hero-icon"><i class="fa fa-child" aria-hidden="true"></i></span>
+        <div class="birth-record-view__heading">
+          <div class="birth-record-view__title-line">
+            <h3 id="birth-record-view-title">{{ certificateDetail.certificateNo }}</h3>
+            <span class="birth-record-view__status" [class.is-inactive]="certificateDetail.status !== 'ACTIVE'">
+              <i class="fa fa-circle" aria-hidden="true"></i>
+              {{ statusLabel(certificateDetail.status) }}
+            </span>
+          </div>
+          <p>Version {{ certificateDetail.version || 1 }} <span aria-hidden="true">•</span> Created on {{ certificateCreatedOn() | date:'medium' }}</p>
+        </div>
       </div>
-      <button type="button" class="btn btn-sm btn-light birth-btn-light" (click)="certificateDetail = null">Close</button>
+
+      <div class="birth-record-view__header-actions">
+        <button type="button" class="birth-record-view__button birth-record-view__button--outline" (click)="printCertificateDetail()">
+          <i class="fa fa-print" aria-hidden="true"></i>
+          Print
+        </button>
+        <div class="birth-record-view__actions-menu">
+          <button
+            type="button"
+            class="birth-record-view__button birth-record-view__button--primary"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="certificateActionsOpen"
+            (click)="certificateActionsOpen = !certificateActionsOpen"
+          >
+            Actions
+            <i class="fa fa-angle-down" aria-hidden="true"></i>
+          </button>
+          <div class="birth-record-view__dropdown" role="menu" *ngIf="certificateActionsOpen">
+            <button type="button" role="menuitem" (click)="previewCertificateDetail(); certificateActionsOpen = false">
+              <i class="fa fa-eye" aria-hidden="true"></i>
+              View Certificate
+            </button>
+            <button type="button" role="menuitem" (click)="printCertificateDetail(); certificateActionsOpen = false">
+              <i class="fa fa-print" aria-hidden="true"></i>
+              Print Certificate
+            </button>
+          </div>
+        </div>
+      </div>
     </header>
-    <div class="birth-modal__body">
-      <div class="birth-cert-grid">
-        <article><h4>Child</h4><p>{{ certificateBabyName() }}</p><p>MR: {{ certificateBabyMr() }}</p></article>
-        <article><h4>Mother</h4><p>{{ certificateMotherName() }}</p></article>
-        <article><h4>Verification</h4><p>{{ certificateVerificationCode() }}</p></article>
-        <article><h4>Issued</h4><p>{{ certificateDetail.issuedAt | date:'medium' }}</p></article>
+
+    <nav class="birth-record-view__tabs" aria-label="Birth record sections">
+      <button type="button" class="is-active"><i class="fa fa-file-text-o" aria-hidden="true"></i>Details</button>
+      <button type="button"><i class="fa fa-female" aria-hidden="true"></i>Mother</button>
+      <button type="button"><i class="fa fa-check-square-o" aria-hidden="true"></i>Verification</button>
+      <button type="button"><i class="fa fa-id-badge" aria-hidden="true"></i>Certificate</button>
+      <button type="button"><i class="fa fa-history" aria-hidden="true"></i>History</button>
+    </nav>
+
+    <div class="birth-record-view__body">
+      <div class="birth-record-view__primary-grid">
+        <article class="birth-record-card-panel birth-record-card-panel--child">
+          <header>
+            <span class="birth-record-card-panel__icon"><i class="fa fa-child" aria-hidden="true"></i></span>
+            <h4>Child</h4>
+          </header>
+          <dl class="birth-record-card-panel__details birth-record-card-panel__details--child">
+            <div class="birth-record-card-panel__wide"><dt>Name</dt><dd>{{ certificateBabyName() }}</dd></div>
+            <div><dt>Medical Record No.</dt><dd>{{ certificateBabyMr() }}</dd></div>
+            <div><dt>Gender</dt><dd>{{ certificateBabyGender() }}</dd></div>
+            <div class="birth-record-card-panel__wide"><dt>Date &amp; Time of Birth</dt><dd>{{ certificateBirthDateTime() }}</dd></div>
+            <div><dt>Birth Weight</dt><dd>{{ certificateBirthWeight() }}</dd></div>
+            <div><dt>Status</dt><dd class="birth-record-card-panel__state"><i class="fa fa-circle" aria-hidden="true"></i> Active</dd></div>
+          </dl>
+        </article>
+
+        <article class="birth-record-card-panel birth-record-card-panel--mother">
+          <header>
+            <span class="birth-record-card-panel__icon"><i class="fa fa-female" aria-hidden="true"></i></span>
+            <h4>Mother</h4>
+          </header>
+          <dl class="birth-record-card-panel__details">
+            <div><dt>Name</dt><dd>{{ certificateMotherName() }}</dd></div>
+            <div><dt>Patient ID</dt><dd>{{ certificateMotherMr() }}</dd></div>
+            <div><dt>Age</dt><dd>{{ certificateMotherAge() }}</dd></div>
+            <div><dt>Contact</dt><dd>{{ certificateMotherContact() }}</dd></div>
+            <div><dt>Address</dt><dd>{{ certificateMotherAddress() }}</dd></div>
+          </dl>
+        </article>
+
+        <article class="birth-record-card-panel birth-record-card-panel--verification">
+          <header>
+            <span class="birth-record-card-panel__icon"><i class="fa fa-shield" aria-hidden="true"></i></span>
+            <h4>Verification</h4>
+          </header>
+          <dl class="birth-record-card-panel__details">
+            <div><dt>Verification No.</dt><dd>{{ certificateVerificationCode() }}</dd></div>
+            <div><dt>Verified On</dt><dd>{{ certificateVerifiedOn() | date:'medium' }}</dd></div>
+            <div><dt>Verified By</dt><dd>{{ certificateVerifiedBy() }}</dd></div>
+            <div><dt>Status</dt><dd class="birth-record-card-panel__state"><i class="fa fa-circle" aria-hidden="true"></i> Verified</dd></div>
+          </dl>
+        </article>
       </div>
-      <div class="birth-records-actions">
-        <app-hms-document-toolbar
-          *ngIf="certificateDetail"
-          [title]="'Birth Certificate'"
-          [filename]="(certificateDetail.certificateNo || 'birth-certificate') + '.pdf'"
-          [getHtml]="buildBirthCertificateDocumentHtml"
-          [onPrinted]="onBirthCertificatePrinted.bind(this)"
-        ></app-hms-document-toolbar>
+
+      <div class="birth-record-view__secondary-grid">
+        <article class="birth-record-card-panel birth-record-card-panel--certificate">
+          <header>
+            <span class="birth-record-card-panel__icon"><i class="fa fa-file-text" aria-hidden="true"></i></span>
+            <h4>Certificate</h4>
+          </header>
+          <dl class="birth-record-card-panel__details birth-record-card-panel__details--certificate">
+            <div><dt>Certificate No.</dt><dd>{{ certificateDetail.certificateNo || '—' }}</dd></div>
+            <div><dt>Issue Date</dt><dd>{{ certificateDetail.issuedAt | date:'mediumDate' }}</dd></div>
+            <div><dt>Issued By</dt><dd>{{ certificateIssuedBy() }}</dd></div>
+            <div><dt>Status</dt><dd class="birth-record-card-panel__certificate-state"><i class="fa fa-circle" aria-hidden="true"></i> {{ certificateStatusLabel() }}</dd></div>
+          </dl>
+        </article>
+
+        <article class="birth-record-card-panel birth-record-card-panel--audit">
+          <header>
+            <span class="birth-record-card-panel__icon"><i class="fa fa-clock-o" aria-hidden="true"></i></span>
+            <h4>Audit Information</h4>
+          </header>
+          <dl class="birth-record-card-panel__audit-list">
+            <div><dt>Created By</dt><dd>{{ certificateCreatedBy() }}</dd></div>
+            <div><dt>Created On</dt><dd>{{ certificateCreatedOn() | date:'medium' }}</dd></div>
+            <div><dt>Last Updated</dt><dd>{{ certificateUpdatedOn() | date:'medium' }}</dd></div>
+          </dl>
+        </article>
       </div>
     </div>
+
+    <footer class="birth-record-view__footer">
+      <app-hms-document-toolbar
+        [title]="'Birth Certificate'"
+        [filename]="(certificateDetail.certificateNo || 'birth-certificate') + '.pdf'"
+        [getHtml]="buildBirthCertificateDocumentHtml"
+        [withIcons]="true"
+        [onPrinted]="onBirthCertificatePrinted.bind(this)"
+      ></app-hms-document-toolbar>
+      <button type="button" class="birth-record-view__button birth-record-view__button--outline" (click)="closeCertificateSummary()">Close</button>
+    </footer>
   </section>
 </div>

@@ -8,10 +8,27 @@
   }
 }
 
-.layout-main,
-.pos-content {
+.layout-main {
+  box-sizing: border-box;
   flex: 1 1 auto;
+  margin-left: 270px;
   min-width: 0;
+  padding-top: 75px;
+  transition: margin-left 0.3s ease-in-out, width 0.3s ease-in-out;
+  width: calc(100% - 270px);
+}
+
+:host-context(body.toggle_menu_active) .layout-main {
+  margin-left: 75px;
+  width: calc(100% - 75px);
+}
+
+@media screen and (max-width: 1280px) {
+  .layout-main,
+  :host-context(body.toggle_menu_active) .layout-main {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 .wrapper.pos-layout {
@@ -21,7 +38,9 @@
 }
 
 .pos-content {
+  flex: 1 1 auto;
   height: 100vh;
+  min-width: 0;
   overflow: hidden;
 }
 

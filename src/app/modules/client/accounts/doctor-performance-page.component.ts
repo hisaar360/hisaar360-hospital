@@ -1,12 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
+import { finalize } from 'rxjs/operators';
 import { BackendService } from '../../../core/services/backend.service';
 import { buildAccountsReportDocumentHtml } from '../../../core/documents/accounts-report-document.builder';
 import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../core/utils/hms-document-context.util';
 import { formatHmsMoney } from '../../../core/utils/hms-document-template.util';
+import { downloadExcelWorkbook } from '../../../core/utils/excel-export.util';
 import { todayYmd, toCalendarYmd } from '../../../core/utils/calendar-date';
 import { HmsDocumentToolbarComponent } from '../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
 
@@ -29,7 +30,7 @@ interface DoctorKpiCard {
 @Component({
   selector: 'app-doctor-performance-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, HmsDocumentToolbarComponent],
+  imports: [CommonModule, FormsModule, HmsDocumentToolbarComponent],
   templateUrl: './doctor-performance-page.component.html',
   styleUrl: './accounts-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -44,24 +45,11 @@ export class DoctorPerformancePageComponent implements OnInit {
   selectedDoctorId = '';
   breakdownTab: 'daily' | 'weekly' | 'monthly' = 'daily';
   detailTab: 'appointments' | 'lab' | 'pharmacy' | 'prescriptions' = 'appointments';
-  activeDatePreset: 'today' | 'week' | 'month' | 'custom' = 'month';
+  activeDatePreset: 'today' | 'week' | 'month' | 'custom' = 'week';
   data: Record<string, unknown> = {};
   doctorKpiCardsList: DoctorKpiCard[] = [];
   breakdownRowsList: Array<Record<string, unknown>> = [];
   detailRowsList: Array<Record<string, unknown>> = [];
-
-  readonly accountsNav = [
-    { label: 'Dashboard', route: 'dashboard' },
-    { label: 'CoA', route: 'chart-of-accounts' },
-    { label: 'GL', route: 'general-ledger' },
-    { label: 'Cash', route: 'cash-book' },
-    { label: 'Collections', route: 'daily-collections' },
-    { label: 'Doctor Report', route: 'doctor-performance' },
-    { label: 'Department Report', route: 'department-performance' },
-    { label: 'Patient Profitability', route: 'patient-profitability' },
-    { label: 'Trial Balance', route: 'trial-balance' },
-    { label: 'P&L', route: 'profit-loss' },
-  ];
 
   constructor(
     private backend: BackendService,
@@ -70,12 +58,8 @@ export class DoctorPerformancePageComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.applyDatePreset('month', false);
+    this.applyDatePreset('week', false);
     this.loadReportDoctors();
-  }
-
-  isNavActive(route: string): boolean {
-    return route === 'doctor-performance';
   }
 
   doctorLabel(doctor: ReportDoctor): string {
@@ -163,16 +147,19 @@ export class DoctorPerformancePageComponent implements OnInit {
     if (this.fromDate) params['fromDate'] = this.fromDate;
     if (this.toDate) params['toDate'] = this.toDate;
 
-    this.backend.getDoctorPerformance(params).subscribe({
+    this.backend.getDoctorPerformance(params)
+      .pipe(
+        finalize(() => {
+          this.loading = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
       next: (result) => {
         this.data = (result || {}) as Record<string, unknown>;
         this.refreshDerivedViews();
-        this.loading = false;
-        this.cdr.markForCheck();
       },
       error: (error: { error?: { message?: string } }) => {
-        this.loading = false;
-        this.cdr.markForCheck();
         this.toastr.error(error?.error?.message || 'Unable to load doctor performance');
       },
     });
@@ -251,4 +238,32 @@ export class DoctorPerformancePageComponent implements OnInit {
       ],
       rows: this.detailRowsList,
     });
+
+  exportExcel(): void {
+    if (!this.detailRowsList.length) {
+      this.toastr.warning('No rows to export');
+      return;
+    }
+    downloadExcelWorkbook(`doctor-performance-${this.fromDate}-${this.toDate}`, [
+      {
+        name: 'Detail',
+        columns: [
+          { header: 'Date', key: 'date' },
+          { header: 'Reference', key: 'referenceNo' },
+          { header: 'Patient', key: 'patientName' },
+          { header: 'Source', key: 'sourceType' },
+          { header: 'Amount', key: 'amount' },
+          { header: 'Status', key: 'status' },
+        ],
+        rows: this.detailRowsList.map((row) => ({
+          date: row['date'] ?? row['entryDate'] ?? '',
+          referenceNo: row['referenceNo'] ?? row['appointmentNo'] ?? row['orderNo'] ?? '',
+          patientName: row['patientName'] ?? '',
+          sourceType: row['sourceType'] ?? row['category'] ?? '',
+          amount: row['amount'] ?? row['netAmount'] ?? row['revenue'] ?? 0,
+          status: row['status'] ?? '',
+        })),
+      },
+    ]);
+  }
 }

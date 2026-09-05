@@ -10,7 +10,7 @@ import { ToastrService } from 'ngx-toastr';
 import { CommonModule } from '@angular/common';
 import { BackendService } from '../../../../core/services/backend.service';
 import { AuthService } from '../../../../core/services/auth.service';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { debounceTime, distinctUntilChanged, finalize, of, Subject, switchMap, takeUntil } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { Hospital, Role, Store, User } from '../../../../shared/models/hospital.model';
@@ -21,7 +21,7 @@ import { isRoleAllowedByHospitalModules } from '../../../auth/hospital-modules';
 
 @Component({
   selector: 'app-create-user',
-  imports: [CommonModule, ReactiveFormsModule, ProfilePhotoFieldComponent, ImageViewerModalComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, ProfilePhotoFieldComponent, ImageViewerModalComponent],
   templateUrl: './create-user.component.html',
   styleUrl: './create-user.component.scss',
 })
@@ -612,5 +612,26 @@ export class CreateUserComponent implements OnInit, OnDestroy {
     this.stores = [];
     this.loadRoles();
     this.loadStores();
+  }
+
+  cancel(): void {
+    this.router.navigateByUrl('/users');
+  }
+
+  get pageTitle(): string {
+    return this.editingUser ? 'Edit User' : 'Add User';
+  }
+
+  get pageSubtitle(): string {
+    return this.editingUser
+      ? 'Update this staff account for your hospital.'
+      : 'Create a new staff account for your hospital.';
+  }
+
+  get submitLabel(): string {
+    if (this.saving) {
+      return 'Saving...';
+    }
+    return this.editingUser ? 'Save User' : 'Create User';
   }
 }

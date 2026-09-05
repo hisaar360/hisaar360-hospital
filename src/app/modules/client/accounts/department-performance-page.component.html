@@ -18,17 +18,6 @@
       </div>
     </header>
 
-    <nav class="accounts-nav-tabs" aria-label="Accounts reports">
-      <a
-        *ngFor="let tab of accountsNav"
-        class="accounts-nav-tab"
-        [class.active]="isNavActive(tab.route)"
-        [routerLink]="['/accounts', tab.route]"
-      >
-        {{ tab.label }}
-      </a>
-    </nav>
-
     <section class="accounts-filter-card">
       <div class="accounts-filter-grid">
         <label>
@@ -75,7 +64,7 @@
         <div class="accounts-filter-presets">
           <div class="accounts-preset-row">
             <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'today'" type="button" (click)="applyDatePreset('today')">Today</button>
-            <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'week'" type="button" (click)="applyDatePreset('week')">This Week</button>
+            <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'week'" type="button" (click)="applyDatePreset('week')">Last 7 days</button>
             <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'month'" type="button" (click)="applyDatePreset('month')">This Month</button>
             <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'year'" type="button" (click)="applyDatePreset('year')">This Year</button>
           </div>

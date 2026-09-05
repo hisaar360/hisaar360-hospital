@@ -1,265 +1,375 @@
-<div id="main-content">
-  <div class="container-fluid settings-page">
-    <div class="block-header">
-      <div class="row clearfix">
-        <div class="col-xl-7 col-md-8 col-sm-12">
-          <h1>Settings</h1>
-          <span>Manage your profile, password, and hospital details.</span>
-        </div>
+<div id="main-content" class="adm-settings-page">
+  <div class="container-fluid">
+    <header class="adm-page-header settings-header">
+      <div class="adm-page-header__copy">
+        <h1>Settings</h1>
+        <p>Manage your profile, security, and hospital preferences.</p>
       </div>
-    </div>
+    </header>
 
-    <div class="settings-shell">
-      <aside class="settings-nav card">
-        <div class="card-body">
-          <button type="button" class="settings-tab" [class.active]="activeTab === 'profile'" (click)="setTab('profile')">
-            Profile
-          </button>
-          <button type="button" class="settings-tab" [class.active]="activeTab === 'password'" (click)="setTab('password')">
-            Password
-          </button>
+    <nav class="settings-tabs" aria-label="Settings sections">
+      <button
+        type="button"
+        class="settings-tabs__item"
+        *ngFor="let tab of visibleTabs"
+        [class.is-active]="activeTab === tab.id"
+        (click)="setTab(tab.id)"
+      >
+        <i class="fa" [ngClass]="tab.icon" aria-hidden="true"></i>
+        <span class="settings-tabs__label-full">{{ tab.label }}</span>
+        <span class="settings-tabs__label-short">{{ tab.shortLabel }}</span>
+      </button>
+    </nav>
+
+    <!-- My Profile -->
+    <div class="settings-layout" *ngIf="activeTab === 'profile'">
+      <div class="settings-layout__main">
+        <section class="settings-card">
+          <div class="settings-card__head">
+            <div class="settings-card__title-row">
+              <span class="settings-card__icon"><i class="fa fa-user" aria-hidden="true"></i></span>
+              <div>
+                <h2>Profile Information</h2>
+                <p>Update your personal information and profile photo.</p>
+              </div>
+            </div>
+            <span class="settings-status-badge" [class.is-inactive]="!isAccountActive">
+              <span class="dot" aria-hidden="true"></span>
+              {{ accountStatusLabel }}
+            </span>
+          </div>
+
+          <div class="settings-photo-block">
+            <app-profile-photo-field
+              label="Profile Photo"
+              uploadLabel="Upload Image"
+              replaceLabel="Upload Image"
+              [currentUrl]="profilePhotoUrl"
+              [personName]="profileName"
+              [uploading]="photoUploading"
+              (fileSelected)="onProfilePhotoSelected($event)"
+              (removeCurrent)="removeProfilePhoto()"
+              (viewImage)="photoViewerOpen = true"
+            ></app-profile-photo-field>
+          </div>
+
+          <div class="settings-form-grid">
+            <label class="settings-field">
+              <span>Full Name <span class="req">*</span></span>
+              <input class="form-control" type="text" [(ngModel)]="profileName" name="profileName" autocomplete="name" />
+            </label>
+            <label class="settings-field">
+              <span>Email <span class="req">*</span></span>
+              <input class="form-control" type="email" [(ngModel)]="profileEmail" name="profileEmail" autocomplete="email" />
+            </label>
+            <label class="settings-field">
+              <span>Phone</span>
+              <input class="form-control" type="text" [(ngModel)]="profilePhone" name="profilePhone" autocomplete="tel" />
+            </label>
+            <label class="settings-field">
+              <span>Username</span>
+              <input class="form-control" type="text" [value]="profileUsername" name="profileUsername" readonly />
+            </label>
+            <label class="settings-field">
+              <span>Role</span>
+              <input class="form-control" type="text" [value]="roleDisplayName" name="profileRole" readonly />
+            </label>
+            <label class="settings-field">
+              <span>Status</span>
+              <div class="settings-status-select" [class.is-inactive]="!isAccountActive" aria-readonly="true">
+                <span class="dot" aria-hidden="true"></span>
+                {{ accountStatusLabel }}
+              </div>
+            </label>
+          </div>
+        </section>
+
+        <section class="settings-card">
+          <div class="settings-card__head">
+            <div class="settings-card__title-row">
+              <span class="settings-card__icon"><i class="fa fa-shopping-basket" aria-hidden="true"></i></span>
+              <div>
+                <h2>Change POS Store</h2>
+                <p>Assign a POS store for pharmacy users who will dispense medicines through POS.</p>
+              </div>
+            </div>
+          </div>
+          <label class="settings-field settings-field--full">
+            <span>POS Store</span>
+            <select class="form-control" [(ngModel)]="selectedStoreId" name="posStore" [disabled]="!canChangePosStore || storesLoading">
+              <option value="">No POS store assigned</option>
+              <option *ngFor="let store of stores" [value]="store._id">
+                {{ store.name }}{{ store.code ? ' · ' + store.code : '' }}
+              </option>
+            </select>
+            <small class="settings-field__hint" *ngIf="storesLoading">Loading POS stores...</small>
+            <small class="settings-field__hint" *ngIf="storesError">{{ storesError }}</small>
+            <small class="settings-field__hint" *ngIf="!canChangePosStore && !storesLoading">
+              Your POS store is assigned by an administrator.
+            </small>
+          </label>
+        </section>
+
+        <div class="settings-actions">
           <button
             type="button"
-            class="settings-tab"
-            *ngIf="canReadHospitalSettings"
-            [class.active]="activeTab === 'hospital'"
-            (click)="setTab('hospital')"
+            class="settings-btn-primary"
+            [disabled]="profileLoading || profileSaving"
+            (click)="saveProfile()"
           >
-            Hospital Settings
+            <i class="fa fa-save" aria-hidden="true"></i>
+            {{ profileSaving ? 'Saving...' : 'Save Profile' }}
           </button>
         </div>
+      </div>
+
+      <aside class="settings-layout__side">
+        <section class="settings-card settings-card--side">
+          <div class="settings-card__head">
+            <div class="settings-card__title-row">
+              <span class="settings-card__icon"><i class="fa fa-shield" aria-hidden="true"></i></span>
+              <div>
+                <h2>Role &amp; Access</h2>
+                <p>Your current permissions overview.</p>
+              </div>
+            </div>
+          </div>
+          <div class="settings-info-box">
+            <div class="settings-info-box__grid">
+              <div>
+                <span class="label">Role</span>
+                <strong>{{ roleDisplayName }}</strong>
+              </div>
+              <div>
+                <span class="label">Hospital</span>
+                <strong>{{ hospitalDisplayName }}</strong>
+              </div>
+            </div>
+          </div>
+          <ul class="settings-access-list">
+            <li *ngFor="let item of accessHighlights">
+              <i class="fa" [ngClass]="item.icon" aria-hidden="true"></i>
+              <span>{{ item.label }}</span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="settings-card settings-card--side">
+          <div class="settings-card__head">
+            <div class="settings-card__title-row">
+              <span class="settings-card__icon"><i class="fa fa-building" aria-hidden="true"></i></span>
+              <div>
+                <h2>Account Details</h2>
+                <p>Hospital and regional preferences.</p>
+              </div>
+            </div>
+          </div>
+          <div class="settings-info-box">
+            <div class="settings-detail-row">
+              <span class="label">Hospital</span>
+              <strong>{{ hospitalDisplayName }}</strong>
+            </div>
+            <div class="settings-detail-row">
+              <span class="label">Time Zone</span>
+              <strong>{{ timezoneDisplay }}</strong>
+            </div>
+            <div class="settings-detail-row">
+              <span class="label">Date Format</span>
+              <strong>{{ dateFormatDisplay }}</strong>
+            </div>
+          </div>
+        </section>
       </aside>
-
-      <section class="settings-content">
-        <div class="card" *ngIf="activeTab === 'profile'">
-          <div class="card-header">My Profile</div>
-          <div class="card-body">
-            <div class="row">
-              <div class="col-12 mb-3">
-                <app-profile-photo-field
-                  label="Profile photo"
-                  [currentUrl]="profilePhotoUrl"
-                  [personName]="profileName"
-                  [uploading]="photoUploading"
-                  (fileSelected)="onProfilePhotoSelected($event)"
-                  (removeCurrent)="removeProfilePhoto()"
-                  (viewImage)="photoViewerOpen = true"
-                ></app-profile-photo-field>
-              </div>
-              <div class="col-lg-6 col-md-12">
-                <div class="form-group c_form_group">
-                  <label>Full Name</label>
-                  <input class="form-control" type="text" [(ngModel)]="profileName" name="profileName" />
-                </div>
-              </div>
-              <div class="col-lg-6 col-md-12">
-                <div class="form-group c_form_group">
-                  <label>Email</label>
-                  <input class="form-control" type="email" [(ngModel)]="profileEmail" name="profileEmail" />
-                </div>
-              </div>
-              <div class="col-lg-6 col-md-12">
-                <div class="form-group c_form_group">
-                  <label>Phone</label>
-                  <input class="form-control" type="text" [(ngModel)]="profilePhone" name="profilePhone" />
-                </div>
-              </div>
-              <div class="col-lg-6 col-md-12">
-                <div class="profile-meta">
-                  <span class="meta-label">Role</span>
-                  <strong>{{ currentUser?.role?.name || role || 'User' }}</strong>
-                  <span class="meta-label">Hospital</span>
-                  <strong>{{ currentUser?.hospital?.name || 'Not assigned' }}</strong>
-                </div>
-              </div>
-            </div>
-            <div class="settings-actions">
-              <button type="button" class="btn btn-primary theme-bg gradient" [disabled]="profileLoading || profileSaving" (click)="saveProfile()">
-                {{ profileSaving ? 'Saving...' : 'Save Profile' }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="card" *ngIf="activeTab === 'hospital'">
-          <div class="card-header">Hospital Settings</div>
-          <div class="card-body">
-            <div *ngIf="!canReadHospitalSettings" class="alert alert-warning mb-0">
-              You do not have permission to view hospital settings.
-            </div>
-            <div *ngIf="canReadHospitalSettings && !currentHospitalId" class="alert alert-warning mb-0">
-              No hospital is assigned to this user.
-            </div>
-            <div *ngIf="hospitalLoading" class="text-muted">Loading hospital settings...</div>
-
-            <form *ngIf="canReadHospitalSettings && currentHospitalId && !hospitalLoading">
-              <div class="row">
-                <div class="col-lg-6 col-md-12">
-                  <div class="form-group c_form_group">
-                    <label>Hospital Name <span class="text-danger">*</span></label>
-                    <input class="form-control" type="text" [(ngModel)]="hospitalName" name="hospitalName"
-                      [disabled]="!canManageHospitalSettings" />
-                  </div>
-                </div>
-                <div class="col-lg-3 col-md-6">
-                  <div class="form-group c_form_group">
-                    <label>Phone</label>
-                    <input class="form-control" type="text" [(ngModel)]="hospitalPhone" name="hospitalPhone"
-                      [disabled]="!canManageHospitalSettings" />
-                  </div>
-                </div>
-                <div class="col-lg-3 col-md-6">
-                  <div class="form-group c_form_group">
-                    <label>Email</label>
-                    <input class="form-control" type="email" [(ngModel)]="hospitalEmail" name="hospitalEmail"
-                      [disabled]="!canManageHospitalSettings" />
-                  </div>
-                </div>
-                <div class="col-sm-12">
-                  <div class="form-group c_form_group">
-                    <label>Address</label>
-                    <textarea class="form-control" rows="2" [(ngModel)]="hospitalAddress" name="hospitalAddress"
-                      [disabled]="!canManageHospitalSettings"></textarea>
-                  </div>
-                </div>
-                <div class="col-lg-6 col-md-12">
-                  <div class="form-group c_form_group">
-                    <label>City</label>
-                    <input class="form-control" type="text" [(ngModel)]="hospitalCity" name="hospitalCity"
-                      [disabled]="!canManageHospitalSettings" />
-                  </div>
-                </div>
-                <div class="col-lg-6 col-md-12">
-                  <div class="form-group c_form_group">
-                    <label>Country</label>
-                    <input class="form-control" type="text" [(ngModel)]="hospitalCountry" name="hospitalCountry"
-                      [disabled]="!canManageHospitalSettings" />
-                  </div>
-                </div>
-
-                <div class="col-sm-12">
-                  <hr />
-                  <h6 class="mb-3">Prescription Header & Footer</h6>
-                </div>
-
-                <div class="col-lg-4 col-md-12">
-                  <label class="d-flex align-items-center mb-3">
-                    <input type="checkbox" [(ngModel)]="prescriptionShowLogo" name="prescriptionShowLogo"
-                      [disabled]="!canManageHospitalSettings" />
-                    <span class="ml-2">Show logo on prescription</span>
-                  </label>
-                  <div class="hospital-logo-preview mb-3">
-                    <img *ngIf="hospitalLogoUrl" [src]="hospitalLogoUrl" alt="Hospital logo" />
-                    <span *ngIf="!hospitalLogoUrl">Rx</span>
-                  </div>
-                </div>
-                <div class="col-lg-8 col-md-12">
-                  <div class="form-group c_form_group">
-                    <label>Upload Logo</label>
-                    <input class="form-control" type="file" accept="image/*" (change)="onHospitalLogoSelected($event)"
-                      [disabled]="!canManageHospitalSettings" />
-                    <small class="text-muted">Any image size is supported. Large logos are optimized automatically when you save.</small>
-                  </div>
-                  <div class="form-group c_form_group">
-                    <label>Logo URL / Uploaded Image Data</label>
-                    <input class="form-control" type="text" [(ngModel)]="hospitalLogoUrl" name="hospitalLogoUrl"
-                      [disabled]="!canManageHospitalSettings" />
-                  </div>
-                  <button type="button" class="btn btn-outline-secondary btn-sm mb-3" (click)="clearHospitalLogo()"
-                    [disabled]="!canManageHospitalSettings || !hospitalLogoUrl">
-                    Remove Logo
-                  </button>
-                  <div class="form-group c_form_group logo-scale-control">
-                    <label>
-                      Prescription Logo Size
-                      <strong>{{ prescriptionLogoScale }}%</strong>
-                    </label>
-                    <input type="range" min="50" max="200" step="5"
-                      [(ngModel)]="prescriptionLogoScale" name="prescriptionLogoScale"
-                      [disabled]="!canManageHospitalSettings" />
-                    <div class="logo-scale-labels"><span>Small</span><span>Default</span><span>Large</span></div>
-                  </div>
-                </div>
-
-                <div class="col-sm-12">
-                  <div class="form-group c_form_group">
-                    <label>Revision Note</label>
-                    <input class="form-control" type="text" [(ngModel)]="prescriptionRevisionNote"
-                      name="prescriptionRevisionNote" [disabled]="!canManageHospitalSettings" />
-                  </div>
-                </div>
-                <div class="col-sm-12">
-                  <div class="form-group c_form_group">
-                    <label>Follow-up Line</label>
-                    <input class="form-control" type="text" [(ngModel)]="prescriptionFollowUpLine"
-                      name="prescriptionFollowUpLine" [disabled]="!canManageHospitalSettings" />
-                  </div>
-                </div>
-                <div class="col-sm-12">
-                  <div class="form-group c_form_group">
-                    <label>Contact Line</label>
-                    <input class="form-control" type="text" [(ngModel)]="prescriptionContactLine"
-                      name="prescriptionContactLine" [disabled]="!canManageHospitalSettings" />
-                  </div>
-                </div>
-                <div class="col-sm-12">
-                  <div class="form-group c_form_group">
-                    <label>Extra Footer Lines</label>
-                    <textarea class="form-control" rows="3" [(ngModel)]="prescriptionFooterLines"
-                      name="prescriptionFooterLines" placeholder="One line per row"
-                      [disabled]="!canManageHospitalSettings"></textarea>
-                  </div>
-                </div>
-
-                <div class="col-sm-12">
-                  <div class="settings-preview">
-                    <div class="card-body">
-                      <small class="text-muted d-block mb-2">Prescription Preview</small>
-                      <div class="hospital-prescription-preview">
-                        <div>
-                          <img *ngIf="hospitalPrescriptionPreview().showLogo && hospitalPrescriptionPreview().logoUrl"
-                            [src]="hospitalPrescriptionPreview().logoUrl" alt="Hospital logo"
-                            [style.transform]="'scale(' + (hospitalPrescriptionPreview().logoScale / 100) + ')'" />
-                          <span *ngIf="!(hospitalPrescriptionPreview().showLogo && hospitalPrescriptionPreview().logoUrl)">Rx</span>
-                        </div>
-                        <h5>{{ hospitalPrescriptionPreview().hospitalName }}</h5>
-                        <p *ngIf="hospitalPrescriptionPreview().hospitalAddress">{{ hospitalPrescriptionPreview().hospitalAddress }}</p>
-                        <p>{{ hospitalPrescriptionPreview().followUpLine }}</p>
-                        <p>{{ hospitalPrescriptionPreview().hospitalContactLine }}</p>
-                        <strong>{{ hospitalPrescriptionPreview().revisionNote }}</strong>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="settings-actions" *ngIf="canManageHospitalSettings">
-                <button type="button" class="btn btn-primary theme-bg gradient"
-                  [disabled]="hospitalLoading || hospitalSaving" (click)="saveHospitalSettings()">
-                  {{ hospitalSaving ? 'Saving...' : 'Save Hospital Settings' }}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <div class="card" *ngIf="activeTab === 'password'">
-          <div class="card-header">Change Password</div>
-          <div class="card-body">
-            <p class="password-tab-copy">
-              Hospital users can change their own password from the dedicated
-              change-password page. After a successful change you will be signed
-              out and asked to sign in again.
-            </p>
-            <div class="settings-actions">
-              <a class="btn btn-primary theme-bg gradient" routerLink="/change-password">
-                Open Change Password
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
+
+    <!-- Security (existing password) -->
+    <section class="settings-card settings-card--panel" *ngIf="activeTab === 'password'">
+      <div class="settings-card__head">
+        <div class="settings-card__title-row">
+          <span class="settings-card__icon"><i class="fa fa-lock" aria-hidden="true"></i></span>
+          <div>
+            <h2>Security</h2>
+            <p>Change your password and keep your account secure.</p>
+          </div>
+        </div>
+      </div>
+      <p class="settings-panel-copy">
+        Hospital users can change their own password from the dedicated change-password page.
+        After a successful change you will be signed out and asked to sign in again.
+      </p>
+      <div class="settings-actions">
+        <a class="settings-btn-primary" routerLink="/change-password">
+          <i class="fa fa-key" aria-hidden="true"></i>
+          Open Change Password
+        </a>
+      </div>
+    </section>
+
+    <!-- Hospital Settings (existing) -->
+    <section class="settings-card settings-card--panel" *ngIf="activeTab === 'hospital'">
+      <div class="settings-card__head">
+        <div class="settings-card__title-row">
+          <span class="settings-card__icon"><i class="fa fa-hospital-o" aria-hidden="true"></i></span>
+          <div>
+            <h2>Hospital Settings</h2>
+            <p>Update hospital identity and prescription print defaults.</p>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!canReadHospitalSettings" class="settings-alert">
+        You do not have permission to view hospital settings.
+      </div>
+      <div *ngIf="canReadHospitalSettings && !currentHospitalId" class="settings-alert">
+        No hospital is assigned to this user.
+      </div>
+      <div *ngIf="hospitalLoading" class="settings-muted">Loading hospital settings...</div>
+
+      <form *ngIf="canReadHospitalSettings && currentHospitalId && !hospitalLoading">
+        <div class="settings-form-grid">
+          <label class="settings-field">
+            <span>Hospital Name <span class="req">*</span></span>
+            <input class="form-control" type="text" [(ngModel)]="hospitalName" name="hospitalName"
+              [disabled]="!canManageHospitalSettings" />
+          </label>
+          <label class="settings-field">
+            <span>Phone</span>
+            <input class="form-control" type="text" [(ngModel)]="hospitalPhone" name="hospitalPhone"
+              [disabled]="!canManageHospitalSettings" />
+          </label>
+          <label class="settings-field">
+            <span>Email</span>
+            <input class="form-control" type="email" [(ngModel)]="hospitalEmail" name="hospitalEmail"
+              [disabled]="!canManageHospitalSettings" />
+          </label>
+          <label class="settings-field settings-field--full">
+            <span>Address</span>
+            <textarea class="form-control" rows="2" [(ngModel)]="hospitalAddress" name="hospitalAddress"
+              [disabled]="!canManageHospitalSettings"></textarea>
+          </label>
+          <label class="settings-field">
+            <span>City</span>
+            <input class="form-control" type="text" [(ngModel)]="hospitalCity" name="hospitalCity"
+              [disabled]="!canManageHospitalSettings" />
+          </label>
+          <label class="settings-field">
+            <span>Country</span>
+            <input class="form-control" type="text" [(ngModel)]="hospitalCountry" name="hospitalCountry"
+              [disabled]="!canManageHospitalSettings" />
+          </label>
+        </div>
+
+        <hr class="settings-divider" />
+        <h3 class="settings-subheader">Prescription Header &amp; Footer</h3>
+
+        <div class="settings-form-grid settings-form-grid--logo">
+          <div class="settings-field">
+            <label class="settings-checkbox">
+              <input type="checkbox" [(ngModel)]="prescriptionShowLogo" name="prescriptionShowLogo"
+                [disabled]="!canManageHospitalSettings" />
+              <span>Show logo on prescription</span>
+            </label>
+            <div class="hospital-logo-preview">
+              <img *ngIf="hospitalLogoUrl" [src]="hospitalLogoUrl" alt="Hospital logo" />
+              <span *ngIf="!hospitalLogoUrl">Rx</span>
+            </div>
+          </div>
+          <div class="settings-field settings-field--span">
+            <label class="settings-field">
+              <span>Upload Logo</span>
+              <input class="form-control" type="file" accept="image/*" (change)="onHospitalLogoSelected($event)"
+                [disabled]="!canManageHospitalSettings" />
+              <small class="settings-field__hint">Any image size is supported. Large logos are optimized automatically when you save.</small>
+            </label>
+            <label class="settings-field">
+              <span>Logo URL / Uploaded Image Data</span>
+              <input class="form-control" type="text" [(ngModel)]="hospitalLogoUrl" name="hospitalLogoUrl"
+                [disabled]="!canManageHospitalSettings" />
+            </label>
+            <button type="button" class="settings-btn-ghost settings-btn-ghost--sm" (click)="clearHospitalLogo()"
+              [disabled]="!canManageHospitalSettings || !hospitalLogoUrl">
+              Remove Logo
+            </button>
+            <label class="settings-field logo-scale-control">
+              <span>
+                Prescription Logo Size
+                <strong>{{ prescriptionLogoScale }}%</strong>
+              </span>
+              <input type="range" min="50" max="200" step="5"
+                [(ngModel)]="prescriptionLogoScale" name="prescriptionLogoScale"
+                [disabled]="!canManageHospitalSettings" />
+              <div class="logo-scale-labels"><span>Small</span><span>Default</span><span>Large</span></div>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-form-grid settings-form-grid--single">
+          <label class="settings-field">
+            <span>Revision Note</span>
+            <input class="form-control" type="text" [(ngModel)]="prescriptionRevisionNote"
+              name="prescriptionRevisionNote" [disabled]="!canManageHospitalSettings" />
+          </label>
+          <label class="settings-field">
+            <span>Follow-up Line</span>
+            <input class="form-control" type="text" [(ngModel)]="prescriptionFollowUpLine"
+              name="prescriptionFollowUpLine" [disabled]="!canManageHospitalSettings" />
+          </label>
+          <label class="settings-field">
+            <span>Contact Line</span>
+            <input class="form-control" type="text" [(ngModel)]="prescriptionContactLine"
+              name="prescriptionContactLine" [disabled]="!canManageHospitalSettings" />
+          </label>
+          <label class="settings-field">
+            <span>Extra Footer Lines</span>
+            <textarea class="form-control" rows="3" [(ngModel)]="prescriptionFooterLines"
+              name="prescriptionFooterLines" placeholder="One line per row"
+              [disabled]="!canManageHospitalSettings"></textarea>
+          </label>
+        </div>
+
+        <div class="settings-preview">
+          <small class="settings-muted d-block mb-2">Prescription Preview</small>
+          <div class="hospital-prescription-preview">
+            <div>
+              <img *ngIf="hospitalPrescriptionPreview().showLogo && hospitalPrescriptionPreview().logoUrl"
+                [src]="hospitalPrescriptionPreview().logoUrl" alt="Hospital logo"
+                [style.transform]="'scale(' + (hospitalPrescriptionPreview().logoScale / 100) + ')'" />
+              <span *ngIf="!(hospitalPrescriptionPreview().showLogo && hospitalPrescriptionPreview().logoUrl)">Rx</span>
+            </div>
+            <h5>{{ hospitalPrescriptionPreview().hospitalName }}</h5>
+            <p *ngIf="hospitalPrescriptionPreview().hospitalAddress">{{ hospitalPrescriptionPreview().hospitalAddress }}</p>
+            <p>{{ hospitalPrescriptionPreview().followUpLine }}</p>
+            <p>{{ hospitalPrescriptionPreview().hospitalContactLine }}</p>
+            <strong>{{ hospitalPrescriptionPreview().revisionNote }}</strong>
+          </div>
+        </div>
+
+        <div class="settings-actions" *ngIf="canManageHospitalSettings">
+          <button type="button" class="settings-btn-primary"
+            [disabled]="hospitalLoading || hospitalSaving" (click)="saveHospitalSettings()">
+            <i class="fa fa-save" aria-hidden="true"></i>
+            {{ hospitalSaving ? 'Saving...' : 'Save Hospital Settings' }}
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Placeholder tabs -->
+    <section class="settings-card settings-card--panel" *ngIf="isPlaceholderTab">
+      <div class="settings-card__head">
+        <div class="settings-card__title-row">
+          <span class="settings-card__icon"><i class="fa" [ngClass]="activeTabMeta?.icon" aria-hidden="true"></i></span>
+          <div>
+            <h2>{{ activeTabMeta?.label }}</h2>
+            <p>{{ activeTabMeta?.description }}</p>
+          </div>
+        </div>
+      </div>
+      <div class="settings-coming-soon">
+        <i class="fa fa-clock-o" aria-hidden="true"></i>
+        <p>Coming soon. This section is not available yet.</p>
+      </div>
+    </section>
   </div>
 </div>
 

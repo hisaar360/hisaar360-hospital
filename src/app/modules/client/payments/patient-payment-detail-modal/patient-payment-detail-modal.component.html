@@ -1,26 +1,11 @@
 <div class="payment-modal-backdrop" *ngIf="open" (click)="close()">
   <div class="payment-modal-dialog" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
     <div class="payment-modal-header">
-      <div class="payment-modal-header__main">
-        <div class="payment-modal-header__icon">
-          <i class="fa fa-file-invoice-dollar"></i>
-        </div>
-        <div>
-          <p class="payment-modal-eyebrow">Patient Payment</p>
-          <h3>Payment Details</h3>
-          <div class="patient-meta" *ngIf="detail">
-            <span><i class="fa fa-user"></i> {{ patientName() }}</span>
-            <span><i class="fa fa-id-card"></i> {{ detail.patient.patientNo || '—' }}</span>
-            <span><i class="fa fa-phone"></i> {{ detail.patient.phone || '—' }}</span>
-          </div>
-        </div>
-      </div>
-      <div class="payment-modal-header__actions">
-        <span class="status-pill" *ngIf="detail" [ngClass]="'status-' + paymentStatus()">{{ statusLabel() }}</span>
-        <button type="button" class="close-btn" (click)="close()" aria-label="Close">
-          <i class="fa fa-times"></i>
-        </button>
-      </div>
+      <button type="button" class="close-btn" (click)="close()" aria-label="Close">
+        <i class="fa fa-times"></i>
+      </button>
+      <h3>{{ modalTitle() }}</h3>
+      <span class="header-spacer" aria-hidden="true"></span>
     </div>
 
     <div class="payment-modal-body" *ngIf="loading">
@@ -31,116 +16,133 @@
     </div>
 
     <div class="payment-modal-body" *ngIf="!loading && detail as data">
+      <div class="patient-hero">
+        <span class="pay-avatar">{{ patientInitials() }}</span>
+        <div class="patient-hero__copy">
+          <strong>{{ patientName() }}</strong>
+          <div class="patient-hero__meta">
+            {{ data.patient.patientNo || '—' }} · {{ data.patient.phone || '—' }}
+          </div>
+        </div>
+        <span class="pay-status-pill" [ngClass]="'status-' + paymentStatus()">{{ statusLabel() }}</span>
+      </div>
+
       <div class="summary-grid">
         <article class="summary-tile">
-          <span class="summary-tile__label"><i class="fa fa-receipt"></i> Total Charges</span>
-          <strong>{{ data.totals.totalCharges | number:'1.0-0' }}</strong>
-        </article>
-        <article class="summary-tile summary-tile--discount">
-          <span class="summary-tile__label"><i class="fa fa-percent"></i> Total Discount</span>
-          <strong>{{ data.totals.totalDiscount | number:'1.0-0' }}</strong>
+          <span>Total Bill</span>
+          <strong>PKR {{ data.totals.totalCharges | number:'1.0-0' }}</strong>
         </article>
         <article class="summary-tile">
-          <span class="summary-tile__label"><i class="fa fa-calculator"></i> Net Payable</span>
-          <strong>{{ data.totals.netPayable | number:'1.0-0' }}</strong>
+          <span>Discount</span>
+          <strong>PKR {{ data.totals.totalDiscount | number:'1.0-0' }}</strong>
         </article>
         <article class="summary-tile summary-tile--paid">
-          <span class="summary-tile__label"><i class="fa fa-check-circle"></i> Paid</span>
-          <strong>{{ data.totals.totalPaid | number:'1.0-0' }}</strong>
+          <span>Paid Amount</span>
+          <strong>PKR {{ data.totals.totalPaid | number:'1.0-0' }}</strong>
         </article>
-        <article class="summary-tile summary-tile--balance">
-          <span class="summary-tile__label"><i class="fa fa-exclamation-circle"></i> Remaining</span>
-          <strong [class.is-due]="data.totals.balance > 0">{{ data.totals.balance | number:'1.0-0' }}</strong>
+        <article class="summary-tile" [class.summary-tile--balance]="outstandingBalance() > 0" [class.summary-tile--credit]="creditBalance() > 0">
+          <span>{{ creditBalance() > 0 ? 'Credit / Overpayment' : 'Remaining Balance' }}</span>
+          <strong [class.is-due]="outstandingBalance() > 0" [class.is-credit]="creditBalance() > 0" [class.is-ok]="outstandingBalance() <= 0 && creditBalance() <= 0">
+            PKR {{ (creditBalance() > 0 ? creditBalance() : outstandingBalance()) | number:'1.0-0' }}
+          </strong>
         </article>
       </div>
 
-      <section class="modal-section" *ngIf="remainingSources().length">
-        <div class="section-head">
-          <h4>Remaining by Service</h4>
-          <span class="section-count">{{ remainingSources().length }}</span>
+      <div class="security-held" *ngIf="securityHeld() > 0">
+        <span>Security deposit held (not applied to bill)</span>
+        <strong>PKR {{ securityHeld() | number:'1.0-0' }}</strong>
+      </div>
+
+      <section class="modal-section" *ngIf="canCollect()">
+        <div class="collect-grid">
+          <label class="collect-field">
+            <span>Amount Received *</span>
+            <div class="input-prefix">
+              <em>PKR</em>
+              <input class="form-control" type="number" min="0" [(ngModel)]="collectAmount" placeholder="Enter amount" />
+            </div>
+          </label>
+          <label class="collect-field">
+            <span>Payment Method *</span>
+            <select class="form-control" [(ngModel)]="paymentMethod">
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+              <option value="bank">Bank</option>
+              <option value="jazzcash">JazzCash</option>
+              <option value="easypaisa">Easypaisa</option>
+            </select>
+          </label>
+          <label class="collect-field">
+            <span>Discount (PKR)</span>
+            <div class="input-prefix">
+              <em>PKR</em>
+              <input class="form-control" type="number" min="0" [(ngModel)]="discountAmount" placeholder="0" />
+            </div>
+          </label>
+          <label class="collect-field">
+            <span>Type</span>
+            <select class="form-control" [(ngModel)]="paymentType">
+              <option value="partial">Partial</option>
+              <option value="final">Final</option>
+              <option value="advance">Advance</option>
+            </select>
+          </label>
+          <label class="collect-field collect-field--wide">
+            <span>Note (Optional)</span>
+            <input class="form-control" type="text" [(ngModel)]="paymentNote" placeholder="Add a note..." />
+          </label>
         </div>
-        <div class="source-grid">
-          <article class="source-card" *ngFor="let source of remainingSources()">
-            <span class="source-card__label">{{ source.label }}</span>
-            <strong>{{ source.remaining | number:'1.0-0' }}</strong>
-            <small>{{ source.count }} item(s)</small>
-          </article>
+        <div class="projected-balance">
+          <span>After this action remaining</span>
+          <strong>PKR {{ projectedBalance() | number:'1.0-0' }}</strong>
         </div>
       </section>
 
-      <section class="modal-section">
+      <section class="modal-section" *ngIf="remainingSources().length">
+        <div class="section-head">
+          <h4>Service Breakdown</h4>
+          <span class="section-count">{{ remainingSources().length }}</span>
+        </div>
+        <ul class="breakdown-list">
+          <li *ngFor="let source of remainingSources()">
+            <span>{{ source.label }}</span>
+            <strong>PKR {{ source.remaining | number:'1.0-0' }}</strong>
+          </li>
+        </ul>
+      </section>
+
+      <section class="modal-section" *ngIf="!remainingSources().length">
         <div class="section-head">
           <h4>Charge Line Items</h4>
           <span class="section-count">{{ data.items.length }}</span>
         </div>
-
-        <div class="table-responsive d-none d-md-block">
-          <table class="table detail-table mb-0">
-            <thead>
-              <tr>
-                <th>Service</th>
-                <th>Description</th>
-                <th class="text-right">Qty</th>
-                <th class="text-right">Rate</th>
-                <th class="text-right">Discount</th>
-                <th class="text-right">Net</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of data.items">
-                <td><span class="source-pill">{{ item.sourceLabel }}</span></td>
-                <td>
-                  <strong>{{ item.title }}</strong>
-                  <div class="text-muted small" *ngIf="item.description">{{ item.description }}</div>
-                </td>
-                <td class="text-right">{{ item.qty }}</td>
-                <td class="text-right">{{ item.rate | number:'1.0-0' }}</td>
-                <td class="text-right">{{ item.discount | number:'1.0-0' }}</td>
-                <td class="text-right" [class.is-discount]="item.netAmount < 0">
-                  {{ item.netAmount | number:'1.0-0' }}
-                </td>
-              </tr>
-              <tr *ngIf="data.items.length === 0">
-                <td colspan="6" class="text-center text-muted py-3">No charges found</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="mobile-stack d-md-none">
-          <article class="line-card" *ngFor="let item of data.items">
-            <div class="line-card__top">
-              <span class="source-pill">{{ item.sourceLabel }}</span>
-              <strong [class.is-discount]="item.netAmount < 0">{{ item.netAmount | number:'1.0-0' }}</strong>
-            </div>
-            <p class="line-card__title">{{ item.title }}</p>
-            <p class="line-card__meta text-muted" *ngIf="item.description">{{ item.description }}</p>
-            <div class="line-card__grid">
-              <span>Qty: {{ item.qty }}</span>
-              <span>Rate: {{ item.rate | number:'1.0-0' }}</span>
-              <span>Disc: {{ item.discount | number:'1.0-0' }}</span>
-            </div>
-          </article>
-          <p class="text-center text-muted py-3" *ngIf="data.items.length === 0">No charges found</p>
-        </div>
+        <ul class="breakdown-list">
+          <li *ngFor="let item of data.items | slice:0:8">
+            <span>{{ item.title }}</span>
+            <strong>PKR {{ item.netAmount | number:'1.0-0' }}</strong>
+          </li>
+          <li *ngIf="data.items.length === 0">
+            <span class="text-muted">No charges found</span>
+          </li>
+        </ul>
       </section>
 
       <section class="modal-section">
         <div class="section-head section-head--with-toolbar">
           <div>
             <h4>Payment History</h4>
-            <span class="section-count">{{ data.payments.length }}</span>
           </div>
           <app-hms-document-toolbar
             *ngIf="selectedReceiptPayment"
             [title]="'Payment Receipt'"
             [filename]="selectedReceiptPayment.paymentNo + '.pdf'"
             [getHtml]="buildPaymentReceiptHtml"
+            [withIcons]="true"
           ></app-hms-document-toolbar>
         </div>
-        <p class="payment-help" *ngIf="data.payments.length">Select a payment to export its receipt.</p>
+        <p class="payment-help" *ngIf="data.payments.length">Select a payment to print or download its receipt.</p>
 
-        <div class="table-responsive d-none d-md-block">
+        <div class="history-desktop">
           <table class="table detail-table mb-0">
             <thead>
               <tr>
@@ -158,7 +160,7 @@
                 [class.is-selected]="isReceiptSelected(payment)"
                 (click)="selectReceiptPayment(payment)"
               >
-                <td class="receipt-no">{{ payment.paymentNo }}</td>
+                <td>{{ payment.paymentNo }}</td>
                 <td>{{ payment.method }}</td>
                 <td><span class="type-pill">{{ payment.type }}</span></td>
                 <td class="text-right">{{ payment.amount | number:'1.0-0' }}</td>
@@ -171,7 +173,7 @@
           </table>
         </div>
 
-        <div class="mobile-stack d-md-none">
+        <div class="history-mobile">
           <article
             class="payment-card"
             *ngFor="let payment of data.payments"
@@ -180,7 +182,7 @@
           >
             <div class="payment-card__top">
               <strong>{{ payment.paymentNo }}</strong>
-              <span>{{ payment.amount | number:'1.0-0' }}</span>
+              <span>PKR {{ payment.amount | number:'1.0-0' }}</span>
             </div>
             <div class="payment-card__meta">
               <span>{{ payment.method }}</span>
@@ -191,67 +193,28 @@
           <p class="text-center text-muted py-3" *ngIf="data.payments.length === 0">No payments recorded</p>
         </div>
       </section>
-
-      <section class="collect-panel" *ngIf="data.totals.balance > 0 && data.primaryEncounterId">
-        <div class="section-head">
-          <h4><i class="fa fa-money"></i> Collect Payment</h4>
-        </div>
-        <div class="collect-grid">
-          <label class="collect-field">
-            <span>Discount</span>
-            <input class="form-control" type="number" min="0" [(ngModel)]="discountAmount" placeholder="0" />
-          </label>
-          <label class="collect-field">
-            <span>Collect Amount</span>
-            <input class="form-control" type="number" min="0" [(ngModel)]="collectAmount" placeholder="Amount" />
-          </label>
-          <label class="collect-field">
-            <span>Method</span>
-            <select class="form-control" [(ngModel)]="paymentMethod">
-              <option value="cash">Cash</option>
-              <option value="card">Card</option>
-              <option value="bank">Bank</option>
-              <option value="jazzcash">JazzCash</option>
-              <option value="easypaisa">Easypaisa</option>
-            </select>
-          </label>
-          <label class="collect-field">
-            <span>Type</span>
-            <select class="form-control" [(ngModel)]="paymentType">
-              <option value="partial">Partial</option>
-              <option value="final">Final</option>
-              <option value="advance">Advance</option>
-            </select>
-          </label>
-          <div class="collect-field collect-field--action">
-            <button type="button" class="btn btn-default btn-block" (click)="fillRemaining()">
-              <i class="fa fa-check"></i> Full Amount
-            </button>
-          </div>
-          <label class="collect-field collect-field--wide">
-            <span>Note</span>
-            <input class="form-control" type="text" [(ngModel)]="paymentNote" placeholder="Optional note" />
-          </label>
-        </div>
-        <div class="projected-balance">
-          <span>After this action remaining</span>
-          <strong [class.is-due]="projectedBalance() > 0">PKR {{ projectedBalance() | number:'1.0-0' }}</strong>
-        </div>
-      </section>
     </div>
 
     <div class="payment-modal-footer">
-      <button type="button" class="btn btn-default" (click)="close()">Close</button>
       <button
         type="button"
-        class="btn btn-primary"
-        *ngIf="detail && detail.totals.balance > 0 && detail.primaryEncounterId"
+        class="pay-btn-primary"
+        *ngIf="canCollect()"
         [disabled]="saving"
         (click)="collectPayment()"
       >
-        <i class="fa" [ngClass]="saving ? 'fa-spinner fa-spin' : 'fa-check'"></i>
-        {{ saving ? 'Saving...' : 'Apply & Collect' }}
+        <i class="fa" [ngClass]="saving ? 'fa-spinner fa-spin' : 'fa-credit-card'"></i>
+        {{ saving ? 'Saving...' : 'Collect Payment' }}
       </button>
+      <div class="footer-secondary" *ngIf="selectedReceiptPayment">
+        <button type="button" class="pay-btn-outline" (click)="printSelectedReceipt()">
+          <i class="fa fa-print"></i> Print Receipt
+        </button>
+        <button type="button" class="pay-btn-outline" (click)="downloadSelectedReceipt()" [disabled]="pdfLoading">
+          <i class="fa fa-file-pdf-o"></i> {{ pdfLoading ? 'PDF…' : 'Download PDF' }}
+        </button>
+      </div>
+      <button type="button" class="pay-btn-ghost" (click)="close()">Close</button>
     </div>
   </div>
 </div>

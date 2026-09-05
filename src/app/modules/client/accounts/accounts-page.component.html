@@ -1,36 +1,47 @@
-<div id="main-content" class="hms-page accounts-page pharmacy-page">
+<div id="main-content" class="hms-page accounts-page pharmacy-page" [class.accounts-page--profit-loss]="view === 'profit-loss'">
   <div class="pharmacy-shell accounts-shell">
     <header class="pharmacy-hero accounts-hero">
       <div class="pharmacy-hero-main">
         <h1>{{ title }}</h1>
         <p>Hospital general ledger is the financial source of truth. Patient balances remain on Encounter Ledger.</p>
       </div>
+      <div class="pharmacy-hero-actions accounts-hero-actions">
+        <button *ngIf="view !== 'profit-loss'" type="button" class="accounts-rules-btn" (click)="openAccountsRules()">
+          <i class="fa fa-book" aria-hidden="true"></i>
+          Rules
+        </button>
+        <app-hms-document-toolbar
+          *ngIf="accountsDocumentEnabled"
+          [title]="accountsDocumentTitle"
+          [filename]="accountsDocumentFilename"
+          [orientation]="accountsDocumentOrientation"
+          [getHtml]="buildAccountsDocumentHtml"
+          [showExcel]="true"
+          [withIcons]="true"
+          [disabled]="loading"
+          (excelClick)="exportAccountsExcel()"
+        ></app-hms-document-toolbar>
+      </div>
     </header>
 
-    <nav class="accounts-nav-tabs" aria-label="Accounts reports">
-      <a
-        *ngFor="let tab of accountsNav"
-        class="accounts-nav-tab"
-        [class.active]="isNavActive(tab.route)"
-        [routerLink]="['/accounts', tab.route]"
-      >
-        {{ tab.label }}
-      </a>
-      <app-hms-document-toolbar
-        *ngIf="accountsDocumentEnabled"
-        [title]="accountsDocumentTitle"
-        [filename]="accountsDocumentFilename"
-        [orientation]="accountsDocumentOrientation"
-        [getHtml]="buildAccountsDocumentHtml"
-        [disabled]="loading"
-      ></app-hms-document-toolbar>
-    </nav>
-
-    <section class="accounts-filter-card">
+    <section class="accounts-filter-card" [class.accounts-filter-card--profit-loss]="view === 'profit-loss'">
       <div class="accounts-filter-head">
-        <div>
-          <h2>Filters</h2>
-          <p>Set date range and search, then apply to refresh this report.</p>
+        <div class="accounts-filter-title">
+          <span *ngIf="view === 'profit-loss'" class="accounts-filter-title__icon"><i class="fa fa-bar-chart" aria-hidden="true"></i></span>
+          <div>
+            <h2>Filters</h2>
+          <p>Defaults to the last 7 days. Change the range and apply to refresh this report.</p>
+          </div>
+        </div>
+        <p *ngIf="view === 'profit-loss' && lastUpdatedAt" class="profit-loss-updated">
+          <i class="fa fa-refresh" aria-hidden="true"></i>
+          Last updated: {{ lastUpdatedAt | date:'dd MMM yyyy, h:mm a' }}
+        </p>
+        <div class="accounts-preset-row" role="group" aria-label="Date presets">
+          <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'today'" type="button" (click)="applyDatePreset('today')">Today</button>
+          <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'week'" type="button" (click)="applyDatePreset('week')">Last 7 days</button>
+          <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'month'" type="button" (click)="applyDatePreset('month')">This month</button>
+          <button *ngIf="view === 'profit-loss'" class="accounts-preset-btn" [class.active]="activeDatePreset === 'custom'" type="button" (click)="selectCustomDatePreset()">Custom</button>
         </div>
       </div>
 
@@ -56,7 +67,7 @@
 
         <label>
           <span class="accounts-field-label">Search</span>
-          <input class="form-control" type="text" [(ngModel)]="search" placeholder="Search" />
+          <input class="form-control" type="text" [(ngModel)]="search" [placeholder]="view === 'profit-loss' ? 'Search line items...' : 'Search'" />
         </label>
 
         <div class="accounts-filter-actions">
@@ -89,13 +100,6 @@
             <span>{{ card.hint }}</span>
           </div>
         </div>
-      </div>
-      <div class="accounts-shortcuts">
-        <a routerLink="/accounts/general-ledger" class="accounts-shortcut">General Ledger</a>
-        <a routerLink="/accounts/cash-book" class="accounts-shortcut">Cash Book</a>
-        <a routerLink="/accounts/bank-book" class="accounts-shortcut">Bank Book</a>
-        <a routerLink="/accounts/daily-collections" class="accounts-shortcut">Collections</a>
-        <a routerLink="/accounts/reconciliation" class="accounts-shortcut">Reconciliation</a>
       </div>
     </section>
 
@@ -169,11 +173,11 @@
       </div>
     </section>
 
-    <section *ngIf="!loading && view === 'profit-loss'" class="accounts-panel">
-      <div class="accounts-summary-grid accounts-summary-grid--doctor">
+    <section *ngIf="!loading && view === 'profit-loss'" class="profit-loss-dashboard">
+      <div class="profit-loss-kpi-grid">
         <div
           *ngFor="let card of profitLossKpiCards"
-          class="accounts-kpi-card"
+          class="accounts-kpi-card profit-loss-kpi-card"
           [class]="'accounts-kpi-card tone-' + card.tone"
           [class.is-highlight]="card.highlight"
         >
@@ -183,6 +187,56 @@
             <h4>{{ money(card.value) }}</h4>
           </div>
         </div>
+      </div>
+
+      <div class="profit-loss-chart-grid">
+        <article class="profit-loss-chart-card">
+          <header class="profit-loss-card-title">
+            <span><i class="fa fa-bar-chart" aria-hidden="true"></i></span>
+            <h3>Revenue vs Expense</h3>
+          </header>
+          <div class="profit-loss-bar-layout">
+            <div class="profit-loss-bar-chart">
+              <div class="profit-loss-axis-labels" aria-hidden="true"><span>100K</span><span>75K</span><span>50K</span><span>25K</span><span>0</span></div>
+              <div class="profit-loss-bars">
+                <div class="profit-loss-bar-column">
+                  <strong>{{ money(profitLossGrossRevenue) }}</strong>
+                  <span class="profit-loss-bar profit-loss-bar--revenue" [style.height.%]="profitLossBarPercent(profitLossGrossRevenue)"></span>
+                  <small>Revenue</small>
+                </div>
+                <div class="profit-loss-bar-column">
+                  <strong>{{ money(profitLossTotalExpense) }}</strong>
+                  <span class="profit-loss-bar profit-loss-bar--expense" [style.height.%]="profitLossBarPercent(profitLossTotalExpense)"></span>
+                  <small>Expenses</small>
+                </div>
+              </div>
+            </div>
+            <dl class="profit-loss-totals">
+              <div><dt><i class="is-teal"></i>Total Revenue</dt><dd>{{ money(profitLossGrossRevenue) }}</dd></div>
+              <div><dt><i class="is-orange"></i>Total Expenses</dt><dd>{{ money(profitLossTotalExpense) }}</dd></div>
+              <div><dt><i class="is-green"></i>Gross Profit</dt><dd>{{ money(profitLossGrossProfit) }}</dd></div>
+              <div><dt><i class="is-teal"></i>Net Profit</dt><dd>{{ money(profitLossNetProfit) }}</dd></div>
+            </dl>
+          </div>
+        </article>
+
+        <article class="profit-loss-chart-card">
+          <header class="profit-loss-card-title">
+            <span><i class="fa fa-pie-chart" aria-hidden="true"></i></span>
+            <h3>Income Breakdown</h3>
+          </header>
+          <div class="profit-loss-donut-layout">
+            <div class="profit-loss-donut" [style.background]="profitLossDonutBackground">
+              <div><strong>{{ money(profitLossGrossRevenue) }}</strong><small>Total Revenue</small></div>
+            </div>
+            <dl class="profit-loss-breakdown-list">
+              <div *ngFor="let item of profitLossBreakdown">
+                <dt><i [style.background]="item.color"></i>{{ item.label }}</dt>
+                <dd><strong>{{ money(item.value) }}</strong><span>{{ item.percentage | number:'1.1-1' }}%</span></dd>
+              </div>
+            </dl>
+          </div>
+        </article>
       </div>
     </section>
 
@@ -204,6 +258,15 @@
     </section>
 
     <section *ngIf="!loading && view === 'general-ledger' && data['account']" class="accounts-panel">
+      <div class="accounts-panel-head">
+        <div>
+          <h3>{{ ledgerAccountLabel }}</h3>
+          <p>
+            Account movements from {{ fromDate || 'start' }} to {{ toDate || 'today' }}. Opening is the balance
+            before this period; closing is after all listed entries.
+          </p>
+        </div>
+      </div>
       <div class="accounts-summary-grid accounts-summary-grid--ledger">
         <div
           *ngFor="let card of ledgerSummaryCardsList"
@@ -214,6 +277,7 @@
           <div class="accounts-kpi-card__body">
             <small>{{ card.label }}</small>
             <h4>{{ money(card.value) }}</h4>
+            <span *ngIf="card.hint">{{ card.hint }}</span>
           </div>
         </div>
       </div>
@@ -294,67 +358,257 @@
       </div>
     </section>
 
-    <section
-      *ngIf="!loading && (asArray('items').length || asArray('rows').length || asArray('lines').length || asArray('findings').length)"
-      class="accounts-panel"
-    >
+    <section *ngIf="!loading && view === 'reconciliation'" class="accounts-panel reconciliation-panel">
+      <div class="accounts-panel-head">
+        <div class="accounts-panel-title-wrap">
+          <div>
+            <h3>Reconciliation checks</h3>
+            <p>
+              Compares patient Encounter Ledger with Accounts journals.
+              <span *ngIf="!reconciliationFindings.length"> No gaps found for this hospital scope.</span>
+              <span *ngIf="reconciliationFindings.length">
+                {{ reconciliationFindings.length }} check(s) need attention.
+              </span>
+            </p>
+          </div>
+        </div>
+        <button
+          *ngIf="canRepairMissingJournals"
+          type="button"
+          class="btn btn-primary"
+          (click)="repairMissingJournals()"
+          [disabled]="repairingJournals || loading"
+        >
+          <i class="fa" [ngClass]="repairingJournals ? 'fa-spinner fa-spin' : 'fa-wrench'" aria-hidden="true"></i>
+          {{ repairingJournals ? 'Posting…' : 'Post missing journals' }}
+        </button>
+      </div>
+
+      <div *ngIf="!reconciliationFindings.length" class="reconciliation-empty">
+        <i class="fa fa-check-circle" aria-hidden="true"></i>
+        <div>
+          <strong>Books look matched</strong>
+          <p>No missing charge/payment journals or other flagged gaps in this check.</p>
+        </div>
+      </div>
+
+      <div class="accounts-table-wrap desktop-only" *ngIf="reconciliationFindings.length">
+        <table class="table table-hover accounts-table hms-table reconciliation-table">
+          <thead>
+            <tr>
+              <th>Check</th>
+              <th>Severity</th>
+              <th class="text-end">Count</th>
+              <th>Detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            <ng-container *ngFor="let row of reconciliationFindings">
+              <tr
+                class="reconciliation-row"
+                [class.is-expanded]="isReconciliationExpanded(row)"
+                (click)="toggleReconciliationRow(row)"
+              >
+                <td>
+                  <strong>{{ reconciliationTitle(row) }}</strong>
+                  <small class="reconciliation-code">{{ row['code'] }}</small>
+                </td>
+                <td>
+                  <span
+                    class="reconciliation-severity"
+                    [class.is-error]="row['severity'] === 'error'"
+                    [class.is-warning]="row['severity'] === 'warning'"
+                  >
+                    {{ row['severity'] || '—' }}
+                  </span>
+                </td>
+                <td class="text-end accounts-amt">{{ row['count'] ?? '—' }}</td>
+                <td>
+                  <span class="reconciliation-detail-hint">
+                    {{
+                      reconciliationSamples(row).length
+                        ? (isReconciliationExpanded(row) ? 'Hide samples' : 'Show samples')
+                        : (reconciliationDescription(row) || '—')
+                    }}
+                  </span>
+                  <i
+                    class="fa reconciliation-chevron"
+                    [ngClass]="isReconciliationExpanded(row) ? 'fa-angle-up' : 'fa-angle-down'"
+                    aria-hidden="true"
+                  ></i>
+                </td>
+              </tr>
+              <tr *ngIf="isReconciliationExpanded(row)" class="reconciliation-detail-row">
+                <td colspan="4">
+                  <p *ngIf="reconciliationDescription(row)" class="reconciliation-desc">
+                    {{ reconciliationDescription(row) }}
+                  </p>
+                  <ul *ngIf="reconciliationSamples(row).length" class="reconciliation-samples">
+                    <li *ngFor="let sample of reconciliationSamples(row)">
+                      {{ formatReconciliationSample(sample) }}
+                    </li>
+                  </ul>
+                  <p *ngIf="!reconciliationSamples(row).length" class="reconciliation-desc muted">
+                    No sample rows returned for this check.
+                  </p>
+                </td>
+              </tr>
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="accounts-mobile-rows mobile-only" *ngIf="reconciliationFindings.length">
+        <article
+          class="hms-mobile-card accounts-mobile-row reconciliation-mobile-card"
+          *ngFor="let row of reconciliationFindings"
+          (click)="toggleReconciliationRow(row)"
+        >
+          <strong>{{ reconciliationTitle(row) }}</strong>
+          <p>
+            <span class="accounts-mobile-label">Severity:</span>
+            {{ row['severity'] || '—' }}
+          </p>
+          <p>
+            <span class="accounts-mobile-label">Count:</span>
+            {{ row['count'] ?? '—' }}
+          </p>
+          <p *ngIf="reconciliationDescription(row)">{{ reconciliationDescription(row) }}</p>
+          <ul *ngIf="isReconciliationExpanded(row) && reconciliationSamples(row).length" class="reconciliation-samples">
+            <li *ngFor="let sample of reconciliationSamples(row)">
+              {{ formatReconciliationSample(sample) }}
+            </li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section *ngIf="!loading && view !== 'reconciliation' && accountsTableRows.length" class="accounts-panel" [class.profit-loss-entries]="view === 'profit-loss'">
+      <div class="accounts-panel-head">
+        <div class="accounts-panel-title-wrap">
+          <span *ngIf="view === 'profit-loss'" class="accounts-panel-title-icon"><i class="fa fa-file-text-o" aria-hidden="true"></i></span>
+          <div>
+          <h3>{{ title }} entries</h3>
+          <p>{{ accountsTableRows.length }} row(s) for the selected filters.</p>
+          </div>
+        </div>
+        <label *ngIf="view === 'profit-loss'" class="profit-loss-table-search">
+          <i class="fa fa-search" aria-hidden="true"></i>
+          <input type="search" [(ngModel)]="tableSearch" placeholder="Search in table..." />
+        </label>
+      </div>
+
       <div class="accounts-table-wrap desktop-only">
         <table class="table table-hover accounts-table hms-table">
+          <thead>
+            <tr>
+              <th
+                *ngFor="let column of accountsTableColumns"
+                [class.text-end]="column.numeric"
+              >
+                {{ column.label }}
+              </th>
+            </tr>
+          </thead>
           <tbody>
-            <tr *ngFor="let row of asArray('items')">
-              <td>{{ displayCell(row, ['journalNo', 'invoiceNo', 'encounterNo', 'purchaseNo', 'code', 'patientName', 'action', 'title', 'date', '_id']) }}</td>
-              <td>{{ displayCell(row, ['description', 'name', 'title', 'supplierName', 'patientName', 'module', 'category']) }}</td>
-              <td>{{ displayCell(row, ['totalDebit', 'debit', 'total', 'amount', 'balance', 'paidAmount']) }}</td>
-              <td>{{ displayCell(row, ['status', 'accountType', 'ageBucket', 'paymentMethod', 'severity']) }}</td>
-            </tr>
-            <tr *ngFor="let row of asArray('rows')">
-              <td>{{ row['code'] }}</td>
-              <td>{{ row['name'] }}</td>
-              <td>{{ row['closingDebit'] }}</td>
-              <td>{{ row['closingCredit'] }}</td>
-            </tr>
-            <tr *ngFor="let row of asArray('lines')">
-              <td>{{ row['date'] }}</td>
-              <td>{{ row['journalNo'] || row['description'] }}</td>
-              <td>{{ row['debit'] }}</td>
-              <td>{{ row['credit'] }} / {{ row['runningBalance'] }}</td>
-            </tr>
-            <tr *ngFor="let row of asArray('findings')">
-              <td>{{ row['code'] }}</td>
-              <td>{{ row['severity'] }}</td>
-              <td>{{ row['count'] }}</td>
-              <td></td>
+            <tr *ngFor="let row of filteredAccountsTableRows">
+              <td
+                *ngFor="let column of accountsTableColumns"
+                [class.text-end]="column.numeric"
+                [class.accounts-amt]="column.numeric"
+              >
+                {{ formatTableCell(row, column) }}
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <div class="accounts-mobile-rows mobile-only">
-        <article class="hms-mobile-card accounts-mobile-row" *ngFor="let row of asArray('items')">
-          <strong>{{ displayCell(row, ['journalNo', 'invoiceNo', 'encounterNo', 'purchaseNo', 'code', 'patientName', 'action', 'title', 'date', '_id']) }}</strong>
-          <p>{{ displayCell(row, ['description', 'name', 'title', 'supplierName', 'patientName', 'module', 'category']) }}</p>
-          <p>{{ displayCell(row, ['totalDebit', 'debit', 'total', 'amount', 'balance', 'paidAmount']) }}</p>
-          <span class="hms-status-chip ward-badge ward-badge--pending">{{ displayCell(row, ['status', 'accountType', 'ageBucket', 'paymentMethod', 'severity']) }}</span>
-        </article>
-        <article class="hms-mobile-card accounts-mobile-row" *ngFor="let row of asArray('rows')">
-          <strong>{{ row['code'] }} · {{ row['name'] }}</strong>
-          <p>Debit {{ row['closingDebit'] }}</p>
-          <p>Credit {{ row['closingCredit'] }}</p>
-        </article>
-        <article class="hms-mobile-card accounts-mobile-row" *ngFor="let row of asArray('lines')">
-          <strong>{{ row['date'] }} · {{ row['journalNo'] || row['description'] }}</strong>
-          <p>Debit {{ row['debit'] }} · Credit {{ row['credit'] }}</p>
-          <p>Balance {{ row['runningBalance'] }}</p>
-        </article>
-        <article class="hms-mobile-card accounts-mobile-row" *ngFor="let row of asArray('findings')">
-          <div class="hms-mobile-card__head">
-            <strong>{{ row['code'] }}</strong>
-            <span class="hms-status-chip ward-badge" [ngClass]="row['severity'] === 'error' ? 'ward-badge--critical' : 'ward-badge--watch'">{{ row['severity'] }}</span>
-          </div>
-          <p>{{ row['description'] || 'Reconciliation check' }}</p>
-          <p>Count: {{ row['count'] }}</p>
+        <article class="hms-mobile-card accounts-mobile-row" *ngFor="let row of filteredAccountsTableRows">
+          <ng-container *ngFor="let column of accountsTableColumns; let i = index">
+            <strong *ngIf="i === 0">{{ formatTableCell(row, column) }}</strong>
+            <p *ngIf="i > 0">
+              <span class="accounts-mobile-label">{{ column.label }}:</span>
+              {{ formatTableCell(row, column) }}
+            </p>
+          </ng-container>
+          <i *ngIf="view === 'profit-loss'" class="fa fa-angle-right profit-loss-row-chevron" aria-hidden="true"></i>
         </article>
       </div>
     </section>
+  </div>
+
+  <div
+    class="accounts-rules-modal"
+    *ngIf="showAccountsRules"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="accounts-rules-title"
+  >
+    <div class="accounts-rules-modal__backdrop" (click)="closeAccountsRules()"></div>
+    <div class="accounts-rules-modal__panel">
+      <span class="accounts-rules-modal__handle" aria-hidden="true"></span>
+      <header class="accounts-rules-modal__head">
+        <button type="button" class="accounts-rules-modal__back" (click)="closeAccountsRules()" aria-label="Back">
+          <i class="fa fa-angle-left" aria-hidden="true"></i>
+        </button>
+        <span class="accounts-rules-modal__book"><i class="fa fa-book" aria-hidden="true"></i></span>
+        <div class="accounts-rules-modal__heading">
+          <h2 id="accounts-rules-title"><span>Accounts Rules</span><em>Easy Guide</em></h2>
+          <p>Written in simple words for hospital staff. No accounting degree needed.</p>
+        </div>
+        <button type="button" class="accounts-rules-modal__close" (click)="closeAccountsRules()" aria-label="Close">
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+      </header>
+
+      <div class="accounts-rules-modal__body">
+        <aside class="accounts-rules-sidebar">
+          <div class="accounts-rules-sidebar__head">
+            <div><h3>Topics</h3><p>Select a topic to learn more</p></div>
+            <button type="button" (click)="showAllRuleTopics = !showAllRuleTopics">
+              {{ showAllRuleTopics ? 'Less' : 'See all' }} <i class="fa fa-angle-right" aria-hidden="true"></i>
+            </button>
+          </div>
+          <nav class="accounts-rules-nav" [class.is-expanded]="showAllRuleTopics" aria-label="Accounts rule topics">
+            <button
+              type="button"
+              class="accounts-rules-nav__item"
+              *ngFor="let topic of accountsRuleTopics"
+              [class.is-active]="selectedRuleId === topic.id"
+              (click)="selectAccountsRule(topic.id)"
+            >
+              <span class="accounts-rules-nav__icon"><i class="fa" [ngClass]="accountRuleIcon(topic.id)" aria-hidden="true"></i></span>
+              <span>{{ topic.title }}</span>
+              <i class="fa fa-angle-right accounts-rules-nav__arrow" aria-hidden="true"></i>
+            </button>
+          </nav>
+        </aside>
+
+        <article class="accounts-rules-detail" *ngIf="selectedAccountsRule as rule">
+          <div class="accounts-rules-detail__topline">
+            <div>
+              <small>Accounts Guide</small>
+              <h3>{{ rule.title }}</h3>
+            </div>
+            <div class="accounts-rules-detail__callout">
+              <span><i class="fa fa-file-text-o" aria-hidden="true"></i></span>
+              <p>{{ accountRuleCallout(rule.id) }}</p>
+            </div>
+          </div>
+          <p class="accounts-rules-detail__summary">{{ rule.summary }}</p>
+          <ol class="accounts-rules-detail__points">
+            <li *ngFor="let point of rule.points; let i = index"><span>{{ i + 1 }}</span><p>{{ point }}</p></li>
+          </ol>
+          <div class="accounts-rules-detail__example" *ngIf="rule.example">
+            <span class="accounts-rules-detail__example-icon"><i class="fa fa-lightbulb-o" aria-hidden="true"></i></span>
+            <div><strong>Easy example</strong><p>{{ rule.example }}</p></div>
+          </div>
+          <div class="accounts-rules-detail__divider"></div>
+          <p class="accounts-rules-detail__tip"><i class="fa fa-info" aria-hidden="true"></i><span><strong>Tip:</strong> Open this Rules panel from any Accounts page — it jumps to that page’s topic first.</span></p>
+        </article>
+      </div>
+    </div>
   </div>
 </div>

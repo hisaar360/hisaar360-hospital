@@ -79,6 +79,65 @@
   min-width: 0;
 }
 
+// Keep the newborn table inside the main grid column and fit every column in
+// the available desktop width so it cannot slide underneath Quick Overview.
+.nursery-table-panel {
+  min-width: 0;
+  overflow: visible;
+}
+
+.nursery-table-panel .ward-data-table-wrap {
+  max-width: 100%;
+  overflow: visible;
+}
+
+.nursery-table-panel .ward-data-table {
+  min-width: 0;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.nursery-table-panel .ward-data-table th:nth-child(1) { width: 30%; }
+.nursery-table-panel .ward-data-table th:nth-child(2) { width: 27%; }
+.nursery-table-panel .ward-data-table th:nth-child(3) { width: 15%; }
+.nursery-table-panel .ward-data-table th:nth-child(4) { width: 13%; }
+.nursery-table-panel .ward-data-table th:nth-child(5) { width: 15%; }
+
+.nursery-table-panel .ward-data-table tbody td {
+  overflow-wrap: anywhere;
+  padding-left: 7px;
+  padding-right: 7px;
+}
+
+.nursery-table-panel .nursery-baby-cell {
+  min-width: 0;
+}
+
+.nursery-table-panel .nursery-actions-cell {
+  gap: 4px;
+}
+
+.nursery-list-stack {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.nursery-list-stack strong,
+.nursery-list-value {
+  color: var(--ward-text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.nursery-list-stack small {
+  color: var(--ward-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 .nursery-table-panel .ward-panel__head h2 {
   font-size: 14px;
 }
@@ -101,6 +160,12 @@
 .nursery-baby-cell strong {
   display: block;
   font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.nursery-baby-cell > span:last-child {
+  min-width: 0;
 }
 
 .nursery-baby-cell small {
@@ -142,13 +207,23 @@
 }
 
 .nursery-actions-cell {
-  display: flex;
+  position: relative;
   gap: 6px;
+  text-align: center;
   white-space: nowrap;
 }
 
+.nursery-row-actions {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+  justify-content: flex-end;
+}
+
 .nursery-menu {
+  display: inline-block;
   position: relative;
+  vertical-align: middle;
 }
 
 .nursery-menu__trigger {
@@ -174,7 +249,7 @@
   position: absolute;
   right: 0;
   top: calc(100% + 4px);
-  z-index: 20;
+  z-index: 100;
 }
 
 .nursery-menu__panel button,
@@ -232,7 +307,10 @@
 }
 
 .nursery-mini-row strong {
-  font-size: 12px;
+  font-size: 10px;
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .nursery-mini-row span {
@@ -476,7 +554,7 @@
   }
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1199px) {
   .nursery-layout {
     grid-template-columns: 1fr;
   }
@@ -491,6 +569,27 @@
 
   .nursery-bottom-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 991px) {
+  .nursery-table-panel .ward-data-table-wrap {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-color: #cbd5e1 transparent;
+    scrollbar-width: thin;
+  }
+
+  .nursery-table-panel .ward-data-table {
+    min-width: 900px;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  .mobile-only {
+    display: block;
   }
 }
 

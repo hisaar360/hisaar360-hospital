@@ -65,6 +65,9 @@ const HELP_QUICK_TASK_SLUGS_ALL = [
   'how-to-discharge-patient',
   'register-newborn',
   'birth-certificate-issue',
+  'accounts-rules-guide',
+  'how-to-create-duty-roster',
+  'assign-nurse-duty',
 ];
 
 export const HELP_ROLE_WORKFLOWS: Record<HelpRoleKey, HelpRoleWorkflowConfig> = {
@@ -134,26 +137,32 @@ export const HELP_ROLE_WORKFLOWS: Record<HelpRoleKey, HelpRoleWorkflowConfig> = 
     commonTaskSlugs: [
       'hospital-setup-guide',
       'create-rooms-beds',
+      'birth-certificate-issue',
       'add-doctor-guide',
       'roles-permissions',
       'how-to-create-duty-roster',
       'accounts-overview',
+      'accounts-rules-guide',
     ],
     quickTaskSlugs: [
       'hospital-setup-guide',
       'create-rooms-beds',
+      'birth-certificate-issue',
       'add-doctor-guide',
       'roles-permissions',
       'accounts-overview',
+      'accounts-rules-guide',
       'department-performance-report',
       'how-to-register-patient',
     ],
     moduleGuideKeys: ['setup', 'roles', 'clinical', 'ward', 'laboratory', 'pharmacy', 'accounts', 'nursery'],
     preferredGuideSlugs: [
       'hospital-setup-guide',
+      'birth-certificate-issue',
       'create-rooms-beds',
       'roles-permissions',
       'accounts-overview',
+      'accounts-rules-guide',
       'department-performance-report',
     ],
     desktopBlocks: [
@@ -168,17 +177,17 @@ export const HELP_ROLE_WORKFLOWS: Record<HelpRoleKey, HelpRoleWorkflowConfig> = 
       {
         type: 'row',
         items: [
-          step('docs', '4', 'Doctors', 'add-doctor-guide', { module: 'clinical' }),
-          step('users', '5', 'Users & Roles', 'roles-permissions', { module: 'setup' }),
-          step('modules', '6', 'Lab / Pharmacy Setup', 'hospital-setup-guide'),
+          step('birth', '4', 'Birth Cert Setup', 'birth-certificate-issue', { module: 'nursery' }),
+          step('docs', '5', 'Doctors', 'add-doctor-guide', { module: 'clinical' }),
+          step('users', '6', 'Users & Roles', 'roles-permissions', { module: 'setup' }),
         ],
       },
       {
         type: 'row',
         items: [
-          step('ops', '7', 'Hospital Operations', 'getting-started-overview'),
-          step('accounts', '8', 'Accounts & Reports', 'accounts-overview', { module: 'accounts' }),
-          step('audit', '9', 'Audit / Reconciliation', 'accounts-overview', { module: 'accounts' }),
+          step('modules', '7', 'Lab / Pharmacy Setup', 'hospital-setup-guide'),
+          step('ops', '8', 'Hospital Operations', 'getting-started-overview'),
+          step('accounts', '9', 'Accounts & Reports', 'accounts-overview', { module: 'accounts' }),
         ],
       },
     ],
@@ -483,17 +492,20 @@ export const HELP_ROLE_WORKFLOWS: Record<HelpRoleKey, HelpRoleWorkflowConfig> = 
       'receive-patient-payment',
       'patient-ledger-payments',
       'accounts-overview',
+      'accounts-rules-guide',
       'department-performance-report',
     ],
     quickTaskSlugs: [
       'receive-patient-payment',
       'patient-ledger-payments',
       'accounts-overview',
+      'accounts-rules-guide',
       'department-performance-report',
       'how-to-discharge-patient',
     ],
     moduleGuideKeys: ['accounts'],
     preferredGuideSlugs: [
+      'accounts-rules-guide',
       'receive-patient-payment',
       'patient-ledger-payments',
       'accounts-overview',
@@ -512,23 +524,30 @@ export const HELP_ROLE_WORKFLOWS: Record<HelpRoleKey, HelpRoleWorkflowConfig> = 
       {
         type: 'row',
         items: [
-          step('cash', '4', 'Cash / Bank', 'receive-patient-payment', { module: 'accounts' }),
-          step('gl', '5', 'General Ledger', 'accounts-overview', { module: 'accounts' }),
-          step('tb', '6', 'Trial Balance', 'accounts-overview', { module: 'accounts' }),
+          step('rules', '4', 'Accounts Rules (Easy Guide)', 'accounts-rules-guide', { module: 'accounts', accent: true }),
+          step('cash', '5', 'Cash / Bank', 'accounts-rules-guide', { module: 'accounts' }),
+          step('gl', '6', 'General Ledger', 'accounts-overview', { module: 'accounts' }),
+          step('tb', '7', 'Trial Balance', 'accounts-overview', { module: 'accounts' }),
         ],
       },
       {
         type: 'parallel',
         items: [
-          step('daily', '7A', 'Daily Collections', 'accounts-overview', { module: 'accounts', branch: true }),
-          step('dept', '7B', 'Department Performance', 'department-performance-report', { module: 'accounts', branch: true }),
-          step('doc', '7C', 'Doctor Performance', 'department-performance-report', { module: 'accounts', branch: true }),
-          step('pl', '7D', 'Profit & Loss', 'accounts-overview', { module: 'accounts', branch: true }),
+          step('daily', '8A', 'Daily Collections', 'accounts-overview', { module: 'accounts', branch: true }),
+          step('dept', '8B', 'Department Performance', 'department-performance-report', { module: 'accounts', branch: true }),
+          step('doc', '8C', 'Doctor Performance', 'department-performance-report', { module: 'accounts', branch: true }),
+          step('pl', '8D', 'Profit & Loss', 'accounts-overview', { module: 'accounts', branch: true }),
         ],
       },
       {
         type: 'row',
-        items: [step('reports', '8', 'Preview / PDF / Excel / Print', 'accounts-overview', { module: 'accounts' })],
+        items: [
+          step('recon', '9', 'Reconciliation / Post missing journals', 'accounts-rules-guide', {
+            module: 'accounts',
+            accent: true,
+          }),
+          step('reports', '10', 'Preview / PDF / Excel / Print', 'accounts-overview', { module: 'accounts' }),
+        ],
       },
     ],
     mobileSteps: [],

@@ -37,8 +37,8 @@ export class AuthService {
   private meInFlight$: Observable<any> | null = null;
   private expiryTimer: ReturnType<typeof setTimeout> | null = null;
   private hostedLoginRedirectInFlight = false;
-  private readonly HOSTED_LOGIN_URL =
-    'https://hisaar-landing-page-main-eight.vercel.app/login';
+  private readonly HOSTED_LOGIN_URL = 'https://hisaar360.com/login';
+  private readonly LOCAL_AUTH_PORTAL_LOGIN_URL = 'http://localhost:4200/login';
 
   readonly currentUser = this.userSignal.asReadonly();
   readonly tokenPayload = this.tokenPayloadSignal.asReadonly();
@@ -63,13 +63,18 @@ export class AuthService {
   }
 
   ssoLogin(code: string): Observable<any> {
+    // Treat every SSO handoff as a brand-new login — discard any prior session.
+    this.beginFreshSsoHandoff();
+
     return this.http
       .post<ApiEnvelope<AuthPayload>>(CONFIG.auth.ssoLogin, { code })
       .pipe(
         tap((response) => {
           this.persistAuthResponse(response?.data);
           const user = this.getCurrentUser();
-          void this.router.navigateByUrl(this.defaultAppRoute(user));
+          const route = this.defaultAppRoute(user);
+          // Full page load so menus/permissions boot only from the new session.
+          this.navigateAsFreshSession(route);
         })
       );
   }
@@ -171,18 +176,14 @@ export class AuthService {
     this.handleAuthFailure();
   }
 
-  redirectToHostedLogin(options?: { forceHosted?: boolean }): void {
+  redirectToHostedLogin(_options?: { forceHosted?: boolean }): void {
     if (this.hostedLoginRedirectInFlight) {
       return;
     }
     this.hostedLoginRedirectInFlight = true;
-
-    if (!options?.forceHosted && this.shouldUseLocalLogin()) {
-      window.location.replace(this.localLoginUrl());
-      return;
-    }
-
-    window.location.replace(CONFIG.authPortalLoginUrl || this.HOSTED_LOGIN_URL);
+    // Session timeout / auth failure always goes to Central Auth portal —
+    // never the hospital SPA login form.
+    window.location.replace(this.resolveAuthPortalLoginUrl());
   }
 
   shouldUseLocalLogin(): boolean {
@@ -203,8 +204,18 @@ export class AuthService {
     );
   }
 
+  /** Central Auth login URL for the current environment. */
+  resolveAuthPortalLoginUrl(): string {
+    if (CONFIG.authPortalLoginUrl) {
+      return CONFIG.authPortalLoginUrl;
+    }
+    return this.shouldUseLocalLogin()
+      ? this.LOCAL_AUTH_PORTAL_LOGIN_URL
+      : this.HOSTED_LOGIN_URL;
+  }
+
   localLoginUrl(): string {
-    return `${window.location.origin}/login`;
+    return this.resolveAuthPortalLoginUrl();
   }
 
   saveToken(token: string): void {
@@ -358,16 +369,33 @@ export class AuthService {
     localStorage.removeItem(CONFIG.storage.role);
     localStorage.removeItem(CONFIG.storage.roleId);
     localStorage.removeItem(CONFIG.storage.permissions);
-    // Legacy keys
+    // Legacy / ancillary session keys
     localStorage.removeItem('access_token');
     localStorage.removeItem('currentUser');
     localStorage.removeItem('auth_session');
+    localStorage.removeItem('hospital');
+    localStorage.removeItem('userName');
 
     this.userSignal.set(null);
     this.tokenPayloadSignal.set(null);
     this.meInFlight$ = null;
     this.refreshInFlight$ = null;
+    this.hostedLoginRedirectInFlight = false;
     this.clearAccessTokenWatch();
+  }
+
+  /**
+   * New SSO code arrived while a previous hospital session may still exist.
+   * Wipe everything so the exchange behaves as if the user was never logged in.
+   */
+  beginFreshSsoHandoff(): void {
+    this.clearSession();
+  }
+
+  /** Hard navigation after SSO so UI state cannot leak from the prior role/session. */
+  private navigateAsFreshSession(route: string): void {
+    const path = route.startsWith('/') ? route : `/${route}`;
+    window.location.replace(`${window.location.origin}${path}`);
   }
 
   private persistAuthResponse(data: AuthPayload | null | undefined): void {

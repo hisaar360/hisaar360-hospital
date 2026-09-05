@@ -1,9 +1,36 @@
 .hms-doc-toolbar {
   display: inline-flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .hms-doc-toolbar.is-disabled {
   opacity: 0.6;
+}
+
+.hms-doc-toolbar .hms-btn {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #0d9488;
+  border-radius: 8px;
+  color: #0d9488;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 6px;
+  justify-content: center;
+  min-height: 34px;
+  padding: 6px 12px;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(13, 148, 136, 0.08);
+    color: #0f766e;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
 }

@@ -322,6 +322,11 @@
     color: #2563eb;
   }
 
+  .accounts-kpi-card.tone-red .accounts-kpi-card__icon {
+    background: #fff0f0;
+    color: #ef3340;
+  }
+
   .accounts-summary-grid--dashboard {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -463,11 +468,34 @@
 
   .accounts-table thead th {
     border-top: 0;
-    color: var(--accounts-navy);
-    font-size: 12px;
+    border-bottom: 2px solid #cbd5e1;
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    font-size: 11px;
     font-weight: 800;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     white-space: nowrap;
+    padding: 10px 12px;
+  }
+
+  .accounts-amt {
+    font-variant-numeric: tabular-nums;
+    font-family: system-ui, sans-serif;
+    white-space: nowrap;
+  }
+
+  .accounts-amt--balance {
+    font-weight: 700;
+    color: var(--accounts-navy, #0f172a);
+  }
+
+  .accounts-mobile-label {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 4px;
+    text-transform: uppercase;
   }
 
   .accounts-table tbody td {
@@ -487,6 +515,859 @@
     text-align: center;
   }
 
+  .accounts-hero-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  .accounts-rules-btn {
+    align-items: center;
+    background: #fff;
+    border: 1px solid var(--accounts-line);
+    border-radius: 8px;
+    color: var(--accounts-navy);
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 13px;
+    font-weight: 700;
+    gap: 8px;
+    min-height: 40px;
+    padding: 8px 14px;
+  }
+
+  .accounts-rules-btn:hover {
+    border-color: rgba(1, 156, 157, 0.5);
+    color: var(--accounts-teal);
+  }
+
+  .accounts-rules-btn .fa {
+    color: var(--accounts-teal);
+  }
+
+  .accounts-rules-modal {
+    inset: 0;
+    position: fixed;
+    z-index: 100050;
+  }
+
+  .accounts-rules-modal__backdrop {
+    backdrop-filter: blur(1.5px);
+    background: rgba(28, 43, 63, 0.56);
+    inset: 0;
+    position: absolute;
+  }
+
+  .accounts-rules-modal__panel {
+    background: #fff;
+    border: 1px solid #e0e8f1;
+    border-radius: 13px;
+    box-shadow: 0 28px 70px rgba(15, 32, 53, 0.28);
+    display: flex;
+    flex-direction: column;
+    height: min(86vh, 840px);
+    left: 50%;
+    max-height: calc(100vh - 32px);
+    max-width: 1100px;
+    overflow: hidden;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(100% - 40px);
+  }
+
+  .accounts-rules-modal__handle,
+  .accounts-rules-modal__back {
+    display: none;
+  }
+
+  .accounts-rules-modal__head {
+    align-items: center;
+    border-bottom: 1px solid var(--accounts-line);
+    display: grid;
+    flex: 0 0 auto;
+    gap: 20px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-height: 138px;
+    padding: 24px 28px;
+  }
+
+  .accounts-rules-modal__book {
+    align-items: center;
+    background: linear-gradient(145deg, #e7f9f7, #f0fbfa);
+    border-radius: 15px;
+    color: #079c98;
+    display: inline-flex;
+    font-size: 35px;
+    height: 78px;
+    justify-content: center;
+    width: 78px;
+  }
+
+  .accounts-rules-modal__heading h2 {
+    color: #101a35;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1.15;
+    margin: 0;
+  }
+
+  .accounts-rules-modal__heading h2 em {
+    font-style: normal;
+  }
+
+  .accounts-rules-modal__heading h2 em::before {
+    content: ' — ';
+  }
+
+  .accounts-rules-modal__heading p {
+    color: #5b7398;
+    font-size: 16px;
+    font-weight: 600;
+    margin: 7px 0 0;
+  }
+
+  .accounts-rules-modal__close {
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #d7e0eb;
+    border-radius: 9px;
+    color: #203550;
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 19px;
+    height: 46px;
+    justify-content: center;
+    width: 46px;
+  }
+
+  .accounts-rules-modal__body {
+    display: grid;
+    flex: 1 1 auto;
+    gap: 0;
+    grid-template-columns: 338px minmax(0, 1fr);
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .accounts-rules-sidebar {
+    background: #fbfdff;
+    border-right: 1px solid var(--accounts-line);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 20px 14px 14px;
+  }
+
+  .accounts-rules-sidebar__head {
+    padding: 0 14px 12px;
+  }
+
+  .accounts-rules-sidebar__head h3 {
+    color: #17233d;
+    font-size: 15px;
+    font-weight: 800;
+    margin: 0;
+  }
+
+  .accounts-rules-sidebar__head p {
+    color: #617698;
+    font-size: 12px;
+    margin: 4px 0 0;
+  }
+
+  .accounts-rules-sidebar__head button {
+    display: none;
+  }
+
+  .accounts-rules-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .accounts-rules-nav__item {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 10px;
+    color: #284263;
+    cursor: pointer;
+    display: grid;
+    font-size: 12px;
+    font-weight: 600;
+    gap: 10px;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    line-height: 1.3;
+    min-height: 52px;
+    padding: 6px 10px;
+    text-align: left;
+    width: 100%;
+  }
+
+  .accounts-rules-nav__icon {
+    align-items: center;
+    color: #4b6d95;
+    display: inline-flex;
+    font-size: 19px;
+    height: 36px;
+    justify-content: center;
+    width: 36px;
+  }
+
+  .accounts-rules-nav__arrow {
+    color: #537397;
+    font-size: 16px;
+  }
+
+  .accounts-rules-nav__item:hover,
+  .accounts-rules-nav__item.is-active {
+    background: linear-gradient(90deg, #e8f9f7, #f0fbfa);
+    box-shadow: none;
+    color: #008e93;
+  }
+
+  .accounts-rules-nav__item.is-active .accounts-rules-nav__icon {
+    background: #11aaa6;
+    border-radius: 9px;
+    color: #fff;
+  }
+
+  .accounts-rules-detail {
+    overflow: auto;
+    padding: 28px 30px 26px;
+  }
+
+  .accounts-rules-detail__topline {
+    align-items: center;
+    display: flex;
+    gap: 18px;
+    justify-content: space-between;
+  }
+
+  .accounts-rules-detail__topline small {
+    color: #00989d;
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+
+  .accounts-rules-detail h3 {
+    color: #101a35;
+    font-size: 27px;
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 0;
+  }
+
+  .accounts-rules-detail__callout {
+    align-items: center;
+    background: #eaf5ff;
+    border-radius: 10px;
+    display: flex;
+    flex: 0 0 220px;
+    gap: 10px;
+    min-height: 68px;
+    padding: 10px 14px;
+  }
+
+  .accounts-rules-detail__callout > span {
+    align-items: center;
+    background: #d1e8ff;
+    border-radius: 50%;
+    color: #0873cf;
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-size: 17px;
+    height: 42px;
+    justify-content: center;
+    width: 42px;
+  }
+
+  .accounts-rules-detail__callout p {
+    color: #0753a1;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.45;
+    margin: 0;
+  }
+
+  .accounts-rules-detail__summary {
+    color: #4d668c;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.55;
+    margin: 18px 0 20px;
+  }
+
+  .accounts-rules-detail__points {
+    display: grid;
+    gap: 13px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .accounts-rules-detail__points li {
+    align-items: flex-start;
+    color: #243a5c;
+    display: flex;
+    font-size: 13px;
+    gap: 16px;
+    line-height: 1.5;
+  }
+
+  .accounts-rules-detail__points li > span {
+    align-items: center;
+    background: #e8f8f6;
+    border-radius: 50%;
+    color: #078a8c;
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-size: 14px;
+    font-weight: 800;
+    height: 34px;
+    justify-content: center;
+    width: 34px;
+  }
+
+  .accounts-rules-detail__points li p {
+    margin: 6px 0 0;
+  }
+
+  .accounts-rules-detail__example {
+    align-items: center;
+    background: linear-gradient(115deg, #effcf9, #f5fcfb);
+    border: 1px solid #8addd7;
+    border-radius: 10px;
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+    padding: 16px;
+  }
+
+  .accounts-rules-detail__example-icon {
+    align-items: center;
+    background: #ccf3ee;
+    border-radius: 50%;
+    color: #078c8e;
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-size: 22px;
+    height: 52px;
+    justify-content: center;
+    width: 52px;
+  }
+
+  .accounts-rules-detail__example strong {
+    color: var(--accounts-teal-dark);
+    display: block;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+
+  .accounts-rules-detail__example p {
+    color: #075a5c;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  // Profit & Loss ------------------------------------------------------------
+  &.accounts-page--profit-loss {
+    background: linear-gradient(135deg, #fbfdff 0%, #f5fbff 100%);
+  }
+
+  &.accounts-page--profit-loss .accounts-shell {
+    max-width: 1440px;
+  }
+
+  &.accounts-page--profit-loss .accounts-hero {
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  &.accounts-page--profit-loss .accounts-hero-main h1 {
+    color: #101c38;
+    font-size: 24px;
+  }
+
+  &.accounts-page--profit-loss .accounts-hero-actions {
+    flex-wrap: nowrap;
+  }
+
+  :host ::ng-deep &.accounts-page--profit-loss .accounts-hero-actions .hms-doc-toolbar {
+    flex-wrap: nowrap;
+  }
+
+  :host ::ng-deep &.accounts-page--profit-loss .accounts-hero-actions .hms-doc-toolbar .hms-btn {
+    border-color: #2eb7bb;
+    border-radius: 8px;
+    color: #078f94;
+    min-height: 38px;
+    min-width: 88px;
+    padding: 6px 13px;
+  }
+
+  .accounts-filter-card--profit-loss {
+    border-radius: 11px;
+    box-shadow: 0 8px 24px rgba(31, 74, 113, 0.06);
+  }
+
+  .accounts-filter-card--profit-loss .accounts-filter-head {
+    border-bottom: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 12px 16px 0;
+  }
+
+  .accounts-filter-title,
+  .accounts-panel-title-wrap {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+  }
+
+  .accounts-filter-title__icon,
+  .accounts-panel-title-icon,
+  .profit-loss-card-title > span {
+    align-items: center;
+    color: #0d4d8e;
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-size: 18px;
+    justify-content: center;
+  }
+
+  .accounts-filter-card--profit-loss .accounts-filter-head h2 {
+    font-size: 15px;
+  }
+
+  .accounts-filter-card--profit-loss .accounts-filter-head p {
+    font-size: 10px;
+    margin-top: 2px;
+  }
+
+  .accounts-filter-card--profit-loss .accounts-preset-row {
+    grid-column: 1 / -1;
+  }
+
+  .accounts-filter-card--profit-loss .accounts-preset-btn {
+    min-width: 82px;
+    padding: 0 17px;
+  }
+
+  .profit-loss-updated {
+    align-items: center;
+    display: flex;
+    gap: 7px;
+    white-space: nowrap;
+  }
+
+  .profit-loss-updated .fa {
+    color: #3475b6;
+  }
+
+  .accounts-filter-card--profit-loss .accounts-filter-grid {
+    grid-template-columns: repeat(3, minmax(150px, 1fr)) minmax(160px, 0.95fr);
+    padding-top: 10px;
+  }
+
+  .accounts-filter-card--profit-loss .form-control {
+    font-size: 12px;
+    min-height: 38px;
+  }
+
+  .profit-loss-dashboard {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .profit-loss-kpi-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(20, minmax(0, 1fr));
+  }
+
+  .profit-loss-kpi-grid .accounts-kpi-card {
+    align-items: center;
+    box-shadow: 0 7px 22px rgba(31, 74, 113, 0.05);
+    grid-column: span 4;
+    min-height: 74px;
+    padding: 12px 14px;
+  }
+
+  .profit-loss-kpi-grid .accounts-kpi-card:nth-child(n + 6) {
+    grid-column: span 5;
+  }
+
+  .profit-loss-kpi-grid .accounts-kpi-card.is-highlight {
+    border-color: var(--accounts-line);
+    box-shadow: 0 7px 22px rgba(31, 74, 113, 0.05);
+  }
+
+  .profit-loss-kpi-grid .accounts-kpi-card__icon {
+    height: 44px;
+    width: 44px;
+  }
+
+  .profit-loss-kpi-grid .accounts-kpi-card__body small {
+    color: #4f678e;
+    font-size: 9px;
+  }
+
+  .profit-loss-kpi-grid .accounts-kpi-card__body h4 {
+    color: #00459a;
+    font-size: 20px;
+    margin: 3px 0 0;
+  }
+
+  .profit-loss-chart-grid {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profit-loss-chart-card {
+    background: #fff;
+    border: 1px solid var(--accounts-line);
+    border-radius: 11px;
+    box-shadow: 0 8px 24px rgba(31, 74, 113, 0.05);
+    min-width: 0;
+    padding: 12px 14px 14px;
+  }
+
+  .profit-loss-card-title {
+    align-items: center;
+    display: flex;
+    gap: 9px;
+    margin-bottom: 10px;
+  }
+
+  .profit-loss-card-title h3 {
+    color: #101c38;
+    font-size: 15px;
+    font-weight: 800;
+    margin: 0;
+  }
+
+  .profit-loss-card-title > span {
+    color: #148aee;
+  }
+
+  .profit-loss-chart-card:nth-child(2) .profit-loss-card-title > span {
+    color: #079fa3;
+  }
+
+  .profit-loss-bar-layout,
+  .profit-loss-donut-layout {
+    align-items: center;
+    display: grid;
+    gap: 16px;
+    grid-template-columns: minmax(0, 1.25fr) minmax(190px, 0.8fr);
+  }
+
+  .profit-loss-bar-chart {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    height: 150px;
+    min-width: 0;
+  }
+
+  .profit-loss-axis-labels {
+    color: #54709b;
+    display: flex;
+    flex-direction: column;
+    font-size: 9px;
+    justify-content: space-between;
+    padding: 0 7px 20px 0;
+    text-align: right;
+  }
+
+  .profit-loss-bars {
+    align-items: end;
+    background: repeating-linear-gradient(to bottom, #e8eef5 0, #e8eef5 1px, transparent 1px, transparent 25%);
+    border-bottom: 1px solid #bfd0e2;
+    border-left: 1px solid #bfd0e2;
+    display: flex;
+    gap: 24%;
+    height: 130px;
+    justify-content: center;
+    padding: 0 12% 0;
+  }
+
+  .profit-loss-bar-column {
+    align-items: center;
+    align-self: stretch;
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    justify-content: flex-end;
+    max-width: 74px;
+    min-width: 38px;
+    position: relative;
+  }
+
+  .profit-loss-bar-column strong {
+    color: #0d2244;
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+
+  .profit-loss-bar-column small {
+    bottom: -20px;
+    color: #577197;
+    font-size: 9px;
+    position: absolute;
+  }
+
+  .profit-loss-bar {
+    border-radius: 3px 3px 0 0;
+    display: block;
+    min-height: 4px;
+    width: 100%;
+  }
+
+  .profit-loss-bar--revenue {
+    background: linear-gradient(180deg, #00999b, #039293);
+  }
+
+  .profit-loss-bar--expense {
+    background: linear-gradient(180deg, #ffad73, #ff8741);
+  }
+
+  .profit-loss-totals,
+  .profit-loss-breakdown-list {
+    border: 1px solid #e3eaf2;
+    border-radius: 8px;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  .profit-loss-totals > div,
+  .profit-loss-breakdown-list > div {
+    align-items: center;
+    border-bottom: 1px solid #edf1f6;
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    min-height: 31px;
+    padding: 5px 10px;
+  }
+
+  .profit-loss-totals > div:last-child,
+  .profit-loss-breakdown-list > div:last-child {
+    border-bottom: 0;
+  }
+
+  .profit-loss-totals dt,
+  .profit-loss-totals dd,
+  .profit-loss-breakdown-list dt,
+  .profit-loss-breakdown-list dd {
+    margin: 0;
+  }
+
+  .profit-loss-totals dt,
+  .profit-loss-breakdown-list dt {
+    align-items: center;
+    color: #27456f;
+    display: flex;
+    font-size: 10px;
+    gap: 8px;
+  }
+
+  .profit-loss-totals dd,
+  .profit-loss-breakdown-list dd strong {
+    color: #0a2f69;
+    font-size: 10px;
+    font-weight: 800;
+  }
+
+  .profit-loss-totals dt i,
+  .profit-loss-breakdown-list dt i {
+    border-radius: 50%;
+    display: inline-block;
+    flex: 0 0 auto;
+    height: 8px;
+    width: 8px;
+  }
+
+  .profit-loss-totals .is-teal { background: #079c9e; }
+  .profit-loss-totals .is-orange { background: #ff914e; }
+  .profit-loss-totals .is-green { background: #18b985; }
+
+  .profit-loss-donut-layout {
+    grid-template-columns: minmax(150px, 0.75fr) minmax(0, 1.35fr);
+  }
+
+  .profit-loss-donut {
+    align-items: center;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    margin: 0 auto;
+    max-width: 150px;
+    min-width: 128px;
+    position: relative;
+    width: 72%;
+  }
+
+  .profit-loss-donut::after {
+    background: #fff;
+    border-radius: 50%;
+    content: '';
+    height: 57%;
+    position: absolute;
+    width: 57%;
+  }
+
+  .profit-loss-donut > div {
+    display: grid;
+    justify-items: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .profit-loss-donut strong {
+    color: #082c64;
+    font-size: 14px;
+  }
+
+  .profit-loss-donut small {
+    color: #56709a;
+    font-size: 9px;
+  }
+
+  .profit-loss-breakdown-list {
+    border: 0;
+    border-radius: 0;
+  }
+
+  .profit-loss-breakdown-list > div {
+    min-height: 25px;
+    padding: 4px 0;
+  }
+
+  .profit-loss-breakdown-list dd {
+    align-items: center;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: minmax(54px, auto) 42px;
+    text-align: right;
+  }
+
+  .profit-loss-breakdown-list dd span {
+    color: #58739c;
+    font-size: 10px;
+  }
+
+  .profit-loss-entries {
+    box-shadow: 0 8px 24px rgba(31, 74, 113, 0.05);
+  }
+
+  .profit-loss-entries .accounts-panel-head {
+    padding: 10px 14px;
+  }
+
+  .profit-loss-entries .accounts-panel-title-icon {
+    color: #47678d;
+  }
+
+  .profit-loss-table-search {
+    align-items: center;
+    border: 1px solid var(--accounts-line);
+    border-radius: 8px;
+    display: flex;
+    gap: 8px;
+    min-height: 34px;
+    padding: 0 10px;
+    width: 210px;
+  }
+
+  .profit-loss-table-search .fa {
+    color: #567092;
+  }
+
+  .profit-loss-table-search input {
+    background: transparent;
+    border: 0;
+    color: #243955;
+    font-size: 11px;
+    min-width: 0;
+    outline: 0;
+    width: 100%;
+  }
+
+  .profit-loss-entries .accounts-table-wrap {
+    padding: 0 14px 14px;
+  }
+
+  .profit-loss-entries .accounts-table {
+    min-width: 0;
+  }
+
+  .profit-loss-entries .accounts-table thead th {
+    font-size: 9px;
+    padding: 6px 10px;
+  }
+
+  .profit-loss-entries .accounts-table tbody td {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+
+  .profit-loss-row-chevron {
+    color: #7590b3;
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .accounts-rules-detail__tip {
+    align-items: center;
+    background: #eef6ff;
+    border-radius: 9px;
+    color: #4c75aa;
+    display: flex;
+    font-size: 12px;
+    gap: 12px;
+    line-height: 1.45;
+    margin: 0;
+    padding: 12px 14px;
+  }
+
+  .accounts-rules-detail__tip > .fa {
+    align-items: center;
+    background: #76a8e5;
+    border-radius: 50%;
+    color: #fff;
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-size: 14px;
+    height: 34px;
+    justify-content: center;
+    width: 34px;
+  }
+
+  .accounts-rules-detail__divider {
+    border-top: 1px solid #e1e8f0;
+    margin: 22px 0 16px;
+  }
+
   @media (max-width: 991px) {
     .accounts-nav-tabs {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -495,11 +1376,517 @@
     .accounts-summary-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .accounts-rules-modal__body {
+      display: block;
+      grid-template-columns: 1fr;
+      overflow-y: auto;
+    }
+
+    .accounts-rules-sidebar {
+      border-bottom: 1px solid var(--accounts-line);
+      border-right: 0;
+      display: block;
+      padding: 14px 16px 12px;
+    }
+
+    .accounts-rules-sidebar__head {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 0 10px;
+    }
+
+    .accounts-rules-sidebar__head p {
+      display: none;
+    }
+
+    .accounts-rules-sidebar__head button {
+      align-items: center;
+      background: transparent;
+      border: 0;
+      color: #008f94;
+      display: inline-flex;
+      font-size: 12px;
+      gap: 7px;
+    }
+
+    .accounts-rules-nav {
+      flex-direction: row;
+      flex-wrap: nowrap;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 0 0 8px;
+      scrollbar-width: none;
+    }
+
+    .accounts-rules-nav::-webkit-scrollbar {
+      display: none;
+    }
+
+    .accounts-rules-nav__item {
+      flex: 0 0 auto;
+      grid-template-columns: 36px minmax(0, 1fr);
+      min-height: 58px;
+      padding: 7px 10px;
+      white-space: normal;
+      width: 175px;
+    }
+
+    .accounts-rules-nav__arrow {
+      display: none;
+    }
+
+    .accounts-rules-nav.is-expanded {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      overflow: visible;
+    }
+
+    .accounts-rules-nav.is-expanded .accounts-rules-nav__item {
+      width: 100%;
+    }
+
+    .accounts-rules-detail {
+      overflow: visible;
+    }
+
+    &.accounts-page--profit-loss .accounts-hero-actions {
+      display: block;
+      width: 100%;
+    }
+
+    :host ::ng-deep &.accounts-page--profit-loss .accounts-hero-actions app-hms-document-toolbar {
+      display: block;
+      width: 100%;
+    }
+
+    :host ::ng-deep &.accounts-page--profit-loss .accounts-hero-actions .hms-doc-toolbar {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      width: 100%;
+    }
+
+    :host ::ng-deep &.accounts-page--profit-loss .accounts-hero-actions .hms-doc-toolbar .hms-btn {
+      flex-direction: column;
+      font-size: 11px;
+      gap: 5px;
+      min-height: 64px;
+      min-width: 0;
+      padding: 7px 5px;
+    }
+
+    :host ::ng-deep &.accounts-page--profit-loss .accounts-hero-actions .hms-doc-toolbar .hms-btn .fa {
+      font-size: 19px;
+    }
+
+    .accounts-filter-card--profit-loss .accounts-filter-head {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .accounts-filter-card--profit-loss .accounts-filter-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .profit-loss-kpi-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .profit-loss-kpi-grid .accounts-kpi-card,
+    .profit-loss-kpi-grid .accounts-kpi-card:nth-child(n + 6) {
+      grid-column: auto;
+    }
+
+    .profit-loss-bar-layout,
+    .profit-loss-donut-layout {
+      align-items: stretch;
+      grid-template-columns: 1fr;
+    }
+
+    .profit-loss-totals {
+      border: 0;
+    }
+
+    .profit-loss-totals > div {
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .profit-loss-donut-layout {
+      gap: 10px;
+    }
+
+    .profit-loss-entries .accounts-mobile-row {
+      align-items: center;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto 18px;
+      min-height: 34px;
+      padding: 5px 12px;
+      position: relative;
+    }
+
+    .profit-loss-entries .accounts-mobile-row > strong {
+      font-size: 11px;
+      padding-right: 8px;
+    }
+
+    .profit-loss-entries .accounts-mobile-row > p {
+      color: #082c64;
+      font-size: 11px;
+      font-weight: 700;
+      padding-right: 8px;
+    }
+
+    .profit-loss-entries .accounts-mobile-label {
+      display: none;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .accounts-rules-modal__panel {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+      border-radius: 17px 17px 0 0;
+      bottom: 0;
+      height: min(92vh, 820px);
+      left: 50%;
+      max-height: calc(100vh - 54px);
+      top: auto;
+      transform: translateX(-50%);
+      width: calc(100% - 22px);
+    }
+
+    .accounts-rules-modal__handle {
+      background: #cdd7e3;
+      border-radius: 999px;
+      display: block;
+      height: 5px;
+      left: 50%;
+      position: absolute;
+      top: 10px;
+      transform: translateX(-50%);
+      width: 46px;
+      z-index: 2;
+    }
+
+    .accounts-rules-modal__head {
+      align-items: center;
+      gap: 12px;
+      grid-template-columns: 44px 60px minmax(0, 1fr) 44px;
+      min-height: 0;
+      padding: 36px 18px 18px;
+    }
+
+    .accounts-rules-modal__back {
+      align-items: center;
+      background: #f8fafc;
+      border: 1px solid #d7e0eb;
+      border-radius: 9px;
+      color: #152a49;
+      cursor: pointer;
+      display: inline-flex;
+      font-size: 25px;
+      height: 44px;
+      justify-content: center;
+      width: 44px;
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .accounts-rules-modal__book {
+      border-radius: 13px;
+      font-size: 27px;
+      height: 60px;
+      width: 60px;
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .accounts-rules-modal__heading {
+      display: contents;
+    }
+
+    .accounts-rules-modal__heading h2 {
+      display: grid;
+      font-size: 24px;
+      gap: 2px;
+      grid-column: 3;
+      grid-row: 1;
+    }
+
+    .accounts-rules-modal__heading h2 em {
+      color: #587197;
+      font-size: 18px;
+      font-weight: 500;
+    }
+
+    .accounts-rules-modal__heading h2 em::before {
+      content: '';
+    }
+
+    .accounts-rules-modal__heading p {
+      color: #506b94;
+      font-size: 13px;
+      grid-column: 1 / -1;
+      grid-row: 2;
+      line-height: 1.45;
+      margin-top: 12px;
+    }
+
+    .accounts-rules-modal__close {
+      font-size: 18px;
+      height: 44px;
+      width: 44px;
+      grid-column: 4;
+      grid-row: 1;
+    }
+
+    .accounts-rules-sidebar {
+      padding: 14px 18px 10px;
+    }
+
+    .accounts-rules-sidebar__head h3 {
+      font-size: 16px;
+    }
+
+    .accounts-rules-nav__item {
+      font-size: 12px;
+      width: 158px;
+    }
+
+    .accounts-rules-nav.is-expanded {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .accounts-rules-detail {
+      padding: 22px 20px 28px;
+    }
+
+    .accounts-rules-detail__topline {
+      align-items: end;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) 160px;
+    }
+
+    .accounts-rules-detail__topline small {
+      margin-bottom: 10px;
+    }
+
+    .accounts-rules-detail h3 {
+      font-size: 24px;
+    }
+
+    .accounts-rules-detail__callout {
+      flex-basis: auto;
+      min-height: 62px;
+      padding: 8px 10px;
+    }
+
+    .accounts-rules-detail__callout > span {
+      height: 38px;
+      width: 38px;
+    }
+
+    .accounts-rules-detail__callout p {
+      font-size: 10px;
+    }
+
+    .accounts-rules-detail__summary {
+      font-size: 14px;
+      margin: 16px 0 18px;
+    }
+
+    .accounts-rules-detail__points {
+      gap: 14px;
+    }
+
+    .accounts-rules-detail__points li {
+      font-size: 13px;
+      gap: 14px;
+    }
+
+    .accounts-rules-detail__points li > span {
+      height: 36px;
+      width: 36px;
+    }
+
+    .accounts-rules-detail__example {
+      margin-top: 20px;
+      padding: 15px;
+    }
+
+    .accounts-rules-detail__example-icon {
+      height: 50px;
+      width: 50px;
+    }
+
+    .accounts-rules-detail__tip {
+      align-items: flex-start;
+      font-size: 12px;
+    }
+  }
+
+  @media (max-width: 700px) {
+    .profit-loss-chart-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   @media (max-width: 575px) {
     .accounts-summary-grid {
       grid-template-columns: 1fr;
     }
+
+    .accounts-filter-card--profit-loss .accounts-filter-head {
+      grid-template-columns: 1fr;
+    }
+
+    .profit-loss-updated {
+      white-space: normal;
+    }
+
+    .accounts-filter-card--profit-loss .accounts-filter-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .profit-loss-kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .profit-loss-kpi-grid .accounts-kpi-card {
+      gap: 8px;
+      padding: 10px;
+    }
+
+    .profit-loss-kpi-grid .accounts-kpi-card__icon {
+      height: 38px;
+      width: 38px;
+    }
+
+    .profit-loss-kpi-grid .accounts-kpi-card__body h4 {
+      font-size: 17px;
+    }
+
+    .profit-loss-table-search {
+      width: 100%;
+    }
+  }
+
+  .reconciliation-panel .accounts-panel-head {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .reconciliation-panel .btn-primary {
+    align-items: center;
+    display: inline-flex;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .reconciliation-empty {
+    align-items: flex-start;
+    color: var(--accounts-muted);
+    display: flex;
+    gap: 12px;
+    padding: 18px 20px 22px;
+  }
+
+  .reconciliation-empty .fa-check-circle {
+    color: #059669;
+    font-size: 22px;
+    margin-top: 2px;
+  }
+
+  .reconciliation-empty strong {
+    color: var(--accounts-ink);
+    display: block;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .reconciliation-empty p {
+    margin: 0;
+  }
+
+  .reconciliation-table tbody tr.reconciliation-row {
+    cursor: pointer;
+  }
+
+  .reconciliation-table tbody tr.reconciliation-row:hover {
+    background: #f8fafc;
+  }
+
+  .reconciliation-code {
+    color: var(--accounts-muted);
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  .reconciliation-severity {
+    border-radius: 999px;
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    text-transform: lowercase;
+  }
+
+  .reconciliation-severity.is-error {
+    background: #fef2f2;
+    color: #b91c1c;
+  }
+
+  .reconciliation-severity.is-warning {
+    background: #fffbeb;
+    color: #b45309;
+  }
+
+  .reconciliation-detail-hint {
+    color: var(--accounts-teal);
+    font-weight: 700;
+    margin-right: 8px;
+  }
+
+  .reconciliation-chevron {
+    color: var(--accounts-muted);
+  }
+
+  .reconciliation-detail-row td {
+    background: var(--accounts-soft);
+    border-top: 0;
+    padding-bottom: 16px;
+    padding-top: 4px;
+  }
+
+  .reconciliation-desc {
+    color: #334155;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 10px;
+  }
+
+  .reconciliation-desc.muted {
+    color: var(--accounts-muted);
+    margin: 0;
+  }
+
+  .reconciliation-samples {
+    margin: 0;
+    padding-left: 18px;
+  }
+
+  .reconciliation-samples li {
+    color: #334155;
+    font-size: 13px;
+    line-height: 1.45;
+    margin-bottom: 6px;
+  }
+
+  .reconciliation-mobile-card {
+    cursor: pointer;
   }
 }

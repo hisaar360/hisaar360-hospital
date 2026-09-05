@@ -16,6 +16,8 @@ import {
 })
 export class ProfilePhotoFieldComponent implements OnChanges, OnDestroy {
   @Input() label = 'Photo';
+  @Input() uploadLabel = 'Choose Image';
+  @Input() replaceLabel = 'Replace';
   @Input() currentUrl: string | null = null;
   @Input() personName = '';
   @Input() disabled = false;

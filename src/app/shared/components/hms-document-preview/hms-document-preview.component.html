@@ -1,19 +1,31 @@
 <div class="hms-doc-preview-backdrop" *ngIf="session" (click)="close()">
-  <div class="hms-doc-preview-shell" (click)="$event.stopPropagation()">
+  <div class="hms-doc-preview-shell" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
     <header class="hms-doc-preview-toolbar">
       <div class="hms-doc-preview-title">
         <strong>{{ session.title }}</strong>
       </div>
       <div class="hms-doc-preview-actions">
-        <button type="button" class="hms-btn hms-btn-secondary" (click)="downloadPdf()" [disabled]="pdfLoading">
+        <button type="button" class="hms-doc-btn hms-doc-btn--outline" (click)="downloadPdf()" [disabled]="pdfLoading">
+          <i class="fa fa-file-pdf-o" aria-hidden="true"></i>
           {{ pdfLoading ? 'Preparing…' : 'Download PDF' }}
         </button>
-        <button type="button" class="hms-btn hms-btn-secondary" (click)="printDocument()">Print</button>
-        <button type="button" class="hms-btn hms-btn-primary" (click)="close()">Close</button>
+        <button type="button" class="hms-doc-btn hms-doc-btn--outline" (click)="printDocument()">
+          <i class="fa fa-print" aria-hidden="true"></i>
+          Print
+        </button>
+        <button type="button" class="hms-doc-btn hms-doc-btn--ghost" (click)="close()">Close</button>
+        <button type="button" class="hms-doc-close" (click)="close()" aria-label="Close preview">
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
       </div>
     </header>
     <div class="hms-doc-preview-stage">
-      <div class="hms-doc-preview-page" [innerHTML]="previewHtml"></div>
+      <iframe
+        *ngIf="previewSrcdoc"
+        class="hms-doc-preview-frame"
+        title="Document preview"
+        [srcdoc]="previewSrcdoc"
+      ></iframe>
     </div>
   </div>
 </div>

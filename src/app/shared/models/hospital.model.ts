@@ -866,6 +866,10 @@ export interface PatientPaymentDetail {
     netPayable: number;
     totalPaid: number;
     totalRefunded: number;
+    securityDepositHeld?: number;
+    securityDepositApplied?: number;
+    advanceCreditBalance?: number;
+    outstandingBalance?: number;
     balance: number;
   };
   chargesBySource: Record<string, PatientPaymentSourceSummary>;

@@ -5,25 +5,18 @@
         <h1>Doctor Performance</h1>
         <p>Consultation, laboratory, and pharmacy performance for the selected doctor.</p>
       </div>
+      <div class="pharmacy-hero-actions">
+        <app-hms-document-toolbar
+          [title]="'Doctor Performance'"
+          filename="doctor-performance.pdf"
+          orientation="landscape"
+          [getHtml]="buildDoctorPerformanceDocumentHtml"
+          [showExcel]="true"
+          [disabled]="loading"
+          (excelClick)="exportExcel()"
+        ></app-hms-document-toolbar>
+      </div>
     </header>
-
-    <nav class="accounts-nav-tabs" aria-label="Accounts reports">
-      <a
-        *ngFor="let tab of accountsNav"
-        class="accounts-nav-tab"
-        [class.active]="isNavActive(tab.route)"
-        [routerLink]="['/accounts', tab.route]"
-      >
-        {{ tab.label }}
-      </a>
-      <app-hms-document-toolbar
-        [title]="'Doctor Performance'"
-        filename="doctor-performance.pdf"
-        orientation="landscape"
-        [getHtml]="buildDoctorPerformanceDocumentHtml"
-        [disabled]="loading"
-      ></app-hms-document-toolbar>
-    </nav>
 
     <section class="accounts-filter-card">
       <div class="accounts-filter-head">
@@ -64,7 +57,7 @@
         <div class="accounts-filter-presets">
           <div class="accounts-preset-row">
             <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'today'" type="button" (click)="applyDatePreset('today')">Today</button>
-            <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'week'" type="button" (click)="applyDatePreset('week')">7 Days</button>
+            <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'week'" type="button" (click)="applyDatePreset('week')">Last 7 days</button>
             <button class="accounts-preset-btn" [class.active]="activeDatePreset === 'month'" type="button" (click)="applyDatePreset('month')">This Month</button>
           </div>
         </div>

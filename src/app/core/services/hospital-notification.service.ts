@@ -38,11 +38,17 @@ export class HospitalNotificationService {
   private readonly unreadSubject = new BehaviorSubject<number>(0);
   private knownIds = new Set<string>();
   private bootstrapped = false;
+  private pollingStarted = false;
 
   readonly items$ = this.itemsSubject.asObservable();
   readonly unreadCount$ = this.unreadSubject.asObservable();
 
   startPolling(intervalMs = 45000): void {
+    if (this.pollingStarted) {
+      this.refresh().subscribe();
+      return;
+    }
+    this.pollingStarted = true;
     interval(intervalMs)
       .pipe(switchMap(() => this.refresh()))
       .subscribe();

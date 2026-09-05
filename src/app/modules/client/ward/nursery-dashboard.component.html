@@ -91,14 +91,10 @@
                 <thead>
                   <tr>
                     <th>Baby / MR Number</th>
-                    <th>Sex</th>
-                    <th>Age</th>
-                    <th>Mother Name</th>
-                    <th>Mother Room / Bed</th>
+                    <th>Mother / Location</th>
                     <th>Nursery Bed / Cot</th>
                     <th>Consultant</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+                    <th>Status / Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -116,27 +112,31 @@
                         <span>
                           <strong>{{ babyLabel(item) }}</strong>
                           <small>MRN {{ babyMr(item) }}</small>
+                          <small>{{ babyGender(item) | titlecase }} · {{ babyAge(item) }}</small>
                         </span>
                       </div>
                     </td>
-                    <td>{{ babyGender(item) | titlecase }}</td>
-                    <td>{{ babyAge(item) }}</td>
-                    <td>{{ motherLabel(item) }}</td>
-                    <td>{{ item.motherRoomLabel }} / {{ item.motherBedLabel }}</td>
-                    <td>{{ item.nurseryBedLabel }}</td>
-                    <td>{{ item.consultantLabel }}</td>
-                    <td><span [class]="statusClass(item)">{{ statusLabel(item) }}</span></td>
+                    <td>
+                      <div class="nursery-list-stack">
+                        <strong>{{ motherLabel(item) }}</strong>
+                        <small>Room / Bed: {{ item.motherRoomLabel }} / {{ item.motherBedLabel }}</small>
+                      </div>
+                    </td>
+                    <td><span class="nursery-list-value">{{ item.nurseryBedLabel }}</span></td>
+                    <td><span class="nursery-list-value">{{ item.consultantLabel }}</span></td>
                     <td class="nursery-actions-cell" (click)="$event.stopPropagation()">
-                      <button type="button" class="btn btn-sm btn-light nursery-btn-light" (click)="openProfile(item)">View</button>
-                      <div class="nursery-menu">
-                        <button type="button" class="nursery-menu__trigger" (click)="toggleMenu(item._id, $event)">
-                          <i class="fa fa-ellipsis-v"></i>
-                        </button>
-                        <div class="nursery-menu__panel" *ngIf="menuOpenId === item._id">
-                          <button type="button" (click)="openProfile(item)">Open Profile</button>
-                          <button type="button" (click)="openMotherProfile(item)">Mother Profile</button>
-                          <a routerLink="/ward/vitals">Vitals</a>
-                          <a routerLink="/ward/nursery/birth-records">Birth Record</a>
+                      <div class="nursery-row-actions">
+                        <span [class]="statusClass(item)">{{ statusLabel(item) }}</span>
+                        <div class="nursery-menu">
+                          <button type="button" class="nursery-menu__trigger" aria-label="Newborn actions" (click)="toggleMenu(item._id, $event)">
+                            <i class="fa fa-ellipsis-v"></i>
+                          </button>
+                          <div class="nursery-menu__panel" *ngIf="menuOpenId === item._id">
+                            <button type="button" (click)="openProfile(item)">View</button>
+                            <button type="button" (click)="openMotherProfile(item)">Mother Profile</button>
+                            <a routerLink="/ward/vitals">Vitals</a>
+                            <a routerLink="/ward/nursery/birth-records">Birth Record</a>
+                          </div>
                         </div>
                       </div>
                     </td>

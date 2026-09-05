@@ -2009,6 +2009,15 @@ export class BackendService {
     );
   }
 
+  repairMissingReconciliationJournals(
+    payload: Record<string, unknown> = {}
+  ): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(
+      `${CONFIG.accounts}/reconciliation/repair-missing-journals`,
+      payload
+    ).pipe(map((response) => this.unwrapData(response)));
+  }
+
   getPurchases(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
     return this.get<PaginatedResponse<Record<string, unknown>>>(CONFIG.purchases, params).pipe(
       map((response) => this.unwrapData(response))

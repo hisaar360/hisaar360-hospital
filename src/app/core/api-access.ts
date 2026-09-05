@@ -135,7 +135,17 @@ const RULES: AccessRule[] = [
   { methods: ['GET'], pattern: /^\/public\/birth-certificates\/verify\//, skip: true },
   { methods: ['GET'], pattern: /^\/birth-records\/dashboard$/, any: ['ward.nursery.birth_records.read', 'ward.nursery.read', 'ward.read'], empty: OBJECT },
   { methods: ['GET'], pattern: /^\/birth-records\/mother\//, any: ['ward.nursery.birth_records.read', 'ward.nursery.read', 'ward.read'] },
-  { methods: ['GET'], pattern: /^\/birth-records\/certificates\//, any: ['ward.nursery.birth_certificates.read', 'ward.nursery.birth_records.read', 'ward.nursery.read'] },
+  {
+    methods: ['GET'],
+    pattern: /^\/birth-records\/certificates\//,
+    any: [
+      'ward.nursery.birth_certificates.read',
+      'ward.nursery.birth_records.read',
+      'ward.nursery.read',
+      'ward.read',
+    ],
+    empty: OBJECT,
+  },
   { methods: ['GET'], pattern: /^\/birth-records/, any: ['ward.nursery.birth_records.read', 'ward.nursery.read', 'ward.read'], empty: LIST },
   { methods: ['POST'], pattern: /^\/birth-records\/[^/]+\/certificates$/, any: ['ward.nursery.birth_certificates.issue', 'hospitals.update'] },
   { methods: ['POST'], pattern: /^\/birth-records\/certificates\/[^/]+\/correct$/, any: ['ward.nursery.birth_certificates.correct', 'hospitals.update'] },

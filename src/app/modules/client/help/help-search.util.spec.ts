@@ -59,10 +59,28 @@ describe('help-search.util', () => {
     expect(topSlug('qr verify')).toBe('birth-certificate-issue');
   });
 
+  it('finds accounts rules guide for non-accountant wording', () => {
+    expect(topSlug('accounts rules')).toBe('accounts-rules-guide');
+    expect(topSlug('debit credit')).toBe('accounts-rules-guide');
+    expect(topSlug('cash book payment 0')).toBe('accounts-rules-guide');
+  });
+
+  it('hides accounts and nursery guides when those modules are off', () => {
+    const results = searchHelpArticles(HELP_ARTICLES, 'accounts rules', {
+      moduleFlags: { ...allFlags, accounts: false },
+    });
+    expect(results.some((item) => item.article.module === 'accounts')).toBeFalse();
+
+    const birth = searchHelpArticles(HELP_ARTICLES, 'birth certificate', {
+      moduleFlags: { ...allFlags, nursery: false, ward: false },
+    });
+    expect(birth.some((item) => item.article.module === 'nursery')).toBeFalse();
+  });
+
   it('is case-insensitive and supports partial words', () => {
     expect(topSlug('ADMIT PATIENT')).toBe('how-to-admit-patient');
     expect(topSlug('appoint')).toBe('how-to-create-appointment');
-    expect(topSlug('ledg')).toBe('patient-ledger-payments');
+    expect(topSlug('patient ledger')).toBe('patient-ledger-payments');
   });
 
   it('boosts role-relevant guides when role filter is active', () => {

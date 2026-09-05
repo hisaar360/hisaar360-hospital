@@ -41,6 +41,8 @@ export class AddpaymentsComponent implements OnInit {
       tax: [0],
       paidAmount: [0],
       paymentMethod: ['cash'],
+      paymentReference: [''],
+      notes: [''],
     });
   }
 
@@ -82,6 +84,18 @@ export class AddpaymentsComponent implements OnInit {
     }
   }
 
+  bumpQty(index: number, delta: number): void {
+    const control = this.items.at(index).get('quantity');
+    if (!control) return;
+    const next = Math.max(1, Number(control.value || 1) + delta);
+    control.setValue(next);
+  }
+
+  itemTotal(index: number): number {
+    const value = this.items.at(index).value as { quantity: number; unitPrice: number };
+    return Number(value.quantity || 0) * Number(value.unitPrice || 0);
+  }
+
   subtotal(): number {
     return this.items.value.reduce(
       (sum: number, item: { quantity: number; unitPrice: number }) =>
@@ -102,6 +116,11 @@ export class AddpaymentsComponent implements OnInit {
     return Math.max(this.grandTotal() - Number(this.billForm.value.paidAmount || 0), 0);
   }
 
+  selectedPatient(): Patient | null {
+    const id = String(this.billForm.value.patientId || '');
+    return this.patients.find((patient) => patient._id === id) || null;
+  }
+
   filteredAppointments(): Appointment[] {
     const patientId = String(this.billForm.value.patientId || '');
     if (!patientId) {
@@ -112,6 +131,32 @@ export class AddpaymentsComponent implements OnInit {
 
   patientName(patient: Patient): string {
     return `${patient.firstName} ${patient.lastName}`.trim();
+  }
+
+  patientMeta(patient: Patient): string {
+    const bits = [
+      patient.gender || null,
+      patient.phone || null,
+      patient.patientNo || null,
+    ].filter(Boolean);
+    return bits.join(' · ');
+  }
+
+  resetForm(): void {
+    this.billForm.reset({
+      patientId: '',
+      appointmentId: '',
+      discount: 0,
+      tax: 0,
+      paidAmount: 0,
+      paymentMethod: 'cash',
+      paymentReference: '',
+      notes: '',
+    });
+    while (this.items.length > 1) {
+      this.items.removeAt(1);
+    }
+    this.items.at(0).reset({ description: '', quantity: 1, unitPrice: 0 });
   }
 
   submitBill(): void {

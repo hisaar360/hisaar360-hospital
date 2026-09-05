@@ -14,7 +14,8 @@ import { HmsDocumentSession } from '../../../core/services/hms-document.types';
 })
 export class HmsDocumentPreviewComponent implements OnInit, OnDestroy {
   session: HmsDocumentSession | null = null;
-  previewHtml: SafeHtml | null = null;
+  /** Full HTML document via iframe so styles, watermark, and QR images render correctly. */
+  previewSrcdoc: SafeHtml | null = null;
   pdfLoading = false;
   private subscription?: Subscription;
 
@@ -26,7 +27,9 @@ export class HmsDocumentPreviewComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.subscription = this.docs.session$.subscribe((session) => {
       this.session = session;
-      this.previewHtml = session?.html ? this.sanitizer.bypassSecurityTrustHtml(this.extractBodyHtml(session.html)) : null;
+      this.previewSrcdoc = session?.html
+        ? this.sanitizer.bypassSecurityTrustHtml(session.html)
+        : null;
     });
   }
 
@@ -51,15 +54,5 @@ export class HmsDocumentPreviewComponent implements OnInit, OnDestroy {
     } finally {
       this.pdfLoading = false;
     }
-  }
-
-  private extractBodyHtml(fullHtml: string): string {
-    const match = fullHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-    if (match?.[1]) {
-      const styleMatch = fullHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
-      const styles = styleMatch?.[1] || '';
-      return `<style>${styles}</style>${match[1]}`;
-    }
-    return fullHtml;
   }
 }

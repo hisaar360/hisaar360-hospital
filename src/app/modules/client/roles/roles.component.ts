@@ -197,11 +197,35 @@ export class RolesComponent implements OnInit {
   search = '';
   status = '';
   editingRoleId: string | null = null;
+  selectedRoleId: string | null = null;
+  mobileTab: 'roles' | 'editor' | 'permissions' = 'roles';
+  expandedGroups = new Set<string>();
+  openMenuRoleId: string | null = null;
   canSelectHospital = false;
   isHospitalScopedUser = false;
   currentHospitalId = '';
   currentHospitalName = '';
   selectedHospitalId = '';
+
+  private readonly avatarPalette = ['#019c9d', '#7c3aed', '#2563eb', '#ea580c', '#db2777', '#64748b'];
+
+  private readonly groupIcons: Record<string, string> = {
+    Dashboard: 'fa-tachometer',
+    Hospitals: 'fa-hospital-o',
+    Departments: 'fa-sitemap',
+    Doctors: 'fa-user-md',
+    Patients: 'fa-users',
+    'Patient History': 'fa-file-text-o',
+    Appointments: 'fa-calendar',
+    Prescriptions: 'fa-medkit',
+    'Pharmacy / POS': 'fa-shopping-cart',
+    'POS Reports': 'fa-bar-chart',
+    Rooms: 'fa-bed',
+    'Room Allotments': 'fa-exchange',
+    Billing: 'fa-credit-card',
+    Laboratory: 'fa-flask',
+    Administration: 'fa-cog',
+  };
 
   constructor(
     private fb: FormBuilder,
@@ -263,11 +287,13 @@ export class RolesComponent implements OnInit {
   loadRoles(): void {
     if (this.canSelectHospital && !this.selectedHospitalId) {
       this.roles = [];
+      this.selectedRoleId = null;
       return;
     }
 
     if (!this.selectedHospitalId && !this.canSelectHospital) {
       this.roles = [];
+      this.selectedRoleId = null;
       return;
     }
 
@@ -299,16 +325,24 @@ export class RolesComponent implements OnInit {
 
             return matchesSearch && matchesStatus;
           });
+
+          const visible = this.visibleRoles();
+          if (this.selectedRoleId && !visible.some((role) => role._id === this.selectedRoleId)) {
+            this.selectedRoleId = null;
+          }
+          if (!this.selectedRoleId && visible.length) {
+            this.selectRole(visible[0], false);
+          }
         },
         error: (err) => {
           this.roles = [];
+          this.selectedRoleId = null;
           this.toastr.error(err?.error?.message || 'Unable to load hospital roles.');
         },
       });
   }
 
-  togglePermission(permission: string, event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
+  setPermission(permission: string, checked: boolean): void {
     const index = this.permissionSelections.controls.findIndex(
       (control) => control.value === permission
     );
@@ -322,8 +356,195 @@ export class RolesComponent implements OnInit {
     }
   }
 
+  togglePermission(permission: string, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.setPermission(permission, checked);
+  }
+
   hasPermissionSelected(permission: string): boolean {
     return this.permissionSelections.controls.some((control) => control.value === permission);
+  }
+
+  permissionCount(role?: Role | null): number {
+    return (role?.permissions || []).filter((permission) => permission !== '*').length;
+  }
+
+  selectedPermissionCount(): number {
+    return this.permissionSelections.controls.length;
+  }
+
+  roleCategories(role: Role): string[] {
+    const labels = new Set<string>();
+    for (const permission of role.permissions || []) {
+      const group = this.visiblePermissionGroups.find((item) =>
+        item.permissions.some((entry) => entry.key === permission)
+      );
+      if (group) {
+        labels.add(group.title);
+      }
+    }
+    return Array.from(labels);
+  }
+
+  visibleCategories(role: Role): string[] {
+    return this.roleCategories(role).slice(0, 2);
+  }
+
+  hiddenCategoryCount(role: Role): number {
+    return Math.max(0, this.roleCategories(role).length - 2);
+  }
+
+  avatarColor(role: Role): string {
+    const seed = String(role.name || role._id || '');
+    let hash = 0;
+    for (let i = 0; i < seed.length; i += 1) {
+      hash = (hash + seed.charCodeAt(i) * (i + 1)) % this.avatarPalette.length;
+    }
+    return this.avatarPalette[hash] || this.avatarPalette[0];
+  }
+
+  groupIcon(title: string): string {
+    return this.groupIcons[title] || 'fa-folder-o';
+  }
+
+  groupDescription(title: string): string {
+    return `Configure ${title.toLowerCase()} access for this role.`;
+  }
+
+  crudKeys(group: PermissionGroup): { view?: string; create?: string; update?: string; delete?: string } {
+    const byAction: { view?: string; create?: string; update?: string; delete?: string } = {};
+    for (const permission of group.permissions) {
+      const key = permission.key;
+      if (/\.read$|\.view$/.test(key) && !byAction.view) byAction.view = key;
+      else if (/\.create$/.test(key) && !byAction.create) byAction.create = key;
+      else if (/\.update$|\.update_payment$|\.status_update$|\.adjust$/.test(key) && !byAction.update) {
+        byAction.update = key;
+      } else if (/\.delete$|\.cancel$/.test(key) && !byAction.delete) byAction.delete = key;
+    }
+    return byAction;
+  }
+
+  isGroupExpanded(title: string): boolean {
+    return this.expandedGroups.has(title);
+  }
+
+  toggleGroup(title: string): void {
+    if (this.expandedGroups.has(title)) {
+      this.expandedGroups.delete(title);
+    } else {
+      this.expandedGroups.add(title);
+    }
+  }
+
+  expandAllGroups(): void {
+    this.visiblePermissionGroups.forEach((group) => this.expandedGroups.add(group.title));
+  }
+
+  collapseAllGroups(): void {
+    this.expandedGroups.clear();
+  }
+
+  allGroupSelected(group: PermissionGroup): boolean {
+    return group.permissions.every((permission) => this.hasPermissionSelected(permission.key));
+  }
+
+  toggleGroupSelectAll(group: PermissionGroup, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    group.permissions.forEach((permission) => this.setPermission(permission.key, checked));
+  }
+
+  selectRole(role: Role, switchToEditor = true): void {
+    this.selectedRoleId = role._id;
+    this.openMenuRoleId = null;
+
+    if (this.isProtectedRole(role)) {
+      this.editingRoleId = null;
+      this.roleForm.reset({
+        name: role.name,
+        description: role.description || 'Full system access',
+        isActive: role.isActive !== false,
+      });
+      this.permissionSelections.clear();
+      (role.permissions || []).forEach((permission) => {
+        this.permissionSelections.push(this.fb.control(permission));
+      });
+      this.roleForm.disable({ emitEvent: false });
+      if (switchToEditor) {
+        this.mobileTab = 'editor';
+      }
+      return;
+    }
+
+    this.editingRoleId = role._id;
+    this.roleForm.enable({ emitEvent: false });
+    this.roleForm.patchValue({
+      name: role.name,
+      description: role.description || '',
+      isActive: role.isActive !== false,
+    });
+    this.permissionSelections.clear();
+    (role.permissions || []).forEach((permission) => {
+      this.permissionSelections.push(this.fb.control(permission));
+    });
+    if (!this.can('roles.update')) {
+      this.roleForm.disable({ emitEvent: false });
+    }
+    if (switchToEditor) {
+      this.mobileTab = 'editor';
+    }
+  }
+
+  startCreateRole(): void {
+    if (!this.can('roles.create')) {
+      return;
+    }
+    this.resetForm();
+    this.selectedRoleId = null;
+    this.mobileTab = 'editor';
+    this.roleForm.enable({ emitEvent: false });
+  }
+
+  discardChanges(): void {
+    const selected = this.visibleRoles().find((role) => role._id === this.selectedRoleId);
+    if (selected && !this.isProtectedRole(selected)) {
+      this.selectRole(selected, false);
+      this.toastr.info('Changes discarded.');
+      return;
+    }
+    this.resetForm();
+  }
+
+  toggleRoleMenu(roleId: string, event: Event): void {
+    event.stopPropagation();
+    this.openMenuRoleId = this.openMenuRoleId === roleId ? null : roleId;
+  }
+
+  closeRoleMenu(): void {
+    this.openMenuRoleId = null;
+  }
+
+  setMobileTab(tab: 'roles' | 'editor' | 'permissions'): void {
+    this.mobileTab = tab;
+  }
+
+  setRoleActive(isActive: boolean): void {
+    this.roleForm.patchValue({ isActive });
+  }
+
+  get selectedRole(): Role | null {
+    return this.visibleRoles().find((role) => role._id === this.selectedRoleId) || null;
+  }
+
+  get isEditingExisting(): boolean {
+    return Boolean(this.editingRoleId);
+  }
+
+  get canEditSelected(): boolean {
+    const role = this.selectedRole;
+    if (!role) {
+      return this.can('roles.create');
+    }
+    return this.can('roles.update') && !this.isProtectedRole(role);
   }
 
   submitRole(): void {
@@ -337,6 +558,8 @@ export class RolesComponent implements OnInit {
 
     if (this.roleForm.invalid || this.permissionSelections.length === 0) {
       this.roleForm.markAllAsTouched();
+      this.toastr.error('Role name and at least one permission are required.');
+      this.mobileTab = 'editor';
       return;
     }
 
@@ -366,8 +589,16 @@ export class RolesComponent implements OnInit {
     request$.pipe(finalize(() => (this.saving = false))).subscribe({
       next: (response) => {
         this.toastr.success(response?.message || 'Role saved successfully.');
-        this.resetForm();
+        const keepName = payload.name;
+        this.resetForm(false);
         this.loadRoles();
+        // After reload, try to reselect by name if create
+        setTimeout(() => {
+          const match = this.visibleRoles().find((role) => role.name === keepName);
+          if (match) {
+            this.selectRole(match, false);
+          }
+        }, 0);
       },
       error: (err) => {
         this.toastr.error(err?.error?.message || 'Unable to save hospital role.');
@@ -376,25 +607,7 @@ export class RolesComponent implements OnInit {
   }
 
   editRole(role: Role): void {
-    if (!this.can('roles.update')) {
-      return;
-    }
-
-    if (this.isProtectedRole(role)) {
-      this.toastr.info('Super Admin role cannot be edited here.');
-      return;
-    }
-
-    this.editingRoleId = role._id;
-    this.roleForm.patchValue({
-      name: role.name,
-      description: role.description || '',
-      isActive: role.isActive !== false,
-    });
-    this.permissionSelections.clear();
-    (role.permissions || []).forEach((permission) => {
-      this.permissionSelections.push(this.fb.control(permission));
-    });
+    this.selectRole(role, true);
   }
 
   async deleteRole(role: Role): Promise<void> {
@@ -406,6 +619,8 @@ export class RolesComponent implements OnInit {
       this.toastr.info('System roles cannot be deleted here.');
       return;
     }
+
+    this.closeRoleMenu();
 
     const confirmed = await this.dialog.confirm({
       title: 'Delete Role',
@@ -425,8 +640,9 @@ export class RolesComponent implements OnInit {
       .subscribe({
       next: (response) => {
         this.toastr.success(response?.message || 'Role deleted successfully.');
-        if (this.editingRoleId === role._id) {
+        if (this.editingRoleId === role._id || this.selectedRoleId === role._id) {
           this.resetForm();
+          this.selectedRoleId = null;
         }
         this.loadRoles();
       },
@@ -436,14 +652,18 @@ export class RolesComponent implements OnInit {
       });
   }
 
-  resetForm(): void {
+  resetForm(clearSelection = true): void {
     this.editingRoleId = null;
+    if (clearSelection) {
+      this.selectedRoleId = null;
+    }
     this.roleForm.reset({
       name: '',
       description: '',
       isActive: true,
     });
     this.permissionSelections.clear();
+    this.roleForm.enable({ emitEvent: false });
   }
 
   visibleRoles(): Role[] {
@@ -452,6 +672,10 @@ export class RolesComponent implements OnInit {
 
   onHospitalChange(): void {
     this.resetForm();
+    this.loadRoles();
+  }
+
+  onSearchChange(): void {
     this.loadRoles();
   }
 

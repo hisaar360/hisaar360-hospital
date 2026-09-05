@@ -57,6 +57,14 @@ Doctor **recommends** admission; Ward Receptionist **allocates** room/bed.
 - Admission recommendation alone: **no charge**
 - Operation SCHEDULED: **no revenue**; COMPLETED: one charge + one GL event
 - Security/advance: payment, not revenue
+- **Accounts → Rules** button: plain-language Easy Guide for Debit/Credit, Journal (balanced Debit=Credit is normal), Cash Book (Receipt vs Payment), Bank Book, Receivables, Trial Balance, P&L, and more — written for non-accountants
+- **Reconciliation** (`/accounts/reconciliation`): expand findings for samples; **Post missing journals** fixes `LEDGER_MISSING_JOURNAL` / `PAYMENT_MISSING_JOURNAL`, then Apply again
+
+## Help Center (module-based tutorials)
+
+- Route: `/help` — Module Guides and Quick Tasks only for **enabled hospital modules** (and your role)
+- Search chips such as “lab test” / “birth certificate” / “accounts rules” hide when that module is off
+- New guides: **Accounts Rules — Easy Guide**, updated **Birth Certificate** (seal/signature upload + embedded View Certificate), updated **Hospital Setup** birth assets
 
 ## Department Performance report
 
@@ -93,7 +101,7 @@ Creates idempotent demo mother `CURSOR_QA_NURSERY_MOTHER`, baby `CURSOR_QA_BABY_
 
 ## Support
 
-Use Help Center search for: admit, room, operation, baby, birth certificate, invoice, ledger, pharmacy, lab, duty roster.
+Use Help Center search for: admit, room, operation, baby, birth certificate, accounts rules, invoice, ledger, pharmacy, lab, duty roster.
 
 ## Duty Roster
 
@@ -124,11 +132,12 @@ npm run seed:ward-roster-demo
 
 ## Birth certificate — View & verify
 
-1. Birth Records → find record → **Issue Certificate** (when verified)
-2. **View Certificate** opens the full certificate preview (document modal above record UI)
-3. **View Record** shows metadata only
-4. Preview / PDF / Print reprint the **same** certificate number and version (correction creates a new version; ordinary reprint does not)
-5. Public QR: `/verify/birth/:code` → **VALID** (no CNIC/billing internals)
+1. **Hospital Setup → Birth Certificate**: Upload seal image + Upload signature image → **Save Settings** (images are compressed)
+2. Birth Records → find record → **Issue Certificate** (when verified)
+3. **View Certificate** loads one payload: snapshot + embedded seal/signature/logo + QR (no extra broken `/media` calls on the SPA origin)
+4. **View Record** shows metadata only
+5. Preview / PDF / Print reprint the **same** certificate number and version (correction creates a new version; ordinary reprint does not)
+6. Public QR: `https://hisaar360.com/verify/birth/:code` → **VALID** / REVOKED / SUPERSEDED (no CNIC/billing internals). Local landing: `http://localhost:4200/verify/birth/:code`
 
 ## Doctor ne recommend kar diya — ab kya?
 

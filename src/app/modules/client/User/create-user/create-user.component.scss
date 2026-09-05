@@ -1,39 +1,81 @@
-.body {
-  background: white;
-}
+@use '../../admin-users-theme' as *;
 
-.card .header {
-  background: white;
-  margin-top: 1rem;
-}
-
-.mb {
-  margin-bottom: 1rem;
-}
-
-.btn-primary:disabled {
-  pointer-events: none;
-}
-
-.flex {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: relative;
-}
-
-.ico {
-  position: absolute;
-  right: 10px;
-  z-index: 999;
-}
-
-.hospital-readonly {
-  background-color: #f8f9fa;
-  cursor: default;
-}
-
-.form-hint {
+:host {
   display: block;
-  margin-top: 0.25rem;
+}
+
+.adm-create-user-page {
+  @include adm-page-vars;
+  @include adm-shared-styles;
+
+  .adm-create-layout {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: minmax(240px, 0.85fr) minmax(0, 1.4fr);
+
+    @media (max-width: 991px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .adm-section-card--photo {
+    align-self: start;
+    grid-row: 1;
+  }
+
+  .adm-section-card--basic {
+    grid-column: 2;
+    grid-row: 1;
+
+    @media (max-width: 991px) {
+      grid-column: 1;
+      grid-row: auto;
+    }
+  }
+
+  .adm-section-card--role {
+    grid-column: 1;
+
+    @media (max-width: 991px) {
+      grid-column: 1;
+    }
+  }
+
+  .adm-create-layout:not(:has(.adm-section-card--assign)) .adm-section-card--role {
+    grid-column: 1 / -1;
+  }
+
+  .adm-section-card--assign {
+    grid-column: 2;
+
+    @media (max-width: 991px) {
+      grid-column: 1;
+    }
+  }
+
+  .adm-section-card--status {
+    grid-column: 1 / -1;
+  }
+
+  .adm-photo-hint {
+    color: var(--adm-muted);
+    font-size: 12px;
+    margin: 10px 0 0;
+  }
+
+  ::ng-deep .profile-photo-field__label {
+    display: none;
+  }
+
+  ::ng-deep .profile-photo-field__row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  ::ng-deep .profile-photo-field__avatar {
+    border: 2px dashed var(--adm-border);
+    border-radius: 12px;
+    height: 140px;
+    width: 100%;
+  }
 }

@@ -1,3 +1,5 @@
+import { resolveAssetUrl } from '../../../core/utils/asset.util';
+
 export interface BirthCertificateSnapshot {
   documentTitle?: string;
   certificateNo?: string;
@@ -67,6 +69,8 @@ export interface BirthCertificateRecord {
   verificationDisplayCode?: string;
   publicVerificationCode?: string;
   documentHash?: string;
+  /** Embedded QR from certificate API — avoids external QR HTTP call. */
+  qrCodeDataUrl?: string;
 }
 
 export interface BirthRecordItem {
@@ -96,6 +100,13 @@ function esc(value: unknown): string {
     .replace(/"/g, '&quot;');
 }
 
+/** Hide internal placeholders like "Not Provided" on printed certificates. */
+function displayValue(value?: unknown, fallback = '—'): string {
+  const text = String(value ?? '').trim();
+  if (!text || /^not\s*provided$/i.test(text)) return fallback;
+  return text;
+}
+
 function formatDate(value?: string | Date | null): string {
   if (!value) return '—';
   const date = value instanceof Date ? value : new Date(value);
@@ -103,19 +114,97 @@ function formatDate(value?: string | Date | null): string {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatDateTime(value?: string | Date | null): string {
-  if (!value) return '—';
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleString('en-GB');
+function formatSex(value?: unknown): string {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '—';
+  if (raw === 'm' || raw === 'male') return 'Male';
+  if (raw === 'f' || raw === 'female') return 'Female';
+  return raw.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatModeOfDelivery(value?: unknown): string {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const labels: Record<string, string> = {
+    normal_vaginal: 'Normal vaginal delivery',
+    vaginal: 'Vaginal delivery',
+    spontaneous_vaginal: 'Spontaneous vaginal delivery',
+    assisted_vaginal: 'Assisted vaginal delivery',
+    forceps: 'Forceps delivery',
+    vacuum: 'Vacuum-assisted delivery',
+    caesarean: 'Caesarean section',
+    cesarean: 'Caesarean section',
+    c_section: 'Caesarean section',
+    elective_caesarean: 'Elective caesarean section',
+    emergency_caesarean: 'Emergency caesarean section',
+  };
+  const key = raw.toLowerCase().replace(/[\s-]+/g, '_');
+  if (labels[key]) return labels[key];
+  return raw.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatDeliveredBy(value?: unknown): string {
+  const name = displayValue(value);
+  if (name === '—') return name;
+  if (/^(dr\.?|doctor)\b/i.test(name)) return name;
+  return `Dr. ${name}`;
+}
+
+function fieldRow(label: string, value: string): string {
+  return `<div class="row"><span class="label">${esc(label)}</span><span class="value">${esc(value)}</span></div>`;
+}
+
+function buildWatermarkHtml(hospitalName: string): string {
+  const name = displayValue(hospitalName, 'Hisaar360 Hospital');
+  // Dense tile set so the pattern covers a full A4 sheet (not only the header).
+  const tiles = Array.from({ length: 160 }, () => `<span>${esc(name)}</span>`).join('');
+  return `<div class="watermark" aria-hidden="true"><div class="watermark-grid">${tiles}</div></div>`;
+}
+
+/** Public portal hosts /verify/birth/:code — live: hisaar360.com, local: localhost:4200. */
+export function resolveBirthCertificateVerificationBaseUrl(configured?: string | null): string {
+  const trimmed = String(configured || '')
+    .trim()
+    .replace(/\/$/, '');
+
+  const isBrowserLocal =
+    typeof window !== 'undefined' &&
+    /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])$/i.test(window.location.hostname);
+
+  // Local hospital / landing always verify on local portal (:4200), even if
+  // hospital settings still store the live hisaar360.com URL.
+  if (isBrowserLocal) {
+    const isLivePortal =
+      !trimmed ||
+      /\/\/(www\.)?hisaar360\.com(\/verify\/birth)?$/i.test(trimmed);
+    if (isLivePortal) {
+      return 'http://localhost:4200/verify/birth';
+    }
+    return trimmed;
+  }
+
+  if (trimmed) {
+    return trimmed;
+  }
+
+  return 'https://hisaar360.com/verify/birth';
 }
 
 export function buildBirthCertificateVerificationUrl(
   verificationCode: string,
-  baseUrl = 'https://www.hisaar360.com/verify/birth'
+  baseUrl?: string | null
 ): string {
-  const normalizedBase = baseUrl.replace(/\/$/, '');
+  const normalizedBase = resolveBirthCertificateVerificationBaseUrl(baseUrl);
   return `${normalizedBase}/${encodeURIComponent(verificationCode)}`;
+}
+
+function buildQrImageUrl(verifyUrl: string): string {
+  // Fallback only — preferred path is qrCodeDataUrl from the certificate API.
+  return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&ecc=M&margin=8&data=${encodeURIComponent(verifyUrl)}`;
+}
+
+function resolvePrintImageUrl(url: string | null | undefined): string {
+  return resolveAssetUrl(String(url || '').trim());
 }
 
 export function buildBirthCertificatePrintHtml(options: {
@@ -134,26 +223,61 @@ export function buildBirthCertificatePrintHtml(options: {
   const verifyUrl = verificationCode
     ? buildBirthCertificateVerificationUrl(verificationCode, verificationBaseUrl)
     : '';
-  const qrImg = verifyUrl && printOptions.showQrCode !== false
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(verifyUrl)}`
-    : '';
+  const qrImg =
+    verifyUrl && printOptions.showQrCode !== false
+      ? String(certificate.qrCodeDataUrl || '').trim() || buildQrImageUrl(verifyUrl)
+      : '';
 
+  const motherCnic = displayValue(mother.cnic, '');
+  const fatherCnic = displayValue(father.cnic, '');
   const motherCnicRow =
-    printOptions.showMotherCnic && mother.cnic && mother.cnic !== 'Not Provided'
-      ? `<div class="row"><span class="label">CNIC</span><span class="value">${esc(mother.cnic)}</span></div>`
-      : '';
+    printOptions.showMotherCnic && motherCnic ? fieldRow('Mother CNIC', motherCnic) : '';
   const fatherCnicRow =
-    printOptions.showFatherCnic && father.cnic && father.cnic !== 'Not Provided'
-      ? `<div class="row"><span class="label">CNIC</span><span class="value">${esc(father.cnic)}</span></div>`
-      : '';
+    printOptions.showFatherCnic && fatherCnic ? fieldRow('Father CNIC', fatherCnic) : '';
   const weightRow =
     printOptions.showBirthWeight !== false && baby.birthWeightGrams
-      ? `<div class="row"><span class="label">Birth Weight</span><span class="value">${esc(baby.birthWeightGrams)} g</span></div>`
+      ? fieldRow('Birth Weight', `${baby.birthWeightGrams} g`)
       : '';
+  const deliveryMode = formatModeOfDelivery(snap.delivery?.modeOfDelivery);
   const deliveryRow =
-    printOptions.showDeliveryMode && snap.delivery?.modeOfDelivery
-      ? `<div class="row"><span class="label">Mode of Delivery</span><span class="value">${esc(snap.delivery?.modeOfDelivery)}</span></div>`
-      : '';
+    printOptions.showDeliveryMode && deliveryMode ? fieldRow('Mode of Delivery', deliveryMode) : '';
+
+  const deliveredBy = formatDeliveredBy(snap.delivery?.deliveredBy);
+  const signatoryName = displayValue(signatory.name, 'Hospital Medical Director');
+  const signatoryDesignation = displayValue(signatory.designation, 'Authorized Signatory');
+  const signatureUrl = resolvePrintImageUrl(signatory.signatureUrl);
+  const stampUrl = resolvePrintImageUrl(signatory.stampUrl);
+  const hospitalLogoUrl = resolvePrintImageUrl(hospital.logoUrl);
+  const hospitalName = displayValue(hospital.name, 'Hospital');
+  const tagline = displayValue(snap.footerText, 'Care today for a brighter tomorrow');
+  const sealLabel =
+    hospitalName.length > 22 ? `${hospitalName.slice(0, 20)}…` : hospitalName;
+
+  const hospitalMetaParts = [
+    [displayValue(hospital.address, ''), hospital.city ? displayValue(hospital.city, '') : '']
+      .filter(Boolean)
+      .join(', '),
+    [
+      hospital.phone ? `Phone: ${displayValue(hospital.phone)}` : '',
+      hospital.email ? displayValue(hospital.email) : '',
+    ]
+      .filter(Boolean)
+      .join(' | '),
+  ].filter(Boolean);
+
+  const sealHtml = stampUrl
+    ? `<div class="official-seal"><img src="${esc(stampUrl)}" alt="Hospital seal" /></div>`
+    : `<div class="official-seal official-seal--text"><span>Official Seal</span><strong>${esc(sealLabel)}</strong></div>`;
+
+  const signatureBlock = `
+    <div class="sign-block">
+      ${
+        signatureUrl
+          ? `<img class="sign-img" src="${esc(signatureUrl)}" alt="Authorized signature" />`
+          : '<div class="sign-spacer"></div>'
+      }
+      <div class="sign-line">${esc(signatoryName)}<br /><small>${esc(signatoryDesignation)}</small></div>
+    </div>`;
 
   return `<!DOCTYPE html>
 <html>
@@ -161,117 +285,417 @@ export function buildBirthCertificatePrintHtml(options: {
   <meta charset="utf-8" />
   <title>${esc(snap.documentTitle || 'Hospital Birth Certificate')}</title>
   <style>
-    @page { size: A4 portrait; margin: 14mm; }
-    body { font-family: Georgia, 'Times New Roman', serif; color: #0f172a; margin: 0; background: #fff; }
-    .sheet { max-width: 780px; margin: 0 auto; padding: 24px 28px; border: 3px double #1e3a8a; min-height: 1040px; box-sizing: border-box; position: relative; }
-    .header { text-align: center; margin-bottom: 18px; }
-    .logo { max-height: 72px; max-width: 180px; object-fit: contain; margin-bottom: 8px; }
-    .hospital-name { font-size: 24px; font-weight: 700; color: #1e3a8a; letter-spacing: 0.4px; }
-    .hospital-meta { font-size: 12px; color: #475569; line-height: 1.5; }
-    .title { text-align: center; font-size: 20px; font-weight: 700; margin: 18px 0 8px; text-transform: uppercase; letter-spacing: 1px; color: #0f172a; }
-    .doc-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin-bottom: 18px; font-size: 13px; }
-    .section { margin-bottom: 16px; border-top: 1px solid #cbd5e1; padding-top: 10px; }
-    .section h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.8px; color: #1e3a8a; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; }
-    .row .label { display: block; font-size: 10px; text-transform: uppercase; color: #64748b; letter-spacing: 0.6px; }
-    .row .value { display: block; font-size: 14px; margin-bottom: 6px; font-weight: 600; }
-    .verify-box { margin-top: 18px; display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: center; border: 1px solid #dbeafe; background: #f8fafc; padding: 12px; border-radius: 8px; }
-    .verify-box img { width: 160px; height: 160px; }
-    .verify-label { font-size: 12px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; }
-    .verify-code { font-family: monospace; font-size: 16px; letter-spacing: 1px; margin: 6px 0; }
-    .signatory { margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: end; }
+    @page { size: A4 portrait; margin: 10mm; }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #0f172a;
+      font-family: Georgia, 'Times New Roman', Times, serif;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100%;
+    }
+    .sheet {
+      position: relative;
+      width: 100%;
+      max-width: 190mm;
+      margin: 0 auto;
+      padding: 18px 22px 16px;
+      border: 3px double #1e3a8a;
+      outline: 1px solid #93c5fd;
+      outline-offset: 4px;
+      min-height: 262mm;
+      overflow: hidden;
+      background: #fffef9;
+    }
+    .ornament {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-color: #1e3a8a;
+      border-style: solid;
+      opacity: 0.5;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .ornament.tl { top: 8px; left: 8px; border-width: 2px 0 0 2px; }
+    .ornament.tr { top: 8px; right: 8px; border-width: 2px 2px 0 0; }
+    .ornament.bl { bottom: 8px; left: 8px; border-width: 0 0 2px 2px; }
+    .ornament.br { bottom: 8px; right: 8px; border-width: 0 2px 2px 0; }
+    .sheet-inner {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    .watermark {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+      user-select: none;
+    }
+    .watermark-grid {
+      position: absolute;
+      left: -25%;
+      top: -25%;
+      width: 150%;
+      height: 150%;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-auto-rows: 72px;
+      align-items: center;
+      justify-items: center;
+      transform: rotate(-28deg);
+      opacity: 0.07;
+      font-size: 13px;
+      font-weight: 700;
+      color: #1e3a8a;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+    .watermark span { white-space: nowrap; padding: 6px 8px; }
+    .brand {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .brand-left {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      min-width: 0;
+    }
+    .logo {
+      width: 58px;
+      height: 58px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    .hospital-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1e3a8a;
+      letter-spacing: 0.4px;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+    .platform {
+      margin-top: 2px;
+      font-family: system-ui, sans-serif;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #1e3a8a;
+      opacity: 0.85;
+    }
+    .hospital-meta {
+      margin-top: 3px;
+      font-family: system-ui, sans-serif;
+      font-size: 10px;
+      color: #475569;
+      line-height: 1.4;
+    }
+    .tagline {
+      max-width: 130px;
+      text-align: right;
+      font-family: system-ui, sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      color: #1e3a8a;
+      line-height: 1.35;
+    }
+    .title {
+      text-align: center;
+      font-size: 18px;
+      font-weight: 700;
+      margin: 10px auto 4px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #1e3a8a;
+      position: relative;
+      padding: 6px 0 8px;
+    }
+    .title::before,
+    .title::after {
+      content: '';
+      display: block;
+      width: min(240px, 70%);
+      height: 1px;
+      margin: 0 auto;
+      background: linear-gradient(90deg, transparent, #1e3a8a, transparent);
+    }
+    .title::before { margin-bottom: 6px; }
+    .title::after { margin-top: 6px; }
+    .attest {
+      text-align: center;
+      font-family: system-ui, sans-serif;
+      font-size: 10.5px;
+      color: #64748b;
+      margin: 0 0 10px;
+    }
+    .doc-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 24px;
+      margin: 0 auto 8px;
+      padding: 8px 0;
+      border-top: 1px solid #bfdbfe;
+      border-bottom: 1px solid #bfdbfe;
+    }
+    .row .label,
+    .doc-meta .label,
+    .section h3 {
+      display: block;
+      font-family: system-ui, sans-serif;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: #1e3a8a;
+      font-weight: 800;
+      margin-bottom: 1px;
+    }
+    .doc-meta .value,
+    .row .value {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+    .section {
+      margin: 0 0 8px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 8px;
+    }
+    .section h3 { margin: 0 0 6px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 24px;
+      row-gap: 4px;
+      align-items: start;
+    }
+    .row { min-width: 0; min-height: 2.3em; }
+    .authority {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 120px 1fr 1.1fr;
+      gap: 14px;
+      align-items: end;
+    }
+    .qr-box { text-align: center; }
+    .qr-box img {
+      width: 108px;
+      height: 108px;
+      display: block;
+      margin: 0 auto 4px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+    }
+    .qr-label {
+      font-family: system-ui, sans-serif;
+      font-size: 9px;
+      font-weight: 700;
+      color: #1e3a8a;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .qr-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+    .seal-wrap { display: grid; place-items: center; }
+    .official-seal {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      border: 3px double #1e3a8a;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: #fff;
+    }
+    .official-seal img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      padding: 8px;
+    }
+    .official-seal--text {
+      text-align: center;
+      color: #1e3a8a;
+      padding: 8px;
+      box-shadow: inset 0 0 0 3px rgba(30, 58, 138, 0.12);
+    }
+    .official-seal--text span {
+      display: block;
+      font-family: system-ui, sans-serif;
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .official-seal--text strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 10px;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
     .sign-block { text-align: center; }
-    .sign-block img { max-height: 64px; max-width: 180px; object-fit: contain; }
-    .sign-line { border-top: 1px solid #334155; padding-top: 6px; font-size: 13px; }
-    .footer { margin-top: 18px; font-size: 11px; color: #475569; line-height: 1.5; border-top: 1px dashed #cbd5e1; padding-top: 10px; }
-    .version { position: absolute; top: 18px; right: 24px; font-size: 11px; color: #64748b; }
+    .sign-img {
+      display: block;
+      max-height: 52px;
+      max-width: 170px;
+      object-fit: contain;
+      margin: 0 auto 4px;
+    }
+    .sign-spacer { height: 52px; }
+    .sign-line {
+      border-top: 1px solid #334155;
+      padding-top: 5px;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .sign-line small {
+      display: block;
+      font-family: system-ui, sans-serif;
+      font-size: 9.5px;
+      font-weight: 400;
+      color: #64748b;
+      margin-top: 2px;
+    }
+    .footer {
+      margin-top: 12px;
+      font-family: system-ui, sans-serif;
+      font-size: 9.5px;
+      color: #475569;
+      line-height: 1.4;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 8px;
+    }
+    .footer-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 6px;
+      font-weight: 600;
+    }
+    @media print {
+      body { display: block; }
+      .sheet {
+        max-width: none;
+        min-height: auto;
+        border-width: 2.5px;
+      }
+      .watermark-grid { opacity: 0.06; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
   </style>
 </head>
 <body>
   <div class="sheet">
-    <div class="version">Version ${esc(certificate.version || 1)}</div>
-    <div class="header">
-      ${hospital.logoUrl ? `<img class="logo" src="${esc(hospital.logoUrl)}" alt="Hospital Logo" />` : ''}
-      <div class="hospital-name">${esc(hospital.name)}</div>
-      <div class="hospital-meta">
-        ${esc(hospital.address)}${hospital.city ? `, ${esc(hospital.city)}` : ''}<br />
-        ${hospital.phone ? `Phone: ${esc(hospital.phone)}` : ''}${hospital.email ? ` | ${esc(hospital.email)}` : ''}
+    <div class="ornament tl"></div>
+    <div class="ornament tr"></div>
+    <div class="ornament bl"></div>
+    <div class="ornament br"></div>
+    ${buildWatermarkHtml(hospitalName)}
+    <div class="sheet-inner">
+      <div class="brand">
+        <div class="brand-left">
+          ${hospitalLogoUrl ? `<img class="logo" src="${esc(hospitalLogoUrl)}" alt="Hospital Logo" />` : ''}
+          <div>
+            <div class="hospital-name">${esc(hospitalName)}</div>
+            <div class="platform">Hisaar360 Hospital Management System</div>
+            <div class="hospital-meta">${hospitalMetaParts.map((line) => esc(line)).join('<br />')}</div>
+          </div>
+        </div>
+        <div class="tagline">${esc(tagline)}</div>
       </div>
-    </div>
 
-    <div class="title">${esc(snap.documentTitle || 'Hospital Birth Certificate')}</div>
-    <div class="doc-meta">
-      <div><strong>Certificate No:</strong> ${esc(certificate.certificateNo)}</div>
-      <div><strong>Birth Record No:</strong> ${esc(snap.birthRecordNo)}</div>
-      <div><strong>Issue Date:</strong> ${esc(formatDateTime(certificate.issuedAt))}</div>
-      <div><strong>Multiple Birth:</strong> ${esc(baby.pluralityLabel || 'Singleton')}</div>
-    </div>
+      <div class="title">${esc(snap.documentTitle || 'Hospital Birth Certificate')}</div>
+      <div class="attest">This certifies that a live birth has been recorded at ${esc(hospitalName)} as per hospital records.</div>
 
-    <div class="section">
-      <h3>Baby Details</h3>
-      <div class="grid">
-        <div class="row"><span class="label">Child / Baby Name</span><span class="value">${esc(baby.name)}</span></div>
-        <div class="row"><span class="label">MR No</span><span class="value">${esc(baby.mrNo)}</span></div>
-        <div class="row"><span class="label">Sex</span><span class="value">${esc(baby.sex)}</span></div>
-        <div class="row"><span class="label">Date of Birth</span><span class="value">${esc(formatDate(baby.dateOfBirth))}</span></div>
-        <div class="row"><span class="label">Time of Birth</span><span class="value">${esc(baby.timeOfBirth || '—')}</span></div>
-        <div class="row"><span class="label">Place of Birth</span><span class="value">${esc(baby.placeOfBirth)}</span></div>
-        ${weightRow}
-        ${deliveryRow}
-      </div>
-    </div>
-
-    <div class="section">
-      <h3>Parent Details</h3>
-      <div class="grid">
+      <div class="doc-meta">
         <div>
-          <div class="row"><span class="label">Mother Name</span><span class="value">${esc(mother.name)}</span></div>
-          <div class="row"><span class="label">Mother MR No</span><span class="value">${esc(mother.mrNo)}</span></div>
-          ${motherCnicRow}
+          <span class="label">Certificate No.</span>
+          <span class="value">${esc(displayValue(certificate.certificateNo))}</span>
         </div>
         <div>
-          <div class="row"><span class="label">Father Name</span><span class="value">${esc(father.name || 'Not Provided')}</span></div>
+          <span class="label">Issue Date</span>
+          <span class="value">${esc(formatDate(certificate.issuedAt))}</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Child Details</h3>
+        <div class="grid">
+          ${fieldRow('Baby Name', displayValue(baby.name))}
+          ${fieldRow('Date of Birth', formatDate(baby.dateOfBirth))}
+          ${fieldRow('Time of Birth', displayValue(baby.timeOfBirth))}
+          ${fieldRow('Gender', formatSex(baby.sex))}
+          ${weightRow}
+          ${fieldRow('Place of Birth', displayValue(baby.placeOfBirth))}
+          ${deliveryRow}
+          ${fieldRow('MR No', displayValue(baby.mrNo))}
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Parent Details</h3>
+        <div class="grid">
+          ${fieldRow('Mother Name', displayValue(mother.name))}
+          ${fieldRow('Father Name', displayValue(father.name))}
+          ${fieldRow('Mother MR No', displayValue(mother.mrNo))}
+          ${motherCnicRow}
           ${fatherCnicRow}
         </div>
       </div>
-    </div>
 
-    <div class="section">
-      <h3>Authorization</h3>
-      <div class="grid">
-        <div class="row"><span class="label">Delivered By</span><span class="value">${esc(snap.delivery?.deliveredBy || '—')}</span></div>
-        <div class="row"><span class="label">Authorized Signatory</span><span class="value">${esc(signatory.name || '—')}</span></div>
+      <div class="section">
+        <h3>Authorization</h3>
+        <div class="grid">
+          ${fieldRow('Delivered By', deliveredBy)}
+          ${fieldRow('Authorized Signatory', signatoryName)}
+        </div>
       </div>
-    </div>
 
-    ${
-      verifyUrl && printOptions.showQrCode !== false
-        ? `<div class="verify-box">
-      <img src="${qrImg}" alt="Verification QR Code" />
-      <div>
-        <div class="verify-label">Scan to Verify</div>
-        <div class="verify-code">${esc(certificate.verificationDisplayCode || verificationCode?.slice(0, 16))}</div>
-        <div style="font-size:11px;">Verify at: ${esc(verifyUrl)}</div>
+      <div class="authority">
+        ${
+          verifyUrl && printOptions.showQrCode !== false
+            ? `<div class="qr-box">
+          <img src="${qrImg}" alt="Verification QR Code" />
+          <div class="qr-label">Scan to Verify</div>
+          <div class="qr-code">${esc(certificate.verificationDisplayCode || verificationCode?.slice(0, 16) || '')}</div>
+        </div>`
+            : '<div></div>'
+        }
+        <div class="seal-wrap">${sealHtml}</div>
+        ${signatureBlock}
       </div>
-    </div>`
-        : ''
-    }
 
-    <div class="signatory">
-      <div class="sign-block">
-        ${signatory.signatureUrl ? `<img src="${esc(signatory.signatureUrl)}" alt="Signature" />` : '<div style="height:64px;"></div>'}
-        <div class="sign-line">${esc(signatory.name || 'Authorized Signatory')}<br /><span style="font-size:11px;color:#64748b;">${esc(signatory.designation || '')}</span></div>
+      <div class="footer">
+        <div><strong>Important:</strong> ${esc(displayValue(snap.legalDisclaimer, 'This is a hospital-issued birth record certificate. It is not a NADRA B-Form or other government civil-registration document.'))}</div>
+        <div class="footer-row">
+          <span>${esc(tagline)}</span>
+          <span>Powered by Hisaar360</span>
+        </div>
       </div>
-      <div class="sign-block">
-        ${signatory.stampUrl ? `<img src="${esc(signatory.stampUrl)}" alt="Hospital Stamp" />` : '<div style="height:64px;"></div>'}
-        <div class="sign-line">Hospital Stamp</div>
-      </div>
-    </div>
-
-    <div class="footer">
-      ${snap.footerText ? `<div>${esc(snap.footerText)}</div>` : ''}
-      <div><strong>Important:</strong> ${esc(snap.legalDisclaimer)}</div>
-      <div>This is a hospital-issued birth record certificate. It is not a NADRA B-Form, Union Council computerized birth registration certificate, or other government civil-registration document unless a formally authorized government integration is in place.</div>
     </div>
   </div>
 </body>

@@ -131,7 +131,7 @@ export class WardPatientDetailComponent implements OnInit {
       this.activeTab = tab;
     }
 
-    this.backend.getDoctors({ limit: 200 }).subscribe({
+    this.backend.getDoctors({ limit: 100 }).subscribe({
       next: (result) => {
         this.doctors = result?.items || [];
       },

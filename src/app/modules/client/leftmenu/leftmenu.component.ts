@@ -620,17 +620,13 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
 
   cToggoleMenu(): void {
     document.body.classList.remove('offcanvas-active');
-    document.querySelector('.overlay')?.classList.toggle('open');
+    document.querySelector('.overlay')?.classList.remove('open');
   }
 
   private closeSidebarOnMobile(): void {
-    const width = window.innerWidth;
-    if (width < 768) {
+    if (window.innerWidth < 768) {
       document.body.classList.remove('offcanvas-active');
-      const getCalss = document.querySelector('.offcanvas-active');
-      if (document.body.contains(getCalss)) {
-        document.querySelector('.overlay')?.classList.toggle('open');
-      }
+      document.querySelector('.overlay')?.classList.remove('open');
     }
   }
 }

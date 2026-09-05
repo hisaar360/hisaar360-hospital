@@ -6,13 +6,31 @@ import { catchError, finalize, of } from 'rxjs';
 import { BackendService } from '../../../core/services/backend.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastrService } from 'ngx-toastr';
-import { Doctor, Hospital, PrescriptionPrintSettings, User } from '../../../shared/models/hospital.model';
+import { Doctor, Hospital, PrescriptionPrintSettings, Store, User } from '../../../shared/models/hospital.model';
+import { CompanyProfile } from '../../../shared/models/company.model';
 import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import { ProfilePhotoFieldComponent } from '../../../shared/components/profile-photo-field/profile-photo-field.component';
 import { ImageViewerModalComponent } from '../../../shared/components/image-viewer-modal/image-viewer-modal.component';
 import { isDoctorRole } from '../../auth/access-control';
 
-type SettingsTab = 'profile' | 'password' | 'hospital';
+type SettingsTab =
+  | 'profile'
+  | 'password'
+  | 'hospital'
+  | 'notifications'
+  | 'integrations'
+  | 'appearance'
+  | 'system';
+
+interface SettingsTabMeta {
+  id: SettingsTab;
+  label: string;
+  shortLabel: string;
+  icon: string;
+  description: string;
+  real: boolean;
+  requiresHospitalRead?: boolean;
+}
 
 @Component({
   selector: 'app-settings',
@@ -22,15 +40,81 @@ type SettingsTab = 'profile' | 'password' | 'hospital';
   styleUrl: './settings.component.scss',
 })
 export class SettingsComponent implements OnInit {
+  readonly tabs: SettingsTabMeta[] = [
+    {
+      id: 'profile',
+      label: 'My Profile',
+      shortLabel: 'Profile',
+      icon: 'fa-user',
+      description: 'Update your personal information and profile photo.',
+      real: true,
+    },
+    {
+      id: 'password',
+      label: 'Security',
+      shortLabel: 'Security',
+      icon: 'fa-lock',
+      description: 'Change your password and keep your account secure.',
+      real: true,
+    },
+    {
+      id: 'hospital',
+      label: 'Hospital Settings',
+      shortLabel: 'Hospital',
+      icon: 'fa-hospital-o',
+      description: 'Update hospital identity and prescription print defaults.',
+      real: true,
+      requiresHospitalRead: true,
+    },
+    {
+      id: 'notifications',
+      label: 'Notifications',
+      shortLabel: 'Alerts',
+      icon: 'fa-bell',
+      description: 'Choose how you receive alerts and updates.',
+      real: false,
+    },
+    {
+      id: 'integrations',
+      label: 'Integrations',
+      shortLabel: 'Integrations',
+      icon: 'fa-puzzle-piece',
+      description: 'Connect external services and hospital systems.',
+      real: false,
+    },
+    {
+      id: 'appearance',
+      label: 'Appearance',
+      shortLabel: 'Appearance',
+      icon: 'fa-paint-brush',
+      description: 'Customize theme and display preferences.',
+      real: false,
+    },
+    {
+      id: 'system',
+      label: 'System',
+      shortLabel: 'System',
+      icon: 'fa-cog',
+      description: 'System-level preferences and diagnostics.',
+      real: false,
+    },
+  ];
+
   activeTab: SettingsTab = 'profile';
   currentUser: User | null = null;
+  companyProfile: CompanyProfile | null = null;
   profileLoading = false;
   profileSaving = false;
   profileName = '';
   profileEmail = '';
   profilePhone = '';
+  selectedStoreId = '';
+  stores: Store[] = [];
+  storesLoading = false;
+  storesError = '';
+  canChangePosStore = false;
   role = localStorage.getItem('role') || 'ADMIN';
-  permissions = JSON.parse(localStorage.getItem('permissions') || '[]') as string[];
+  permissions: string[] = [];
 
   hospitalProfile: Hospital | null = null;
   hospitalLoading = false;
@@ -53,22 +137,32 @@ export class SettingsComponent implements OnInit {
   photoUploading = false;
   photoViewerOpen = false;
 
+  readonly dateFormatDisplay = 'DD/MM/YYYY';
+
   constructor(
     private backend: BackendService,
     private authService: AuthService,
     private toaster: ToastrService
-  ) {}
+  ) {
+    this.permissions = this.readPermissionsSafe();
+  }
 
   ngOnInit(): void {
     this.loadStoredUser();
     this.refreshCurrentUser();
+    this.loadCompanyProfile();
   }
 
-  setTab(tab: SettingsTab): void {
-    if (tab === 'hospital' && !this.canReadHospitalSettings) {
-      return;
-    }
-    this.activeTab = tab;
+  get visibleTabs(): SettingsTabMeta[] {
+    return this.tabs.filter((tab) => !tab.requiresHospitalRead || this.canReadHospitalSettings);
+  }
+
+  get activeTabMeta(): SettingsTabMeta | undefined {
+    return this.tabs.find((tab) => tab.id === this.activeTab);
+  }
+
+  get isPlaceholderTab(): boolean {
+    return Boolean(this.activeTabMeta && !this.activeTabMeta.real);
   }
 
   get profilePhotoUrl(): string {
@@ -81,6 +175,72 @@ export class SettingsComponent implements OnInit {
 
   get canManageHospitalSettings(): boolean {
     return this.permissions.includes('*') || this.permissions.includes('hospitals.update');
+  }
+
+  get roleDisplayName(): string {
+    return this.currentUser?.role?.name || this.role || 'User';
+  }
+
+  get hospitalDisplayName(): string {
+    return this.currentUser?.hospital?.name || this.hospitalName || 'Not assigned';
+  }
+
+  get profileUsername(): string {
+    const email = (this.profileEmail || this.currentUser?.email || '').trim();
+    if (!email) {
+      return '—';
+    }
+    const at = email.indexOf('@');
+    return at > 0 ? email.slice(0, at) : email;
+  }
+
+  get isAccountActive(): boolean {
+    const status = String(this.currentUser?.status || 'active').toLowerCase();
+    return status === 'active';
+  }
+
+  get accountStatusLabel(): string {
+    return this.isAccountActive ? 'Active' : 'Inactive';
+  }
+
+  get timezoneDisplay(): string {
+    const tz = this.companyProfile?.timezone?.trim();
+    if (tz) {
+      return tz;
+    }
+    try {
+      const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      return resolved || 'GMT+05:00 Islamabad';
+    } catch {
+      return 'GMT+05:00 Islamabad';
+    }
+  }
+
+  get accessHighlights(): Array<{ icon: string; label: string }> {
+    const items: Array<{ icon: string; label: string }> = [];
+    if (this.permissions.includes('*')) {
+      items.push({ icon: 'fa-check-circle', label: 'Full system access' });
+      items.push({ icon: 'fa-user-secret', label: 'Administrator' });
+      return items;
+    }
+
+    if (this.canManageHospitalSettings) {
+      items.push({ icon: 'fa-check-circle', label: 'Hospital management' });
+    }
+    if (this.permissions.includes('users.read') || this.permissions.includes('users.manage')) {
+      items.push({ icon: 'fa-users', label: 'User management' });
+    }
+    if (!items.length) {
+      items.push({ icon: 'fa-user', label: 'Standard hospital access' });
+    }
+    return items.slice(0, 3);
+  }
+
+  setTab(tab: SettingsTab): void {
+    if (tab === 'hospital' && !this.canReadHospitalSettings) {
+      return;
+    }
+    this.activeTab = tab;
   }
 
   saveProfile(): void {
@@ -298,8 +458,24 @@ export class SettingsComponent implements OnInit {
   }
 
   private loadStoredUser(): void {
-    const storedUser = JSON.parse(localStorage.getItem('user') || 'null') as User | null;
+    const storedUser = this.readJsonSafe<User | null>(localStorage.getItem('user'), null);
     this.applyCurrentUser(storedUser);
+  }
+
+  private readPermissionsSafe(): string[] {
+    const parsed = this.readJsonSafe<unknown>(localStorage.getItem('permissions'), []);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  }
+
+  private readJsonSafe<T>(raw: string | null, fallback: T): T {
+    if (!raw) {
+      return fallback;
+    }
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return fallback;
+    }
   }
 
   private refreshCurrentUser(): void {
@@ -318,11 +494,66 @@ export class SettingsComponent implements OnInit {
           if (this.canReadHospitalSettings && this.currentHospitalId && !user.hospital) {
             this.loadHospitalSettings();
           }
+          this.loadStores();
         },
         error: (error) => {
           this.toaster.error(error?.error?.message || 'Unable to load profile.');
         },
       });
+  }
+
+  private loadCompanyProfile(): void {
+    this.backend
+      .getMyCompany()
+      .pipe(catchError(() => of(null)))
+      .subscribe({
+        next: (company) => {
+          this.companyProfile = company;
+        },
+      });
+  }
+
+  private loadStores(): void {
+    this.canChangePosStore = false;
+    this.storesLoading = true;
+    this.storesError = '';
+
+    this.backend
+      .getStores({
+        limit: 100,
+        isActive: true,
+        hospitalId: this.currentHospitalId || undefined,
+      })
+      .pipe(finalize(() => (this.storesLoading = false)))
+      .subscribe({
+        next: (result) => {
+          this.stores = result.items || [];
+          this.ensureSelectedStorePresent();
+        },
+        error: (err) => {
+          this.stores = [];
+          this.storesError = err?.error?.message || 'Unable to load POS stores.';
+        },
+      });
+  }
+
+  private ensureSelectedStorePresent(): void {
+    if (!this.selectedStoreId) {
+      return;
+    }
+    if (this.stores.some((store) => store._id === this.selectedStoreId)) {
+      return;
+    }
+    this.stores = [
+      {
+        _id: this.selectedStoreId,
+        companyId: '',
+        name: 'Assigned POS store',
+        code: '',
+        isActive: true,
+      },
+      ...this.stores,
+    ];
   }
 
   private loadDoctorProfile(): void {
@@ -349,8 +580,11 @@ export class SettingsComponent implements OnInit {
     this.profileName = user.name || '';
     this.profileEmail = user.email || '';
     this.profilePhone = user.phone || '';
+    this.selectedStoreId = user.storeId || '';
     this.role = user.role?.name || this.role;
-    this.permissions = user.role?.permissions || this.permissions;
+    this.permissions = Array.isArray(user.role?.permissions)
+      ? user.role.permissions.map(String)
+      : this.permissions;
     this.currentHospitalId = user.hospitalId || user.hospital?._id || this.currentHospitalId;
 
     if (user.hospital) {
@@ -402,7 +636,7 @@ export class SettingsComponent implements OnInit {
       return;
     }
 
-    const storedUser = JSON.parse(localStorage.getItem('user') || 'null') as User | null;
+    const storedUser = this.readJsonSafe<User | null>(localStorage.getItem('user'), null);
     if (!storedUser) {
       return;
     }

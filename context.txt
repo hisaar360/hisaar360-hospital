@@ -2,7 +2,7 @@
 HISAAR360 HOSPITAL MANAGEMENT SYSTEM
 Frontend Application Context  |  Angular Hospital HMS Software
 ================================================================================
-Last updated: 2026-09-04
+Last updated: 2026-09-05
 Document type: Product architecture, UX, and engineering context
 Canonical product name: Hisaar360 Hospital Management System
 Short name: Hisaar360 HMS
@@ -214,13 +214,27 @@ Recommended SEO title pattern for every product screen:
 
 SSO login path:
   Hisaar360 Central Auth issues a one-time ssoCode
+    → Hospital receives /?ssoCode=... or /login/access?ssoCode=...
+    → Any previous hospital session is wiped immediately (as if never logged in)
+    → UI shows Auth verification / loader (not the hospital login form)
     → POST /api/v1/auth/sso-login { code }
     → HMS verifies product (HSPTL0012 / hsptl-hisaar-3299498 / backend URL)
     → hydrates/creates HmsUserProfile + company + hospital roles
     → returns access + refresh tokens
+    → full page load into the new role's default route (no stale menu/permissions)
+
+  Re-login without logout: if the user is already in HMS with role A, then
+  signs in again on Central Auth and returns with a new ssoCode, the old
+  session is discarded and role B (or same user fresh tokens) starts clean.
+
+Session timeout / auth failure redirect:
+  Local (dev):  http://localhost:4200/login
+  Production:   https://hisaar360.com/login
+  (never the hospital SPA /login/access form)
 
 Local login still exists (POST /auth/login) for leftover User collection
-accounts. Hosted Hisaar360 login is the default in production.
+accounts when opened without ssoCode on localhost. Hosted Hisaar360 login
+is the default in production.
 
 
 ================================================================================
@@ -263,8 +277,11 @@ Typical screen pattern:
 Guards:
   - authGuard on the layout shell
   - roleGuard(permissions) per route (any[] or { any, all })
-  - hostedLoginGuard on /login/access (redirects to Hisaar360 Central Auth
-    unless local login is enabled or ?ssoCode= is present)
+  - hostedLoginGuard on /login/access:
+      · ?ssoCode= → wipe old session + Auth verification UI
+      · otherwise → redirect to Central Auth portal
+        (local http://localhost:4200/login, prod https://hisaar360.com/login)
+      · optional escape hatch: ?localLogin=1 for leftover local User accounts
 
 
 ================================================================================
@@ -815,11 +832,26 @@ HOSPITAL BIRTH CERTIFICATE (versioned document snapshot)
   - Hospital certificate != NADRA B-Form / Union Council civil registration
   - Immutable snapshot at issuance; corrections create new ACTIVE version, old SUPERSEDED
   - SHA-256 documentHash + encrypted verification token (server-side only for reprint QR)
-  - Config: Hospital.birthCertificateSettings (Hospital Setup → Birth Certificate tab)
+  - Config: Hospital Setup → Birth Certificate tab
+      (digital signature + hospital seal upload; FE compress + BE sharp re-compress)
+  - Media paths are /api/v1/media/{key}. Dev SPA origin (e.g. :55885) is NOT the API —
+      View Certificate must use absolute API origin or embedded data URLs.
+  - GET /birth-records/certificates/:id is the single View Certificate payload:
+      snapshot (baby/parents/delivery/signatory) + publicVerificationCode +
+      embedded stamp/signature/logo data URLs + qrCodeDataUrl (no extra media/QR HTTP)
+  - Print HTML prefers embedded data URLs; resolveAssetUrl() is FE fallback for /api paths
+  - QR verify URL: https://hisaar360.com/verify/birth/:code
+      (Central Auth landing page → auth-backend public proxy → HMS
+       GET /public/birth-certificates/verify/:code)
+  - Local QR: http://localhost:4200/verify/birth/:code
+  - Auth-backend env override: HMS_PUBLIC_API_BASE_URL
+  - Public page also remains on HMS SPA /verify/birth/:code (fallback)
   - API: POST /birth-records/:id/certificates, POST /certificates/:id/correct|revoke|print
+  - Optional env: API_PUBLIC_ORIGIN (absolutize media when data-URL embed fails)
 
 PUBLIC QR VERIFICATION
-  - Public page: /verify/birth/:code (no login)
+  - Public page: https://hisaar360.com/verify/birth/:code (landing + auth proxy)
+    HMS SPA fallback remains at /verify/birth/:code
   - API: GET /api/v1/public/birth-certificates/verify/:code (rate limited)
   - QR encodes opaque token only — never Mongo IDs or CNIC
   - Returns minimal payload: validity, hospital, baby name, DOB, masked mother, version
@@ -854,9 +886,14 @@ HELP CENTER
   Route: /help and /help/:slug
   Menu: user dropdown → Help Center
   Client-side searchable static articles (help-content.data.ts) — no fake features
+  Module-based tutorials: Module Guides, Quick Tasks, popular searches, and related links
+    filter by hospital enabledModules (+ accounts/setup/nursery flags) and role
+  Accounts Rules: in-app Accounts → Rules button + Help slug accounts-rules-guide
+  Birth certificate guide: Hospital Setup seal/signature upload → View Certificate embeds
+    stamp/signature/logo/QR in one API payload
   Categories: Getting Started through Troubleshooting
-  Visual workflows: main hospital flow + maternity/newborn flow on homepage
-  Articles document real routes (admit, discharge, nursery, birth certificate, ledger, etc.)
+  Visual workflows: main hospital flow + role workflows on homepage
+  Articles document real routes (admit, discharge, nursery, birth certificate, ledger, rules)
 
 QA NOTE (2026-09-01)
   Playwright smoke: department report, help center/search, nursery, birth records, ward admissions, bed management PASS.

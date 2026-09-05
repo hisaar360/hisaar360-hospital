@@ -222,27 +222,107 @@
     </div>
 
     <div class="birth-accordion" [class.is-open]="birthAccordion['branding']">
-      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('branding')">Branding</button>
+      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('branding')">Branding &amp; Hospital Seal</button>
       <div class="birth-accordion__body" *ngIf="birthAccordion['branding']">
-        <label><span>Logo URL</span><input [(ngModel)]="birthSettings.logoUrl" placeholder="https://…" /></label>
-        <label><span>Stamp URL</span><input [(ngModel)]="birthSettings.stampUrl" placeholder="https://…" /></label>
-        <label class="full"><span>Footer text</span><textarea rows="2" [(ngModel)]="birthSettings.footerText"></textarea></label>
+        <label><span>Hospital logo URL</span><input [(ngModel)]="birthSettings.logoUrl" placeholder="https://…" /></label>
+
+        <div class="birth-upload full">
+          <div class="birth-upload__title">Hospital seal / official stamp</div>
+          <p class="birth-cert-settings__hint">
+            Circular seal on the certificate (one seal only). PNG/JPG/WEBP, max 8 MB — compressed in browser; backend re-compresses on save.
+          </p>
+          <div class="birth-upload__controls" *ngIf="birthSettings.stampUrl as stampPreview">
+            <div class="birth-upload__preview">
+              <img [src]="assetUrl(stampPreview)" alt="Hospital seal preview" />
+              <button type="button" class="btn-link" (click)="clearBirthStamp()" [disabled]="!!uploadingBirthImage">Remove</button>
+            </div>
+          </div>
+          <div class="birth-upload__picker">
+            <input
+              #sealFileInput
+              type="file"
+              class="birth-upload__file-input"
+              accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+              tabindex="-1"
+              aria-hidden="true"
+              (change)="onBirthStampSelected($event)"
+            />
+            <button
+              type="button"
+              class="birth-upload__pick-btn"
+              (click)="openSealFilePicker($event)"
+              [disabled]="uploadingBirthImage === 'stamp'"
+            >
+              {{ uploadingBirthImage === 'stamp' ? 'Compressing…' : (birthSettings.stampUrl ? 'Replace seal image' : 'Upload seal image') }}
+            </button>
+          </div>
+          <label class="birth-upload__url">
+            <span>Or paste seal URL / data URL</span>
+            <input [(ngModel)]="birthSettings.stampUrl" name="birthStampUrl" placeholder="https://… or data:image/png;base64,…" />
+          </label>
+        </div>
+
+        <label class="full"><span>Tagline / footer motto</span><textarea rows="2" [(ngModel)]="birthSettings.footerText" name="birthFooterText" placeholder="e.g. Healing Lives, Building Tomorrow"></textarea></label>
       </div>
     </div>
 
     <div class="birth-accordion" [class.is-open]="birthAccordion['signatory']">
-      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('signatory')">Authorized Signatory</button>
+      <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('signatory')">Authorized Signatory (1 signature)</button>
       <div class="birth-accordion__body" *ngIf="birthAccordion['signatory']">
-        <label><span>Signatory name</span><input [(ngModel)]="birthSettings.signatoryName" /></label>
-        <label><span>Signatory designation</span><input [(ngModel)]="birthSettings.signatoryDesignation" /></label>
-        <label><span>Signature URL</span><input [(ngModel)]="birthSettings.signatureUrl" placeholder="https://…" /></label>
+        <label><span>Signatory name</span><input [(ngModel)]="birthSettings.signatoryName" name="birthSignatoryName" placeholder="e.g. Hospital Medical Director" /></label>
+        <label><span>Signatory designation</span><input [(ngModel)]="birthSettings.signatoryDesignation" name="birthSignatoryDesignation" placeholder="e.g. Authorized Signatory" /></label>
+
+        <div class="birth-upload full">
+          <div class="birth-upload__title">Digital signature (one only)</div>
+          <p class="birth-cert-settings__hint">
+            Only one Medical Director signature is printed. PNG/JPG/WEBP, max 8 MB — compressed in browser; backend re-compresses on save.
+          </p>
+          <div class="birth-upload__controls" *ngIf="birthSettings.signatureUrl as signaturePreview">
+            <div class="birth-upload__preview">
+              <img [src]="assetUrl(signaturePreview)" alt="Signature preview" />
+              <button type="button" class="btn-link" (click)="clearBirthSignature()" [disabled]="!!uploadingBirthImage">Remove</button>
+            </div>
+          </div>
+          <div class="birth-upload__picker">
+            <input
+              #signatureFileInput
+              type="file"
+              class="birth-upload__file-input"
+              accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+              tabindex="-1"
+              aria-hidden="true"
+              (change)="onBirthSignatureSelected($event)"
+            />
+            <button
+              type="button"
+              class="birth-upload__pick-btn"
+              (click)="openSignatureFilePicker($event)"
+              [disabled]="uploadingBirthImage === 'signature'"
+            >
+              {{ uploadingBirthImage === 'signature' ? 'Compressing…' : (birthSettings.signatureUrl ? 'Replace signature image' : 'Upload signature image') }}
+            </button>
+          </div>
+          <label class="birth-upload__url">
+            <span>Or paste signature URL / data URL</span>
+            <input [(ngModel)]="birthSettings.signatureUrl" name="birthSignatureUrl" placeholder="https://… or data:image/png;base64,…" />
+          </label>
+        </div>
       </div>
     </div>
 
     <div class="birth-accordion" [class.is-open]="birthAccordion['qr']">
       <button type="button" class="birth-accordion__head" (click)="toggleBirthSection('qr')">QR &amp; Verification</button>
       <div class="birth-accordion__body" *ngIf="birthAccordion['qr']">
-        <label><span>Verification base URL</span><input [(ngModel)]="birthSettings.verificationBaseUrl" placeholder="https://www.hisaar360.com/verify/birth" /></label>
+        <label class="full">
+          <span>Verification base URL</span>
+          <input [(ngModel)]="birthSettings.verificationBaseUrl" [placeholder]="defaultVerificationBaseUrlHint" />
+          <small class="birth-cert-settings__hint">
+            Leave blank for auto:
+            local → <code>http://localhost:4200/verify/birth</code>,
+            production → <code>https://hisaar360.com/verify/birth</code>.
+            QR never uses the hospital SPA port for public verify.
+          </small>
+        </label>
         <label><span>Show QR code</span><input type="checkbox" [(ngModel)]="birthSettings.showQrCode" /></label>
       </div>
     </div>

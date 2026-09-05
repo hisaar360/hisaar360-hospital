@@ -6,7 +6,9 @@ import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../core/services/backend.service';
 import { buildPatientLedgerDocumentHtml, buildPaymentReceiptDocumentHtml } from '../../../../core/documents/patient-ledger-document.builder';
+import { downloadExcelWorkbook } from '../../../../core/utils/excel-export.util';
 import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../../core/utils/hms-document-context.util';
+import { buildHmsStandardDocumentHtml, buildHmsTableHtml, formatHmsMoney } from '../../../../core/utils/hms-document-template.util';
 import { HmsDocumentToolbarComponent } from '../../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
 import { Encounter, EncounterLedger, LedgerPayment } from '../../../../shared/models/hospital.model';
 
@@ -25,9 +27,12 @@ export class EncounterLedgerComponent implements OnInit {
   ledgerLoading = false;
   status = '';
   type = '';
+  search = '';
   page = 1;
   limit = 10;
   totalPages = 0;
+  totalItems = 0;
+  mobileChip: 'all' | 'admitted' | 'discharged' | 'due' = 'all';
 
   paymentAmount = 0;
   paymentMethod = 'cash';
@@ -52,6 +57,53 @@ export class EncounterLedgerComponent implements OnInit {
     });
   }
 
+  get filteredEncounters(): Encounter[] {
+    let rows = this.encounters;
+    const term = this.search.trim().toLowerCase();
+    if (term) {
+      rows = rows.filter((encounter) => {
+        const name = this.patientName(encounter).toLowerCase();
+        const pid = (encounter.patient?.patientNo || '').toLowerCase();
+        return encounter.encounterNo.toLowerCase().includes(term) || name.includes(term) || pid.includes(term);
+      });
+    }
+
+    if (this.mobileChip === 'admitted') {
+      rows = rows.filter((e) => e.status === 'admitted' || e.status === 'open');
+    } else if (this.mobileChip === 'discharged') {
+      rows = rows.filter((e) => e.status === 'discharged' || e.status === 'closed');
+    } else if (this.mobileChip === 'due') {
+      rows = rows.filter((e) => (e.summary?.balance || 0) > 0);
+    }
+
+    return rows;
+  }
+
+  get kpiTotalEncounters(): number {
+    return this.totalItems || this.encounters.length;
+  }
+
+  get kpiOutstanding(): number {
+    return this.encounters.reduce((sum, item) => sum + Math.max(item.summary?.balance || 0, 0), 0);
+  }
+
+  get kpiPaidOnPage(): number {
+    return this.encounters.reduce((sum, item) => sum + (item.summary?.totalPaid || 0), 0);
+  }
+
+  get kpiActiveAdmissions(): number {
+    return this.encounters.filter((item) => item.status === 'admitted' || item.type === 'admission').length;
+  }
+
+  get chipCounts(): { all: number; admitted: number; discharged: number; due: number } {
+    return {
+      all: this.encounters.length,
+      admitted: this.encounters.filter((e) => e.status === 'admitted' || e.status === 'open').length,
+      discharged: this.encounters.filter((e) => e.status === 'discharged' || e.status === 'closed').length,
+      due: this.encounters.filter((e) => (e.summary?.balance || 0) > 0).length,
+    };
+  }
+
   loadEncounters(): void {
     this.loading = true;
     this.backend
@@ -66,9 +118,24 @@ export class EncounterLedgerComponent implements OnInit {
         next: (result) => {
           this.encounters = result.items;
           this.totalPages = result.pagination.totalPages;
+          this.totalItems = result.pagination.total;
         },
         error: (err) => this.toastr.error(err?.error?.message || 'Unable to load encounters'),
       });
+  }
+
+  applyFilters(): void {
+    this.page = 1;
+    this.loadEncounters();
+  }
+
+  clearFilters(): void {
+    this.status = '';
+    this.type = '';
+    this.search = '';
+    this.mobileChip = 'all';
+    this.page = 1;
+    this.loadEncounters();
   }
 
   openLedger(encounterId: string): void {
@@ -116,6 +183,8 @@ export class EncounterLedgerComponent implements OnInit {
 
   closeLedger(): void {
     this.showDetailPanel = false;
+    this.selectedLedger = null;
+    this.selectedEncounterId = null;
   }
 
   changePage(nextPage: number): void {
@@ -160,6 +229,65 @@ export class EncounterLedgerComponent implements OnInit {
     });
   };
 
+  /** Shared HTML used by list PDF download and Print (HmsDocumentToolbar / HmsDocumentService). */
+  buildEncountersListHtml = (): string => {
+    const rows = this.filteredEncounters.map((encounter) => [
+      encounter.encounterNo,
+      `${this.patientName(encounter)}${encounter.patient?.patientNo ? ` (${encounter.patient.patientNo})` : ''}`,
+      encounter.type,
+      encounter.status,
+      formatHmsMoney(encounter.summary?.balance || 0),
+    ]);
+
+    return buildHmsStandardDocumentHtml({
+      title: 'Patient Ledger — Encounters',
+      hospital: readStoredHospitalDocumentInfo(),
+      generatedBy: readCurrentUserName(),
+      metaRows: [
+        { label: 'Rows', value: String(this.filteredEncounters.length) },
+        { label: 'Page', value: String(this.page) },
+      ],
+      bodyHtml: buildHmsTableHtml(
+        ['Encounter', 'Patient', 'Type', 'Status', 'Balance'],
+        rows,
+        { numericColumns: [4], emptyMessage: 'No encounters to export.' }
+      ),
+    });
+  };
+
+  exportEncountersExcel(): void {
+    if (!this.filteredEncounters.length) {
+      this.toastr.info('No encounters to export');
+      return;
+    }
+
+    downloadExcelWorkbook(`patient-ledger-encounters-page-${this.page}`, [
+      {
+        name: 'Encounters',
+        columns: [
+          { header: 'Encounter ID', key: 'encounterNo' },
+          { header: 'Patient', key: 'patient' },
+          { header: 'Patient No', key: 'patientNo' },
+          { header: 'Type', key: 'type' },
+          { header: 'Status', key: 'status' },
+          { header: 'Balance', key: 'balance' },
+          { header: 'Billed', key: 'billed' },
+          { header: 'Paid', key: 'paid' },
+        ],
+        rows: this.filteredEncounters.map((encounter) => ({
+          encounterNo: encounter.encounterNo,
+          patient: this.patientName(encounter),
+          patientNo: encounter.patient?.patientNo || '',
+          type: encounter.type,
+          status: encounter.status,
+          balance: encounter.summary?.balance || 0,
+          billed: encounter.summary?.totalCharges || 0,
+          paid: encounter.summary?.totalPaid || 0,
+        })),
+      },
+    ]);
+  }
+
   patientName(encounter: Encounter): string {
     const patient = encounter.patient;
     if (!patient) {
@@ -167,5 +295,19 @@ export class EncounterLedgerComponent implements OnInit {
     }
 
     return [patient.firstName, patient.lastName].filter(Boolean).join(' ').trim() || patient.patientNo || 'Patient';
+  }
+
+  patientInitials(encounter: Encounter): string {
+    const patient = encounter.patient;
+    if (!patient) return 'P';
+    const first = (patient.firstName || '').trim().charAt(0);
+    const last = (patient.lastName || '').trim().charAt(0);
+    return `${first}${last}`.toUpperCase() || (patient.patientNo || 'P').slice(0, 2).toUpperCase();
+  }
+
+  patientAgeGender(encounter: Encounter): string {
+    const patient = encounter.patient;
+    if (!patient) return '';
+    return [patient.gender, patient.patientNo].filter(Boolean).join(' · ');
   }
 }

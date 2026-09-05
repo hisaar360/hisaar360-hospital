@@ -1,8 +1,17 @@
-import { AfterViewInit, Component, HostListener, OnInit, inject } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  HostListener,
+  NgZone,
+  OnDestroy,
+  OnInit,
+  inject,
+} from '@angular/core';
 import {
   Router,
   RouterOutlet,
   NavigationEnd,
+  NavigationStart,
   ActivatedRoute,
 } from '@angular/router';
 import { Title } from '@angular/platform-browser';
@@ -11,6 +20,7 @@ import { CommonModule } from '@angular/common';
 import { AppDialogComponent } from './shared/components/app-dialog/app-dialog.component';
 import { HmsDocumentPreviewComponent } from './shared/components/hms-document-preview/hms-document-preview.component';
 import { PyramidLoaderComponent } from './shared/components/pyramid-loader/pyramid-loader.component';
+import { LoadingService } from './core/services/loading.service';
 
 @Component({
   selector: 'app-root',
@@ -19,62 +29,79 @@ import { PyramidLoaderComponent } from './shared/components/pyramid-loader/pyram
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
-export class AppComponent implements OnInit, AfterViewInit {
+export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   title = 'Hisaar360 Hospital Management System';
-  overLay:boolean = false
-  private observer!: MutationObserver;
+  overLay = false;
+  private observer: MutationObserver | null = null;
   private router = inject(Router);
   private activatedRoute = inject(ActivatedRoute);
   private titleService = inject(Title);
+  private loadingService = inject(LoadingService);
+  private zone = inject(NgZone);
 
   ngOnInit(): void {
-    document.body.classList.remove('catalog-modal-open');
+    document.body.classList.remove('catalog-modal-open', 'offcanvas-active', 'overflow-hidden');
     document.body.style.overflow = '';
+    this.forceCloseOverlay();
 
     sessionStorage.setItem('Sidebar', 'light_active');
     sessionStorage.setItem('GradientColor', 'gradient');
 
     this.router.events
-      .pipe(
-        filter(
-          (event): event is NavigationEnd => event instanceof NavigationEnd
-        )
-      )
+      .pipe(filter((event): event is NavigationStart => event instanceof NavigationStart))
       .subscribe(() => {
+        // Stuck full-screen loader / mobile overlay both block route rendering & clicks.
+        this.loadingService.reset();
+        this.forceCloseOverlay();
+      });
+
+    this.router.events
+      .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
+      .subscribe(() => {
+        this.forceCloseOverlay();
         const rt = this.getChild(this.activatedRoute);
-        rt.data.subscribe((data: any) => {
-          if (data && data.title) {
+        rt.data.subscribe((data: { title?: string }) => {
+          if (data?.title) {
             this.titleService.setTitle(data.title);
           }
         });
       });
-
   }
 
   ngAfterViewInit(): void {
-    this.checkOverlayState();
+    this.syncOverlayFromBody();
 
-    // Create a MutationObserver to watch for changes in the DOM
-    this.observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-          this.checkOverlayState();
-        }
-      });
+    // ONLY watch body class — never subtree. Chart/SVG class churn was freezing the app.
+    this.observer = new MutationObserver(() => {
+      this.zone.run(() => this.syncOverlayFromBody());
     });
-
-    // Start observing the document body for attribute changes
     this.observer.observe(document.body, {
-      attributes: true, // Watch for attribute changes
-      subtree: true    // Watch all descendants as well
+      attributes: true,
+      attributeFilter: ['class'],
+      subtree: false,
     });
   }
 
-  private checkOverlayState(): void {
-    const getClass = document.querySelector('.offcanvas-active');
-    this.overLay = document.body.contains(getClass);
+  ngOnDestroy(): void {
+    this.observer?.disconnect();
+    this.observer = null;
   }
 
+  private syncOverlayFromBody(): void {
+    const next = document.body.classList.contains('offcanvas-active');
+    if (this.overLay !== next) {
+      this.overLay = next;
+    }
+  }
+
+  private forceCloseOverlay(): void {
+    document.body.classList.remove('offcanvas-active');
+    document.getElementById('rightbar')?.classList.remove('open');
+    document.querySelector('.overlay')?.classList.remove('open');
+    if (this.overLay) {
+      this.overLay = false;
+    }
+  }
 
   private getChild(activatedRoute: ActivatedRoute): ActivatedRoute {
     return activatedRoute.firstChild
@@ -83,14 +110,22 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
 
   closeMenu(): void {
-    document.getElementById('rightbar')?.classList.remove('open');
-    document.querySelector('.overlay')?.classList.remove('open');
-    document.body.classList.remove('offcanvas-active');
+    this.forceCloseOverlay();
   }
 
   @HostListener('document:click', ['$event'])
   focusFormGroupControlFromLabel(event: MouseEvent): void {
-    const label = (event.target as HTMLElement | null)?.closest('label');
+    const target = event.target as HTMLElement | null;
+    // Never interfere with native / programmatic file pickers.
+    if (
+      target?.closest(
+        'input[type="file"], button.birth-upload__pick-btn, .birth-upload__picker, .profile-photo-field'
+      )
+    ) {
+      return;
+    }
+
+    const label = target?.closest('label');
     if (!label) {
       return;
     }
@@ -105,7 +140,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
 
     const control = formGroup.querySelector<HTMLElement>(
-      'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])'
+      'input:not([type="hidden"]):not([disabled]):not([type="file"]), textarea:not([disabled]), select:not([disabled])'
     );
 
     if (!control) {

@@ -8,9 +8,11 @@ export const authGuard: CanActivateFn = (_route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  // Central Auth redirects to /?ssoCode=... — forward to the SSO login handler.
+  // Central Auth redirects with ?ssoCode=... — always start a fresh SSO handoff,
+  // even when a previous hospital role/session is still in localStorage.
   const ssoCode = router.parseUrl(state.url).queryParamMap.get('ssoCode');
-  if (ssoCode && !authService.hasSessionToken()) {
+  if (ssoCode) {
+    authService.beginFreshSsoHandoff();
     return router.createUrlTree(['/login/access'], {
       queryParams: { ssoCode },
     });

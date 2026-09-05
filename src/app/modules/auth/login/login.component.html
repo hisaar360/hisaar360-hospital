@@ -6,23 +6,24 @@
             </a>
         </div>
 
-        <div class="auth_backlink">
+        <div class="auth_backlink" *ngIf="!showSsoVerification">
             <a [routerLink]="'/login'"><i class="fa fa-arrow-left"></i> Back to Showcase</a>
         </div>
 
         <div class="card">
             <div class="header">
-                <p class="lead" *ngIf="!ssoLoading">Login to your account</p>
-                <p class="lead" *ngIf="ssoLoading">Signing you in…</p>
+                <p class="lead" *ngIf="showSsoVerification">Auth verification</p>
+                <p class="lead" *ngIf="!showSsoVerification && !ssoLoading">Login to your account</p>
             </div>
 
             <div class="body">
-                <div *ngIf="ssoLoading" class="text-center py-4">
+                <div *ngIf="showSsoVerification" class="text-center py-4 sso-verify">
                     <span class="spinner"></span>
-                    <p class="mt-3 mb-0">Completing secure SSO login</p>
+                    <p class="mt-3 mb-1 font-weight-bold">Verifying your session</p>
+                    <p class="mb-0 text-muted">Completing secure SSO login…</p>
                 </div>
 
-                <form *ngIf="showLocalLoginForm && !ssoLoading" [formGroup]="loginForm" (ngSubmit)="onSubmit()"
+                <form *ngIf="showLocalLoginForm && !showSsoVerification" [formGroup]="loginForm" (ngSubmit)="onSubmit()"
                     class="form-auth-small">
                     <div class="form-group c_form_group">
                         <label for="email">Email or Username</label>
@@ -65,7 +66,7 @@
                     </div>
                 </form>
 
-                <div *ngIf="!showLocalLoginForm && !ssoLoading" class="text-center py-3">
+                <div *ngIf="!showLocalLoginForm && !showSsoVerification" class="text-center py-3">
                     <p class="mb-3">Redirecting to Hisaar360 login…</p>
                     <button type="button" class="btn btn-dark" (click)="authService.redirectToHostedLogin()">
                         Continue to login

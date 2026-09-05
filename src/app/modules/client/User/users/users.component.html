@@ -1,65 +1,258 @@
-<div id="main-content" class="wrapper p-t-100 px-4">
-    <div class="title m-t-10 mb-3">
-        <button *ngIf="canCreateUser()" [routerLink]="'/create-user'" type="button" class="btn btn-dark btn-lg btn-block">
-            Add Users
-        </button>
+<div id="main-content" class="adm-users-page">
+  <div class="container-fluid">
+    <div class="adm-page-header">
+      <div class="adm-page-header__copy">
+        <h1>Users</h1>
+        <p>Manage hospital staff accounts and access permissions.</p>
+      </div>
+      <div class="adm-page-header__actions" *ngIf="canCreateUser()">
+        <a class="adm-btn-navy" [routerLink]="'/create-user'">
+          <i class="fa fa-plus"></i> Add User
+        </a>
+      </div>
     </div>
-    <div class="mb-3">
-        <input class="form-control" [(ngModel)]="search" placeholder="Search users">
+
+    <div class="adm-kpi-row">
+      <article class="adm-kpi-card">
+        <div class="adm-kpi-card__icon tone-blue"><i class="fa fa-users"></i></div>
+        <div class="adm-kpi-card__body">
+          <p class="label">Total Users</p>
+          <p class="value">{{ kpiTotal }}</p>
+          <p class="hint">All loaded</p>
+        </div>
+      </article>
+      <article class="adm-kpi-card">
+        <div class="adm-kpi-card__icon tone-teal"><i class="fa fa-check-circle"></i></div>
+        <div class="adm-kpi-card__body">
+          <p class="label">Active Users</p>
+          <p class="value">{{ kpiActive }}</p>
+          <p class="hint">{{ percentOfTotal(kpiActive) }}</p>
+        </div>
+      </article>
+      <article class="adm-kpi-card">
+        <div class="adm-kpi-card__icon tone-purple"><i class="fa fa-stethoscope"></i></div>
+        <div class="adm-kpi-card__body">
+          <p class="label">Doctors</p>
+          <p class="value">{{ kpiDoctors }}</p>
+          <p class="hint">{{ percentOfTotal(kpiDoctors) }}</p>
+        </div>
+      </article>
+      <article class="adm-kpi-card">
+        <div class="adm-kpi-card__icon tone-navy"><i class="fa fa-shield"></i></div>
+        <div class="adm-kpi-card__body">
+          <p class="label">Admin / Staff</p>
+          <p class="value">{{ kpiAdminStaff }}</p>
+          <p class="hint">{{ percentOfTotal(kpiAdminStaff) }}</p>
+        </div>
+      </article>
     </div>
-    <table class="table w-full text-[12px]">
-        <thead class="bg-white">
-            <tr>
-                <th class="border px-2 py-1">Photo</th>
-                <th class="border px-2 py-1">Name</th>
-                <th class="border px-2 py-1">Email</th>
-                <th class="border px-2 py-1">Phone</th>
-                <th class="border px-2 py-1" *ngIf="canViewHospitalColumn">Hospital</th>
-                <th class="border px-2 py-1">Role</th>
-                <th class="border px-2 py-1">Status</th>
-                <th class="border px-2 py-1" style="text-align: center;">Actions</th>
-            </tr>
-        </thead>
 
-        <tbody *ngIf="filteredUsers().length > 0">
-            <tr *ngFor="let user of filteredUsers()">
-                <td class="border px-2 py-1">
-                    <button type="button" class="staff-photo-thumb" (click)="openPhoto(user, $event)" [disabled]="!photoUrl(user)">
-                        <img *ngIf="photoUrl(user)" [src]="photoUrl(user)" alt="" loading="lazy" />
-                        <span *ngIf="!photoUrl(user)">{{ initials(user) }}</span>
-                    </button>
-                </td>
-                <td class="border px-2 py-1">{{ user.name }}</td>
-                <td class="border px-2 py-1">{{ user.email }}</td>
-                <td class="border px-2 py-1">{{ user.phone || '-' }}</td>
-                <td class="border px-2 py-1" *ngIf="canViewHospitalColumn">{{ user.hospital?.name || user.hospitalId || '-' }}</td>
-                <td class="border px-2 py-1">{{ user.role?.name || '-' }}</td>
-                <td class="border px-2 py-1">{{ user.status }}</td>
-                <td class="border px-2 py-1" style="text-align: center;">
-                    <i *ngIf="canDeleteUser()" (click)="deleteUser(user._id)" class="text-red fa fa-trash"></i>
-                    <i *ngIf="canUpdateUser()" (click)="editUser(user)" class="fa fa-pen m-l"></i>
-                    <i *ngIf="photoUrl(user)" (click)="openPhoto(user, $event)" class="fa fa-image m-l" title="View photo"></i>
-                    <span *ngIf="!canDeleteUser() && !canUpdateUser()">-</span>
-                </td>
-            </tr>
-        </tbody>
+    <div class="adm-filter-card">
+      <div class="adm-filter-row">
+        <label class="adm-filter-field">
+          <span>Search</span>
+          <div class="adm-search-wrap">
+            <i class="fa fa-search"></i>
+            <input
+              class="form-control"
+              [(ngModel)]="search"
+              (ngModelChange)="onFiltersChanged()"
+              placeholder="Search by name, email, phone or role..." />
+          </div>
+        </label>
+        <label class="adm-filter-field">
+          <span>Role</span>
+          <select class="form-control" [(ngModel)]="roleFilter" (ngModelChange)="onFiltersChanged()">
+            <option value="">All Roles</option>
+            <option *ngFor="let role of roleOptions" [value]="role">{{ role }}</option>
+          </select>
+        </label>
+        <label class="adm-filter-field">
+          <span>Status</span>
+          <select class="form-control" [(ngModel)]="statusFilter" (ngModelChange)="onFiltersChanged()">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </label>
+      </div>
+    </div>
 
-        <tbody *ngIf="!loading && filteredUsers().length === 0">
+    <div class="adm-table-card">
+      <div class="adm-table-card__head">
+        <h2>Staff directory</h2>
+        <span class="record-count">{{ totalFiltered }} matching users</span>
+      </div>
+
+      <div class="table-responsive adm-desktop-only">
+        <table class="adm-table">
+          <thead>
             <tr>
-                <td [attr.colspan]="canViewHospitalColumn ? 8 : 7" class="text-center py-2">No matching users found</td>
+              <th>User</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th *ngIf="canViewHospitalColumn">Hospital</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th style="text-align: center;">Actions</th>
             </tr>
-        </tbody>
-        <tbody *ngIf="loading">
+          </thead>
+          <tbody *ngIf="!loading && pagedUsers().length > 0">
+            <tr *ngFor="let user of pagedUsers()">
+              <td>
+                <button
+                  type="button"
+                  class="adm-avatar"
+                  (click)="openPhoto(user, $event)"
+                  [disabled]="!photoUrl(user)">
+                  <img *ngIf="photoUrl(user)" [src]="photoUrl(user)" alt="" loading="lazy" />
+                  <span *ngIf="!photoUrl(user)">{{ initials(user) }}</span>
+                </button>
+              </td>
+              <td><strong>{{ user.name }}</strong></td>
+              <td>{{ user.email }}</td>
+              <td>{{ user.phone || '—' }}</td>
+              <td *ngIf="canViewHospitalColumn">{{ user.hospital?.name || user.hospitalId || '—' }}</td>
+              <td>
+                <span class="adm-role-badge" [ngClass]="roleBadgeTone(user.role?.name)">
+                  {{ user.role?.name || '—' }}
+                </span>
+              </td>
+              <td>
+                <span class="adm-status" [class.is-active]="isActiveStatus(user.status)">
+                  {{ user.status || '—' }}
+                </span>
+              </td>
+              <td style="text-align: center;">
+                <div class="adm-row-actions">
+                  <button
+                    type="button"
+                    *ngIf="canViewUser()"
+                    title="View"
+                    (click)="viewUser(user)">
+                    <i class="fa fa-eye"></i>
+                  </button>
+                  <button
+                    type="button"
+                    *ngIf="canUpdateUser()"
+                    title="Edit"
+                    (click)="editUser(user)">
+                    <i class="fa fa-pencil"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="is-danger"
+                    *ngIf="canDeleteUser()"
+                    title="Delete"
+                    (click)="deleteUser(user._id)">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+          <tbody *ngIf="loading">
             <tr>
-                <td [attr.colspan]="canViewHospitalColumn ? 8 : 7" class="text-center py-2">Loading...</td>
+              <td [attr.colspan]="canViewHospitalColumn ? 8 : 7" class="adm-loading">
+                <i class="fa fa-spinner fa-spin"></i> Loading users...
+              </td>
             </tr>
-        </tbody>
-    </table>
+          </tbody>
+          <tbody *ngIf="!loading && pagedUsers().length === 0">
+            <tr>
+              <td [attr.colspan]="canViewHospitalColumn ? 8 : 7" class="adm-empty">
+                No matching users found
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="adm-mobile-cards adm-mobile-only" *ngIf="!loading && pagedUsers().length > 0">
+        <article class="adm-user-card" *ngFor="let user of pagedUsers()">
+          <div class="adm-user-card__top">
+            <button
+              type="button"
+              class="adm-avatar"
+              (click)="openPhoto(user, $event)"
+              [disabled]="!photoUrl(user)">
+              <img *ngIf="photoUrl(user)" [src]="photoUrl(user)" alt="" loading="lazy" />
+              <span *ngIf="!photoUrl(user)">{{ initials(user) }}</span>
+            </button>
+            <div class="adm-user-card__meta">
+              <p class="name">{{ user.name }}</p>
+              <p class="email">{{ user.email }}</p>
+            </div>
+            <span class="adm-role-badge" [ngClass]="roleBadgeTone(user.role?.name)">
+              {{ user.role?.name || '—' }}
+            </span>
+          </div>
+          <div class="adm-user-card__status">
+            <span class="adm-status" [class.is-active]="isActiveStatus(user.status)">
+              {{ user.status || '—' }}
+            </span>
+          </div>
+          <div class="adm-user-card__actions">
+            <button type="button" *ngIf="canViewUser()" (click)="viewUser(user)" title="View">
+              <i class="fa fa-eye"></i>
+            </button>
+            <button type="button" *ngIf="canUpdateUser()" (click)="editUser(user)" title="Edit">
+              <i class="fa fa-pencil"></i>
+            </button>
+            <button
+              type="button"
+              class="is-danger"
+              *ngIf="canDeleteUser()"
+              (click)="deleteUser(user._id)"
+              title="Delete">
+              <i class="fa fa-trash"></i>
+            </button>
+          </div>
+        </article>
+      </div>
+
+      <div class="adm-loading adm-mobile-only" *ngIf="loading">
+        <i class="fa fa-spinner fa-spin"></i> Loading users...
+      </div>
+      <div class="adm-empty adm-mobile-only" *ngIf="!loading && pagedUsers().length === 0">
+        No matching users found
+      </div>
+
+      <div class="adm-pagination" *ngIf="!loading && totalFiltered > 0">
+        <div class="adm-pagination__info">{{ pageRangeLabel() }}</div>
+        <div class="adm-pagination__controls">
+          <button
+            type="button"
+            class="adm-pagination__btn"
+            [disabled]="page <= 1"
+            (click)="goToPage(page - 1)">
+            Previous
+          </button>
+          <button
+            type="button"
+            class="adm-pagination__btn"
+            *ngFor="let n of pageNumbers()"
+            [class.is-active]="n === page"
+            (click)="goToPage(n)">
+            {{ n }}
+          </button>
+          <button
+            type="button"
+            class="adm-pagination__btn"
+            [disabled]="page >= totalPages"
+            (click)="goToPage(page + 1)">
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <app-image-viewer-modal
-    [open]="viewerOpen"
-    [src]="viewerSrc"
-    [alt]="viewerAlt"
-    (closed)="viewerOpen = false">
+  [open]="viewerOpen"
+  [src]="viewerSrc"
+  [alt]="viewerAlt"
+  (closed)="viewerOpen = false">
 </app-image-viewer-modal>

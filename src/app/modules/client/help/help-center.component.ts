@@ -16,6 +16,7 @@ import {
   HELP_CATEGORIES,
   HELP_MODULE_GUIDES,
   HELP_POPULAR_SEARCHES,
+  HELP_POPULAR_SEARCH_MODULES,
   HELP_QUICK_TASKS,
   HELP_ROLE_FILTERS,
   HelpArticle,
@@ -98,6 +99,7 @@ export class HelpCenterComponent implements OnInit, OnDestroy {
   readonly moduleGuides: HelpModuleGuide[] = HELP_MODULE_GUIDES;
 
   visibleRoleFilters: Array<(typeof HELP_ROLE_FILTERS)[number]> = [...HELP_ROLE_FILTERS];
+  visiblePopularSearches: string[] = [...HELP_POPULAR_SEARCHES];
   activeWorkflow: HelpRoleWorkflowConfig = resolveRoleWorkflow('', {
     clinical: true,
     pharmacy: true,
@@ -166,6 +168,10 @@ export class HelpCenterComponent implements OnInit, OnDestroy {
     this.visibleRoleFilters = this.roleFilters.filter((role) =>
       isHelpRoleVisible(role.key as HelpRoleKey, moduleFlags)
     );
+    this.visiblePopularSearches = this.popularSearches.filter((term) => {
+      const moduleKey = HELP_POPULAR_SEARCH_MODULES[term];
+      return !moduleKey || isHelpModuleVisible(moduleKey, moduleFlags);
+    });
     this.activeWorkflow = resolveRoleWorkflow(this.selectedRole, moduleFlags);
     const visibleModuleGuides = this.moduleGuides.filter(
       (guide) => isHelpModuleVisible(guide.module, moduleFlags) && this.canAccessModuleGuide(guide)
@@ -390,7 +396,8 @@ export class HelpCenterComponent implements OnInit, OnDestroy {
   relatedArticles(article: HelpArticle): HelpArticle[] {
     return article.related
       .map((slug) => getHelpArticleBySlug(slug))
-      .filter((item): item is HelpArticle => Boolean(item));
+      .filter((item): item is HelpArticle => Boolean(item))
+      .filter((item) => isHelpModuleVisible(item.module, this.moduleFlags));
   }
 
   articleSummary(article: HelpArticle): string {

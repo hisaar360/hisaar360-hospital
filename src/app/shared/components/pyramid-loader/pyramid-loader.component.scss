@@ -10,6 +10,7 @@
   justify-content: center;
   overflow: hidden;
   perspective: 900px;
+  /* Block interaction only while a real mutation is in flight — never leave this stuck. */
   pointer-events: all;
   position: fixed;
   width: 100vw;

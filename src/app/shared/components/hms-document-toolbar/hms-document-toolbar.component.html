@@ -8,6 +8,7 @@
     {{ pdfLoading ? 'PDF…' : pdfLabel }}
   </button>
   <button *ngIf="showExcel" type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="exportExcel()" [disabled]="disabled">
+    <i *ngIf="withIcons" class="fa fa-file-excel-o" aria-hidden="true"></i>
     Excel
   </button>
   <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="printDocument()" [disabled]="disabled">

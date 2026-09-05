@@ -1,33 +1,77 @@
-<div id="main-content" class="pharmacy-page">
-  <div class="pharmacy-shell pharmacy-admin-page">
-    <header class="pharmacy-hero">
-      <div class="pharmacy-hero-main">
+<div id="main-content" class="invoices-page">
+  <div class="container-fluid">
+    <div class="pay-page-header">
+      <div class="pay-page-header__copy">
         <h1>Invoices</h1>
         <p>Hospital bills and invoice payments. Encounter collections stay on Patient Ledger.</p>
       </div>
-      <div class="pharmacy-hero-actions">
-        <a class="btn btn-default" routerLink="/payments">Patient Payments</a>
-        <a class="btn btn-primary" routerLink="/payments/addpayment">Create Invoice</a>
+      <div class="pay-page-header__actions">
+        <a class="pay-btn-primary" routerLink="/payments/addpayment" *ngIf="can('bills.create')">
+          <i class="fa fa-plus"></i> Create Invoice
+        </a>
+        <button type="button" class="pay-btn-outline" (click)="exportInvoices()">
+          <i class="fa fa-download"></i> Export
+        </button>
+        <button type="button" class="pay-btn-outline" (click)="printInvoices()" aria-label="Print">
+          <i class="fa fa-print"></i>
+        </button>
       </div>
-    </header>
+    </div>
 
-    <div class="pharmacy-filter-card">
-      <div class="pharmacy-filter-head">
-        <div>
-          <h2>Invoice Filters</h2>
-          <p>Filter by date window and payment status.</p>
+    <a class="pay-btn-primary d-md-none create-mobile" routerLink="/payments/addpayment" *ngIf="can('bills.create')">
+      <i class="fa fa-plus"></i> Create Invoice
+    </a>
+
+    <div class="pay-kpi-row">
+      <article class="pay-kpi-card">
+        <div class="pay-kpi-card__icon tone-blue"><i class="fa fa-file-text-o"></i></div>
+        <div class="pay-kpi-card__body">
+          <span>Total Invoices</span>
+          <strong>{{ kpiTotal | number }}</strong>
+          <small>All matching filters</small>
         </div>
+      </article>
+      <article class="pay-kpi-card">
+        <div class="pay-kpi-card__icon tone-orange"><i class="fa fa-exclamation-circle"></i></div>
+        <div class="pay-kpi-card__body">
+          <span>Unpaid (this page)</span>
+          <strong>{{ kpiUnpaid | number }}</strong>
+          <small>{{ kpiPartial }} partial on page</small>
+        </div>
+      </article>
+      <article class="pay-kpi-card">
+        <div class="pay-kpi-card__icon tone-green"><i class="fa fa-check-circle"></i></div>
+        <div class="pay-kpi-card__body">
+          <span>Paid (this page)</span>
+          <strong>{{ kpiPaid | number }}</strong>
+          <small>Loaded invoices</small>
+        </div>
+      </article>
+      <article class="pay-kpi-card">
+        <div class="pay-kpi-card__icon tone-red"><i class="fa fa-money"></i></div>
+        <div class="pay-kpi-card__body">
+          <span>Outstanding Due</span>
+          <strong>{{ kpiOutstandingDue | number:'1.2-2' }}</strong>
+          <small>Across loaded invoices</small>
+        </div>
+      </article>
+    </div>
+
+    <div class="pay-filter-card">
+      <div class="filters-toggle" (click)="filtersOpen = !filtersOpen">
+        <strong>Filters</strong>
+        <button type="button" class="pay-btn-ghost">{{ filtersOpen ? 'Hide Filters' : 'Show Filters' }}</button>
       </div>
-      <div class="pharmacy-filter-grid">
-        <label>
-          <span>From</span>
+      <div class="pay-filter-row" *ngIf="filtersOpen">
+        <label class="pay-filter-field">
+          <span>From Date</span>
           <input class="form-control" type="date" [(ngModel)]="dateFrom" />
         </label>
-        <label>
-          <span>To</span>
+        <label class="pay-filter-field">
+          <span>To Date</span>
           <input class="form-control" type="date" [(ngModel)]="dateTo" />
         </label>
-        <label>
+        <label class="pay-filter-field">
           <span>Status</span>
           <select class="form-select" [(ngModel)]="paymentStatus">
             <option value="">All statuses</option>
@@ -36,61 +80,98 @@
             <option value="paid">Paid</option>
           </select>
         </label>
-        <div class="pharmacy-filter-actions">
-          <button class="btn btn-outline-primary" type="button" (click)="page = 1; loadBills()">Apply</button>
+        <label class="pay-filter-field">
+          <span>Search</span>
+          <div class="pay-search-wrap">
+            <i class="fa fa-search" aria-hidden="true"></i>
+            <input class="form-control" type="text" [(ngModel)]="search" placeholder="Bill no, patient..." />
+          </div>
+        </label>
+        <div class="pay-filter-actions">
+          <button type="button" class="pay-btn-ghost" (click)="clearFilters()">Clear</button>
+          <button type="button" class="pay-btn-primary" (click)="applyFilters()">Apply</button>
         </div>
       </div>
     </div>
 
-    <div class="pharmacy-table-card">
-      <div class="pharmacy-table-head">
-        <div>
-          <h2>Invoice Register</h2>
-          <p>{{ bills.length }} bills on this page.</p>
+    <div class="pay-panel">
+      <div class="pay-panel__body">
+        <div class="register-head">
+          <strong>{{ (totalItems || visibleBills.length) | number }} invoices found</strong>
         </div>
-      </div>
-      <div class="card-body">
-        <div *ngIf="loading" class="pharmacy-empty-state">Loading invoices...</div>
-        <div *ngIf="!loading && !bills.length" class="pharmacy-empty-state">No bills found.</div>
-        <div class="table-responsive" *ngIf="!loading && bills.length">
-          <table class="table align-middle">
+
+        <div class="pay-empty" *ngIf="loading">Loading invoices...</div>
+        <div class="pay-empty" *ngIf="!loading && !visibleBills.length">No bills found.</div>
+
+        <div class="table-responsive d-none d-lg-block" *ngIf="!loading && visibleBills.length">
+          <table class="pay-table mb-0">
             <thead>
               <tr>
                 <th>Bill No</th>
                 <th>Patient</th>
                 <th>Source</th>
-                <th>Total</th>
-                <th>Paid</th>
-                <th>Due</th>
+                <th>Bill Date</th>
+                <th class="text-right">Total</th>
+                <th class="text-right">Paid</th>
+                <th class="text-right">Due</th>
                 <th>Status</th>
-                <th></th>
+                <th class="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let bill of bills">
+              <tr *ngFor="let bill of visibleBills">
                 <td class="fw-semibold">{{ bill.billNo }}</td>
                 <td>{{ patientName(bill) }}</td>
                 <td>{{ bill.sourceNo || bill.sourceType || '—' }}</td>
-                <td>{{ bill.grandTotal | number:'1.0-0' }}</td>
-                <td>{{ bill.paidAmount | number:'1.0-0' }}</td>
-                <td>{{ bill.dueAmount | number:'1.0-0' }}</td>
+                <td>{{ bill.createdAt ? (bill.createdAt | date:'mediumDate') : '—' }}</td>
+                <td class="text-right amount-cell">{{ bill.grandTotal | number:'1.0-0' }}</td>
+                <td class="text-right amount-cell pay-amount-paid">{{ bill.paidAmount | number:'1.0-0' }}</td>
+                <td class="text-right amount-cell" [class.pay-amount-due]="bill.dueAmount > 0">{{ bill.dueAmount | number:'1.0-0' }}</td>
                 <td>
-                  <span class="pharmacy-status-pill" [ngClass]="'status-' + bill.paymentStatus">
-                    {{ bill.paymentStatus }}
+                  <span class="pay-status-pill" [ngClass]="'status-' + bill.paymentStatus">
+                    {{ statusLabel(bill.paymentStatus) }}
                   </span>
                 </td>
-                <td class="text-end">
-                  <a class="btn btn-sm btn-default mr-1" [routerLink]="['/payments/invoices/invoice-detail', bill._id]">View</a>
-                  <button type="button" class="btn btn-sm btn-primary" *ngIf="can('bills.update_payment')" (click)="updatePayment(bill)">Payment</button>
+                <td class="text-right">
+                  <a class="pay-btn-outline pay-btn-sm" [routerLink]="['/payments/invoices/invoice-detail', bill._id]">View</a>
+                  <button type="button" class="pay-btn-primary pay-btn-sm ml-1" *ngIf="can('bills.update_payment')" (click)="updatePayment(bill)">
+                    Payment
+                  </button>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="d-flex justify-content-between align-items-center mt-3" *ngIf="!loading && bills.length">
-          <button class="btn btn-default" type="button" (click)="changePage(page - 1)" [disabled]="page <= 1">Prev</button>
-          <span>Page {{ page }} of {{ totalPages || 1 }}</span>
-          <button class="btn btn-default" type="button" (click)="changePage(page + 1)" [disabled]="totalPages > 0 && page >= totalPages">Next</button>
+
+        <div class="pay-card-list d-lg-none" *ngIf="!loading && visibleBills.length">
+          <article class="pay-mobile-card" *ngFor="let bill of visibleBills">
+            <div class="pay-mobile-card__head">
+              <strong>{{ bill.billNo }}</strong>
+              <span class="pay-status-pill" [ngClass]="'status-' + bill.paymentStatus">{{ statusLabel(bill.paymentStatus) }}</span>
+            </div>
+            <div class="invoice-card-meta">
+              <span>{{ patientName(bill) }}</span>
+              <span>{{ bill.createdAt ? (bill.createdAt | date:'mediumDate') : '—' }}</span>
+            </div>
+            <div class="pay-mobile-card__amounts">
+              <div><span>Total</span><strong>{{ bill.grandTotal | number:'1.0-0' }}</strong></div>
+              <div><span>Paid</span><strong class="pay-amount-paid">{{ bill.paidAmount | number:'1.0-0' }}</strong></div>
+              <div><span>Due</span><strong [class.pay-amount-due]="bill.dueAmount > 0">{{ bill.dueAmount | number:'1.0-0' }}</strong></div>
+            </div>
+            <div class="pay-mobile-card__actions">
+              <a class="pay-btn-outline" [routerLink]="['/payments/invoices/invoice-detail', bill._id]">View</a>
+              <button type="button" class="pay-btn-primary" *ngIf="can('bills.update_payment')" (click)="updatePayment(bill)">Payment</button>
+            </div>
+          </article>
+        </div>
+
+        <div class="pay-pagination" *ngIf="!loading && bills.length">
+          <div class="pay-pagination__info">{{ pageRangeLabel() }}</div>
+          <div class="pay-pagination__controls">
+            <button class="pay-btn-ghost" type="button" (click)="changePage(page - 1)" [disabled]="page <= 1">Prev</button>
+            <span>Page {{ page }} of {{ totalPages || 1 }}</span>
+            <button class="pay-btn-ghost" type="button" (click)="changePage(page + 1)" [disabled]="totalPages > 0 && page >= totalPages">Next</button>
+          </div>
         </div>
       </div>
     </div>

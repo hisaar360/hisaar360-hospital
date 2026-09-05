@@ -4,7 +4,7 @@
       <header class="help-page-header">
         <div class="help-page-header__copy">
           <h1>Help Center</h1>
-          <p class="help-subtitle">Step-by-step guidance for running your hospital.</p>
+          <p class="help-subtitle">Step-by-step tutorials for modules enabled at your hospital.</p>
         </div>
         <a class="hms-btn hms-btn-secondary" routerLink="/">Back to Dashboard</a>
       </header>
@@ -32,7 +32,7 @@
           <span class="help-popular__label">Popular searches:</span>
           <div class="help-popular__chips">
             <button
-              *ngFor="let term of popularSearches"
+              *ngFor="let term of visiblePopularSearches"
               type="button"
               class="help-chip"
               (click)="applyPopularSearch(term)"
@@ -85,7 +85,7 @@
           <h3>No matching guide found</h3>
           <p>Try one of these common searches or browse module guides below.</p>
           <div class="help-popular__chips">
-            <button *ngFor="let term of popularSearches" type="button" class="help-chip" (click)="applyPopularSearch(term)">
+            <button *ngFor="let term of visiblePopularSearches" type="button" class="help-chip" (click)="applyPopularSearch(term)">
               {{ term }}
             </button>
           </div>

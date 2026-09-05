@@ -48,12 +48,17 @@ const ACTION_OPTIONS = [
   { value: 'WARD_VITALS_RECORDED', label: 'Ward vitals recorded' },
   { value: 'WARD_MAR_RECORDED', label: 'MAR recorded' },
   { value: 'WARD_IO_RECORDED', label: 'I/O recorded' },
+  { value: 'WARD_PATIENT_TRANSFERRED', label: 'Patient transferred' },
+  { value: 'WARD_DRIP_UPDATED', label: 'Ward drip updated' },
+  { value: 'WARD_MEDICINE_ISSUED', label: 'Medicine issued' },
   { value: 'SALE_CREATED', label: 'Sale created' },
   { value: 'SALE_RETURNED', label: 'Sale returned' },
   { value: 'PURCHASE_CREATED', label: 'Purchase created' },
   { value: 'PURCHASE_RECEIVED', label: 'Purchase received' },
   { value: 'EXPENSE_CREATED', label: 'Expense created' },
 ];
+
+const CRITICAL_ACTION_TOKENS = ['DELETE', 'CANCEL', 'DISCHARGE', 'DISCOUNT', 'RETURN'];
 
 @Component({
   selector: 'app-audit-logs',
@@ -74,6 +79,7 @@ export class AuditLogsComponent implements OnInit {
   detailLoading = false;
   detailOpen = false;
   selectedLog: AuditLog | null = null;
+  filtersOpen = false;
 
   moduleFilter = '';
   actionFilter = '';
@@ -83,6 +89,7 @@ export class AuditLogsComponent implements OnInit {
   toDate = '';
   page = 1;
   totalPages = 1;
+  totalItems = 0;
 
   canFilterByHospital = false;
   canFilterByUser = false;
@@ -102,6 +109,44 @@ export class AuditLogsComponent implements OnInit {
     this.loadLogs();
   }
 
+  get kpiTotalEvents(): number {
+    return this.totalItems || this.logs.length;
+  }
+
+  get kpiTodayEvents(): number {
+    const todayKey = this.localDateKey(new Date());
+    return this.logs.filter((log) => log.createdAt && this.localDateKey(new Date(log.createdAt)) === todayKey).length;
+  }
+
+  get kpiUniqueUsers(): number {
+    const ids = new Set(
+      this.logs
+        .map((log) => log.userId || log.user?._id || log.user?.email || this.userName(log))
+        .filter((value) => !!value && value !== '—')
+    );
+    return ids.size;
+  }
+
+  get kpiCriticalActions(): number {
+    return this.logs.filter((log) => this.isCriticalAction(log.action)).length;
+  }
+
+  get pageNumbers(): number[] {
+    const maxButtons = 7;
+    if (this.totalPages <= maxButtons) {
+      return Array.from({ length: this.totalPages }, (_, i) => i + 1);
+    }
+
+    const pages = new Set<number>([1, this.totalPages, this.page]);
+    for (let offset = 1; pages.size < maxButtons - 1; offset++) {
+      if (this.page - offset > 1) pages.add(this.page - offset);
+      if (this.page + offset < this.totalPages) pages.add(this.page + offset);
+      if (pages.size >= maxButtons) break;
+    }
+
+    return Array.from(pages).sort((a, b) => a - b);
+  }
+
   private setDefaultDateRange(): void {
     const today = new Date();
     const from = new Date();
@@ -112,6 +157,18 @@ export class AuditLogsComponent implements OnInit {
 
   private formatDateInput(date: Date): string {
     return date.toISOString().slice(0, 10);
+  }
+
+  private localDateKey(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  private isCriticalAction(action: string): boolean {
+    const normalized = String(action || '').toUpperCase();
+    return CRITICAL_ACTION_TOKENS.some((token) => normalized.includes(token));
   }
 
   loadHospitals(): void {
@@ -165,9 +222,11 @@ export class AuditLogsComponent implements OnInit {
         next: (result) => {
           this.logs = result.items || [];
           this.totalPages = result.pagination?.totalPages || 1;
+          this.totalItems = result.pagination?.total ?? this.logs.length;
         },
         error: (err) => {
           this.logs = [];
+          this.totalItems = 0;
           this.toastr.error(err?.error?.message || 'Unable to load audit logs.');
         },
       });
@@ -186,8 +245,53 @@ export class AuditLogsComponent implements OnInit {
     this.loadLogs(1);
   }
 
+  toggleFilters(): void {
+    this.filtersOpen = !this.filtersOpen;
+  }
+
+  exportCsv(): void {
+    if (!this.logs.length) {
+      this.toastr.info('No rows on this page to export.');
+      return;
+    }
+
+    const headers = ['Date & Time', 'User', 'Email', 'Module', 'Action', 'Summary'];
+    if (this.canFilterByHospital) {
+      headers.splice(3, 0, 'Hospital');
+    }
+
+    const rows = this.logs.map((log) => {
+      const base = [
+        log.createdAt ? new Date(log.createdAt).toLocaleString() : '',
+        this.userName(log),
+        log.user?.email || '',
+        this.moduleLabel(log.module),
+        this.actionLabel(log.action),
+        log.summary || '',
+      ];
+      if (this.canFilterByHospital) {
+        base.splice(3, 0, this.hospitalName(log));
+      }
+      return base;
+    });
+
+    const escape = (value: string) => `"${String(value).replace(/"/g, '""')}"`;
+    const csv = [headers, ...rows].map((row) => row.map(escape).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `audit-logs-page-${this.page}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   userName(log: AuditLog): string {
     return log.user?.name || this.users.find((user) => user._id === log.userId)?.name || log.userId || '—';
+  }
+
+  userEmail(log: AuditLog): string {
+    return log.user?.email || this.users.find((user) => user._id === log.userId)?.email || '';
   }
 
   hospitalName(log: AuditLog): string {
@@ -195,7 +299,15 @@ export class AuditLogsComponent implements OnInit {
   }
 
   actionLabel(action: string): string {
-    return this.actionOptions.find((option) => option.value === action)?.label || action;
+    const known = this.actionOptions.find((option) => option.value === action)?.label;
+    if (known) return known;
+
+    return String(action || '')
+      .toLowerCase()
+      .split('_')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ') || '—';
   }
 
   moduleLabel(module: string): string {
@@ -205,7 +317,7 @@ export class AuditLogsComponent implements OnInit {
   actionBadgeClass(action: string): string {
     const normalized = String(action || '').toUpperCase();
 
-    if (normalized.includes('DELETE') || normalized.includes('CANCEL')) {
+    if (normalized.includes('DELETE') || normalized.includes('CANCEL') || normalized.includes('RETURN')) {
       return 'badge-delete';
     }
 
@@ -213,15 +325,23 @@ export class AuditLogsComponent implements OnInit {
       return 'badge-discount';
     }
 
-    if (normalized.includes('DISCHARGED')) {
+    if (normalized.includes('DISCHARGED') || normalized.includes('DISCHARGE')) {
       return 'badge-discharge';
+    }
+
+    if (normalized.includes('TRANSFER')) {
+      return 'badge-transfer';
+    }
+
+    if (normalized.includes('MEDICINE') || normalized.includes('MAR') || normalized.includes('ISSUED')) {
+      return 'badge-medicine';
     }
 
     if (normalized.includes('CREATED') || normalized.includes('RECORDED') || normalized.includes('VERIFIED')) {
       return 'badge-create';
     }
 
-    if (normalized.includes('UPDATED') || normalized.includes('EDIT')) {
+    if (normalized.includes('UPDATED') || normalized.includes('EDIT') || normalized.includes('DRIP')) {
       return 'badge-update';
     }
 
@@ -258,5 +378,10 @@ export class AuditLogsComponent implements OnInit {
     }
 
     this.loadLogs(nextPage);
+  }
+
+  showPageEllipsis(index: number): boolean {
+    if (index === 0) return false;
+    return this.pageNumbers[index] - this.pageNumbers[index - 1] > 1;
   }
 }

@@ -1,45 +1,255 @@
 <div class="verify-page">
-  <div class="verify-card">
-    <div class="verify-brand">Hisaar360 Hospital Management System</div>
-    <h1>Hospital Birth Certificate Verification</h1>
-    <p class="verify-subtitle">Public authenticity check — no login required.</p>
+  <div class="verify-loading" *ngIf="loading">
+    <span class="verify-loading__spinner" aria-hidden="true"></span>
+    Verifying certificate…
+  </div>
 
-    <div class="verify-loading" *ngIf="loading">Verifying certificate…</div>
+  <div class="verify-layout" *ngIf="!loading && result" [attr.data-status]="statusClass()">
+    <!-- Certificate sheet -->
+    <article class="cert-sheet" *ngIf="result.found; else notFoundSheet">
+      <div class="cert-ornament cert-ornament--tl" aria-hidden="true"></div>
+      <div class="cert-ornament cert-ornament--tr" aria-hidden="true"></div>
+      <div class="cert-ornament cert-ornament--bl" aria-hidden="true"></div>
+      <div class="cert-ornament cert-ornament--br" aria-hidden="true"></div>
 
-    <div *ngIf="!loading && result" [class]="'verify-result ' + statusClass()">
-      <div class="verify-status">{{ statusLabel() }}</div>
+      <div class="cert-watermark" aria-hidden="true">
+        <div class="cert-watermark-grid">
+          <span *ngFor="let _ of watermarkTiles">{{ result.hospitalName || 'Hisaar360' }}</span>
+        </div>
+      </div>
 
-      <ng-container *ngIf="result.found; else notFound">
-        <dl>
-          <div><dt>Certificate No</dt><dd>{{ result.certificateNo }}</dd></div>
-          <div><dt>Hospital</dt><dd>{{ result.hospitalName }}</dd></div>
-          <div><dt>Document</dt><dd>{{ result.documentTitle }}</dd></div>
-          <div><dt>Baby Name</dt><dd>{{ result.babyName }}</dd></div>
-          <div><dt>Date of Birth</dt><dd>{{ result.dateOfBirth | date:'mediumDate' }}</dd></div>
-          <div><dt>Mother</dt><dd>{{ result.motherName }}</dd></div>
-          <div><dt>Issue Date</dt><dd>{{ result.issuedAt | date:'medium' }}</dd></div>
-          <div><dt>Version</dt><dd>{{ result.version }}</dd></div>
-          <div *ngIf="result.signatoryName"><dt>Signatory</dt><dd>{{ result.signatoryName }}<span *ngIf="result.signatoryDesignation"> — {{ result.signatoryDesignation }}</span></dd></div>
-        </dl>
+      <div class="sheet-inner">
+        <header class="cert-brand">
+          <div class="cert-brand__left">
+            <img
+              *ngIf="result.hospitalLogoUrl"
+              class="cert-logo"
+              [src]="result.hospitalLogoUrl"
+              alt="Hospital logo"
+            />
+            <div>
+              <h1 class="cert-hospital">{{ result.hospitalName || 'Hospital' }}</h1>
+              <p class="cert-platform">Hisaar360 Hospital Management System</p>
+              <p class="cert-hospital-meta" *ngIf="hospitalMetaLine()">{{ hospitalMetaLine() }}</p>
+              <p class="cert-hospital-meta" *ngIf="hospitalContactLine()">{{ hospitalContactLine() }}</p>
+            </div>
+          </div>
+          <p class="cert-tagline" *ngIf="result.hospitalTagline || result.footerText">
+            {{ result.hospitalTagline || result.footerText }}
+          </p>
+        </header>
 
-        <p class="verify-superseded" *ngIf="result.status === 'SUPERSEDED'">
-          {{ result.supersededMessage }}
-          <span *ngIf="result.latestCertificateNo">Latest certificate: {{ result.latestCertificateNo }} (v{{ result.latestVersion }})</span>
+        <h2 class="cert-title">{{ result.documentTitle || 'Hospital Birth Certificate' }}</h2>
+        <p class="cert-attest">
+          This is to certify that the following birth was recorded at this hospital.
         </p>
 
-        <p class="verify-revoked" *ngIf="result.status === 'REVOKED'">
-          Revoked on {{ result.revokedAt | date:'medium' }}
-          <span *ngIf="result.revocationReason"> — {{ result.revocationReason }}</span>
+        <div class="doc-meta">
+          <div>
+            <span class="label">Certificate No.</span>
+            <strong>{{ result.certificateNo || '—' }}</strong>
+          </div>
+          <div>
+            <span class="label">Issue Date</span>
+            <strong>{{ result.issuedAt | date: 'dd MMM yyyy' }}</strong>
+          </div>
+        </div>
+
+        <section class="cert-section">
+          <h3>Child Details</h3>
+          <div class="cert-grid">
+            <div class="field">
+              <span class="label">Baby Name</span>
+              <span class="value">{{ result.babyName || '—' }}</span>
+            </div>
+            <div class="field">
+              <span class="label">Date of Birth</span>
+              <span class="value">{{ result.dateOfBirth | date: 'dd MMM yyyy' }}</span>
+            </div>
+            <div class="field">
+              <span class="label">Time of Birth</span>
+              <span class="value">{{ result.babyTimeOfBirth || '—' }}</span>
+            </div>
+            <div class="field">
+              <span class="label">Gender</span>
+              <span class="value">{{ formatSex(result.babySex) }}</span>
+            </div>
+            <div class="field" *ngIf="result.babyBirthWeightGrams">
+              <span class="label">Birth Weight</span>
+              <span class="value">{{ result.babyBirthWeightGrams }} g</span>
+            </div>
+            <div class="field">
+              <span class="label">Place of Birth</span>
+              <span class="value">{{ result.babyPlaceOfBirth || '—' }}</span>
+            </div>
+            <div class="field" *ngIf="result.modeOfDelivery">
+              <span class="label">Mode of Delivery</span>
+              <span class="value">{{ formatModeOfDelivery(result.modeOfDelivery) }}</span>
+            </div>
+            <div class="field" *ngIf="result.babyMrNo">
+              <span class="label">MR No</span>
+              <span class="value">{{ result.babyMrNo }}</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="cert-section">
+          <h3>Parent Details</h3>
+          <div class="cert-grid">
+            <div class="field">
+              <span class="label">Mother Name</span>
+              <span class="value">{{ result.motherName || '—' }}</span>
+            </div>
+            <div class="field">
+              <span class="label">Father Name</span>
+              <span class="value">{{ result.fatherName || '—' }}</span>
+            </div>
+            <div class="field" *ngIf="result.motherMrNo">
+              <span class="label">Mother MR No</span>
+              <span class="value">{{ result.motherMrNo }}</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="cert-section">
+          <h3>Authorization</h3>
+          <div class="cert-grid">
+            <div class="field">
+              <span class="label">Delivered By</span>
+              <span class="value">{{ result.deliveredBy || '—' }}</span>
+            </div>
+            <div class="field">
+              <span class="label">Authorized Signatory</span>
+              <span class="value">{{ result.signatoryName || '—' }}</span>
+              <span class="auth-designation" *ngIf="result.signatoryDesignation">{{
+                result.signatoryDesignation
+              }}</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="cert-authority">
+          <div class="cert-qr" *ngIf="qrImageUrl()">
+            <img [src]="qrImageUrl()" alt="Verification QR code" />
+            <span *ngIf="result.verificationDisplayCode">{{ result.verificationDisplayCode }}</span>
+          </div>
+
+          <div class="cert-seal-wrap">
+            <div class="cert-official-seal" *ngIf="result.stampUrl; else textSeal">
+              <img [src]="result.stampUrl" [alt]="(result.hospitalName || 'Hospital') + ' stamp'" />
+            </div>
+            <ng-template #textSeal>
+              <div class="cert-official-seal cert-official-seal--text" aria-hidden="true">
+                <span class="seal-ring">Official Seal</span>
+                <strong>{{ sealHospitalName() }}</strong>
+              </div>
+            </ng-template>
+          </div>
+
+          <div class="cert-sign">
+            <img *ngIf="result.signatureUrl" [src]="result.signatureUrl" alt="Authorized signature" />
+            <div class="cert-sign__line">
+              {{ result.signatoryName || 'Authorized Signatory' }}
+              <small *ngIf="result.signatoryDesignation">{{ result.signatoryDesignation }}</small>
+            </div>
+          </div>
+        </div>
+
+        <footer class="cert-footer">
+          <p>
+            {{
+              result.legalDisclaimer ||
+                'This is a hospital-issued birth record certificate. It is not a government civil-registration document.'
+            }}
+          </p>
+          <div class="cert-footer__row">
+            <span>{{ result.footerText || 'Care today for a brighter tomorrow' }}</span>
+            <span>Powered by Hisaar360</span>
+          </div>
+        </footer>
+      </div>
+    </article>
+
+    <ng-template #notFoundSheet>
+      <article class="cert-sheet cert-sheet--empty">
+        <header class="cert-brand">
+          <div class="cert-brand__left">
+            <div>
+              <h1 class="cert-hospital">Certificate Verification</h1>
+              <p class="cert-platform">Hisaar360 Hospital Management System</p>
+            </div>
+          </div>
+        </header>
+        <h2 class="cert-title">Hospital Birth Certificate</h2>
+        <p class="cert-empty">
+          This verification code does not match any issued hospital birth certificate.
         </p>
-      </ng-container>
+      </article>
+    </ng-template>
 
-      <ng-template #notFound>
-        <p>This verification code does not match any issued hospital birth certificate.</p>
-      </ng-template>
+    <!-- Status panel -->
+    <aside class="verify-panel" [class]="statusClass()">
+      <div class="verify-panel__icon" aria-hidden="true">
+        <svg *ngIf="statusClass() === 'is-valid'" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="11" fill="currentColor" opacity="0.15" />
+          <path
+            d="M7 12.5l3.2 3.2L17 8.8"
+            stroke="currentColor"
+            stroke-width="2.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <svg *ngIf="statusClass() !== 'is-valid'" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="11" fill="currentColor" opacity="0.15" />
+          <path
+            d="M8 8l8 8M16 8l-8 8"
+            stroke="currentColor"
+            stroke-width="2.4"
+            stroke-linecap="round"
+          />
+        </svg>
+      </div>
 
-      <footer class="verify-disclaimer">
-        {{ result.legalDisclaimer || 'This verification confirms authenticity of a hospital-issued birth record certificate only. It is not government civil registration.' }}
-      </footer>
-    </div>
+      <h2>{{ statusLabel() }}</h2>
+      <p class="verify-panel__summary">{{ statusSummary() }}</p>
+
+      <dl class="verify-panel__meta" *ngIf="result.found">
+        <div>
+          <dt>Certificate No.</dt>
+          <dd>{{ result.certificateNo || '—' }}</dd>
+        </div>
+        <div *ngIf="result.verificationDisplayCode">
+          <dt>Verification Code</dt>
+          <dd class="mono">{{ result.verificationDisplayCode }}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>
+            <span class="verify-chip" [class]="statusClass()">{{ stampShortLabel() }}</span>
+          </dd>
+        </div>
+        <div>
+          <dt>Verified On</dt>
+          <dd>{{ verifiedAt | date: 'dd MMM yyyy, h:mm a' }}</dd>
+        </div>
+        <div *ngIf="result.status === 'REVOKED' && result.revokedAt">
+          <dt>Revoked On</dt>
+          <dd>{{ result.revokedAt | date: 'medium' }}</dd>
+        </div>
+        <div *ngIf="result.status === 'SUPERSEDED' && result.latestCertificateNo">
+          <dt>Latest Certificate</dt>
+          <dd>{{ result.latestCertificateNo }} (v{{ result.latestVersion }})</dd>
+        </div>
+      </dl>
+
+      <p class="verify-panel__hint">
+        Scan the QR code on the printed certificate anytime to re-check authenticity on Hisaar360.
+      </p>
+
+      <button class="verify-panel__btn" type="button" (click)="verifyAnother()">
+        Verify Another Certificate
+      </button>
+    </aside>
   </div>
 </div>

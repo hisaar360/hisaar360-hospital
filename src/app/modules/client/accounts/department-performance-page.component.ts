@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
+import { finalize } from 'rxjs/operators';
 import { BackendService } from '../../../core/services/backend.service';
 import { buildAccountsReportDocumentHtml } from '../../../core/documents/accounts-report-document.builder';
 import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../core/utils/hms-document-context.util';
@@ -68,7 +68,7 @@ interface ReportDoctor {
 @Component({
   selector: 'app-department-performance-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, HmsDocumentToolbarComponent],
+  imports: [CommonModule, FormsModule, HmsDocumentToolbarComponent],
   templateUrl: './department-performance-page.component.html',
   styleUrl: './accounts-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -77,7 +77,7 @@ export class DepartmentPerformancePageComponent implements OnInit {
   loading = false;
   fromDate = '';
   toDate = '';
-  activeDatePreset: 'today' | 'week' | 'month' | 'year' | 'custom' = 'month';
+  activeDatePreset: 'today' | 'week' | 'month' | 'year' | 'custom' = 'week';
   selectedDepartmentId = '';
   selectedDoctorId = '';
   encounterType = '';
@@ -91,18 +91,6 @@ export class DepartmentPerformancePageComponent implements OnInit {
   transactions: TransactionRow[] = [];
   reportDoctors: ReportDoctor[] = [];
   selectedDepartment: DeptRow | null = null;
-
-  readonly accountsNav = [
-    { label: 'Dashboard', route: 'dashboard' },
-    { label: 'CoA', route: 'chart-of-accounts' },
-    { label: 'GL', route: 'general-ledger' },
-    { label: 'Collections', route: 'daily-collections' },
-    { label: 'Doctor Report', route: 'doctor-performance' },
-    { label: 'Department Report', route: 'department-performance' },
-    { label: 'Patient Profitability', route: 'patient-profitability' },
-    { label: 'Trial Balance', route: 'trial-balance' },
-    { label: 'P&L', route: 'profit-loss' },
-  ];
 
   readonly sourceTypes = ['', 'appointment', 'lab', 'pharmacy', 'bed', 'doctor', 'procedure', 'ward'];
   readonly encounterTypes = [
@@ -124,13 +112,9 @@ export class DepartmentPerformancePageComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.applyDatePreset('month', false);
+    this.applyDatePreset('week', false);
     this.loadReportDoctors();
     this.load();
-  }
-
-  isNavActive(route: string): boolean {
-    return route === 'department-performance';
   }
 
   applyDatePreset(preset: 'today' | 'week' | 'month' | 'year', reload = true): void {
@@ -186,7 +170,14 @@ export class DepartmentPerformancePageComponent implements OnInit {
     if (this.sourceType) params['sourceType'] = this.sourceType;
     if (this.paymentStatus) params['paymentStatus'] = this.paymentStatus;
 
-    this.backend.getDepartmentPerformance(params).subscribe({
+    this.backend.getDepartmentPerformance(params)
+      .pipe(
+        finalize(() => {
+          this.loading = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
       next: (result) => {
         const data = (result || {}) as Record<string, unknown>;
         this.kpis = (data['kpis'] || {}) as Record<string, number>;
@@ -194,12 +185,8 @@ export class DepartmentPerformancePageComponent implements OnInit {
         this.doctors = (Array.isArray(data['doctors']) ? data['doctors'] : []) as DoctorRow[];
         this.transactions = (Array.isArray(data['transactions']) ? data['transactions'] : []) as TransactionRow[];
         this.selectedDepartment = this.departments[0] || null;
-        this.loading = false;
-        this.cdr.markForCheck();
       },
       error: (error: { error?: { message?: string } }) => {
-        this.loading = false;
-        this.cdr.markForCheck();
         this.toastr.error(error?.error?.message || 'Unable to load department performance');
       },
     });

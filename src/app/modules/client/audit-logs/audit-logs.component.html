@@ -1,148 +1,252 @@
-<div id="main-content">
-  <div class="container-fluid audit-logs-page">
-    <div class="block-header">
-      <div class="row clearfix align-items-center">
-        <div class="col-lg-7 col-md-12 col-sm-12">
+<div id="main-content" class="adm-audit-logs-page">
+  <div class="container-fluid">
+    <div class="adm-page-header">
+      <div class="adm-page-header__copy">
+        <div class="audit-title-row">
           <h1>Audit Logs</h1>
-          <span>Record of sensitive hospital actions: bills, lab, prescriptions, appointments, discharge, and payments.</span>
+          <span class="scope-pill" *ngIf="canFilterByHospital">
+            <i class="fa fa-check-circle" aria-hidden="true"></i>
+            All hospitals
+          </span>
+          <span class="scope-pill" *ngIf="!canFilterByHospital">
+            <i class="fa fa-check-circle" aria-hidden="true"></i>
+            Hospital scoped
+          </span>
         </div>
-        <div class="col-lg-5 col-md-12 col-sm-12 text-lg-right">
-          <button type="button" class="btn btn-primary" (click)="loadLogs(page)" [disabled]="loading">
-            <i class="fa" [ngClass]="loading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
-            Refresh
-          </button>
+        <p>Track user activity, module changes, and critical actions across the hospital.</p>
+      </div>
+      <div class="adm-page-header__actions">
+        <button type="button" class="adm-btn-primary" (click)="loadLogs(page)" [disabled]="loading">
+          <i class="fa" [ngClass]="loading ? 'fa-spinner fa-spin' : 'fa-refresh'" aria-hidden="true"></i>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <div class="adm-kpi-row">
+      <article class="adm-kpi-card">
+        <div class="adm-kpi-card__icon tone-blue"><i class="fa fa-file-text-o" aria-hidden="true"></i></div>
+        <div class="adm-kpi-card__body">
+          <p class="label">Total Events</p>
+          <p class="value">{{ kpiTotalEvents | number }}</p>
+          <p class="hint">Matching filters</p>
+        </div>
+      </article>
+      <article class="adm-kpi-card">
+        <div class="adm-kpi-card__icon tone-teal"><i class="fa fa-line-chart" aria-hidden="true"></i></div>
+        <div class="adm-kpi-card__body">
+          <p class="label">Today's Events</p>
+          <p class="value">{{ kpiTodayEvents | number }}</p>
+          <p class="hint">On this page</p>
+        </div>
+      </article>
+      <article class="adm-kpi-card">
+        <div class="adm-kpi-card__icon tone-purple"><i class="fa fa-shield" aria-hidden="true"></i></div>
+        <div class="adm-kpi-card__body">
+          <p class="label">Critical Actions</p>
+          <p class="value">{{ kpiCriticalActions | number }}</p>
+          <p class="hint hint--attention" *ngIf="kpiCriticalActions > 0">Requires attention</p>
+          <p class="hint" *ngIf="kpiCriticalActions === 0">On this page</p>
+        </div>
+      </article>
+      <article class="adm-kpi-card">
+        <div class="adm-kpi-card__icon tone-navy"><i class="fa fa-users" aria-hidden="true"></i></div>
+        <div class="adm-kpi-card__body">
+          <p class="label">Unique Users</p>
+          <p class="value">{{ kpiUniqueUsers | number }}</p>
+          <p class="hint">On this page</p>
+        </div>
+      </article>
+    </div>
+
+    <div class="adm-filter-card audit-filter-card">
+      <button
+        type="button"
+        class="audit-filter-toggle adm-mobile-only"
+        (click)="toggleFilters()"
+        [attr.aria-expanded]="filtersOpen">
+        <span>
+          <strong>Filters</strong>
+          <small>Module, action, user, and date range</small>
+        </span>
+        <i class="fa" [ngClass]="filtersOpen ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
+      </button>
+
+      <div class="audit-filter-body" [class.is-open]="filtersOpen">
+        <div class="audit-filter-grid">
+          <label class="adm-filter-field" *ngIf="canFilterByHospital">
+            <span>Hospital</span>
+            <select class="form-control" [(ngModel)]="hospitalIdFilter">
+              <option value="">All hospitals</option>
+              <option *ngFor="let hospital of hospitals" [value]="hospital._id">{{ hospital.name }}</option>
+            </select>
+          </label>
+
+          <label class="adm-filter-field">
+            <span>Module</span>
+            <select class="form-control" [(ngModel)]="moduleFilter">
+              <option *ngFor="let option of moduleOptions" [value]="option.value">{{ option.label }}</option>
+            </select>
+          </label>
+
+          <label class="adm-filter-field">
+            <span>Action</span>
+            <select class="form-control" [(ngModel)]="actionFilter">
+              <option *ngFor="let option of actionOptions" [value]="option.value">{{ option.label }}</option>
+            </select>
+          </label>
+
+          <label class="adm-filter-field" *ngIf="canFilterByUser">
+            <span>User</span>
+            <select class="form-control" [(ngModel)]="userIdFilter">
+              <option value="">All users</option>
+              <option *ngFor="let user of users" [value]="user._id">{{ user.name }}</option>
+            </select>
+          </label>
+
+          <label class="adm-filter-field">
+            <span>From Date</span>
+            <input type="date" class="form-control" [(ngModel)]="fromDate" />
+          </label>
+
+          <label class="adm-filter-field">
+            <span>To Date</span>
+            <input type="date" class="form-control" [(ngModel)]="toDate" />
+          </label>
+
+          <div class="filter-actions">
+            <button type="button" class="adm-btn-navy" (click)="applyFilters()" [disabled]="loading">Apply</button>
+            <button type="button" class="adm-btn-ghost" (click)="resetFilters()" [disabled]="loading">Reset</button>
+            <button type="button" class="adm-btn-ghost" (click)="exportCsv()" [disabled]="loading || !logs.length">
+              <i class="fa fa-download" aria-hidden="true"></i>
+              Export
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="audit-filter-card">
-      <div class="audit-filter-head">
-        <div>
-          <h2>Filters</h2>
-          <p>Search the audit trail by module, action, user, and date range.</p>
-        </div>
-        <span class="permission-pill" *ngIf="canFilterByHospital">All hospitals</span>
-        <span class="permission-pill" *ngIf="!canFilterByHospital">Hospital scoped</span>
-      </div>
-
-      <div class="audit-filter-grid">
-        <label *ngIf="canFilterByHospital">
-          <span>Hospital</span>
-          <select class="form-control" [(ngModel)]="hospitalIdFilter">
-            <option value="">All hospitals</option>
-            <option *ngFor="let hospital of hospitals" [value]="hospital._id">{{ hospital.name }}</option>
-          </select>
-        </label>
-
-        <label>
-          <span>Module</span>
-          <select class="form-control" [(ngModel)]="moduleFilter">
-            <option *ngFor="let option of moduleOptions" [value]="option.value">{{ option.label }}</option>
-          </select>
-        </label>
-
-        <label>
-          <span>Action</span>
-          <select class="form-control" [(ngModel)]="actionFilter">
-            <option *ngFor="let option of actionOptions" [value]="option.value">{{ option.label }}</option>
-          </select>
-        </label>
-
-        <label *ngIf="canFilterByUser">
-          <span>User</span>
-          <select class="form-control" [(ngModel)]="userIdFilter">
-            <option value="">All users</option>
-            <option *ngFor="let user of users" [value]="user._id">{{ user.name }}</option>
-          </select>
-        </label>
-
-        <label>
-          <span>From Date</span>
-          <input type="date" class="form-control" [(ngModel)]="fromDate" />
-        </label>
-
-        <label>
-          <span>To Date</span>
-          <input type="date" class="form-control" [(ngModel)]="toDate" />
-        </label>
-
-        <div class="filter-actions">
-          <button type="button" class="btn btn-dark" (click)="applyFilters()" [disabled]="loading">Apply</button>
-          <button type="button" class="btn btn-default" (click)="resetFilters()" [disabled]="loading">Reset</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="card audit-table-card">
-      <div class="header">
+    <div class="adm-table-card">
+      <div class="adm-table-card__head">
         <h2>Activity Trail</h2>
         <span class="record-count">{{ logs.length }} records on this page</span>
       </div>
-      <div class="body">
-        <div class="table-responsive">
-          <table class="table table-hover table-custom spacing5">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th *ngIf="canFilterByHospital">Hospital</th>
-                <th>User</th>
-                <th>Module</th>
-                <th>Action</th>
-                <th>Summary</th>
-                <th style="text-align: center;">Actions</th>
-              </tr>
-            </thead>
 
-            <tbody *ngIf="!loading && logs.length > 0">
-              <tr *ngFor="let log of logs">
-                <td>
-                  <strong>{{ log.createdAt | date: 'mediumDate' }}</strong>
-                  <div class="text-muted small">{{ log.createdAt | date: 'shortTime' }}</div>
-                </td>
-                <td *ngIf="canFilterByHospital">{{ hospitalName(log) }}</td>
-                <td>
+      <div class="table-responsive adm-desktop-only">
+        <table class="adm-table audit-table">
+          <thead>
+            <tr>
+              <th>Date &amp; Time</th>
+              <th *ngIf="canFilterByHospital">Hospital</th>
+              <th>User</th>
+              <th>Module</th>
+              <th>Action</th>
+              <th>Summary</th>
+              <th style="text-align: center;">View</th>
+            </tr>
+          </thead>
+
+          <tbody *ngIf="!loading && logs.length > 0">
+            <tr *ngFor="let log of logs">
+              <td class="datetime-cell">
+                <strong>{{ log.createdAt | date: 'MMM d, y' }}</strong>
+                <span>{{ log.createdAt | date: 'hh:mm a' }}</span>
+              </td>
+              <td *ngIf="canFilterByHospital">{{ hospitalName(log) }}</td>
+              <td>
+                <div class="user-cell">
                   <strong>{{ userName(log) }}</strong>
-                  <div class="text-muted small" *ngIf="log.user?.email">{{ log.user?.email }}</div>
-                </td>
-                <td>
-                  <span class="badge badge-info module-badge">{{ moduleLabel(log.module) }}</span>
-                </td>
-                <td>
-                  <span class="badge action-badge" [ngClass]="actionBadgeClass(log.action)">
-                    {{ actionLabel(log.action) }}
-                  </span>
-                </td>
-                <td class="summary-cell">{{ log.summary || '—' }}</td>
-                <td style="text-align: center;">
-                  <i class="fa fa-eye action-icon" title="View detail" (click)="openDetail(log)"></i>
-                </td>
-              </tr>
-            </tbody>
+                  <span *ngIf="userEmail(log)">{{ userEmail(log) }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="module-chip">{{ moduleLabel(log.module) }}</span>
+              </td>
+              <td>
+                <span class="action-badge" [ngClass]="actionBadgeClass(log.action)">
+                  {{ actionLabel(log.action) }}
+                </span>
+              </td>
+              <td class="summary-cell">{{ log.summary || '—' }}</td>
+              <td style="text-align: center;">
+                <div class="adm-row-actions">
+                  <button type="button" title="View detail" (click)="openDetail(log)">
+                    <i class="fa fa-eye" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
 
-            <tbody *ngIf="loading">
-              <tr>
-                <td [attr.colspan]="canFilterByHospital ? 7 : 6" class="text-center py-4">
-                  <i class="fa fa-spinner fa-spin"></i> Loading audit logs...
-                </td>
-              </tr>
-            </tbody>
+          <tbody *ngIf="loading">
+            <tr>
+              <td [attr.colspan]="canFilterByHospital ? 7 : 6" class="adm-loading">
+                <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Loading audit logs...
+              </td>
+            </tr>
+          </tbody>
 
-            <tbody *ngIf="!loading && logs.length === 0">
-              <tr>
-                <td [attr.colspan]="canFilterByHospital ? 7 : 6" class="text-center py-4 text-muted">
-                  No audit logs found.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+          <tbody *ngIf="!loading && logs.length === 0">
+            <tr>
+              <td [attr.colspan]="canFilterByHospital ? 7 : 6" class="adm-empty">
+                No audit logs found.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-        <div class="audit-pagination" *ngIf="totalPages > 1 || page > 1">
-          <button type="button" class="btn btn-default btn-sm" [disabled]="page <= 1" (click)="goToPage(page - 1)">
+      <div class="audit-timeline adm-mobile-only" *ngIf="!loading && logs.length > 0">
+        <article class="timeline-card" *ngFor="let log of logs" (click)="openDetail(log)">
+          <div class="timeline-rail">
+            <span class="timeline-dot" [ngClass]="actionBadgeClass(log.action)"></span>
+          </div>
+          <div class="timeline-body">
+            <div class="timeline-top">
+              <time>{{ log.createdAt | date: 'MMM d, y · hh:mm a' }}</time>
+              <span class="module-chip">{{ moduleLabel(log.module) }}</span>
+            </div>
+            <p class="timeline-user">{{ userName(log) }}</p>
+            <span class="action-badge" [ngClass]="actionBadgeClass(log.action)">
+              {{ actionLabel(log.action) }}
+            </span>
+            <p class="timeline-summary">{{ log.summary || '—' }}</p>
+          </div>
+        </article>
+      </div>
+
+      <div class="adm-loading adm-mobile-only" *ngIf="loading">
+        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Loading audit logs...
+      </div>
+      <div class="adm-empty adm-mobile-only" *ngIf="!loading && logs.length === 0">
+        No audit logs found.
+      </div>
+
+      <div class="adm-pagination" *ngIf="totalPages > 1 || page > 1">
+        <div class="adm-pagination__info">Page {{ page }} of {{ totalPages }}</div>
+        <div class="adm-pagination__controls">
+          <button
+            type="button"
+            class="adm-pagination__btn"
+            [disabled]="page <= 1"
+            (click)="goToPage(page - 1)">
             Previous
           </button>
-          <span>Page {{ page }} of {{ totalPages }}</span>
-          <button type="button" class="btn btn-default btn-sm" [disabled]="page >= totalPages" (click)="goToPage(page + 1)">
+          <ng-container *ngFor="let pageNum of pageNumbers; let i = index">
+            <span class="page-ellipsis" *ngIf="showPageEllipsis(i)">…</span>
+            <button
+              type="button"
+              class="adm-pagination__btn"
+              [class.is-active]="pageNum === page"
+              (click)="goToPage(pageNum)">
+              {{ pageNum }}
+            </button>
+          </ng-container>
+          <button
+            type="button"
+            class="adm-pagination__btn"
+            [disabled]="page >= totalPages"
+            (click)="goToPage(page + 1)">
             Next
           </button>
         </div>
@@ -163,7 +267,7 @@
 
     <div class="audit-modal-body" *ngIf="detailLoading">
       <div class="text-center text-muted py-4">
-        <i class="fa fa-spinner fa-spin"></i> Loading detail...
+        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Loading detail...
       </div>
     </div>
 
@@ -216,7 +320,7 @@
     </div>
 
     <div class="audit-modal-footer">
-      <button type="button" class="btn btn-default" (click)="closeDetail()">Close</button>
+      <button type="button" class="adm-btn-ghost" (click)="closeDetail()">Close</button>
     </div>
   </div>
 </div>

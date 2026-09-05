@@ -1,1 +1,134 @@
-@use '../../pharmacy-shared.scss';
+@use '../payments-theme' as *;
+
+:host {
+  display: block;
+}
+
+.add-payments-page {
+  @include pay-page-vars;
+  padding-bottom: 88px;
+  @include pay-shared-styles;
+
+  @media (min-width: 992px) {
+    padding-bottom: 24px;
+  }
+
+  .patient-meta-line {
+    color: var(--pay-muted);
+    font-size: 13px;
+    margin: 12px 0 0;
+  }
+
+  .qty-stepper {
+    align-items: center;
+    display: inline-flex;
+    gap: 4px;
+
+    button {
+      background: #f8fafc;
+      border: 1px solid var(--pay-border);
+      border-radius: 6px;
+      height: 34px;
+      width: 34px;
+    }
+
+    input {
+      text-align: center;
+      width: 64px;
+    }
+  }
+
+  .btn-icon-danger {
+    background: transparent;
+    border: 0;
+    color: #dc2626;
+    font-size: 16px;
+    padding: 4px 8px;
+
+    &:disabled {
+      opacity: 0.4;
+    }
+  }
+
+  .add-item-btn {
+    @include pay-btn-outline;
+    border-style: dashed;
+    margin-top: 12px;
+    width: 100%;
+  }
+
+  .bill-item-card {
+    @include pay-card;
+    padding: 12px;
+
+    &__row {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+  }
+
+  .invoice-summary-card {
+    @include pay-card;
+    height: fit-content;
+    padding: 18px;
+    position: sticky;
+    top: 16px;
+
+    h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 0 0 14px;
+    }
+  }
+
+  .invoice-summary-row {
+    align-items: center;
+    display: flex;
+    font-size: 14px;
+    justify-content: space-between;
+    padding: 8px 0;
+
+    &.is-discount strong {
+      color: var(--pay-teal);
+    }
+
+    &.is-total {
+      border-top: 1px solid var(--pay-border);
+      font-weight: 700;
+      margin-top: 4px;
+      padding-top: 12px;
+    }
+
+    &.is-due {
+      background: #fef2f2;
+      border-radius: 8px;
+      color: #991b1b;
+      font-weight: 700;
+      margin-top: 8px;
+      padding: 10px 12px;
+    }
+  }
+
+  .form-footer {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding: 8px 0 16px;
+
+    &__right {
+      display: flex;
+      gap: 8px;
+    }
+  }
+
+  .mb-2 {
+    margin-bottom: 8px;
+  }
+
+  .fw-semibold {
+    font-weight: 700;
+  }
+}

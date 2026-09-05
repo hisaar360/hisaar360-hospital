@@ -2,6 +2,52 @@
 @use "app/shared/styles/hms-design-system";
 @use "app/modules/client/prescription/prescription-print";
 
+/* Ensure every actionable control shows a pointer (disabled → not-allowed). */
+button:not(:disabled):not([disabled]),
+input[type='button']:not(:disabled):not([disabled]),
+input[type='submit']:not(:disabled):not([disabled]),
+input[type='reset']:not(:disabled):not([disabled]),
+.btn:not(:disabled):not(.disabled):not([disabled]),
+.hms-btn:not(:disabled):not([disabled]),
+.hms-btn-primary:not(:disabled):not([disabled]),
+.hms-btn-secondary:not(:disabled):not([disabled]),
+.hms-btn-danger:not(:disabled):not([disabled]),
+.hms-btn-sm:not(:disabled):not([disabled]),
+.pay-btn-primary:not(:disabled):not([disabled]),
+.pay-btn-outline:not(:disabled):not([disabled]),
+.pay-btn-ghost:not(:disabled):not([disabled]),
+.pay-tab:not(:disabled),
+.pay-chip:not(:disabled),
+.accounts-nav-tab,
+.accounts-shortcut,
+.mat-mdc-button:not(:disabled),
+.mat-mdc-outlined-button:not(:disabled),
+.mat-mdc-unelevated-button:not(:disabled),
+.mat-mdc-raised-button:not(:disabled),
+.mat-mdc-icon-button:not(:disabled),
+[role='button']:not([aria-disabled='true']):not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+button[disabled],
+input[type='button']:disabled,
+input[type='submit']:disabled,
+input[type='reset']:disabled,
+.btn:disabled,
+.btn.disabled,
+.btn[disabled],
+.hms-btn:disabled,
+.hms-btn[disabled],
+.pay-btn-primary:disabled,
+.pay-btn-outline:disabled,
+.pay-btn-ghost:disabled,
+.mat-mdc-button:disabled,
+.mat-mdc-icon-button:disabled,
+[role='button'][aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
 html,
 body {
   height: auto;
@@ -2246,11 +2292,13 @@ body {
   -ms-transition: all 0.3s ease-in-out;
   -o-transition: all 0.3s ease-in-out;
   transition: all 0.3s ease-in-out;
-  width: calc(100% - 270px);
-  float: right;
+  /* Offset comes from .layout-main (sidebar shell); avoid double inset */
+  width: 100%;
+  float: none;
   position: relative;
-  margin-top: 75px;
+  margin-top: 0;
   padding: 0 20px;
+  box-sizing: border-box;
 }
 @media screen and (max-width: 1280px) {
   #main-content {
@@ -2394,7 +2442,7 @@ html.fullscreen-bg #wrapper {
   right: 15px;
 }
 .toggle_menu_active #main-content {
-  width: calc(100% - 75px);
+  width: 100%;
 }
 .vertical-align-wrap {
   position: absolute;
@@ -3027,40 +3075,62 @@ html.fullscreen-bg #wrapper {
 .user-account .dropdown {
   display: inline-block;
   vertical-align: middle;
-  vertical-align: auto;
-  zoom: 1;
-  display: inline;
+  position: relative;
 }
 .user-account .dropdown .dropdown-menu {
-  border-radius: 0.55rem;
-  border: none;
-  left: auto !important;
-  box-shadow: 0px 2px 20px 0px var(--box-shadow);
-  padding: 15px;
-  width: 100%;
-  top: 50px !important;
-  right: 0;
+  background: #fff;
+  border: 1px solid rgba(23, 25, 28, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+  display: none;
+  left: 0 !important;
+  list-style: none;
+  margin: 6px 0 0;
+  min-width: 200px;
+  padding: 8px;
+  position: absolute;
+  right: auto;
+  top: calc(100% + 4px) !important;
+  width: auto;
+  z-index: 1050;
+}
+.user-account .dropdown .dropdown-menu.ShowDiv {
+  display: block !important;
+}
+.user-account .dropdown .dropdown-menu > li {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 .user-account .dropdown .dropdown-menu li.divider {
   border-bottom: 1px solid var(--border-color);
-  margin: 10px 0;
+  margin: 6px 4px;
+  padding: 0;
 }
 .user-account .dropdown .dropdown-menu a {
-  display: block;
-  zoom: 1;
-  display: block;
-  font-size: 15px;
+  align-items: center;
+  border-radius: 8px;
   color: var(--font-777);
-  padding: 10px;
+  display: flex;
+  font-size: 14px;
+  gap: 10px;
+  padding: 10px 12px;
+  text-decoration: none;
 }
 .user-account .dropdown .dropdown-menu a:hover {
+  background: rgba(1, 156, 157, 0.08);
   color: var(--font-333);
 }
 .user-account .dropdown .dropdown-menu a:hover i {
-  color: var(--font-333);
+  color: var(--primary-color);
 }
 .user-account .dropdown .dropdown-menu a i {
-  font-size: 15px;
+  color: #6b7280;
+  flex: 0 0 16px;
+  font-size: 14px;
+  margin-right: 0;
+  text-align: center;
+  width: 16px;
 }
 .sidebar-nav {
   padding: 0 10px;

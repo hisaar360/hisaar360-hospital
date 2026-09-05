@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import {
   FormBuilder,
   FormGroup,
@@ -12,6 +12,9 @@ import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { AppDialogService } from '../../../core/services/app-dialog.service';
 import { BackendService } from '../../../core/services/backend.service';
+import { LoadingService } from '../../../core/services/loading.service';
+import { compressImageFileToDataUrl } from '../../../core/utils/image-compress.util';
+import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import { readStoredHospitalId } from '../../auth/hospital-scope';
 import {
   BirthCertificateSettings,
@@ -78,6 +81,9 @@ const WARD_CARE_LEVELS = ['general', 'observation', 'private', 'hdu', 'icu', 'is
   styleUrl: './hospital-setup.component.scss',
 })
 export class HospitalSetupComponent implements OnInit {
+  @ViewChild('sealFileInput') sealFileInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('signatureFileInput') signatureFileInput?: ElementRef<HTMLInputElement>;
+
   loading = false;
   syncing = false;
   activeTab: SetupTab = 'departments';
@@ -113,13 +119,15 @@ export class HospitalSetupComponent implements OnInit {
       'This document certifies the birth recorded by the issuing hospital. Civil birth registration and government-issued birth documentation must be obtained from the competent civil registration authority.',
     showBirthWeight: true,
     showQrCode: true,
-    verificationBaseUrl: 'https://www.hisaar360.com/verify/birth',
+    // Local blank → localhost:4200; production blank → hisaar360.com
+    verificationBaseUrl: '',
   };
   savingBirthSettings = false;
+  uploadingBirthImage: '' | 'stamp' | 'signature' = '';
   birthAccordion: Record<string, boolean> = {
     basic: true,
-    branding: false,
-    signatory: false,
+    branding: true,
+    signatory: true,
     qr: false,
     privacy: false,
     display: false,
@@ -136,7 +144,9 @@ export class HospitalSetupComponent implements OnInit {
     private backend: BackendService,
     private toastr: ToastrService,
     private dialog: AppDialogService,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    private cdr: ChangeDetectorRef,
+    private loadingService: LoadingService
   ) {
     this.departmentForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
@@ -180,6 +190,14 @@ export class HospitalSetupComponent implements OnInit {
     return this.can('ward.create') || this.can('ward.update') || this.can('*');
   }
 
+  get defaultVerificationBaseUrlHint(): string {
+    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    if (/^(localhost|127\.0\.0\.1)$/i.test(host)) {
+      return 'http://localhost:4200/verify/birth';
+    }
+    return 'https://hisaar360.com/verify/birth';
+  }
+
   setTab(tab: SetupTab): void {
     this.activeTab = tab;
     this.showMoreMenu = false;
@@ -214,7 +232,7 @@ export class HospitalSetupComponent implements OnInit {
       return;
     }
 
-    this.backend.getDoctors({ limit: 500, page: 1 }).subscribe({
+    this.backend.getDoctors({ limit: 100, page: 1 }).subscribe({
       next: (result) => {
         const counts: Record<string, number> = {};
         for (const doctor of result.items || []) {
@@ -535,18 +553,167 @@ export class HospitalSetupComponent implements OnInit {
       return;
     }
     this.savingBirthSettings = true;
+    const host =
+      typeof window !== 'undefined' ? window.location.hostname : '';
+    const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(host);
+    const verificationBaseUrl =
+      String(this.birthSettings.verificationBaseUrl || '').trim() ||
+      (isLocalHost
+        ? 'http://localhost:4200/verify/birth'
+        : 'https://hisaar360.com/verify/birth');
+    const payload = {
+      ...this.birthSettings,
+      verificationBaseUrl,
+    };
     this.backend
-      .updateHospital(this.hospitalId, { birthCertificateSettings: this.birthSettings })
+      .updateHospital(this.hospitalId, { birthCertificateSettings: payload })
       .pipe(finalize(() => (this.savingBirthSettings = false)))
       .subscribe({
-        next: () => this.toastr.success('Birth certificate settings saved.'),
-        error: () => this.toastr.error('Unable to save birth certificate settings.'),
+        next: (response) => {
+          const hospital = response?.data;
+          if (hospital?.birthCertificateSettings) {
+            this.birthSettings = {
+              ...this.birthSettings,
+              ...hospital.birthCertificateSettings,
+            };
+          } else {
+            this.birthSettings = { ...this.birthSettings, verificationBaseUrl };
+          }
+          this.toastr.success('Birth certificate settings saved.');
+        },
+        error: (err) => {
+          const message =
+            err?.error?.message ||
+            err?.error?.error ||
+            (Array.isArray(err?.error?.errors) ? err.error.errors[0]?.message : '') ||
+            'Unable to save birth certificate settings.';
+          this.toastr.error(String(message));
+        },
       });
+  }
+
+  onBirthSignatureSelected(event: Event): void {
+    void this.readBirthImageFile(event, 'signatureUrl', 'signature');
+  }
+
+  onBirthStampSelected(event: Event): void {
+    void this.readBirthImageFile(event, 'stampUrl', 'stamp');
+  }
+
+  openSealFilePicker(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.openBirthFilePicker(this.sealFileInput?.nativeElement);
+  }
+
+  openSignatureFilePicker(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.openBirthFilePicker(this.signatureFileInput?.nativeElement);
+  }
+
+  clearBirthSignature(): void {
+    this.birthSettings = {
+      ...this.birthSettings,
+      signatureUrl: '',
+    };
+  }
+
+  clearBirthStamp(): void {
+    this.birthSettings = {
+      ...this.birthSettings,
+      stampUrl: '',
+    };
+  }
+
+  private openBirthFilePicker(input?: HTMLInputElement | null): void {
+    if (!input || this.uploadingBirthImage) {
+      return;
+    }
+    // Clear any leftover full-screen overlay that blocks OS file dialogs.
+    this.loadingService.reset();
+    document.querySelector('.overlay')?.classList.remove('open');
+    document.body.classList.remove('offcanvas-active');
+
+    input.value = '';
+    const picker = (input as HTMLInputElement & { showPicker?: () => void }).showPicker;
+    if (typeof picker === 'function') {
+      try {
+        picker.call(input);
+        return;
+      } catch {
+        // Fall through to click() for older browsers / security restrictions.
+      }
+    }
+    input.click();
+  }
+
+  private async readBirthImageFile(
+    event: Event,
+    field: 'signatureUrl' | 'stampUrl',
+    label: 'signature' | 'stamp'
+  ): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] || null;
+    input.value = '';
+    if (!file) return;
+    await this.applyBirthImageFile(file, field, label);
+  }
+
+  private async applyBirthImageFile(
+    file: File,
+    field: 'signatureUrl' | 'stampUrl',
+    label: 'signature' | 'stamp'
+  ): Promise<void> {
+    const name = String(file.name || '').toLowerCase();
+    const type = String(file.type || '').toLowerCase();
+    const extOk = /\.(png|jpe?g|webp)$/i.test(name);
+    const typeOk = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(type);
+    if (!typeOk && !extOk) {
+      this.toastr.error('Only PNG, JPG, or WEBP images are allowed.');
+      return;
+    }
+    if (file.size > 8_000_000) {
+      this.toastr.error(`${label === 'stamp' ? 'Seal' : 'Signature'} image must be under 8 MB.`);
+      return;
+    }
+
+    this.uploadingBirthImage = label;
+    this.cdr.detectChanges();
+    try {
+      const dataUrl = await compressImageFileToDataUrl(file, {
+        maxEdge: label === 'stamp' ? 512 : 640,
+        maxDataUrlChars: 750_000,
+        mimeType: 'image/png',
+      });
+      this.birthSettings = {
+        ...this.birthSettings,
+        [field]: dataUrl,
+      };
+      this.cdr.detectChanges();
+      this.toastr.success(
+        `${label === 'stamp' ? 'Hospital seal' : 'Signature'} ready — click Save Birth Certificate Settings.`
+      );
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : '';
+      this.toastr.error(
+        detail
+          ? `Unable to read ${label === 'stamp' ? 'seal' : 'signature'} image: ${detail}`
+          : `Unable to read ${label === 'stamp' ? 'seal' : 'signature'} image.`
+      );
+    } finally {
+      this.uploadingBirthImage = '';
+      this.cdr.detectChanges();
+    }
   }
 
   formatLabel(value: string): string {
     return String(value || '')
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  assetUrl(url: string | null | undefined): string {
+    return resolveAssetUrl(url);
   }
 }

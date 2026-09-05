@@ -12,9 +12,15 @@
       <span *ngIf="!hasImage">{{ initials }}</span>
     </button>
     <div class="profile-photo-field__actions">
-      <label class="btn btn-default btn-sm mb-0" [class.disabled]="disabled || uploading">
-        {{ selectedFile || currentUrl ? 'Replace' : 'Choose Image' }}
-        <input type="file" [accept]="accept" (change)="onFileInput($event)" [disabled]="disabled || uploading" hidden />
+      <label class="btn btn-default btn-sm mb-0 profile-photo-field__upload" [class.disabled]="disabled || uploading">
+        {{ selectedFile || currentUrl ? replaceLabel : uploadLabel }}
+        <input
+          type="file"
+          class="profile-photo-field__file"
+          [accept]="accept"
+          (change)="onFileInput($event)"
+          [disabled]="disabled || uploading"
+        />
       </label>
       <button
         type="button"

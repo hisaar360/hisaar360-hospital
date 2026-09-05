@@ -57,13 +57,14 @@
 
 .birth-modal-backdrop {
   align-items: center;
-  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(1.5px);
+  background: rgba(31, 43, 61, 0.54);
   display: flex;
   inset: 0;
   justify-content: center;
   padding: 16px;
   position: fixed;
-  z-index: 100030;
+  z-index: 100020;
 }
 
 .birth-modal {
@@ -75,6 +76,27 @@
 
 .birth-modal--wide {
   max-width: 980px;
+}
+
+.birth-modal--loading {
+  max-width: 320px;
+  padding: 28px 20px;
+}
+
+.birth-cert-loading {
+  align-items: center;
+  color: var(--ward-text, #0f172a);
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 12px;
+  justify-content: center;
+
+  .fa {
+    color: var(--primary-color, #019c9d);
+    font-size: 28px;
+  }
 }
 
 .birth-modal__body {
@@ -183,6 +205,442 @@
   padding: 10px;
 }
 
+// Birth record certificate summary ------------------------------------------------
+.birth-record-view-backdrop {
+  padding: 22px;
+}
+
+.birth-record-view {
+  --record-ink: #14213a;
+  --record-muted: #5e6f89;
+  --record-teal: #07969a;
+  background: #fff;
+  border: 1px solid rgba(218, 226, 236, 0.9);
+  border-radius: 13px;
+  box-shadow: 0 28px 75px rgba(15, 29, 48, 0.28);
+  color: var(--record-ink);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  max-height: min(90vh, 820px);
+  max-width: 1060px;
+  overflow: hidden;
+  position: relative;
+  width: min(94vw, 1060px);
+}
+
+.birth-record-view__close {
+  align-items: center;
+  background: #f3f6fa;
+  border: 0;
+  border-radius: 50%;
+  color: #5f7089;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 17px;
+  height: 38px;
+  justify-content: center;
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  transition: background 0.15s ease, color 0.15s ease;
+  width: 38px;
+  z-index: 4;
+
+  &:hover {
+    background: #e7edf4;
+    color: var(--record-ink);
+  }
+}
+
+.birth-record-view__header {
+  align-items: center;
+  display: flex;
+  gap: 22px;
+  justify-content: space-between;
+  min-height: 136px;
+  padding: 26px 32px 18px;
+}
+
+.birth-record-view__identity {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  min-width: 0;
+}
+
+.birth-record-view__hero-icon {
+  align-items: center;
+  background: linear-gradient(145deg, #e5f8f8, #edf9fa);
+  border-radius: 14px;
+  color: #008f94;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 31px;
+  height: 76px;
+  justify-content: center;
+  width: 76px;
+}
+
+.birth-record-view__heading {
+  min-width: 0;
+}
+
+.birth-record-view__title-line {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.birth-record-view__title-line h3 {
+  color: var(--record-ink);
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.birth-record-view__heading p {
+  color: var(--record-muted);
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+.birth-record-view__status {
+  align-items: center;
+  background: #e5f7f6;
+  border-radius: 999px;
+  color: #05888c;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  gap: 7px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  padding: 7px 12px;
+  text-transform: uppercase;
+}
+
+.birth-record-view__status .fa,
+.birth-record-card-panel__state .fa {
+  color: #08a486;
+  font-size: 9px;
+}
+
+.birth-record-view__status.is-inactive {
+  background: #fff0f0;
+  color: #b74747;
+}
+
+.birth-record-view__status.is-inactive .fa {
+  color: #d45b5b;
+}
+
+.birth-record-view__header-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 12px;
+  padding-right: 0;
+}
+
+.birth-record-view__button {
+  align-items: center;
+  border-radius: 9px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 20px;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.birth-record-view__button--outline {
+  background: #fff;
+  border: 1px solid #bfcbda;
+  color: var(--record-ink);
+
+  &:hover {
+    background: #f8fafc;
+    border-color: #9eacbe;
+  }
+}
+
+.birth-record-view__button--primary {
+  background: linear-gradient(135deg, #07979c, #008a90);
+  border: 1px solid #078c91;
+  box-shadow: 0 5px 13px rgba(3, 145, 150, 0.18);
+  color: #fff;
+
+  &:hover {
+    background: linear-gradient(135deg, #078e93, #007c82);
+  }
+}
+
+.birth-record-view__actions-menu {
+  position: relative;
+}
+
+.birth-record-view__dropdown {
+  background: #fff;
+  border: 1px solid #dbe3ec;
+  border-radius: 10px;
+  box-shadow: 0 14px 34px rgba(15, 29, 48, 0.16);
+  display: grid;
+  min-width: 185px;
+  overflow: hidden;
+  padding: 5px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 7px);
+  z-index: 6;
+}
+
+.birth-record-view__dropdown button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: var(--record-ink);
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  gap: 9px;
+  min-height: 36px;
+  padding: 0 10px;
+  text-align: left;
+
+  &:hover {
+    background: #f1f7f8;
+    color: #087f84;
+  }
+}
+
+.birth-record-view__tabs {
+  border-bottom: 1px solid #dfe7ef;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  min-height: 54px;
+  padding: 0 22px;
+}
+
+.birth-record-view__tabs button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: #40516e;
+  cursor: default;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: -1px;
+  min-height: 54px;
+  padding: 0 10px;
+}
+
+.birth-record-view__tabs button .fa {
+  color: #426088;
+  font-size: 16px;
+}
+
+.birth-record-view__tabs button.is-active {
+  border-bottom-color: var(--record-teal);
+  color: #087f84;
+}
+
+.birth-record-view__tabs button.is-active .fa {
+  color: var(--record-teal);
+}
+
+.birth-record-view__body {
+  display: grid;
+  gap: 14px;
+  overflow: auto;
+  padding: 22px;
+}
+
+.birth-record-view__primary-grid,
+.birth-record-view__secondary-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.birth-record-view__primary-grid {
+  grid-template-columns: 1.08fr 1.08fr 0.96fr;
+}
+
+.birth-record-view__secondary-grid {
+  grid-template-columns: 1.72fr 1fr;
+}
+
+.birth-record-card-panel {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  min-width: 0;
+  padding: 15px 20px 18px;
+}
+
+.birth-record-card-panel--child {
+  background: linear-gradient(135deg, #f3fcfc, #edfafa);
+  border-color: #e7f7f6;
+}
+
+.birth-record-card-panel--mother {
+  background: linear-gradient(135deg, #fff8fb, #fff1f7);
+  border-color: #faeaf2;
+}
+
+.birth-record-card-panel--verification,
+.birth-record-card-panel--audit {
+  background: linear-gradient(135deg, #f6faff, #eef6ff);
+  border-color: #e8f1fc;
+}
+
+.birth-record-card-panel--certificate {
+  background: linear-gradient(135deg, #f8fbff, #f4f8fd);
+  border-color: #edf2f7;
+}
+
+.birth-record-card-panel header {
+  align-items: center;
+  display: flex;
+  gap: 13px;
+  margin-bottom: 12px;
+}
+
+.birth-record-card-panel header h4 {
+  color: var(--record-ink);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.birth-record-card-panel__icon {
+  align-items: center;
+  background: #d9f5f4;
+  border-radius: 10px;
+  color: #008f94;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 18px;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.birth-record-card-panel--mother .birth-record-card-panel__icon {
+  background: #ffe3ee;
+  color: #c2265d;
+}
+
+.birth-record-card-panel--verification .birth-record-card-panel__icon,
+.birth-record-card-panel--certificate .birth-record-card-panel__icon,
+.birth-record-card-panel--audit .birth-record-card-panel__icon {
+  background: #dcecff;
+  color: #0872d1;
+}
+
+.birth-record-card-panel__details,
+.birth-record-card-panel__audit-list {
+  display: grid;
+  gap: 13px;
+  margin: 0;
+}
+
+.birth-record-card-panel__details--child {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.birth-record-card-panel__details--certificate {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.birth-record-card-panel__details div,
+.birth-record-card-panel__audit-list div {
+  min-width: 0;
+}
+
+.birth-record-card-panel__wide {
+  grid-column: 1 / -1;
+}
+
+.birth-record-card-panel dt,
+.birth-record-card-panel dd {
+  line-height: 1.35;
+  margin: 0;
+}
+
+.birth-record-card-panel dt {
+  color: #60708a;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+
+.birth-record-card-panel dd {
+  color: #263650;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.birth-record-card-panel__state,
+.birth-record-card-panel__certificate-state {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.birth-record-card-panel__certificate-state .fa {
+  color: #687890;
+  font-size: 10px;
+}
+
+.birth-record-card-panel__audit-list {
+  gap: 9px;
+}
+
+.birth-record-card-panel__audit-list div {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 112px minmax(0, 1fr);
+}
+
+.birth-record-view__footer {
+  align-items: center;
+  background: #fbfcfe;
+  border-top: 1px solid #e2e9f0;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  min-height: 70px;
+  padding: 12px 22px;
+}
+
+.birth-record-view__footer .birth-record-view__button {
+  min-width: 78px;
+}
+
+:host ::ng-deep .birth-record-view__footer .hms-doc-toolbar {
+  gap: 10px;
+}
+
+:host ::ng-deep .birth-record-view__footer .hms-doc-toolbar .hms-btn {
+  border-color: #6fc4c7;
+  border-radius: 9px;
+  color: #07888d;
+  min-height: 42px;
+  min-width: 90px;
+  padding: 0 18px;
+}
+
 .birth-skeleton-kpi,
 .birth-skeleton-row {
   animation: birth-pulse 1.4s ease-in-out infinite;
@@ -231,4 +689,131 @@
   .mobile-only { display: block; }
   .birth-modal__grid,
   .birth-cert-grid { grid-template-columns: 1fr; }
+
+  .birth-record-view {
+    max-height: 94vh;
+    width: min(96vw, 720px);
+  }
+
+  .birth-record-view__header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 22px 58px 16px 22px;
+  }
+
+  .birth-record-view__header-actions {
+    padding-left: 94px;
+  }
+
+  .birth-record-view__primary-grid,
+  .birth-record-view__secondary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .birth-record-card-panel__details--certificate {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .birth-record-view-backdrop {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .birth-record-view {
+    border: 0;
+    border-radius: 0;
+    max-height: 100vh;
+    width: 100vw;
+  }
+
+  .birth-record-view__header {
+    gap: 14px;
+    min-height: auto;
+    padding: 18px 52px 14px 16px;
+  }
+
+  .birth-record-view__identity {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .birth-record-view__hero-icon {
+    border-radius: 11px;
+    font-size: 24px;
+    height: 54px;
+    width: 54px;
+  }
+
+  .birth-record-view__title-line {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .birth-record-view__title-line h3 {
+    font-size: 17px;
+  }
+
+  .birth-record-view__heading p {
+    font-size: 11px;
+    line-height: 1.45;
+    margin-top: 6px;
+  }
+
+  .birth-record-view__header-actions {
+    padding-left: 66px;
+  }
+
+  .birth-record-view__button {
+    min-height: 38px;
+    padding: 0 14px;
+  }
+
+  .birth-record-view__tabs {
+    display: flex;
+    overflow-x: auto;
+    padding: 0 10px;
+  }
+
+  .birth-record-view__tabs button {
+    flex: 0 0 auto;
+    font-size: 12px;
+    min-height: 48px;
+    padding: 0 13px;
+  }
+
+  .birth-record-view__body {
+    padding: 14px;
+  }
+
+  .birth-record-card-panel {
+    padding: 14px;
+  }
+
+  .birth-record-card-panel__details--certificate {
+    grid-template-columns: 1fr;
+  }
+
+  .birth-record-card-panel__audit-list div {
+    grid-template-columns: 92px minmax(0, 1fr);
+  }
+
+  .birth-record-view__footer {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 12px 14px;
+  }
+
+  :host ::ng-deep .birth-record-view__footer .hms-doc-toolbar {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  :host ::ng-deep .birth-record-view__footer .hms-doc-toolbar .hms-btn {
+    min-width: 0;
+    padding: 0 10px;
+  }
 }

@@ -1,1 +1,81 @@
-@use '../../pharmacy-shared.scss';
+@use '../payments-theme' as *;
+
+:host {
+  display: block;
+}
+
+.invoices-page {
+  @include pay-page-vars;
+  padding-bottom: 24px;
+  @include pay-shared-styles;
+
+  .create-mobile {
+    margin-bottom: 14px;
+    width: 100%;
+  }
+
+  .filters-toggle {
+    align-items: center;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .pay-kpi-row {
+    margin-bottom: 20px;
+  }
+
+  .pay-filter-card {
+    margin-bottom: 20px;
+  }
+
+  .register-head {
+    margin-bottom: 14px;
+  }
+
+  .pay-btn-sm {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .ml-1 {
+    margin-left: 6px;
+  }
+
+  .amount-cell {
+    min-width: 88px;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    white-space: nowrap;
+  }
+
+  .invoice-card-meta {
+    color: var(--pay-muted);
+    display: flex;
+    font-size: 12px;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .fw-semibold {
+    font-weight: 700;
+  }
+
+  .pay-status-pill.status-partial {
+    background: var(--pay-partial-bg);
+    color: var(--pay-partial-fg);
+  }
+
+  .pay-filter-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(140px, 0.8fr) minmax(180px, 1.2fr) auto;
+
+    @media (max-width: 1199px) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @media (max-width: 575px) {
+      grid-template-columns: 1fr;
+    }
+  }
+}

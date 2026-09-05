@@ -49,6 +49,8 @@ describe('help-role-workflows.util', () => {
     const accountantWorkflow = resolveRoleWorkflow('accountant', allFlags);
     expect(accountantWorkflow.title).toBe('Accounts Workflow');
     expect(workflowContainsLabel(accountantWorkflow, 'Trial Balance')).toBeTrue();
+    expect(workflowContainsLabel(accountantWorkflow, 'Accounts Rules')).toBeTrue();
+    expect(workflowContainsLabel(accountantWorkflow, 'Reconciliation')).toBeTrue();
     expect(workflowContainsLabel(accountantWorkflow, 'Doctor Consultation')).toBeFalse();
   });
 
@@ -78,6 +80,7 @@ describe('help-role-workflows.util', () => {
     const ownerWorkflow = resolveRoleWorkflow('owner', allFlags);
     expect(ownerWorkflow.title).toBe('Owner / Admin Workflow');
     expect(workflowContainsLabel(ownerWorkflow, 'Hospital Setup')).toBeTrue();
+    expect(workflowContainsLabel(ownerWorkflow, 'Birth Cert Setup')).toBeTrue();
     expect(workflowContainsLabel(ownerWorkflow, 'Users & Roles')).toBeTrue();
   });
 
@@ -121,6 +124,11 @@ describe('help-role-workflows.util', () => {
     const doctorWorkflow = resolveRoleWorkflow('doctor', { ...allFlags, laboratory: false, ward: false });
     expect(workflowContainsLabel(doctorWorkflow, 'Open Admitted Patient')).toBeFalse();
     expect(workflowContainsLabel(doctorWorkflow, 'Recommend Admission')).toBeTrue();
+  });
+
+  it('hides accounts rules workflow when accounts module flag is off', () => {
+    const accountantWorkflow = resolveRoleWorkflow('accountant', { ...allFlags, accounts: false });
+    expect(workflowContainsLabel(accountantWorkflow, 'Accounts Rules')).toBeFalse();
   });
 });
 
