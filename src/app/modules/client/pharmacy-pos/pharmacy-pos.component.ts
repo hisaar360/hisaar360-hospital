@@ -256,6 +256,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   scanResolving = false;
   showSearchDropdown = false;
   tutorialActive = false;
+  tutorialOffer = false;
   tutorialStep = 0;
   tutorialRect: { top: number; left: number; width: number; height: number } | null = null;
   tutorialCardStyle: Record<string, string> = {};
@@ -413,20 +414,19 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       }
 
       if (params.get('tutorial') === '1') {
+        this.tutorialOffer = false;
         setTimeout(() => this.startTutorial(), 350);
+        return;
+      }
+
+      // First visit only: offer popup (do not force-start every time).
+      if (typeof localStorage !== 'undefined' && !localStorage.getItem(POS_TUTORIAL_STORAGE)) {
+        this.tutorialOffer = true;
       }
     });
 
     this.refreshCurrentUser();
     void this.syncOfflineWork(false);
-
-    if (
-      typeof localStorage !== 'undefined' &&
-      !localStorage.getItem(POS_TUTORIAL_STORAGE) &&
-      this.route.snapshot.queryParamMap.get('tutorial') !== '1'
-    ) {
-      setTimeout(() => this.startTutorial(), 600);
-    }
   }
 
   ngOnDestroy(): void {
@@ -446,13 +446,19 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   startTutorial(): void {
+    this.tutorialOffer = false;
     this.tutorialActive = true;
     this.tutorialStep = 0;
     this.positionTutorial();
   }
 
+  dismissTutorialOffer(): void {
+    this.tutorialOffer = false;
+    this.markTutorialSeen();
+  }
+
   skipTutorial(): void {
-    this.finishTutorial(false);
+    this.finishTutorial(true);
   }
 
   nextTutorial(): void {
@@ -472,8 +478,15 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
   finishTutorial(markSeen: boolean): void {
     this.tutorialActive = false;
+    this.tutorialOffer = false;
     this.clearTutorialLayout();
-    if (markSeen && typeof localStorage !== 'undefined') {
+    if (markSeen) {
+      this.markTutorialSeen();
+    }
+  }
+
+  private markTutorialSeen(): void {
+    if (typeof localStorage !== 'undefined') {
       localStorage.setItem(POS_TUTORIAL_STORAGE, '1');
     }
   }

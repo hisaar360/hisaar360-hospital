@@ -114,8 +114,12 @@ describe('help-search.util', () => {
     expect(topSlug('medicine import')).toBe('bulk-add-medicines');
   });
 
-  it('boosts duty roster for ward role', () => {
-    expect(topSlug('duty roster', 'ward')).toBe('how-to-create-duty-roster');
+  it('boosts duty roster for owner/admin role', () => {
+    expect(topSlug('duty roster', 'owner')).toBe('how-to-create-duty-roster');
+  });
+
+  it('keeps bedside ward help away from roster builder', () => {
+    expect(topSlug('nurse ki duty lagani hai', 'ward')).toBe('assign-nurse-duty');
   });
 
   it('highlights matched phrases safely', () => {

@@ -13,3 +13,48 @@
     </div>
   }
 </div>
+
+<div class="product-help-offer" *ngIf="showProductHelpOffer && !tutorialActive">
+  <div class="product-help-offer__card" role="dialog" aria-modal="true" aria-labelledby="product-help-offer-title">
+    <div class="product-help-offer__icon" aria-hidden="true">
+      <i class="fa fa-graduation-cap"></i>
+    </div>
+    <h3 id="product-help-offer-title">Welcome to Hisaar360</h3>
+    <p>
+      New here? Start a short product tutorial to learn the sidebar, Patients, Ward, Pharmacy, Lab, and Help.
+      You can reopen Help anytime from the sidebar.
+    </p>
+    <div class="product-help-offer__actions">
+      <button type="button" class="is-ghost" (click)="dismissProductHelpOffer()">Skip for now</button>
+      <button type="button" class="is-primary" (click)="startProductTutorial()">Start Tutorial</button>
+    </div>
+  </div>
+</div>
+
+<div class="product-tour" *ngIf="tutorialActive">
+  <div class="product-tour__dim" (click)="skipTutorial()"></div>
+  <div
+    class="product-tour__spot"
+    *ngIf="tutorialRect as spot"
+    [style.top.px]="spot.top"
+    [style.left.px]="spot.left"
+    [style.width.px]="spot.width"
+    [style.height.px]="spot.height"
+  ></div>
+  <div class="product-tour__card" [ngStyle]="tutorialCardStyle" *ngIf="activeTutorialStep as tip">
+    <div class="product-tour__meta">
+      <span>{{ tutorialProgressLabel }}</span>
+      <button type="button" class="product-tour__close" (click)="skipTutorial()" aria-label="Close tutorial">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
+    <h3>{{ tip.title }}</h3>
+    <p>{{ tip.text }}</p>
+    <div class="product-tour__actions">
+      <button type="button" (click)="prevTutorial()" [disabled]="tutorialStep === 0">Back</button>
+      <button type="button" class="is-primary" (click)="nextTutorial()">
+        {{ tutorialStep >= activeTourSteps.length - 1 ? 'Finish' : 'Next' }}
+      </button>
+    </div>
+  </div>
+</div>

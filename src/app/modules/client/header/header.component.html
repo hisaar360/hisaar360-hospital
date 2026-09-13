@@ -6,12 +6,12 @@
         <a href="javascript:void(0);" (click)="goHome()"><img src="assets/hisar1.png" alt="Hisaar360 Logo" class="img-fluid logo"></a>
         <button type="button" (click)="mToggoleMenu()" class="btn-toggle-offcanvas"><i class="fa fa-align-left"></i></button>
       </div>
-      <app-global-search class="hms-header__search"></app-global-search>
+      <app-global-search class="hms-header__search" data-tour="shell-search"></app-global-search>
     </div>
     <div class="navbar-right">
       <div id="navbar-menu">
         <ul class="nav navbar-nav">
-          <li *ngIf="notifications.canSeeNotifications()" class="hms-notification-trigger">
+          <li *ngIf="notifications.canSeeNotifications()" class="hms-notification-trigger" data-tour="shell-notifications">
             <a href="javascript:void(0);" class="icon-menu-bar" data-testid="notification-bell" (click)="toggleNotificationDrawer()" title="Notifications">
               <i class="fa fa-bell-o"></i>
               <span class="notification-dot info" *ngIf="unreadCount > 0">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
@@ -23,7 +23,7 @@
               <span>Open POS</span>
             </a>
           </li>
-          <li class="hidden-xs">
+          <li class="hidden-xs" data-tour="shell-settings">
             <a href="javascript:void(0);" (click)="goToSettings()" class="icon-menu-bar" title="Settings">
               <i class="fa fa-gear"></i>
             </a>

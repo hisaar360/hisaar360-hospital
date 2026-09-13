@@ -808,7 +808,7 @@ export class BulkProductImportComponent implements OnInit, OnDestroy {
   }
 
   skipTutorial(): void {
-    this.finishTutorial(false);
+    this.finishTutorial(true);
   }
 
   nextTutorial(): void {

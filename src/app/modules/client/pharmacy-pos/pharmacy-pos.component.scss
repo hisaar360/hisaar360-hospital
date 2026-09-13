@@ -340,6 +340,63 @@
   opacity: 1;
 }
 
+.pos-tour-offer {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 1rem;
+  position: fixed;
+  z-index: 95;
+}
+
+.pos-tour-offer__card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+  max-width: 420px;
+  padding: 1.25rem 1.35rem;
+  width: min(94vw, 420px);
+}
+
+.pos-tour-offer__card h3 {
+  color: #0f172a;
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem;
+}
+
+.pos-tour-offer__card p {
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin: 0 0 1rem;
+}
+
+.pos-tour-offer__actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: flex-end;
+}
+
+.pos-tour-offer__actions button {
+  border: 1px solid #dbe4e4;
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0.55rem 0.9rem;
+}
+
+.pos-tour-offer__actions .is-primary {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+}
+
 .pos-tour__dim {
   position: fixed;
   inset: 0;

@@ -2,7 +2,7 @@
     <a (click)="toggleMenu()" class="menu_toggle">
         <i class="fa fa-angle-left"></i>
     </a>
-    <div class="navbar-brand">
+    <div class="navbar-brand" data-tour="shell-brand">
         <a [routerLink]="[homeRoute]">
             <img src="assets/hisar1.png" alt="Hisaar360 Logo" class="img-fluid logo">
         </a>
@@ -35,11 +35,11 @@
         <nav id="left-sidebar-nav" class="sidebar-nav">
             <ul id="main-menu" class="metismenu animation-li-delay">
                 <li class="header">{{ isLaboratoryEdition ? 'Laboratory' : 'Hospital' }}</li>
-                <li *ngIf="canViewDashboard" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
+                <li *ngIf="canViewDashboard" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }" data-tour="shell-dashboard">
                     <a [routerLink]="[dashboardRoute]"><i class="fa fa-dashboard"></i> <span>Dashboard</span></a>
                 </li>
 
-                <li *ngIf="canViewDoctors || canManageDoctors || canViewOwnSchedule">
+                <li *ngIf="canViewDoctors || canManageDoctors || canViewOwnSchedule" data-tour="shell-doctors">
                     <a (click)="isCollapsed = !isCollapsed" [attr.aria-expanded]="!isCollapsed" class="has-arrow">
                         <i class="fa fa-user-md"></i><span>Doctors</span>
                     </a>
@@ -72,7 +72,7 @@
                     </ul>
                 </li>
 
-                <li *ngIf="canViewPharmacy || canOpenPharmacyPos || canViewPosReports">
+                <li *ngIf="canViewPharmacy || canOpenPharmacyPos || canViewPosReports" data-tour="shell-pharmacy">
                     <a (click)="PharmacyCollapsed = !PharmacyCollapsed" [attr.aria-expanded]="!PharmacyCollapsed"
                         class="has-arrow">
                         <i class="fa fa-medkit"></i><span>Pharmacy</span>
@@ -99,7 +99,7 @@
                     </ul>
                 </li>
 
-                <li *ngIf="canViewLaboratory">
+                <li *ngIf="canViewLaboratory" data-tour="shell-laboratory">
                     <a (click)="LaboratoryCollapsed = !LaboratoryCollapsed" [attr.aria-expanded]="!LaboratoryCollapsed"
                         class="has-arrow">
                         <i class="fa fa-flask"></i><span>Laboratory</span>
@@ -114,34 +114,26 @@
                     </ul>
                 </li>
 
-                <li *ngIf="canViewWardAdmin">
+                <li *ngIf="canViewWardAdmin" data-tour="shell-ward">
                     <a (click)="WardCollapsed = !WardCollapsed" [attr.aria-expanded]="!WardCollapsed" class="has-arrow">
                         <i class="fa fa-heartbeat"></i><span>Ward & Nursing</span>
                     </a>
                     <ul class="nav-dropdown" *ngIf="!WardCollapsed" [@collapseExpand]>
                         <li><a [routerLink]="['/ward/dashboard']" routerLinkActive="active">Dashboard</a></li>
-                        <li><a [routerLink]="['/ward/bed-management']" routerLinkActive="active">Bed Management</a></li>
-                        <li><a [routerLink]="['/ward/patient-list']" routerLinkActive="active">Patient List</a></li>
+                        <li><a [routerLink]="['/ward/patient-list']" routerLinkActive="active">Patients</a></li>
+                        <li><a [routerLink]="['/ward/bed-management']" routerLinkActive="active">Beds</a></li>
                         <li><a [routerLink]="['/ward/admissions']" routerLinkActive="active">Admissions</a></li>
-                        <li *ngIf="canViewOperations"><a [routerLink]="['/operations']" routerLinkActive="active">Operation Calendar</a></li>
-                        <li class="header">Nursing Care</li>
-                        <li><a [routerLink]="['/ward/nursing-care']" routerLinkActive="active">Nursing Care</a></li>
-                        <li><a [routerLink]="['/ward/mar']" routerLinkActive="active">MAR / Medications</a></li>
-                        <li><a [routerLink]="['/ward/drips-iv']" routerLinkActive="active">Drips / IV Fluids</a></li>
-                        <li><a [routerLink]="['/ward/vitals']" routerLinkActive="active">Vitals & Observations</a></li>
-                        <li><a [routerLink]="['/ward/io-chart']" routerLinkActive="active">I/O Chart</a></li>
-                        <li><a [routerLink]="['/ward/orders-services']" routerLinkActive="active">Orders & Services</a></li>
                         <li><a [routerLink]="['/ward/shift-handover']" routerLinkActive="active">Shift Handover</a></li>
-                        <li class="header">Staff / Operations</li>
-                        <li><a [routerLink]="['/ward/nurses-staff']" routerLinkActive="active">Nurses & Staff</a></li>
-                        <li><a [routerLink]="['/ward/inventory']" routerLinkActive="active">Ward Inventory</a></li>
+                        <li *ngIf="canViewOperations"><a [routerLink]="['/operations']" routerLinkActive="active">Operation Calendar</a></li>
+                        <li class="header">Admin / Operations</li>
                         <li *ngIf="hasNavAccess('ward.roster.read')"><a [routerLink]="['/ward/duty-roster']" routerLinkActive="active">Duty Roster</a></li>
+                        <li><a [routerLink]="['/ward/inventory']" routerLinkActive="active">Ward Inventory</a></li>
+                        <li><a [routerLink]="['/ward/nurses-staff']" routerLinkActive="active">Nurses & Staff</a></li>
                         <li><a [routerLink]="['/ward/reports']" routerLinkActive="active">Reports</a></li>
+                        <li><a [routerLink]="['/ward-admin']" routerLinkActive="active">Ward Notes</a></li>
                         <li class="header">Maternity / Newborn</li>
                         <li><a [routerLink]="['/ward/nursery']" routerLinkActive="active">Nursery / Newborn</a></li>
                         <li><a [routerLink]="['/ward/nursery/birth-records']" routerLinkActive="active">Birth Records</a></li>
-                        <li class="header">Notes</li>
-                        <li><a [routerLink]="['/ward-admin']" routerLinkActive="active">Ward Notes</a></li>
                     </ul>
                 </li>
 
@@ -149,7 +141,7 @@
                     <a [routerLink]="['/operations']"><i class="fa fa-medkit"></i><span>Operations</span></a>
                 </li>
 
-                <li *ngIf="canViewPatients || canManagePatients || canViewBilling">
+                <li *ngIf="canViewPatients || canManagePatients || canViewBilling" data-tour="shell-patients">
                     <a (click)="PatientCollapsed = !PatientCollapsed" [attr.aria-expanded]="!PatientCollapsed"
                         class="has-arrow">
                         <i class="fa fa-user-circle-o"></i><span>Patients</span>
@@ -238,7 +230,7 @@
                 </li>
 
                 <li class="header">Support</li>
-                <li [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }" class="sidebar-help-link">
+                <li [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }" class="sidebar-help-link" data-tour="shell-help">
                     <a [routerLink]="['/help']"><i class="fa fa-question-circle"></i><span>Help Center</span></a>
                 </li>
 

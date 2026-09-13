@@ -1005,6 +1005,17 @@
     </div>
 </div>
 
+<div class="pos-tour-offer" *ngIf="tutorialOffer && !tutorialActive">
+  <div class="pos-tour-offer__card" role="dialog" aria-modal="true" aria-labelledby="pos-tour-offer-title">
+    <h3 id="pos-tour-offer-title">Welcome to Pharmacy POS</h3>
+    <p>Take a short walkthrough of search, cart, hold, checkout, and register tools. You can replay anytime from the graduation-cap button.</p>
+    <div class="pos-tour-offer__actions">
+      <button type="button" class="is-ghost" (click)="dismissTutorialOffer()">Skip for now</button>
+      <button type="button" class="is-primary" (click)="startTutorial()">Start Tutorial</button>
+    </div>
+  </div>
+</div>
+
 <div class="pos-tour" *ngIf="tutorialActive">
   <div class="pos-tour__dim" (click)="skipTutorial()"></div>
   <div
