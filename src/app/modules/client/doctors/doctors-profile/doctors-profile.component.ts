@@ -5,10 +5,9 @@ import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../core/services/backend.service';
 import { AuthService } from '../../../../core/services/auth.service';
-import {
-  clinicalDepartmentLabel,
-  specialtyTemplateLabel,
-} from '../../../../shared/catalogs/doctor-specialization.catalog';
+import { CurrencyService } from '../../../../core/services/currency.service';
+import { clinicalDepartmentLabel } from '../../../../shared/catalogs/doctor-master-data.catalog';
+import { specialtyTemplateLabel } from '../../../../shared/catalogs/doctor-specialization.catalog';
 import { Appointment, Doctor, Patient } from '../../../../shared/models/hospital.model';
 import { ImageViewerModalComponent } from '../../../../shared/components/image-viewer-modal/image-viewer-modal.component';
 import { initialsFromName, resolveAssetUrl } from '../../../../core/utils/asset.util';
@@ -34,12 +33,17 @@ export class DoctorsProfileComponent implements OnInit {
   appointments: Appointment[] = [];
   viewerOpen = false;
 
+  get currencyLabel(): string {
+    return this.currency.label;
+  }
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private backend: BackendService,
     private authService: AuthService,
-    private toastr: ToastrService
+    private toastr: ToastrService,
+    private currency: CurrencyService
   ) { }
 
   ngOnInit(): void {

@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { finalize } from 'rxjs';
 import { BackendService } from '../../../core/services/backend.service';
+import { CurrencyService } from '../../../core/services/currency.service';
 import { Department, TreatmentCatalogItem, TreatmentCatalogType } from '../../../shared/models/hospital.model';
 
 @Component({
@@ -32,6 +33,10 @@ export class TreatmentsProceduresComponent implements OnInit {
   page = 1;
   readonly pageSize = 10;
 
+  get currencyLabel(): string {
+    return this.currency.label;
+  }
+
   readonly types: TreatmentCatalogType[] = ['treatment', 'procedure', 'operation', 'surgery', 'package'];
 
   kpis = {
@@ -45,7 +50,8 @@ export class TreatmentsProceduresComponent implements OnInit {
   constructor(
     private backend: BackendService,
     private fb: FormBuilder,
-    private toastr: ToastrService
+    private toastr: ToastrService,
+    private currency: CurrencyService
   ) {
     this.form = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],

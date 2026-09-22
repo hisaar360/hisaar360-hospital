@@ -6,6 +6,7 @@ import { ToastrService } from 'ngx-toastr';
 import { Observable, Subscription, TimeoutError, throwError } from 'rxjs';
 import { catchError, distinctUntilChanged, finalize, map, timeout } from 'rxjs/operators';
 import { BackendService } from '../../../core/services/backend.service';
+import { formatActiveCurrency } from '../../../core/services/currency.service';
 import { buildAccountsReportDocumentHtml } from '../../../core/documents/accounts-report-document.builder';
 import {
   buildAccountsViewDocumentContext,
@@ -357,7 +358,7 @@ export class AccountsPageComponent implements OnInit, OnDestroy {
     if (sample['encounterNo']) parts.push(`Encounter ${sample['encounterNo']}`);
     if (sample['journalNo']) parts.push(`JV ${sample['journalNo']}`);
     const amount = sample['netAmount'] ?? sample['amount'];
-    if (amount != null && amount !== '') parts.push(`Rs ${this.money(amount)}`);
+    if (amount != null && amount !== '') parts.push(this.money(amount));
     return parts.filter(Boolean).join(' · ') || 'Sample row';
   }
 
@@ -417,15 +418,14 @@ export class AccountsPageComponent implements OnInit, OnDestroy {
   }
 
   money(value: unknown): string {
-    const parsed = Number(value ?? 0);
-    return Number.isFinite(parsed) ? parsed.toLocaleString('en-PK') : '0';
+    return formatActiveCurrency(value, { fractionDigits: 0 });
   }
 
   /** Blank for zero so debit/credit columns read like a ledger. */
   moneyOrBlank(value: unknown): string {
     const parsed = Number(value ?? 0);
     if (!Number.isFinite(parsed) || parsed === 0) return '—';
-    return parsed.toLocaleString('en-PK');
+    return formatActiveCurrency(parsed, { fractionDigits: 0 });
   }
 
   formatLedgerDate(value: unknown): string {

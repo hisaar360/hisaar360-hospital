@@ -2,28 +2,47 @@
   display: flex;
   min-height: 100vh;
 
-  .sidebar {
+  /* Spacer for the fixed `#left-sidebar` (270px). Do NOT also put
+     margin-left on `.layout-main` — that caused a full-site content gap. */
+  .layout-sidebar {
+    flex: 0 0 270px;
     max-width: 270px;
-    z-index: 11;
+    position: relative;
+    width: 270px;
+    z-index: auto;
   }
 }
 
 .layout-main {
   box-sizing: border-box;
   flex: 1 1 auto;
-  margin-left: 270px;
+  margin-left: 0;
   min-width: 0;
   padding-top: 75px;
-  transition: margin-left 0.3s ease-in-out, width 0.3s ease-in-out;
-  width: calc(100% - 270px);
+  transition: flex-basis 0.3s ease-in-out, max-width 0.3s ease-in-out, width 0.3s ease-in-out;
+  width: auto;
+}
+
+:host-context(body.toggle_menu_active) .layout-sidebar {
+  flex-basis: 75px;
+  max-width: 75px;
+  width: 75px;
 }
 
 :host-context(body.toggle_menu_active) .layout-main {
-  margin-left: 75px;
-  width: calc(100% - 75px);
+  margin-left: 0;
+  width: auto;
 }
 
 @media screen and (max-width: 1280px) {
+  .wrapper .layout-sidebar,
+  :host-context(body.toggle_menu_active) .layout-sidebar {
+    flex-basis: 0;
+    max-width: 0;
+    overflow: visible;
+    width: 0;
+  }
+
   .layout-main,
   :host-context(body.toggle_menu_active) .layout-main {
     margin-left: 0;
@@ -116,9 +135,6 @@
   color: #fff;
 }
 
-.toggle_menu_active .sidebar:hover {
-  left: none !important;
-}
 
 .product-tour__dim {
   position: fixed;

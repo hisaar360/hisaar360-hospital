@@ -29,7 +29,7 @@
         type="button"
         class="hms-btn"
         [class.hms-btn--primary]="action === 'complete'"
-        [class.hms-btn--ghost]="action === 'stop'"
+        [class.hms-btn--warning]="action === 'stop'"
         (click)="confirm()"
       >
         <i class="fa" [ngClass]="action === 'stop' ? 'fa-pause' : 'fa-check'"></i>

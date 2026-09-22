@@ -1,0 +1,123 @@
+<div class="specialty-lib specialty-lib--{{ mode }}">
+  <!-- ===== Full library / sidebar shared chrome ===== -->
+  <ng-container *ngIf="mode === 'library' || mode === 'sidebar'">
+    <header class="specialty-lib__head">
+      <div class="specialty-lib__title-row">
+        <div>
+          <h3>
+            <i class="fa fa-th-large" aria-hidden="true" *ngIf="mode === 'library'"></i>
+            {{ mode === 'sidebar' ? 'Specialty Templates' : title }}
+          </h3>
+          <p *ngIf="mode === 'library'">Select a specialty to view and complete consultation details.</p>
+        </div>
+        <button
+          type="button"
+          class="specialty-lib__close"
+          *ngIf="mode === 'sidebar' || mode === 'library'"
+          (click)="closeLibrary.emit()"
+          [attr.aria-label]="mode === 'sidebar' ? 'Close templates' : 'Close specialty library'"
+        >
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <label class="specialty-lib__search">
+        <i class="fa fa-search" aria-hidden="true"></i>
+        <input
+          type="search"
+          [(ngModel)]="search"
+          (ngModelChange)="onSearchChange()"
+          placeholder="Search specialties..."
+          aria-label="Search specialties"
+        />
+      </label>
+
+      <div class="specialty-lib__tabs" role="tablist" *ngIf="mode === 'sidebar'">
+        <button
+          type="button"
+          role="tab"
+          *ngFor="let tab of filterTabs"
+          [class.is-active]="filter === tab.key"
+          [attr.aria-selected]="filter === tab.key"
+          (click)="setFilter(tab.key)"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+
+      <div class="specialty-lib__count" *ngIf="mode === 'library'">
+        <span>All ({{ visibleItems.length }})</span>
+      </div>
+    </header>
+
+    <!-- Desktop sidebar list -->
+    <div class="specialty-lib__list" *ngIf="mode === 'sidebar'">
+      <button
+        type="button"
+        class="specialty-lib__row"
+        *ngFor="let item of visibleItems; trackBy: trackByKey"
+        [class.is-selected]="isSelected(item)"
+        (click)="pick(item)"
+      >
+        <span class="specialty-lib__icon" [style.background]="item.accent + '1a'" [style.color]="item.accent">
+          <i class="fa" [ngClass]="item.icon" aria-hidden="true"></i>
+        </span>
+        <span class="specialty-lib__copy">
+          <strong>{{ item.name }}</strong>
+          <small>{{ item.description }}</small>
+        </span>
+        <i class="fa fa-chevron-right specialty-lib__chevron" aria-hidden="true"></i>
+      </button>
+      <p class="specialty-lib__empty" *ngIf="!visibleItems.length">No specialties match your search.</p>
+    </div>
+
+    <!-- Mobile / full library grid -->
+    <div class="specialty-lib__groups" *ngIf="mode === 'library'">
+      <section class="specialty-lib__group" *ngFor="let group of groupedItems">
+        <h4>{{ group.label }}</h4>
+        <div class="specialty-lib__grid">
+          <button
+            type="button"
+            class="specialty-lib__card"
+            *ngFor="let item of group.items; trackBy: trackByKey"
+            [class.is-selected]="isSelected(item)"
+            (click)="pick(item)"
+          >
+            <span class="specialty-lib__check" *ngIf="isSelected(item)" aria-hidden="true">
+              <i class="fa fa-check"></i>
+            </span>
+            <span class="specialty-lib__icon specialty-lib__icon--lg" [style.color]="item.accent">
+              <i class="fa" [ngClass]="item.icon" aria-hidden="true"></i>
+            </span>
+            <strong>{{ item.name }}</strong>
+            <small>{{ item.description }}</small>
+          </button>
+        </div>
+      </section>
+      <p class="specialty-lib__empty" *ngIf="!groupedItems.length">No specialties match your search.</p>
+    </div>
+  </ng-container>
+
+  <!-- ===== Quick strip / preview ===== -->
+  <ng-container *ngIf="mode === 'strip'">
+    <div class="specialty-lib__strip-head" *ngIf="showStripHead">
+      <h4>Other Specialties — Quick Preview</h4>
+      <button type="button" class="specialty-lib__link" (click)="viewAll.emit()">View All Specialties</button>
+    </div>
+    <div class="specialty-lib__strip" role="list" [class.specialty-lib__strip--compact]="!showStripHead">
+      <button
+        type="button"
+        class="specialty-lib__chip"
+        *ngFor="let item of stripItems; trackBy: trackByKey"
+        [class.is-selected]="isSelected(item)"
+        (click)="pick(item)"
+        role="listitem"
+      >
+        <span class="specialty-lib__icon" [style.background]="isSelected(item) ? 'rgba(255,255,255,0.2)' : item.accent + '1a'" [style.color]="isSelected(item) ? '#fff' : item.accent">
+          <i class="fa" [ngClass]="item.icon" aria-hidden="true"></i>
+        </span>
+        <span>{{ item.name }}</span>
+      </button>
+    </div>
+  </ng-container>
+</div>

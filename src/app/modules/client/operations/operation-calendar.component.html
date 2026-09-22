@@ -16,8 +16,9 @@
           <i class="fa fa-plus" aria-hidden="true"></i>
           Schedule Operation
         </button>
-        <a class="ops-btn ops-btn--ghost" routerLink="/doctors-schedule">Apply Leave</a>
-        <a class="ops-btn ops-btn--ghost" routerLink="/doctors-schedule">Set Working Hours</a>
+        <a class="ops-btn ops-btn--ghost" routerLink="/doctors-schedule" [queryParams]="{ panel: 'hours' }">
+          Set Working Hours
+        </a>
       </div>
     </header>
 
@@ -329,6 +330,76 @@
         </div>
       </header>
 
+      <section class="ops-drawer__block ops-safety-banner">
+        <h3>Confirm before proceed</h3>
+        <div class="ops-meta-grid ops-meta-grid--2">
+          <div><span>Patient</span><strong>{{ patientName(item) }}</strong></div>
+          <div><span>MRN</span><strong>{{ patientMrn(item) }}</strong></div>
+          <div><span>Procedure</span><strong>{{ procedureName(item) }}</strong></div>
+          <div><span>Surgeon</span><strong>{{ doctorName(item) }}</strong></div>
+          <div>
+            <span>Operative site</span>
+            <strong>{{ operativeSiteLabel(item) }}</strong>
+          </div>
+          <div>
+            <span>Side</span>
+            <strong>
+              {{ item.operativeLaterality || 'Not set' }}
+              <em *ngIf="item.lateralityConfirmed" class="ops-confirmed"> · confirmed</em>
+              <em *ngIf="item.operativeLaterality && !item.lateralityConfirmed" class="ops-unconfirmed"> · needs OT confirm</em>
+            </strong>
+          </div>
+        </div>
+        <p class="ops-warn" *ngIf="item.lateralityMismatchWarning as warn">{{ warn.message }}</p>
+        <p class="ops-hint" *ngIf="item.opdLateralityPrefill && !item.lateralityConfirmed">
+          OPD laterality prefill: {{ item.opdLateralityPrefill }} — review/confirm in OT (prefill ≠ confirmation).
+        </p>
+        <div class="ops-safety-actions" *ngIf="canMutateOperation(item) && drawerPanel === 'details'">
+          <label>
+            Region
+            <select [(ngModel)]="safetyDraft.region">
+              <option value="">—</option>
+              <option *ngFor="let r of operativeRegions" [value]="r">{{ r }}</option>
+            </select>
+          </label>
+          <label>
+            Specific site
+            <input type="text" [(ngModel)]="safetyDraft.specificSite" placeholder="Optional detail" />
+          </label>
+          <label>
+            Laterality
+            <select [(ngModel)]="safetyDraft.laterality">
+              <option value="">—</option>
+              <option *ngFor="let s of operativeLateralities" [value]="s">{{ s }}</option>
+            </select>
+          </label>
+          <button type="button" class="btn btn-sm btn-outline-primary" (click)="saveOperativeSiteSide(item)">
+            Save site / side
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-primary"
+            *ngIf="item.operativeLaterality && !item.lateralityConfirmed"
+            (click)="confirmOperativeLaterality(item)"
+          >
+            Confirm side
+          </button>
+        </div>
+        <div class="ops-safety-phases" *ngIf="item.safetyCheck as sc">
+          <span class="ops-phase" [class.is-done]="sc.beforeAnesthesia?.completed">Before anesthesia</span>
+          <span class="ops-phase" [class.is-done]="sc.beforeIncision?.completed">Before incision</span>
+          <span class="ops-phase" [class.is-done]="sc.beforeLeavingOR?.completed">Before leaving OR</span>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            *ngIf="canMutateOperation(item)"
+            (click)="completeNextSafetyPhase(item)"
+          >
+            Mark next safety phase
+          </button>
+        </div>
+      </section>
+
       <section class="ops-drawer__block">
         <div class="ops-drawer__block-head">
           <h3>Patient</h3>
@@ -386,20 +457,20 @@
       <section class="ops-drawer__block" *ngIf="item.treatmentPricingSnapshot as pricing">
         <h3>Pricing Snapshot</h3>
         <div class="ops-meta-grid ops-meta-grid--2">
-          <div><span>Package Rate</span><strong>PKR {{ pricing.baseRate || 0 | number:'1.0-0' }}</strong></div>
+          <div><span>Package Rate</span><strong>{{ (pricing.baseRate || 0) | hmsCurrency }}</strong></div>
           <div *ngIf="item.procedureDiscountApproved as discount">
             <span>Discount</span>
             <strong>
               <ng-container [ngSwitch]="discount.type">
                 <ng-container *ngSwitchCase="'percentage'">{{ discount.value }}%</ng-container>
-                <ng-container *ngSwitchCase="'fixed'">PKR {{ discount.value | number:'1.0-0' }}</ng-container>
+                <ng-container *ngSwitchCase="'fixed'">{{ discount.value | hmsCurrency }}</ng-container>
                 <ng-container *ngSwitchDefault>None</ng-container>
               </ng-container>
             </strong>
           </div>
           <div>
             <span>Estimated Charge</span>
-            <strong>PKR {{ estimatedCharge(item) | number:'1.0-0' }}</strong>
+            <strong>{{ estimatedCharge(item) | hmsCurrency }}</strong>
           </div>
         </div>
         <small class="ops-hint">Charge posts when the operation is completed.</small>

@@ -190,7 +190,7 @@
               <select formControlName="treatmentCatalogId" data-testid="admission-treatment-catalog">
                 <option value="">Select treatment / procedure</option>
                 <option *ngFor="let item of treatmentCatalog" [value]="item._id">
-                  {{ item.code }} — {{ item.name }} (PKR {{ item.baseRate | number:'1.0-0' }})
+                  {{ item.code }} — {{ item.name }} ({{ item.baseRate | hmsCurrency }})
                 </option>
               </select>
             </label>
@@ -207,9 +207,14 @@
               <span class="hms-form-field__label">Preferred Operation Date &amp; Time</span>
               <input type="datetime-local" formControlName="preferredOperationAt" />
             </label>
+            <app-operation-doctor-schedule-preview
+              [doctorId]="resolvedOperatingDoctorId()"
+              [doctorLabel]="resolvedOperatingDoctorLabel()"
+              (pickDateTime)="applyPreferredOperationAt($event)">
+            </app-operation-doctor-schedule-preview>
             <div class="hms-form-field" *ngIf="selectedTreatmentRate as rate">
               <span class="hms-form-field__label">Standard Package Rate</span>
-              <strong>PKR {{ rate | number:'1.0-0' }}</strong>
+              <strong>{{ rate | hmsCurrency }}</strong>
               <small class="field-hint">Read-only catalog rate. Snapshotted at admission.</small>
             </div>
           </div>

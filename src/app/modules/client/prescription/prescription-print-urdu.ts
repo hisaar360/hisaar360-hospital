@@ -23,15 +23,50 @@ const URDU_WORD_MAP: Record<string, string> = {
   islamabad: 'اسلام آباد',
   pakistan: 'پاکستان',
   cardiology: 'کارڈیالوجی',
+  cardiologist: 'ماہرِ امراضِ قلب',
   medicine: 'میڈیسن',
   surgery: 'سرجری',
+  surgeon: 'سرجن',
   pediatrics: 'اطفال',
+  paediatrician: 'ماہرِ اطفال',
+  pediatrician: 'ماہرِ اطفال',
   gynecology: 'امراض نسواں',
+  gynaecology: 'امراض نسواں',
+  gynecologist: 'گائناکالوجسٹ',
+  gynaecologist: 'گائناکالوجسٹ',
+  gynecologic: 'گائناکولوجک',
+  gynaecologic: 'گائناکولوجک',
+  oncology: 'آنکالوجی',
+  reproductive: ' تولیدی',
+  infertility: 'بانجھ پن',
+  maternal: 'مادری',
+  fetal: 'جنینی',
+  obstetrician: 'اوبسٹٹریشن',
+  obstetrics: 'زچگی',
+  ophthalmologist: 'ماہرِ امراضِ چشم',
+  ophthalmology: 'امراض چشم',
+  dentist: 'ڈینٹسٹ',
+  dental: 'ڈینٹل',
+  physiotherapist: 'فزیو تھراپسٹ',
+  physiotherapy: 'فزیو تھراپی',
+  dermatologist: 'ماہرِ امراضِ جلد',
+  dermatology: 'امراض جلد',
+  neurologist: 'ماہرِ اعصاب',
+  neurology: 'نیورالوجی',
+  orthopaedic: 'آرتھوپیڈک',
+  orthopedic: 'آرتھوپیڈک',
+  ent: 'ای این ٹی',
   mbbs: 'ایم بی بی ایس',
   fcps: 'ایف سی پی ایس',
+  mcps: 'ایم سی پی ایس',
+  mrcp: 'ایم آر سی پی',
+  frcs: 'ایف آر سی ایس',
   md: 'ایم ڈی',
   ms: 'ایم ایس',
   bds: 'بی ڈی ایس',
+  uk: 'یو کے',
+  usa: 'یو ایس اے',
+  uae: 'یو اے ای',
   bahawalpur: 'بہاولپور',
   bahawal: 'بہاول',
   university: 'یونیورسٹی',
@@ -64,7 +99,28 @@ const URDU_WORD_MAP: Record<string, string> = {
   aoun: 'اعون',
   javaid: 'جاوید',
   javid: 'جاوید',
+  javeed: 'جاوید',
 };
+
+/** Multi-word specialty phrases (checked before word-by-word). */
+const URDU_PHRASE_MAP: Array<{ pattern: RegExp; urdu: string }> = [
+  { pattern: /gynecologic\s*oncology|gynaecologic\s*oncology/i, urdu: 'گائناکولوجک آنکالوجی' },
+  {
+    pattern: /reproductive\s*medicine\s*\/?\s*infertility|reproductive\s*medicine|infertility/i,
+    urdu: 'تولیدی طب / بانجھ پن',
+  },
+  { pattern: /maternal[-\s]?fetal\s*medicine/i, urdu: 'مادری و جنینی طب' },
+  { pattern: /obstetrician\s*&\s*gynaecologist|gynaecologist\s*&\s*obstetrician/i, urdu: 'گائناکالوجسٹ اینڈ اوبسٹٹریشن' },
+  { pattern: /consultant\s*gynaecologist|consultant\s*gynecologist/i, urdu: 'کنسلٹنٹ گائناکالوجسٹ' },
+  { pattern: /\bgynecologist\b|\bgynaecologist\b/i, urdu: 'گائناکالوجسٹ' },
+  { pattern: /\bophthalmologist\b/i, urdu: 'ماہرِ امراضِ چشم' },
+  { pattern: /\bcardiologist\b/i, urdu: 'ماہرِ امراضِ قلب' },
+  { pattern: /\bpediatrician\b|\bpaediatrician\b/i, urdu: 'ماہرِ اطفال' },
+  { pattern: /\bdermatologist\b/i, urdu: 'ماہرِ امراضِ جلد' },
+  { pattern: /\bphysiotherapist\b/i, urdu: 'فزیو تھراپسٹ' },
+  { pattern: /\bdentist\b/i, urdu: 'ڈینٹسٹ' },
+  { pattern: /consultant\s*physician/i, urdu: 'کنسلٹنٹ فزیشن' },
+];
 
 const ENGLISH_WORD_MAP: Record<string, string> = {
   pakistan: 'Pakistan',
@@ -214,7 +270,26 @@ export const toPrescriptionUrduText = (value?: string | null): string => {
     return '';
   }
 
-  return splitAddressWords(raw.replace(/,/g, ' ')).map(translateWordToUrdu).join(' ');
+  const phraseHit = URDU_PHRASE_MAP.find((entry) => entry.pattern.test(raw));
+  if (phraseHit && !/[|,]/.test(raw)) {
+    return phraseHit.urdu;
+  }
+
+  return raw
+    .split(/\s*\|\s*|\s*,\s*/)
+    .map((segment) => {
+      const trimmed = segment.trim();
+      if (!trimmed) {
+        return '';
+      }
+      const hit = URDU_PHRASE_MAP.find((entry) => entry.pattern.test(trimmed));
+      if (hit) {
+        return hit.urdu;
+      }
+      return splitAddressWords(trimmed.replace(/\//g, ' / ')).map(translateWordToUrdu).join(' ');
+    })
+    .filter(Boolean)
+    .join(' | ');
 };
 
 export const stripDoctorPrefix = (name?: string | null): string =>
@@ -245,9 +320,18 @@ export const formatUrduDoctorName = (
   return transliterateDoctorNameToUrdu(plain) || 'ڈاکٹر';
 };
 
-export const formatEnglishDoctorTitle = (_specialization?: string | null): string => 'Consultant Physician';
+export const formatEnglishDoctorTitle = (specialization?: string | null): string => {
+  const value = String(specialization || '').trim();
+  return value || 'Consultant Physician';
+};
 
-export const formatUrduDoctorTitle = (_specialization?: string | null): string => 'کنسلٹنٹ فزیشن';
+export const formatUrduDoctorTitle = (specialization?: string | null): string => {
+  const value = String(specialization || '').trim();
+  if (!value) {
+    return 'کنسلٹنٹ فزیشن';
+  }
+  return toPrescriptionUrduText(value) || 'کنسلٹنٹ فزیشن';
+};
 
 export const formatUrduQualification = (qualification?: string | null): string => {
   const value = String(qualification || '').trim();
@@ -256,8 +340,8 @@ export const formatUrduQualification = (qualification?: string | null): string =
   }
 
   return value
-    .split(',')
+    .split(/\s*\|\s*|\s*,\s*/)
     .map((segment) => splitAddressWords(segment.trim()).map(translateWordToUrdu).join(' '))
     .filter(Boolean)
-    .join('، ');
+    .join(' | ');
 };

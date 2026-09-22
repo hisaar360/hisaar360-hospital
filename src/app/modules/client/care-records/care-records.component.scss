@@ -39,6 +39,299 @@
   .hms-form-field textarea {
     width: 100%;
   }
+
+  .hms-form-field__label em {
+    color: #dc2626;
+    font-style: normal;
+  }
+
+  .hms-form-field__label small {
+    color: #94a3b8;
+    font-weight: 500;
+    margin-left: 4px;
+  }
+
+  .care-record-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+
+  .care-record-actions.table-actions > a.hms-btn,
+  .care-record-actions.table-actions > button.hms-btn,
+  .care-record-actions > a.hms-btn,
+  .care-record-actions > button.hms-btn {
+    background: #fff;
+    border: 1px solid #dbe4e4;
+    border-radius: 6px;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+    gap: 5px;
+    height: auto;
+    min-height: 30px;
+    padding: 0 10px;
+    width: auto;
+  }
+
+  .care-record-actions > a.hms-btn-secondary:hover,
+  .care-record-actions > button.hms-btn-secondary:hover {
+    border-color: #99f6e4;
+    color: #0f766e;
+  }
+
+  .care-record-actions > button.hms-btn-edit {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+  }
+
+  .care-record-actions > button.hms-btn-edit:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #fff;
+  }
+
+  .care-record-actions > button.hms-btn-danger {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b91c1c;
+  }
+
+  .care-record-actions > button.hms-btn-danger:hover {
+    background: #b91c1c;
+    border-color: #b91c1c;
+    color: #fff;
+  }
+}
+
+/* ——— Ward Admin Notes design ——— */
+.care-records-page--ward {
+  .ward-notes-search {
+    margin: 0 0 14px;
+  }
+
+  .ward-notes-search__field {
+    align-items: center;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    display: flex;
+    gap: 10px;
+    padding: 10px 14px;
+    width: 100%;
+  }
+
+  .ward-notes-search__field i {
+    color: #94a3b8;
+  }
+
+  .ward-notes-search__field input {
+    background: transparent;
+    border: 0;
+    flex: 1;
+    font-size: 14px;
+    outline: none;
+    width: 100%;
+  }
+
+  .ward-notes-kpis {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-bottom: 14px;
+  }
+
+  .ward-notes-kpi {
+    align-items: flex-start;
+    background: #fff;
+    border: 1px solid #e8eef5;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .ward-notes-kpi__icon {
+    align-items: center;
+    border-radius: 12px;
+    display: inline-flex;
+    flex: 0 0 40px;
+    font-size: 16px;
+    height: 40px;
+    justify-content: center;
+    width: 40px;
+  }
+
+  .ward-notes-kpi__icon--patients {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  .ward-notes-kpi__icon--rooms {
+    background: #ecfdf5;
+    color: #059669;
+  }
+
+  .ward-notes-kpi__icon--notes {
+    background: #f5f3ff;
+    color: #7c3aed;
+  }
+
+  .ward-notes-kpi__icon--watch {
+    background: #fff7ed;
+    color: #ea580c;
+  }
+
+  .ward-notes-kpi__label {
+    color: #64748b;
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .ward-notes-kpi__value {
+    color: #0f172a;
+    display: block;
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-top: 2px;
+  }
+
+  .ward-notes-kpi__hint {
+    color: #94a3b8;
+    display: block;
+    font-size: 11px;
+    margin-top: 2px;
+  }
+
+  .ward-notes-kpi__hint--up {
+    color: #16a34a;
+    font-weight: 600;
+  }
+
+  .ward-notes-admitted__head {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .ward-notes-admitted__tools {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ward-notes-admitted__search {
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    display: flex;
+    gap: 8px;
+    padding: 6px 10px;
+  }
+
+  .ward-notes-admitted__search input {
+    background: transparent;
+    border: 0;
+    font-size: 13px;
+    min-width: 140px;
+    outline: none;
+  }
+
+  .ward-notes-link {
+    background: transparent;
+    border: 0;
+    color: #2563eb;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 0;
+  }
+
+  .ward-notes-profile-btn {
+    align-items: center;
+    display: inline-flex;
+    gap: 6px;
+  }
+
+  .ward-notes-patient-card {
+    align-items: flex-start;
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+  }
+
+  .ward-notes-patient-card__main {
+    min-width: 0;
+  }
+
+  .ward-notes-patient-card__main p {
+    color: #64748b;
+    font-size: 12px;
+    margin: 4px 0 0;
+  }
+
+  .ward-notes-patient-card__actions {
+    align-items: center;
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+
+  .ward-notes-form-icon {
+    align-items: center;
+    background: #eff6ff;
+    border-radius: 10px;
+    color: #2563eb;
+    display: inline-flex;
+    height: 36px;
+    justify-content: center;
+    width: 36px;
+  }
+
+  .ward-notes-form-actions {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ward-notes-form-actions .hms-btn {
+    justify-content: center;
+    min-height: 42px;
+    width: 100%;
+  }
+
+  .ward-notes-record-card__meta {
+    color: #64748b;
+    font-size: 12px;
+    margin: 0 0 4px;
+  }
+
+  .ward-notes-record-card__snippet {
+    color: #334155;
+    font-size: 13px;
+    margin: 0 0 8px;
+  }
+
+  .ward-badge--watch {
+    background: #fff7ed;
+    border: 1px solid #fdba74;
+    color: #c2410c;
+    font-weight: 700;
+  }
+}
+
+@media (max-width: 1100px) {
+  .care-records-page--ward .ward-notes-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 991px) {
@@ -48,5 +341,32 @@
 
   .care-records-page .care-records-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .care-records-page .care-record-actions {
+    justify-content: flex-start;
+  }
+
+  .care-records-page--ward .ward-notes-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .care-records-page--ward .ward-notes-kpi__value {
+    font-size: 22px;
+  }
+
+  .care-records-page--ward .ward-notes-form-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 575px) {
+  .care-records-page--ward .ward-notes-kpis {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .care-records-page--ward .ward-notes-kpi {
+    padding: 12px;
   }
 }

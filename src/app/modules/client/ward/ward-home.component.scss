@@ -1,0 +1,235 @@
+@use './ward-shared.scss';
+
+.ward-home-page {
+  --ward-primary: #2563eb;
+}
+
+.ward-home-summary {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.ward-home-tile {
+  position: relative;
+}
+
+.ward-home-tile__link {
+  color: var(--ward-primary);
+  font-size: 11px;
+  font-weight: 700;
+  position: absolute;
+  right: 10px;
+  top: 8px;
+}
+
+.ward-home-btn {
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+}
+
+.ward-home-btn--primary {
+  background: var(--ward-primary);
+  border: 1px solid var(--ward-primary);
+  color: #fff;
+}
+
+.ward-home-widget-error {
+  align-items: center;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 12px;
+  color: #9f1239;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+}
+
+.ward-home-filters {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.ward-home-chip {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 999px;
+  color: var(--ward-text);
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 32px;
+  padding: 0 14px;
+}
+
+.ward-home-chip--active {
+  background: var(--ward-blue-soft);
+  border-color: var(--ward-primary);
+  color: var(--ward-primary);
+}
+
+.ward-home-filters__hint {
+  color: var(--ward-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ward-home-ward-group {
+  margin-bottom: 14px;
+}
+
+.ward-home-ward-group__header {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.ward-home-ward-group__header h2 {
+  font-size: 14px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.ward-home-ward-group__header span {
+  color: var(--ward-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ward-home-board {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+}
+
+.ward-home-card {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.ward-home-card--clickable {
+  cursor: pointer;
+}
+
+.ward-home-card--clickable:focus-visible {
+  outline: 2px solid var(--ward-primary);
+  outline-offset: 2px;
+}
+
+.ward-home-card--attention {
+  border-color: #fbbf24;
+}
+
+.ward-home-card__header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.ward-home-card__bed {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.ward-home-card__status {
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: 999px;
+  color: #334155;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 5px;
+  padding: 3px 9px;
+}
+
+.ward-home-card__patient {
+  font-size: 13px;
+  margin: 0;
+}
+
+.ward-home-card__meta {
+  display: grid;
+  gap: 2px;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  margin: 0;
+}
+
+.ward-home-card__meta dt {
+  color: var(--ward-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ward-home-card__meta dd {
+  font-size: 12px;
+  margin: 0;
+}
+
+.ward-home-card__alert {
+  align-items: center;
+  color: #b45309;
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  margin: 0;
+}
+
+.ward-home-card__next,
+.ward-home-card__vacant {
+  color: var(--ward-muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.ward-home-skeleton-tile,
+.ward-home-skeleton-card {
+  animation: ward-home-pulse 1.4s ease-in-out infinite;
+  background: #e2e8f0;
+  border-radius: 12px;
+}
+
+.ward-home-skeleton-tile {
+  min-height: 62px;
+}
+
+.ward-home-skeleton-card {
+  min-height: 132px;
+}
+
+@keyframes ward-home-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (max-width: 767px) {
+  .ward-home-board {
+    grid-template-columns: 1fr;
+  }
+
+  .ward-home-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { finalize, forkJoin, map, Observable, of } from 'rxjs';
 
+import { formatActiveCurrency } from '../../../core/services/currency.service';
 import { BackendService } from '../../../core/services/backend.service';
 import { downloadExcelWorkbook } from '../../../core/utils/excel-export.util';
 import { HmsDocumentToolbarComponent } from '../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
@@ -407,7 +408,7 @@ export class PosReportsComponent implements OnInit {
 
   private formatCurrency(value: unknown): string {
     const numeric = Number(value ?? 0);
-    return `PKR ${(Number.isFinite(numeric) ? numeric : 0).toFixed(2)}`;
+    return formatActiveCurrency(Number.isFinite(numeric) ? numeric : 0, { fractionDigits: 2 });
   }
 
   private formatDate(value: unknown): string {

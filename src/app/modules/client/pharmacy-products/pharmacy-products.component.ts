@@ -6,6 +6,8 @@ import { finalize, map, Observable, of, switchMap, throwError } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { AppDialogService } from '../../../core/services/app-dialog.service';
 import { BackendService } from '../../../core/services/backend.service';
+import { CurrencyService } from '../../../core/services/currency.service';
+import { MedicineCatalogCacheService } from '../../../core/services/medicine-catalog-cache.service';
 import {
   Category,
   ProductDiscountType,
@@ -13,6 +15,7 @@ import {
   Store,
   User,
 } from '../../../shared/models/hospital.model';
+import { downloadBulkMedicineTemplate } from '../bulk-product-import/bulk-product-import.util';
 
 interface ProductForm {
   name: string;
@@ -67,6 +70,10 @@ export class PharmacyProductsComponent implements OnInit {
   productModalOpen = false;
   savingProduct = false;
   editingProductId = '';
+
+  get currencyLabel(): string {
+    return this.currency.label;
+  }
   editingOriginalStock = '';
   deletingProductId = '';
   productSections: Record<ProductFormSection, boolean> = {
@@ -108,6 +115,8 @@ export class PharmacyProductsComponent implements OnInit {
     private backend: BackendService,
     private toastr: ToastrService,
     private dialog: AppDialogService,
+    private currency: CurrencyService,
+    private readonly medicineCatalog: MedicineCatalogCacheService,
   ) {}
 
   ngOnInit(): void {
@@ -135,6 +144,11 @@ export class PharmacyProductsComponent implements OnInit {
     }
   }
 
+  downloadMedicineTemplate(): void {
+    downloadBulkMedicineTemplate(this.selectedStoreLabel || '');
+    this.toastr.success('Template downloaded. Fill rows, delete the SAMPLE row, then upload via Bulk Medicine Upload.');
+  }
+
   get canViewProducts(): boolean {
     return this.backend.hasPermission('products.read');
   }
@@ -149,6 +163,10 @@ export class PharmacyProductsComponent implements OnInit {
 
   get canDeleteProducts(): boolean {
     return this.backend.hasPermission('products.delete');
+  }
+
+  get canCreateCustomers(): boolean {
+    return this.backend.hasPermission('customers.create');
   }
 
   get canCreateCategories(): boolean {
@@ -609,6 +627,7 @@ export class PharmacyProductsComponent implements OnInit {
           this.productForm = this.getEmptyProductForm();
           this.productForm.storeId = storeId;
           this.loadProducts();
+          void this.medicineCatalog.refresh();
         },
         error: (err) => {
           this.toastr.error(
@@ -648,6 +667,7 @@ export class PharmacyProductsComponent implements OnInit {
             (item) => item._id !== product._id,
           );
           this.toastr.success('Medicine/product deleted.');
+          void this.medicineCatalog.refresh();
         },
         error: (err) => {
           this.toastr.error(

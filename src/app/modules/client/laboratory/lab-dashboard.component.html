@@ -22,9 +22,9 @@
       <article><strong>{{ stats.resultPending }}</strong><span>Result Pending</span></article>
       <article><strong>{{ stats.readyToVerify }}</strong><span>Ready to Verify</span></article>
       <article><strong>{{ stats.completedToday }}</strong><span>Completed Today</span></article>
-      <article *ngIf="canViewLabCollections()"><strong>Rs. {{ (stats.todayCollected || 0) | number:'1.0-0' }}</strong><span>Collected Today</span></article>
-      <article *ngIf="canViewLabCollections()"><strong>Rs. {{ (stats.totalCollected || 0) | number:'1.0-0' }}</strong><span>Total Lab Collection</span></article>
-      <article *ngIf="canViewLabCollections()"><strong>Rs. {{ (stats.outstandingAmount || 0) | number:'1.0-0' }}</strong><span>Outstanding</span></article>
+      <article *ngIf="canViewLabCollections()"><strong>{{ (stats.todayCollected || 0) | hmsCurrency }}</strong><span>Collected Today</span></article>
+      <article *ngIf="canViewLabCollections()"><strong>{{ (stats.totalCollected || 0) | hmsCurrency }}</strong><span>Total Lab Collection</span></article>
+      <article *ngIf="canViewLabCollections()"><strong>{{ (stats.outstandingAmount || 0) | hmsCurrency }}</strong><span>Outstanding</span></article>
     </div>
 
     <div class="lab-filter-bar">

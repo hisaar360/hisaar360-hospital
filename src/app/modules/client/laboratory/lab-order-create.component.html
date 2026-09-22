@@ -1,94 +1,163 @@
-<div id="main-content" class="lab-page">
-  <div class="lab-shell lab-form-shell">
-    <div class="lab-heading">
-      <div>
-        <h1>{{ isEditMode ? 'Edit Lab Order' : 'Create Lab Order' }}</h1>
-        <p *ngIf="!isEditMode">Walk-in, admission, emergency, or manual lab order</p>
-        <p *ngIf="isEditMode">
-          <span class="detail-order-badge" *ngIf="editingOrderNo">{{ editingOrderNo }}</span>
-          Update order details and tests before results are entered
-        </p>
+<div
+  id="main-content"
+  class="lab-page"
+  hmsKeyboard
+  pageId="lab-order-create"
+  [keyboardHandler]="onPageKeydown"
+  [escapeHandler]="onPageEscape"
+>
+  <div class="lab-shell lab-form-shell create-order-shell">
+    <div class="lab-heading create-order-heading">
+      <div class="create-order-title">
+        <span class="create-order-icon"><i class="fa fa-flask"></i></span>
+        <div>
+          <h1>{{ isEditMode ? 'Edit Lab Order' : 'Create Lab Order' }}</h1>
+          <p *ngIf="!isEditMode">Walk-in, OPD, admission, and manual orders.</p>
+          <p *ngIf="isEditMode">
+            <span class="detail-order-badge" *ngIf="editingOrderNo">{{ editingOrderNo }}</span>
+            Update order details and tests before results are entered
+          </p>
+        </div>
       </div>
-      <a class="btn-light" [routerLink]="isEditMode && editingOrderId ? ['/laboratory/orders', editingOrderId] : '/laboratory'">
-        {{ isEditMode ? 'Back to Order' : 'Back to Dashboard' }}
-      </a>
+      <div class="create-order-heading-actions">
+        <button type="button" class="btn-light kb-hint-btn" (click)="toggleKeyboardHint()" title="Keyboard shortcuts">
+          <i class="fa fa-keyboard-o"></i> Keyboard
+        </button>
+        <a class="btn-light" [routerLink]="isEditMode && editingOrderId ? ['/laboratory/orders', editingOrderId] : '/laboratory'">
+          {{ isEditMode ? 'Back to Order' : 'Cancel' }}
+        </a>
+      </div>
+    </div>
+
+    <div class="kb-hint-panel" *ngIf="keyboardHintOpen">
+      <div class="kb-hint-head">
+        <strong>Keyboard shortcuts</strong>
+        <button type="button" class="btn-light" (click)="keyboardHintOpen = false">Close</button>
+      </div>
+      <ul>
+        <li *ngFor="let hint of keyboardHints"><kbd>{{ hint.keys }}</kbd> <span>{{ hint.action }}</span></li>
+      </ul>
     </div>
 
     <div class="lab-loading" *ngIf="orderLoading">Loading lab order...</div>
 
-    <div class="lab-form-grid" *ngIf="!orderLoading">
-      <section class="lab-card">
-        <h2>Patient</h2>
+    <div class="create-order-layout" *ngIf="!orderLoading">
+      <div class="create-order-main">
+      <!-- 1. Patient Lookup -->
+      <section class="lab-card order-section">
+        <div class="section-head">
+          <span class="section-num">1</span>
+          <h2>Patient Lookup</h2>
+        </div>
+
         <ng-container *ngIf="!isEditMode">
-        <label>Mobile Number
-          <div class="phone-search">
-            <input type="tel" [(ngModel)]="patientPhone" placeholder="03004444444"
-              (keydown.enter)="$event.preventDefault(); lookupPatientsByPhone()" />
-            <button type="button" [disabled]="!canSearchPatientPhone()" (click)="lookupPatientsByPhone()">
-              {{ phoneLookupLoading ? 'Finding...' : 'Find Patient' }}
-            </button>
-          </div>
-        </label>
-
-        <div class="patient-lookup-panel" *ngIf="phoneLookupPerformed">
-          <div class="lookup-header" *ngIf="phoneMatchedTotal > 0">
-            <div>
-              <strong>{{ phoneMatchedTotal }} patient{{ phoneMatchedTotal === 1 ? '' : 's' }} found</strong>
-              <span>Registered on {{ patientPhone || 'this number' }}</span>
+          <label>Mobile Number
+            <div class="phone-search">
+              <input
+                #labPatientPhoneInput
+                type="tel"
+                [(ngModel)]="patientPhone"
+                placeholder="03004444444"
+                (keydown.enter)="$event.preventDefault(); lookupPatientsByPhone()"
+              />
+              <button type="button" [disabled]="!canSearchPatientPhone()" (click)="lookupPatientsByPhone()">
+                {{ phoneLookupLoading ? 'Finding...' : 'Find Patient' }}
+              </button>
             </div>
-            <span>{{ phoneMatchedTotal }}</span>
+          </label>
+
+          <div class="patient-lookup-panel" *ngIf="phoneLookupPerformed">
+            <div class="lookup-header" *ngIf="phoneMatchedTotal > 0">
+              <div>
+                <strong>{{ phoneMatchedTotal }} patient{{ phoneMatchedTotal === 1 ? '' : 's' }} found</strong>
+                <span>Registered on {{ patientPhone || 'this number' }}</span>
+              </div>
+            </div>
+
+            <div class="lookup-empty" *ngIf="phoneMatchedTotal === 0">
+              <strong>No patient found</strong>
+              <span>No record exists for {{ patientPhone || 'this number' }}.</span>
+            </div>
+
+            <div class="patient-picks" *ngIf="phoneMatchedTotal > 0">
+              <button
+                type="button"
+                class="patient-result-card"
+                *ngFor="let patient of patients; let i = index"
+                [class.active]="selectedPatientId === patient._id"
+                [class.is-keyboard-focus]="i === highlightedPatientIndex"
+                (click)="selectPatient(patient)"
+              >
+                <span class="patient-result-main">
+                  <strong>{{ patientName(patient) }}</strong>
+                  <small>{{ patient.patientNo }} · {{ patient.phone || 'No phone' }} · {{ patientAge(patient) }} · {{ patient.gender | titlecase }}</small>
+                </span>
+                <span class="patient-select-badge">
+                  {{ selectedPatientId === patient._id ? 'Selected' : 'Select' }}
+                </span>
+              </button>
+            </div>
           </div>
 
-          <div class="lookup-empty" *ngIf="phoneMatchedTotal === 0">
-            <strong>No patient found</strong>
-            <span>No record exists for {{ patientPhone || 'this number' }}.</span>
+          <div class="selected-patient-card" *ngIf="selectedPatient">
+            <div>
+              <strong>{{ patientName(selectedPatient) }}</strong>
+              <span class="patient-id">{{ selectedPatient.patientNo }}</span>
+              <small>{{ patientAge(selectedPatient) }} · {{ selectedPatient.gender | titlecase }} · {{ selectedPatient.phone || '-' }}</small>
+            </div>
           </div>
-
-          <div class="patient-picks" *ngIf="phoneMatchedTotal > 0">
-            <button type="button" class="patient-result-card" *ngFor="let patient of patients"
-              [class.active]="selectedPatientId === patient._id" (click)="selectPatient(patient)">
-              <span class="patient-result-main">
-                <strong>{{ patientName(patient) }}</strong>
-                <small>{{ patient.patientNo }} · {{ patient.phone || 'No phone' }}</small>
-              </span>
-              <span class="patient-select-badge">
-                {{ selectedPatientId === patient._id ? 'Selected' : 'Select' }}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <div class="selected-patient" *ngIf="selectedPatient">
-          <span>Selected Patient</span>
-          <strong>{{ patientName(selectedPatient) }}</strong>
-          <small>{{ selectedPatient.patientNo }} · {{ selectedPatient.phone || '-' }}</small>
-        </div>
         </ng-container>
 
-        <div class="selected-patient readonly-patient" *ngIf="isEditMode && selectedPatient">
-          <span>Patient (cannot change)</span>
-          <strong>{{ patientName(selectedPatient) }}</strong>
-          <small>{{ selectedPatient.patientNo }} · {{ selectedPatient.phone || '-' }}</small>
+        <div class="selected-patient-card" *ngIf="isEditMode && selectedPatient">
+          <div>
+            <span class="muted-label">Patient (cannot change)</span>
+            <strong>{{ patientName(selectedPatient) }}</strong>
+            <span class="patient-id">{{ selectedPatient.patientNo }}</span>
+            <small>{{ patientAge(selectedPatient) }} · {{ selectedPatient.gender | titlecase }} · {{ selectedPatient.phone || '-' }}</small>
+          </div>
         </div>
       </section>
 
-      <section class="lab-card">
-        <h2>Order Information</h2>
-        <label>Order Source
-          <select [(ngModel)]="source" (ngModelChange)="onSourceChange()">
-            <option value="walk-in">Walk-in</option>
-            <option value="doctor">Doctor Prescribed</option>
-            <option value="admission">Admission</option>
-            <option value="emergency">Emergency</option>
-          </select>
-        </label>
-        <label *ngIf="matchingEncounters().length > 0">Attach to visit
-          <select [(ngModel)]="selectedEncounterId">
-            <option *ngFor="let encounter of matchingEncounters()" [value]="encounter._id">
-              {{ encounter.encounterNo }} · {{ encounter.type }} · {{ encounter.status }}
-            </option>
-          </select>
-        </label>
+      <!-- 2. Order Information -->
+      <section class="lab-card order-section">
+        <div class="section-head">
+          <span class="section-num">2</span>
+          <h2>Order Information</h2>
+        </div>
+
+        <div class="order-info-grid">
+          <label>Order Source
+            <select [(ngModel)]="source" (ngModelChange)="onSourceChange()">
+              <option value="walk-in">Walk-in</option>
+              <option value="doctor">Doctor Prescribed</option>
+              <option value="admission">Admission</option>
+              <option value="emergency">Emergency</option>
+            </select>
+          </label>
+          <label>Priority
+            <select [(ngModel)]="priority">
+              <option value="normal">Normal</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </label>
+          <label>Referred By (optional)
+            <input [(ngModel)]="referredBy" placeholder="Select doctor..." />
+          </label>
+          <label>Collection Date &amp; Time
+            <input type="datetime-local" [(ngModel)]="collectionDateTime" />
+          </label>
+          <label *ngIf="matchingEncounters().length > 0" class="span-2">Attach to visit
+            <select [(ngModel)]="selectedEncounterId">
+              <option *ngFor="let encounter of matchingEncounters()" [value]="encounter._id">
+                {{ encounter.encounterNo }} · {{ encounter.type }} · {{ encounter.status }}
+              </option>
+            </select>
+          </label>
+          <label class="span-2">Notes (optional)
+            <textarea [(ngModel)]="notes" placeholder="Collection notes, fasting info, etc."></textarea>
+          </label>
+        </div>
+
         <p class="encounter-hint" *ngIf="selectedPatient && !isEditMode && encountersLoading">
           Looking up open visits...
         </p>
@@ -98,80 +167,265 @@
         <p class="encounter-hint is-attached" *ngIf="selectedEncounterId && attachedEncounterLabel()">
           Charges will post to {{ attachedEncounterLabel() }}.
         </p>
-        <label>Referred By
-          <input [(ngModel)]="referredBy" placeholder="Doctor name optional" />
-        </label>
-        <label>Priority
-          <select [(ngModel)]="priority">
-            <option value="normal">Normal</option>
-            <option value="urgent">Urgent</option>
-          </select>
-        </label>
-        <label>Notes
-          <textarea [(ngModel)]="notes" placeholder="Collection notes, fasting, etc."></textarea>
-        </label>
       </section>
 
-      <section class="lab-card lab-card-wide">
-        <h2>Select Tests</h2>
-        <input type="search" [(ngModel)]="testSearch" placeholder="Search CBC, HbA1c, RFT, LFT..." />
-        <div class="catalog-grid">
-          <button type="button" *ngFor="let test of filteredCatalog()" [class.active]="isSelected(test)"
-            (click)="toggleTest(test)">
-            <strong>{{ test.shortCode }}</strong>
-            <span>{{ test.name }}</span>
-            <small>{{ test.department }} · Rs. {{ test.price }}</small>
+      <!-- 3. Select Laboratory Tests -->
+      <section class="lab-card order-section">
+        <div class="section-head">
+          <span class="section-num">3</span>
+          <h2>Select Laboratory Tests</h2>
+        </div>
+
+        <div class="test-search-wrap">
+          <div class="test-search-row">
+            <i class="fa fa-search"></i>
+            <input
+              #labTestSearchInput
+              type="search"
+              [(ngModel)]="testSearch"
+              (ngModelChange)="onTestSearchChange()"
+              (focus)="onTestSearchFocus()"
+              (blur)="onTestSearchBlur()"
+              placeholder="Type code or name (e.g. CBC) — ↑↓ then Enter to add"
+              (keydown)="onTestSearchKeydown($event)"
+              autocomplete="off"
+              role="combobox"
+              [attr.aria-expanded]="showTestSearchDropdown"
+              aria-autocomplete="list"
+              aria-controls="lab-test-suggestions"
+            />
+          </div>
+
+          <div
+            id="lab-test-suggestions"
+            class="test-search-dropdown"
+            *ngIf="showTestSearchDropdown"
+            role="listbox"
+            aria-label="Lab test suggestions"
+          >
+            <button
+              type="button"
+              class="test-search-dropdown__item"
+              *ngFor="let test of searchSuggestions(); let i = index"
+              role="option"
+              [attr.aria-selected]="i === highlightedTestIndex"
+              [class.is-active]="i === highlightedTestIndex"
+              [class.is-selected]="isSelected(test)"
+              (mousedown)="addTestFromSuggestion(test, $event)"
+            >
+              <span class="test-search-dropdown__main">
+                <strong>{{ test.shortCode }}</strong>
+                <small>{{ test.name }} · {{ test.department }}</small>
+              </span>
+              <span class="test-search-dropdown__meta">
+                <em>{{ specimenLabel(test) }}</em>
+                <b>{{ chargePrice(test) | hmsCurrency }}</b>
+              </span>
+            </button>
+            <div class="test-search-dropdown__status" *ngIf="!searchSuggestions().length">
+              No test matches this search.
+            </div>
+          </div>
+        </div>
+
+        <div class="category-chips" *ngIf="!loading">
+          <button type="button" class="chip" tabindex="-1" [class.active]="categoryFilter === 'All'" (click)="setCategory('All')">
+            All ({{ catalog.length }})
+          </button>
+          <button type="button" class="chip" tabindex="-1" *ngFor="let cat of categoryChips()"
+            [class.active]="categoryFilter === cat.name" (click)="setCategory(cat.name)">
+            {{ cat.name }} ({{ cat.count }})
           </button>
         </div>
-      </section>
 
-      <aside class="lab-card lab-summary">
-        <h2>Selected Tests</h2>
-        <div class="selected-test" *ngFor="let test of selectedTests">
-          <span>{{ test.shortCode }} · {{ test.name }}</span>
-          <strong>Rs. {{ test.price }}</strong>
+        <div class="lab-loading" *ngIf="loading">Loading test catalog...</div>
+
+        <div class="test-table-wrap" *ngIf="!loading">
+          <table class="test-table">
+            <thead>
+              <tr>
+                <th style="width: 40px"></th>
+                <th>Code</th>
+                <th>Test Name</th>
+                <th>Category</th>
+                <th>Specimen</th>
+                <th>TAT</th>
+                <th>Price</th>
+                <th>Package</th>
+                <th style="width: 40px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let test of filteredCatalog(); let i = index"
+                [class.selected]="isSelected(test)"
+                (click)="toggleTest(test)"
+              >
+                <td>
+                  <input
+                    type="checkbox"
+                    tabindex="-1"
+                    [checked]="isSelected(test)"
+                    (click)="$event.stopPropagation(); toggleTest(test)"
+                  />
+                </td>
+                <td><strong>{{ test.shortCode }}</strong></td>
+                <td>{{ test.name }}</td>
+                <td>{{ test.department }}</td>
+                <td>{{ specimenLabel(test) }}</td>
+                <td>{{ tatLabel(test) }}</td>
+                <td>{{ test.price | hmsCurrency }}</td>
+                <td>{{ (test.packageRate ?? 0) | hmsCurrency }}</td>
+                <td class="row-action">
+                  <i class="fa" [class.fa-check]="isSelected(test)" [class.fa-plus]="!isSelected(test)"></i>
+                </td>
+              </tr>
+              <tr *ngIf="filteredCatalog().length === 0">
+                <td colspan="9" class="lab-empty">No tests in this category.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <div class="selected-test empty" *ngIf="selectedTests.length === 0">No tests selected yet.</div>
-        <div class="payment-box" *ngIf="canCollectPayment(); else unpaidOrderHint">
-          <p class="billing-hint">{{ billingHint() }}</p>
-          <label class="payment-received">
-            <input type="checkbox" [(ngModel)]="paymentReceivedNow" (ngModelChange)="onPaymentReceivedToggle()" />
-            Payment received now
-          </label>
-          <div class="invoice-status" [attr.data-status]="invoiceStatusPreview()">
-            Invoice will print as <strong>{{ invoiceStatusPreview() }}</strong>
+      </section>
+      </div>
+
+      <div class="create-order-sidebar">
+        <!-- 4. Selected Tests -->
+        <aside class="lab-card order-section">
+          <div class="section-head between">
+            <div class="section-head-left">
+              <span class="section-num">4</span>
+              <h2>Selected Tests ({{ selectedTests.length }})</h2>
+            </div>
+            <button type="button" class="clear-all" tabindex="-1" *ngIf="selectedTests.length" (click)="clearSelectedTests()">
+              <i class="fa fa-trash"></i> Clear All
+            </button>
           </div>
-          <div><span>Total</span><strong>Rs. {{ totalAmount() }}</strong></div>
-          <label>Paid
-            <input type="number" min="0" [max]="totalAmount()" [(ngModel)]="paidAmount" (ngModelChange)="onPaidAmountChange()" />
-          </label>
-          <label>Method
-            <select [(ngModel)]="paymentMethod">
-              <option value="cash">Cash</option>
-              <option value="card">Card</option>
-              <option value="bank">Bank</option>
-              <option value="online">Online</option>
-              <option value="wallet">Wallet</option>
-              <option value="jazzcash">JazzCash</option>
-              <option value="easypaisa">Easypaisa</option>
-            </select>
-          </label>
-          <div class="balance"><span>Balance</span><strong>Rs. {{ balanceAmount() }}</strong></div>
-        </div>
-        <ng-template #unpaidOrderHint>
-          <div class="payment-box">
-            <p class="billing-hint">Total Rs. {{ totalAmount() }}. Payment is collected at reception — this order will stay unpaid until then.</p>
+
+          <div class="selected-test-list">
+            <div class="selected-test-row" *ngFor="let test of selectedTests">
+              <div>
+                <strong>{{ test.shortCode }}</strong>
+                <small>{{ test.department }}</small>
+              </div>
+              <div class="selected-test-meta">
+                <strong>{{ chargePrice(test) | hmsCurrency }}</strong>
+                <button type="button" class="remove-test" tabindex="-1" (click)="toggleTest(test)" aria-label="Remove">
+                  <i class="fa fa-times"></i>
+                </button>
+              </div>
+            </div>
+            <div class="selected-test empty" *ngIf="selectedTests.length === 0">No tests selected yet.</div>
           </div>
-        </ng-template>
-        <div class="summary-actions">
-          <button type="button" class="btn-light" [disabled]="saving" (click)="saveOrder(false)">
+        </aside>
+
+        <!-- 5. Payment Summary -->
+        <aside class="lab-card order-section lab-summary" id="lab-payment-summary">
+          <div class="section-head">
+            <span class="section-num">5</span>
+            <h2>Payment Summary</h2>
+          </div>
+
+          <div class="summary-line">
+            <span>Subtotal ({{ selectedTests.length }} tests)</span>
+            <strong>{{ subtotalAmount() | hmsCurrency }}</strong>
+          </div>
+
+          <div class="discount-row">
+            <label>Discount
+              <div class="discount-inputs">
+                <input
+                  #labDiscountInput
+                  type="number"
+                  min="0"
+                  step="1"
+                  [(ngModel)]="discountValue"
+                  (ngModelChange)="onDiscountChange()"
+                />
+                <select [(ngModel)]="discountUnit" (ngModelChange)="onDiscountChange()">
+                  <option value="flat">{{ currencyLabel }}</option>
+                  <option value="percent">%</option>
+                </select>
+              </div>
+            </label>
+          </div>
+
+          <div class="summary-line total-line">
+            <span>Total Amount</span>
+            <strong>{{ totalAmount() | hmsCurrency }}</strong>
+          </div>
+
+          <div class="payment-box" *ngIf="canCollectPayment(); else unpaidOrderHint">
+            <label class="payment-toggle">
+              <input type="checkbox" [(ngModel)]="paymentReceivedNow" (ngModelChange)="onPaymentReceivedToggle()" />
+              <span>Payment received now ({{ source === 'walk-in' ? 'Walk-in' : source }})</span>
+            </label>
+
+            <label class="use-package">
+              <input type="checkbox" [(ngModel)]="usePackageRates" (ngModelChange)="onPackageRateToggle()" />
+              <span>Apply package rates</span>
+            </label>
+
+            <div class="invoice-status" [attr.data-status]="invoiceStatusPreview()">
+              Invoice will print as <strong>{{ invoiceStatusPreview() }}</strong>
+            </div>
+
+            <label>Amount Paid
+              <input
+                #labPaidAmountInput
+                type="number"
+                min="0"
+                step="1"
+                [max]="totalAmount()"
+                [(ngModel)]="paidAmount"
+                (ngModelChange)="onPaidAmountChange()"
+              />
+            </label>
+            <label>Payment Method
+              <select [(ngModel)]="paymentMethod">
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="bank">Bank</option>
+                <option value="online">Online</option>
+                <option value="wallet">Wallet</option>
+                <option value="jazzcash">JazzCash</option>
+                <option value="easypaisa">Easypaisa</option>
+              </select>
+            </label>
+            <div class="balance" [class.cleared]="balanceAmount() === 0">
+              <span>Balance Due</span>
+              <strong>{{ balanceAmount() | hmsCurrency }}</strong>
+            </div>
+            <p class="billing-hint">{{ billingHint() }}</p>
+          </div>
+
+          <ng-template #unpaidOrderHint>
+            <div class="payment-box">
+              <p class="billing-hint">Total {{ totalAmount() | hmsCurrency }}. Payment is collected at reception — this order will stay unpaid until then.</p>
+            </div>
+          </ng-template>
+        </aside>
+      </div>
+
+      <div class="create-order-footer">
+        <a class="btn-light" [routerLink]="isEditMode && editingOrderId ? ['/laboratory/orders', editingOrderId] : '/laboratory'">Cancel</a>
+        <div class="footer-actions">
+          <button #labSaveBtn type="button" class="btn-light" [disabled]="saving" (click)="saveOrder(false)">
             {{ isEditMode ? 'Update Order' : 'Save Order' }}
           </button>
-          <button type="button" class="btn-primary" *ngIf="canCollectPayment()" [disabled]="saving" (click)="saveOrder(true)">
+          <button
+            #labSavePrintBtn
+            type="button"
+            class="btn-primary"
+            *ngIf="canCollectPayment()"
+            [disabled]="saving"
+            (click)="saveOrder(true)"
+          >
+            <i class="fa fa-print"></i>
             {{ isEditMode ? 'Update & Print Invoice' : 'Save & Print Invoice' }}
           </button>
         </div>
-      </aside>
+      </div>
     </div>
   </div>
 </div>

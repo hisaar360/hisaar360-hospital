@@ -656,6 +656,60 @@
   width: 100%;
 }
 
+.storepos-customer-row {
+  align-items: stretch;
+  display: flex;
+  gap: 6px;
+}
+
+.storepos-customer-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.storepos-customer-add {
+  align-items: center;
+  background: #0f766e;
+  border: 0;
+  border-radius: 5px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 13px;
+  justify-content: center;
+  min-height: 32px;
+  min-width: 36px;
+  padding: 0 10px;
+}
+
+.storepos-customer-add:hover {
+  background: #0d9488;
+}
+
+.storepos-credit-box {
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: 8px;
+  color: #9a3412;
+  display: grid;
+  gap: 4px 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 8px;
+  padding: 8px 10px;
+}
+
+.storepos-credit-box span {
+  font-size: 12px;
+}
+
+.storepos-credit-box strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
 .storepos-total-display {
   align-items: end;
   background: #102a43;
@@ -1852,4 +1906,36 @@
   .modern-shortcuts-actions button {
     flex: 1 1 100%;
   }
+}
+
+.modern-shortcuts-standards {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin: 0 0 14px;
+  padding: 12px;
+}
+
+.modern-shortcuts-standards ul {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.modern-shortcuts-standards li {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.modern-shortcuts-standards kbd {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 11px;
+  min-width: 140px;
+  padding: 2px 6px;
 }

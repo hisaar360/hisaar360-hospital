@@ -6,6 +6,8 @@ import { finalize, map, Observable, of, switchMap, throwError } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { AppDialogService } from '../../../core/services/app-dialog.service';
 import { BackendService } from '../../../core/services/backend.service';
+import { CurrencyService } from '../../../core/services/currency.service';
+import { MedicineCatalogCacheService } from '../../../core/services/medicine-catalog-cache.service';
 import {
   Category,
   Doctor,
@@ -139,8 +141,14 @@ export class PharmacyComponent implements OnInit {
     private router: Router,
     private backend: BackendService,
     private toastr: ToastrService,
-    private dialog: AppDialogService
+    private dialog: AppDialogService,
+    private currency: CurrencyService,
+    private readonly medicineCatalog: MedicineCatalogCacheService
   ) {}
+
+  get currencyLabel(): string {
+    return this.currency.label;
+  }
 
   ngOnInit(): void {
     this.route.queryParamMap.subscribe((params) => {
@@ -649,6 +657,7 @@ export class PharmacyComponent implements OnInit {
           this.productForm = this.getEmptyProductForm();
           this.productForm.storeId = storeId;
           this.loadProducts();
+          void this.medicineCatalog.refresh();
         },
         error: (err) => {
           this.toastr.error(err?.error?.message || err?.message || 'Unable to add medicine/product.');
@@ -680,6 +689,7 @@ export class PharmacyComponent implements OnInit {
         next: () => {
           this.products = this.products.filter((item) => item._id !== product._id);
           this.toastr.success('Medicine/product deleted.');
+          void this.medicineCatalog.refresh();
         },
         error: (err) => {
           this.toastr.error(err?.error?.message || 'Unable to delete medicine/product.');

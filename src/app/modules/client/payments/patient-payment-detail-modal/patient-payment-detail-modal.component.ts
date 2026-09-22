@@ -8,6 +8,8 @@ import { HmsDocumentService } from '../../../../core/services/hms-document.servi
 import { buildPaymentReceiptDocumentHtml } from '../../../../core/documents/patient-ledger-document.builder';
 import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../../core/utils/hms-document-context.util';
 import { HmsDocumentToolbarComponent } from '../../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
+import { HmsCurrencyPipe } from '../../../../shared/pipes/hms-currency.pipe';
+import { CurrencyService } from '../../../../core/services/currency.service';
 import {
   LedgerPayment,
   PatientPaymentDetail,
@@ -17,7 +19,7 @@ import {
 
 @Component({
   selector: 'app-patient-payment-detail-modal',
-  imports: [CommonModule, FormsModule, HmsDocumentToolbarComponent],
+  imports: [CommonModule, FormsModule, HmsDocumentToolbarComponent, HmsCurrencyPipe],
   templateUrl: './patient-payment-detail-modal.component.html',
   styleUrl: './patient-payment-detail-modal.component.scss',
 })
@@ -32,6 +34,10 @@ export class PatientPaymentDetailModalComponent implements OnChanges {
   saving = false;
   pdfLoading = false;
 
+  get currencyLabel(): string {
+    return this.currency.label;
+  }
+
   discountAmount = 0;
   collectAmount = 0;
   paymentMethod = 'cash';
@@ -42,7 +48,8 @@ export class PatientPaymentDetailModalComponent implements OnChanges {
   constructor(
     private backend: BackendService,
     private docs: HmsDocumentService,
-    private toastr: ToastrService
+    private toastr: ToastrService,
+    private currency: CurrencyService
   ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -172,7 +179,10 @@ export class PatientPaymentDetailModalComponent implements OnChanges {
       this.toastr.error('Select a payment receipt first');
       return;
     }
-    this.docs.printHtml(html, 'Payment Receipt');
+    this.docs.printHtml(html, {
+      jobType: 'invoice',
+      title: 'Payment Receipt — select Invoice printer',
+    });
   }
 
   async downloadSelectedReceipt(): Promise<void> {

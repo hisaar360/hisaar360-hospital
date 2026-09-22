@@ -1,5 +1,7 @@
 <section class="prescription-print-sheet prescription-template-gynae-womens-health"
-  [class.gynae-wh-page-last]="page.isLastPage">
+  [class.gynae-wh-page-last]="page.isLastPage"
+  [class.gynae-wh-continuation]="!page.isFirstPage"
+  [style.--prescription-logo-scale]="(preview.hospitalLogoScale || 100) / 100">
   <div class="gynae-wh-page">
 
     <header class="gynae-wh-mini-header" *ngIf="!page.isFirstPage">
@@ -7,41 +9,49 @@
         <strong>{{ preview.hospitalName }}</strong>
         <span>{{ preview.prescriptionNo }} · {{ preview.patientName }} · {{ preview.date }}</span>
       </div>
-      <em>Page {{ page.pageNumber }} of {{ page.totalPages }}</em>
+      <em>Page {{ page.pageNumber }} / {{ page.totalPages }}</em>
     </header>
 
     <ng-container *ngIf="page.isFirstPage">
       <header class="gynae-wh-header">
         <div class="gynae-wh-brand">
-          <div class="gynae-wh-logo" [class.has-logo]="preview.showHospitalLogo">
-            <img *ngIf="preview.showHospitalLogo" [src]="preview.hospitalLogoUrl" [alt]="preview.hospitalName">
-            <i *ngIf="!preview.showHospitalLogo" class="fa fa-heartbeat"></i>
+          <div class="gynae-wh-logo" *ngIf="preview.showHospitalLogo; else clinicTextMark">
+            <img [src]="preview.hospitalLogoUrl" [alt]="preview.hospitalName">
           </div>
-          <div>
+          <ng-template #clinicTextMark>
+            <div class="gynae-wh-logo gynae-wh-logo--text" aria-hidden="true">
+              <span>{{ (preview.hospitalName || 'C').charAt(0) }}</span>
+            </div>
+          </ng-template>
+          <div class="gynae-wh-brand-copy">
             <strong class="gynae-wh-clinic-name">{{ preview.hospitalName }}</strong>
-            <span class="gynae-wh-brand-ur" dir="rtl">{{ preview.hospitalNameUrdu || preview.hospitalName }}</span>
-            <small>Women's Health Clinic</small>
+            <span class="gynae-wh-brand-ur" dir="rtl" *ngIf="preview.hospitalNameUrdu">{{ preview.hospitalNameUrdu }}</span>
           </div>
         </div>
 
         <div class="gynae-wh-contact">
-          <span><i class="fa fa-map-marker"></i>{{ preview.hospitalAddress || preview.hospitalName }}</span>
-          <span><i class="fa fa-phone"></i>{{ contactPhoneValue }}</span>
-          <span><i class="fa fa-envelope-o"></i>{{ contactEmailValue }}</span>
+          <em class="gynae-wh-tagline" *ngIf="clinicTagline">{{ clinicTagline }}</em>
+          <span *ngIf="preview.hospitalAddress"><i class="fa fa-map-marker"></i>{{ preview.hospitalAddress }}</span>
+          <span *ngIf="contactPhoneValue"><i class="fa fa-phone"></i>{{ contactPhoneValue }}</span>
+          <span *ngIf="contactEmailValue"><i class="fa fa-envelope-o"></i>{{ contactEmailValue }}</span>
         </div>
 
         <div class="gynae-wh-doctor">
-          <div class="gynae-wh-doctor-icon"><i class="fa fa-user-md"></i></div>
-          <div>
-            <strong>{{ preview.doctorName }}</strong>
-            <span>Consultant Gynaecologist &amp; Obstetrician</span>
-            <small>{{ preview.doctorQualification }}</small>
-          </div>
+          <strong>{{ preview.doctorName }}</strong>
+          <span *ngIf="doctorTitleLabel">{{ doctorTitleLabel }}</span>
+          <span class="gynae-wh-doctor-ur" dir="rtl" *ngIf="preview.doctorTitleUrdu">{{ preview.doctorTitleUrdu }}</span>
+          <small *ngIf="preview.doctorQualification">{{ preview.doctorQualification }}</small>
+          <small class="gynae-wh-doctor-ur" dir="rtl" *ngIf="preview.doctorQualificationUrdu">{{ preview.doctorQualificationUrdu }}</small>
         </div>
       </header>
 
       <nav class="gynae-wh-tabs" aria-label="Consultation mode">
         <div class="gynae-wh-tab" *ngFor="let tab of consultTabs" [class.is-active]="isActiveTab(tab.key)">
+          <i class="fa"
+            [class.fa-female]="tab.key === 'antenatal'"
+            [class.fa-heartbeat]="tab.key === 'gynae_problem'"
+            [class.fa-child]="tab.key === 'postnatal'"
+            aria-hidden="true"></i>
           <span class="gynae-wh-tab-en">{{ tab.labelEn }}</span>
           <span class="gynae-wh-tab-ur" dir="rtl">{{ tab.labelUr }}</span>
         </div>
@@ -50,95 +60,95 @@
       <section class="gynae-wh-patient">
         <div class="gynae-wh-field">
           <i class="fa fa-user"></i>
-          <div><strong>Patient Name <em dir="rtl">مریض کا نام</em></strong><span>{{ preview.patientName }}</span></div>
+          <div>
+            <strong>Patient Name / <em dir="rtl">مریض کا نام</em></strong>
+            <span>{{ preview.patientName }}</span>
+          </div>
         </div>
         <div class="gynae-wh-field">
           <i class="fa fa-birthday-cake"></i>
-          <div><strong>Age <em dir="rtl">عمر</em></strong><span>{{ preview.patientAge }}</span></div>
+          <div>
+            <strong>Age / <em dir="rtl">عمر</em></strong>
+            <span>{{ preview.patientAge }}</span>
+          </div>
         </div>
         <div class="gynae-wh-field">
           <i class="fa fa-venus"></i>
-          <div><strong>Gender <em dir="rtl">جنس</em></strong><span>{{ preview.patientGender }}</span></div>
+          <div>
+            <strong>Gender / <em dir="rtl">جنس</em></strong>
+            <span>{{ preview.patientGender }}</span>
+          </div>
         </div>
         <div class="gynae-wh-field">
           <i class="fa fa-stethoscope"></i>
-          <div><strong>Visit Type <em dir="rtl">وزٹ کی قسم</em></strong><span>OPD</span></div>
+          <div>
+            <strong>Visit Type / <em dir="rtl">وزٹ کی قسم</em></strong>
+            <span>{{ visitTypeLabel }}</span>
+          </div>
         </div>
-        <div class="gynae-wh-field">
+        <div class="gynae-wh-field" *ngIf="preview.patientPhone">
           <i class="fa fa-phone"></i>
-          <div><strong>Phone <em dir="rtl">فون</em></strong><span>{{ preview.patientPhone }}</span></div>
+          <div>
+            <strong>Phone / <em dir="rtl">فون</em></strong>
+            <span>{{ preview.patientPhone }}</span>
+          </div>
         </div>
         <div class="gynae-wh-field">
           <i class="fa fa-calendar"></i>
-          <div><strong>Date <em dir="rtl">تاریخ</em></strong><span>{{ preview.date }}</span></div>
+          <div>
+            <strong>Date / <em dir="rtl">تاریخ</em></strong>
+            <span>{{ preview.date }}</span>
+          </div>
         </div>
         <div class="gynae-wh-field">
           <i class="fa fa-folder-open-o"></i>
-          <div><strong>UHID / MR No. <em dir="rtl">فائل نمبر</em></strong><span>{{ preview.patientNo }}</span></div>
+          <div>
+            <strong>UHID / MR No. / <em dir="rtl">فائل نمبر</em></strong>
+            <span>{{ preview.patientNo }}</span>
+          </div>
         </div>
-        <div class="gynae-wh-field">
+        <div class="gynae-wh-field" *ngIf="showFollowUp">
           <i class="fa fa-calendar-check-o"></i>
-          <div><strong>Follow-up Date <em dir="rtl">دوبارہ ملاقات</em></strong><span>{{ preview.followUpDate }}</span></div>
+          <div>
+            <strong>Follow-up Date / <em dir="rtl">دوبارہ ملاقات</em></strong>
+            <span>{{ preview.followUpDate }}</span>
+          </div>
         </div>
       </section>
 
-      <section class="gynae-wh-metrics">
-        <div><strong>LMP</strong><span>{{ lmpValue }}</span></div>
-        <div><strong>EDD</strong><span>{{ eddValue }}</span></div>
-        <div><strong>Gestational Age</strong><span>{{ gestationalValue }}</span></div>
-        <div><strong>Gravida / Para</strong><span>{{ gravidaParaValue }}</span></div>
-        <div><strong>Blood Group</strong><span>{{ preview.patientBloodGroup || '-' }}</span></div>
-        <div><strong>Weight</strong><span>{{ preview.vitals['weight'] || '-' }} Kg</span></div>
-        <div><strong>BP</strong><span>{{ preview.vitals['bp'] || preview.vitals['bloodPressure'] || '-' }} mmHg</span></div>
-      </section>
-
-      <section class="gynae-wh-vitals" *ngIf="showExtraVitals">
-        <div><strong>Pulse</strong><span>{{ preview.vitals['pulse'] || '-' }} /min</span></div>
-        <div><strong>Temperature</strong><span>{{ preview.vitals['temperature'] || '-' }}</span></div>
-        <div><strong>SpO2</strong><span>{{ preview.vitals['spo2'] || '-' }}%</span></div>
-      </section>
-
-      <section class="gynae-wh-diagnosis">
-        <div>
-          <strong>Diagnosis / تشخیص</strong>
-          <p>{{ preview.disease }}</p>
-        </div>
-        <div>
-          <strong>Follow-up / دوبارہ چیک اپ</strong>
-          <p>Next visit on: {{ preview.followUpDate }}</p>
+      <section class="gynae-wh-metrics" *ngIf="metrics.length > 0">
+        <div *ngFor="let metric of metrics; trackBy: trackMetric">
+          <strong>{{ metric.label }}<ng-container *ngIf="metric.labelUr"> / <em dir="rtl">{{ metric.labelUr }}</em></ng-container></strong>
+          <span>{{ metric.value }}<ng-container *ngIf="metric.unit"> {{ metric.unit }}</ng-container></span>
         </div>
       </section>
 
-      <section class="gynae-wh-overview">
-        <article>
-          <strong>Chief Complaint</strong>
-          <p>{{ chiefComplaint }}</p>
-        </article>
-        <article>
-          <strong>History</strong>
-          <p>{{ historyValue }}</p>
-        </article>
-        <article>
-          <strong>Examination</strong>
-          <p>{{ examinationValue }}</p>
+      <section class="gynae-wh-overview" *ngIf="noteCards.length > 0"
+        [style.--gynae-wh-note-cols]="noteCards.length >= 4 ? 4 : noteCards.length">
+        <article *ngFor="let card of noteCards; trackBy: trackNoteCard">
+          <strong>
+            <i class="fa" [ngClass]="card.icon" aria-hidden="true"></i>
+            {{ card.titleEn }} / <em dir="rtl">{{ card.titleUr }}</em>
+          </strong>
+          <p>{{ card.value }}</p>
         </article>
       </section>
     </ng-container>
 
-    <section class="gynae-wh-obs" *ngIf="obsRows.length > 0">
-      <header>GYNAE / OBS DETAILS / نسوانی تفصیلات</header>
+    <section class="gynae-wh-obs" *ngIf="showObs">
+      <header>Gynae / OBS Details / <span dir="rtl">تفصیلات نسواں</span></header>
       <div class="gynae-wh-obs-grid">
         <div *ngFor="let row of obsRows; trackBy: trackObsRow"
-          [class.span-full]="row.wide || isDangerRow(row.label)"
+          [class.span-full]="row.wide"
           [class.is-danger]="isDangerRow(row.label)">
-          <strong>{{ row.label }}</strong>
+          <strong>{{ row.label }}<ng-container *ngIf="row.labelUr"> / <em dir="rtl">{{ row.labelUr }}</em></ng-container></strong>
           <p>{{ row.value }}</p>
         </div>
       </div>
     </section>
 
-    <section class="gynae-wh-medicines" *ngIf="page.medicines.length > 0 || page.isFirstPage">
-      <header>PRESCRIPTION / نسخہ</header>
+    <section class="gynae-wh-medicines" *ngIf="showMedicines">
+      <header>Prescription / <span dir="rtl">نسخہ</span></header>
       <table>
         <colgroup>
           <col class="col-num">
@@ -151,101 +161,116 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Medicine / دوائی</th>
-            <th>Dose / مقدار</th>
-            <th>Frequency / تعدد</th>
-            <th>Duration / مدت</th>
-            <th>Instructions / ہدایات</th>
+            <th>Medicine / <span dir="rtl">دوائی</span></th>
+            <th>Dose / <span dir="rtl">مقدار</span></th>
+            <th>Frequency / <span dir="rtl">تعدد</span></th>
+            <th>Duration / <span dir="rtl">مدت</span></th>
+            <th>Instructions / <span dir="rtl">ہدایات</span></th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let medicine of page.medicines; let i = index; trackBy: trackMedicine">
+          <tr *ngFor="let medicine of medicineRows; let i = index; trackBy: trackMedicine">
             <td>{{ page.medicineOffset + i + 1 }}</td>
-            <td class="gynae-wh-med">
-              <strong>{{ medicine['name'] || 'Medicine' }}</strong>
-              <small *ngIf="medicine['frequency']">{{ medicine['frequency'] }}</small>
+            <td class="gynae-wh-med"><strong>{{ medicine.name }}</strong></td>
+            <td>{{ display(medicine.dosage) }}</td>
+            <td class="gynae-wh-bilingual">
+              <span *ngIf="medicine.frequency">{{ medicine.frequency }}</span>
+              <span class="gynae-wh-ur" dir="rtl" *ngIf="medicine.frequencyUrdu">{{ medicine.frequencyUrdu }}</span>
+              <span *ngIf="!medicine.frequency">—</span>
             </td>
-            <td>{{ medicine['dosage'] || '-' }}</td>
-            <td>{{ medicine['frequency'] || '-' }}</td>
-            <td>{{ medicine['duration'] || '-' }}</td>
-            <td class="gynae-wh-inst">{{ medicine['instructions'] || '-' }}</td>
+            <td>{{ display(medicine.duration) }}</td>
+            <td class="gynae-wh-inst">
+              <span *ngIf="medicine.instructionEnglish">{{ medicine.instructionEnglish }}</span>
+              <span class="gynae-wh-ur" dir="rtl" *ngIf="medicine.instructionUrdu">{{ medicine.instructionUrdu }}</span>
+              <span *ngIf="!medicine.instructionEnglish && !medicine.instructionUrdu">—</span>
+            </td>
           </tr>
-          <tr *ngIf="page.medicines.length === 0 && page.isFirstPage">
-            <td colspan="6">No medicine prescribed</td>
+          <tr *ngIf="medicineRows.length === 0 && page.isFirstPage">
+            <td colspan="6">No medicine prescribed / <span dir="rtl">کوئی دوا تجویز نہیں</span></td>
           </tr>
         </tbody>
       </table>
     </section>
 
-    <section class="gynae-wh-drips" *ngIf="page.isFirstPage && preview.ivFluids.length > 0">
-      <header><i class="fa fa-tint"></i> IV DRIP / ڈرپ</header>
-      <div *ngFor="let drip of preview.ivFluids; trackBy: trackDrip">
-        <strong>{{ drip.name }}</strong><span>{{ drip.rate }}</span>
+    <section class="gynae-wh-lower" *ngIf="page.isLastPage && (showIvDrips || showTests || showInstructions || showWarnings || showNextVisit)">
+      <div class="gynae-wh-lower-col">
+        <section class="gynae-wh-panel" *ngIf="showIvDrips">
+          <h4>IV Drip / <span dir="rtl">ڈرپ</span></h4>
+          <ul class="gynae-wh-checklist">
+            <li *ngFor="let drip of preview.ivFluids; trackBy: trackDrip">
+              <i class="fa fa-check-square-o"></i>
+              <span><strong>{{ drip.name }}</strong><em *ngIf="drip.rate && drip.rate !== '—'"> — {{ drip.rate }}</em></span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="gynae-wh-panel" *ngIf="showTests">
+          <h4>Advised Tests / <span dir="rtl">تجویز کردہ ٹیسٹ</span></h4>
+          <ul class="gynae-wh-checklist">
+            <li *ngFor="let test of preview.labTests; trackBy: trackLabTest">
+              <i class="fa fa-check-square-o"></i>{{ test.name }}
+            </li>
+          </ul>
+        </section>
+      </div>
+
+      <div class="gynae-wh-lower-col">
+        <section class="gynae-wh-panel" *ngIf="showInstructions">
+          <h4>General Instructions / <span dir="rtl">عمومی ہدایات</span></h4>
+          <ul>
+            <li *ngFor="let line of instructionLines; trackBy: trackInstruction">
+              <span *ngIf="line.en">{{ line.en }}</span>
+              <span class="gynae-wh-ur" dir="rtl" *ngIf="line.ur">{{ line.ur }}</span>
+            </li>
+          </ul>
+        </section>
+      </div>
+
+      <div class="gynae-wh-lower-col">
+        <section class="gynae-wh-panel gynae-wh-danger" *ngIf="showWarnings">
+          <h4><i class="fa fa-exclamation-triangle"></i> Important Warning Signs / <span dir="rtl">اہم خطرے کی علامات</span></h4>
+          <ul>
+            <li *ngFor="let line of warningLines; trackBy: trackInstruction">
+              <span *ngIf="line.en">{{ line.en }}</span>
+              <span class="gynae-wh-ur" dir="rtl" *ngIf="line.ur">{{ line.ur }}</span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="gynae-wh-panel gynae-wh-next" *ngIf="showNextVisit">
+          <h4>Next Visit / <span dir="rtl">اگلی ملاقات</span></h4>
+          <strong>{{ preview.followUpDate }}</strong>
+        </section>
       </div>
     </section>
 
-    <ng-container *ngIf="page.isLastPage">
-      <section class="gynae-wh-triple">
-        <div class="gynae-wh-panel">
-          <h4>Tests Advised / تجویز کردہ ٹیسٹ</h4>
-          <ul class="gynae-wh-checklist">
-            <li *ngFor="let test of preview.labTests; trackBy: trackLabTest"><i class="fa fa-check-square-o"></i>{{ test.name }}</li>
-            <li *ngIf="preview.labTests.length === 0">—</li>
-          </ul>
+    <section class="gynae-wh-closing" *ngIf="showFooterExtras">
+      <div class="gynae-wh-closing-brand">
+        <i class="fa fa-heart" aria-hidden="true"></i>
+        <div>
+          <strong>Women's Health Our Priority</strong>
+          <span dir="rtl">خواتین کی صحت ہماری ترجیح</span>
         </div>
-
-        <div class="gynae-wh-panel">
-          <h4>General Instructions / عمومی ہدایات</h4>
-          <ul *ngIf="instructionLines.length > 0; else noInstructions">
-            <li *ngFor="let line of instructionLines; trackBy: trackInstruction">{{ line }}</li>
-          </ul>
-          <ng-template #noInstructions>
-            <p>{{ preview.patientNote || '-' }}</p>
-          </ng-template>
-        </div>
-
-        <div class="gynae-wh-panel gynae-wh-danger">
-          <h4><i class="fa fa-exclamation-triangle"></i> Important Warning Signs / خطرے کی علامات</h4>
-          <p>{{ dangerSigns }}</p>
-          <div class="gynae-wh-next-visit">
-            <strong>Next Visit / اگلی ملاقات</strong>
-            <span>{{ preview.followUpDate }}</span>
-          </div>
-        </div>
-      </section>
-
-      <footer class="gynae-wh-footer">
-        <div class="gynae-wh-urdu-advice">
-          <h4>Urdu Quick Advice / اردو ہدایات</h4>
-          <ul>
-            <li *ngFor="let line of instructionLines; trackBy: trackInstruction">{{ line }}</li>
-            <li *ngIf="instructionLines.length === 0">{{ preview.patientNote || '-' }}</li>
-          </ul>
-        </div>
-
-        <div class="gynae-wh-brand">
-          <div class="gynae-wh-brand-icon"><i class="fa fa-heart"></i></div>
-          <strong>Women's Health<br>Our Priority</strong>
-        </div>
-
-        <div class="gynae-wh-signature">
-          <strong>Doctor Stamp / ڈاکٹر کی مہر</strong>
-          <div class="gynae-wh-sign-box" aria-label="Doctor signature area"></div>
-          <span>{{ preview.doctorName }}</span>
-          <small>{{ preview.doctorQualification }}</small>
-        </div>
-      </footer>
-
-      <div class="gynae-wh-bottom-bar">
-        <span><i class="fa fa-hospital-o"></i>{{ preview.hospitalName }}</span>
-        <span><i class="fa fa-envelope-o"></i>{{ contactEmailValue }}</span>
-        <span><i class="fa fa-phone"></i>{{ contactPhoneValue }}</span>
       </div>
 
-      <div class="gynae-wh-disclaimer">
-        <i class="fa fa-shield"></i>
-        <span>Not for medico-legal use / عدالتی استعمال کے لیے نہیں</span>
+      <div class="gynae-wh-doctor-sign">
+        <strong>{{ preview.doctorName }}</strong>
+        <small *ngIf="preview.doctorQualification">{{ preview.doctorQualification }}</small>
+        <small *ngIf="doctorTitleLabel">{{ doctorTitleLabel }}</small>
       </div>
-    </ng-container>
+
+      <div class="gynae-wh-closing-care">
+        <strong>Care for every stage of your journey</strong>
+        <span dir="rtl">آپ کے سفر کے ہر مرحلے کی دیکھ بھال</span>
+      </div>
+    </section>
+
+    <footer class="gynae-wh-bottom-bar" *ngIf="page.isLastPage">
+      <span><i class="fa fa-hospital-o"></i>{{ preview.hospitalName }}</span>
+      <span *ngIf="contactEmailValue"><i class="fa fa-envelope-o"></i>{{ contactEmailValue }}</span>
+      <span *ngIf="contactPhoneValue"><i class="fa fa-phone"></i>{{ contactPhoneValue }}</span>
+      <span *ngIf="preview.hospitalAddress"><i class="fa fa-map-marker"></i>{{ preview.hospitalAddress }}</span>
+      <span class="gynae-wh-disclaimer-inline">Not for medico-legal use / <span dir="rtl">عدالتی استعمال کے لیے نہیں</span></span>
+    </footer>
   </div>
 </section>

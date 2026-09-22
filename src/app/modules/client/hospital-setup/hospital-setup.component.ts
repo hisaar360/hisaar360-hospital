@@ -133,6 +133,8 @@ export class HospitalSetupComponent implements OnInit {
     birthRecordPrefix: 'BR',
     legalDisclaimer:
       'This document certifies the birth recorded by the issuing hospital. Civil birth registration and government-issued birth documentation must be obtained from the competent civil registration authority.',
+    showMotherCnic: true,
+    showFatherCnic: true,
     showBirthWeight: true,
     showQrCode: true,
     // Local blank → localhost:4200; production blank → hisaar360.com

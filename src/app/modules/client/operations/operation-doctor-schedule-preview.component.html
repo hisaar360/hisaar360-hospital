@@ -1,0 +1,77 @@
+<section class="ot-preview" *ngIf="hasDoctor; else pickDoctor">
+  <header class="ot-preview__head">
+    <div>
+      <h4>Doctor OT Schedule</h4>
+      <p>
+        Existing operations for
+        <strong>{{ doctorLabel || 'selected doctor' }}</strong>
+        — pick a free slot on the calendar.
+      </p>
+    </div>
+    <div class="ot-preview__nav">
+      <button type="button" (click)="shiftMonth(-1)" aria-label="Previous month">
+        <i class="fa fa-chevron-left"></i>
+      </button>
+      <span>{{ monthLabel }}</span>
+      <button type="button" (click)="shiftMonth(1)" aria-label="Next month">
+        <i class="fa fa-chevron-right"></i>
+      </button>
+    </div>
+  </header>
+
+  <p class="ot-preview__loading" *ngIf="loading"><i class="fa fa-spinner fa-spin"></i> Loading schedule…</p>
+  <p class="ot-preview__error" *ngIf="error">{{ error }}</p>
+
+  <div class="ot-preview__weekdays" aria-hidden="true">
+    <span *ngFor="let day of weekdays">{{ day }}</span>
+  </div>
+
+  <div class="ot-preview__grid" role="grid">
+    <button
+      type="button"
+      class="ot-preview__cell"
+      *ngFor="let cell of cells"
+      [disabled]="!cell.inMonth"
+      [class.is-empty]="!cell.inMonth"
+      [class.is-today]="cell.isToday"
+      [class.is-selected]="cell.isSelected"
+      [class.has-ops]="cell.count > 0"
+      (click)="selectDay(cell)"
+    >
+      <span *ngIf="cell.inMonth">{{ cell.day }}</span>
+      <small *ngIf="cell.count">{{ cell.count }}</small>
+    </button>
+  </div>
+
+  <div class="ot-preview__day" *ngIf="selectedDate">
+    <div class="ot-preview__day-head">
+      <h5>{{ selectedDate | date:'fullDate' }}</h5>
+      <button type="button" class="ot-preview__use" (click)="useFirstFreeMorning()">
+        Use free morning slot
+      </button>
+    </div>
+
+    <ul class="ot-preview__list" *ngIf="selectedDayItems.length; else freeDay">
+      <li *ngFor="let item of selectedDayItems">
+        <strong>{{ timeRange(item) }}</strong>
+        <span>{{ procedureLabel(item) }} · {{ patientLabel(item) }}</span>
+        <em>{{ statusLabel(item.status) }}</em>
+      </li>
+    </ul>
+    <ng-template #freeDay>
+      <p class="ot-preview__free">No operations booked this day — OT looks available.</p>
+    </ng-template>
+
+    <div class="ot-preview__slots">
+      <span>Quick pick time:</span>
+      <button type="button" *ngFor="let slot of quickTimes" (click)="useTime(slot)">{{ slot }}</button>
+    </div>
+  </div>
+</section>
+
+<ng-template #pickDoctor>
+  <div class="ot-preview ot-preview--empty">
+    <i class="fa fa-calendar" aria-hidden="true"></i>
+    <p>Select an operating doctor to view their booked OT calendar.</p>
+  </div>
+</ng-template>

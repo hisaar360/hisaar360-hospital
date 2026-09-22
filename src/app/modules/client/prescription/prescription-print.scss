@@ -178,6 +178,16 @@
   width: 210mm;
 }
 
+/* Classic multi-section (gynae etc.): never crush 2 pages of content into one fixed A4 box. */
+.prescription-print-sheet.prescription-template-classic {
+  display: flex;
+  flex-direction: column;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 297mm;
+  overflow: visible !important;
+}
+
 .prescription-print-sheet * {
   box-sizing: border-box;
 }
@@ -435,6 +445,8 @@
   text-align: left;
   white-space: pre-wrap;
   word-break: break-word;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .follow-up-print {
@@ -448,11 +460,12 @@
   border: 1.5px solid #8b95a3;
   border-radius: 2px;
   box-sizing: border-box;
-  height: fit-content;
+  height: auto;
   margin-left: 0;
+  max-height: none;
   max-width: 100%;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   width: 100%;
 }
 
@@ -797,24 +810,218 @@
   margin: 3px 0;
 }
 
-/* Classic A4 layout: keep footer visible and prevent bottom text overlap. */
+.rx-style-host.prescription-template-classic {
+  padding: var(--rx-pad-top, 5mm) var(--rx-pad-right, 6mm) var(--rx-pad-bottom, 4mm)
+    var(--rx-pad-left, 6mm);
+}
+
+.rx-style-host .doctor-print-left {
+  gap: var(--rx-line-gap, 2mm);
+  margin-left: var(--rx-en-margin-left, 0mm);
+  margin-right: var(--rx-en-margin-right, 0mm);
+}
+
+.rx-style-host .doctor-print-left h1 {
+  color: var(--rx-en-name, #202048);
+  font-size: var(--rx-en-font-size, 16px);
+  line-height: var(--rx-en-line-height, 1.25);
+}
+
+.rx-style-host .doctor-print-left strong {
+  color: var(--rx-en-qual, #334155);
+}
+
+.rx-style-host .doctor-print-left > span:nth-of-type(1) {
+  color: var(--rx-en-spec, #475569);
+}
+
+.rx-style-host .doctor-print-left > span:nth-of-type(2) {
+  color: var(--rx-en-hosp, #334155);
+}
+
+.rx-style-host .doctor-print-left small {
+  color: var(--rx-en-addr, #64748b);
+}
+
+.rx-style-host .doctor-print-left,
+.rx-style-host .doctor-print-left strong,
+.rx-style-host .doctor-print-left span,
+.rx-style-host .doctor-print-left small {
+  line-height: var(--rx-en-line-height, 1.25);
+}
+
+.rx-style-host .doctor-print-right {
+  gap: var(--rx-line-gap, 2mm);
+  margin-left: var(--rx-ur-margin-left, 0mm);
+  margin-right: var(--rx-ur-margin-right, 0mm);
+}
+
+.rx-style-host .doctor-print-right h2 {
+  color: var(--rx-ur-name, #202048);
+  font-size: var(--rx-ur-font-size, 15px);
+  line-height: var(--rx-ur-line-height, 1.45);
+}
+
+.rx-style-host .doctor-print-right strong {
+  color: var(--rx-ur-qual, #334155);
+}
+
+.rx-style-host .doctor-print-right > span:nth-of-type(1) {
+  color: var(--rx-ur-spec, #475569);
+}
+
+.rx-style-host .doctor-print-right > span:nth-of-type(2) {
+  color: var(--rx-ur-hosp, #334155);
+}
+
+.rx-style-host .doctor-print-right small {
+  color: var(--rx-ur-addr, #64748b);
+}
+
+.rx-style-host .doctor-print-right,
+.rx-style-host .doctor-print-right strong,
+.rx-style-host .doctor-print-right span,
+.rx-style-host .doctor-print-right small {
+  line-height: var(--rx-ur-line-height, 1.45);
+}
+
+.rx-style-host .print-logo-mark {
+  transform: translate(var(--rx-logo-offset-x, 0mm), var(--rx-logo-offset-y, 0mm))
+    scale(var(--rx-logo-scale, 1));
+  transform-origin: center center;
+}
+
+.rx-style-host[data-logo-pos='left'] .print-header {
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.rx-style-host[data-logo-pos='left'] .print-logo-mark {
+  order: -1;
+}
+
+.rx-style-host[data-logo-pos='right'] .print-header {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+.rx-style-host[data-logo-pos='right'] .print-logo-mark {
+  order: 3;
+}
+
+.rx-style-host .print-date-box {
+  background: var(--rx-meta-bg, #f1f5f9);
+  color: var(--rx-meta-text, #0f172a);
+}
+
+.rx-style-host .print-date-box,
+.rx-style-host .print-patient-table,
+.rx-style-host .print-gynae-metrics,
+.rx-style-host .print-body-grid,
+.rx-style-host .print-gynae-extended,
+.rx-style-host .print-footer {
+  margin-top: var(--rx-section-gap, 3mm);
+}
+
+.rx-style-host .print-patient-table th,
+.rx-style-host .print-medicine-table th {
+  background: var(--rx-table-header-bg, #e8eef5);
+}
+
+.rx-style-host .print-patient-table th,
+.rx-style-host .print-patient-table td,
+.rx-style-host .print-medicine-table th,
+.rx-style-host .print-medicine-table td,
+.rx-style-host .print-side-panel th,
+.rx-style-host .print-side-panel td,
+.rx-style-host .print-medicine-area,
+.rx-style-host .print-urdu-note,
+.rx-style-host .print-right-note {
+  border-color: var(--rx-table-border, #8b95a3) !important;
+}
+
+.rx-style-host .print-mini-title,
+.rx-style-host .print-gynae-extended h4,
+.rx-style-host .follow-up-print strong {
+  color: var(--rx-section-title, #0f172a);
+}
+
+.rx-style-host .print-gynae-extended h4 {
+  background: var(--rx-accent, #1e3a5f);
+  color: #fff;
+}
+
+.rx-style-host .print-medicine-table th,
+.rx-style-host .print-medicine-table td {
+  font-size: var(--rx-med-font-size, 9px);
+}
+
+.rx-style-host .print-medicine-table tbody tr {
+  height: calc(8mm + var(--rx-med-row-gap, 0mm));
+}
+
+.rx-style-host.rx-hide-urdu-advice .print-urdu-note {
+  display: none !important;
+}
+
+.rx-style-host.rx-hide-right-note .print-right-note {
+  display: none !important;
+}
+
+.rx-style-host.rx-hide-hospital-address .print-address-line {
+  display: none !important;
+}
+
+.rx-style-host.rx-compact-patient .print-patient-table th,
+.rx-style-host.rx-compact-patient .print-patient-table td {
+  font-size: 8px;
+  padding: 1px 3px;
+}
+
+/* Classic A4 layout: natural document flow — no clipping / no flex-crush. */
 .prescription-template-classic {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.prescription-print-sheet.prescription-template-classic {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 297mm;
+  overflow: visible !important;
+}
+
+.a4-sheet.prescription-template-classic,
+.a4-sheet.prescription-print-sheet,
+.a4-sheet.rx-style-host {
+  display: block !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 297mm;
+  overflow: visible !important;
 }
 
 .prescription-template-classic .print-body-grid {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
+}
+
+.prescription-template-classic .print-body-grid--continuation {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.prescription-template-classic .print-body-grid--continuation .print-medicine-area {
+  grid-column: 1 / -1;
 }
 
 .prescription-template-classic .print-medicine-area {
-  display: flex;
-  flex-direction: column;
+  display: block;
+  height: auto !important;
+  max-height: none !important;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible !important;
 }
 
 .prescription-template-classic .print-medicine-table {
@@ -856,25 +1063,36 @@
 
 .prescription-template-classic .print-clinical-notes {
   flex-shrink: 0;
-  max-height: 14mm;
-  overflow: hidden;
+  max-height: none;
+  overflow: visible;
 }
 
 .prescription-template-classic .print-patient-note p {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+  white-space: pre-wrap;
 }
 
 .prescription-template-classic .print-footer {
   bottom: auto;
   flex-shrink: 0;
   left: auto;
-  margin-top: auto;
+  margin-top: 4mm;
   position: static;
   right: auto;
+}
+
+.prescription-template-classic .print-gynae-metrics,
+.prescription-template-classic .print-gynae-extended {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.prescription-template-classic .print-gynae-extended-grid {
+  position: relative;
 }
 
 .print-template-picker {
@@ -2413,7 +2631,278 @@
   width: 28%;
 }
 
+.print-gynae-extended-grid {
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.print-gynae-extended-grid article {
+  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  min-width: 0;
+  padding: 4px 6px;
+}
+
+.print-gynae-extended-grid article:nth-child(3n) {
+  border-right: 0;
+}
+
+.print-gynae-extended-grid article.wide {
+  grid-column: 1 / -1;
+}
+
+.print-gynae-extended-grid strong {
+  color: #64748b;
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.print-gynae-extended-grid span {
+  color: #0f172a;
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  margin-top: 1px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.print-gynae-metrics {
+  border: 1px solid #d4dce5;
+  border-radius: 4px;
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  margin: 6px 0 0;
+  overflow: hidden;
+}
+
+.print-gynae-metrics > div {
+  border-right: 1px solid #e2e8f0;
+  padding: 4px 5px;
+  text-align: center;
+}
+
+.print-gynae-metrics > div:last-child {
+  border-right: 0;
+}
+
+.print-gynae-metrics strong {
+  color: #64748b;
+  display: block;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.print-gynae-metrics span {
+  color: #0f172a;
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  margin-top: 1px;
+  word-break: break-word;
+}
+
+.classic-rx-continuation-header {
+  align-items: center;
+  border-bottom: 1px solid #94a3b8;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 4mm;
+  padding-bottom: 2mm;
+}
+
+.classic-rx-continuation-header strong {
+  color: #0f172a;
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.classic-rx-continuation-header span {
+  color: #475569;
+  display: block;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.classic-rx-continuation-header em {
+  color: #1e3a5f;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.classic-rx-page-no {
+  font-weight: 700;
+  margin-top: 2mm;
+  text-align: right;
+}
+
+.prescription-print-host > .prescription-print-sheet.prescription-template-classic {
+  flex: 0 0 auto;
+  height: auto;
+  max-height: none;
+  min-height: 297mm;
+}
+
+.prescription-print-host > .prescription-print-sheet.prescription-template-classic + .prescription-print-sheet.prescription-template-classic {
+  border-top: 2px dashed #94a3b8;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.prescription-print-host > .prescription-print-sheet.prescription-template-classic.classic-rx-continuation-sheet::before {
+  background: #e2e8f0;
+  border-radius: 999px;
+  color: #334155;
+  content: 'Page continued';
+  display: inline-block;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  padding: 3px 10px;
+}
+
 @media print {
+  .prescription-template-classic {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 5mm 6mm 4mm !important;
+    page-break-after: always !important;
+    page-break-inside: avoid !important;
+  }
+
+  .prescription-template-classic.classic-rx-print-page-last {
+    page-break-after: auto !important;
+  }
+
+  .prescription-template-classic.classic-rx-continuation-sheet {
+    page-break-before: always !important;
+  }
+
+  .prescription-template-classic .print-header {
+    margin-bottom: 2mm;
+    min-height: 0;
+  }
+
+  .prescription-template-classic .doctor-print-left h1 {
+    font-size: 16px;
+  }
+
+  .prescription-template-classic .doctor-print-left,
+  .prescription-template-classic .doctor-print-right {
+    font-size: 10px;
+    gap: 2px;
+  }
+
+  .prescription-template-classic .print-patient-table th,
+  .prescription-template-classic .print-patient-table td {
+    font-size: 9px;
+    padding: 2px 4px;
+  }
+
+  .prescription-template-classic .print-gynae-metrics {
+    margin-top: 3px;
+  }
+
+  .prescription-template-classic .print-gynae-metrics strong {
+    font-size: 7px;
+  }
+
+  .prescription-template-classic .print-gynae-metrics span {
+    font-size: 9px;
+  }
+
+  .prescription-template-classic .print-gynae-extended {
+    margin-top: 2mm;
+  }
+
+  .prescription-template-classic .print-gynae-extended h4 {
+    font-size: 9px;
+    margin-bottom: 1mm;
+  }
+
+  .prescription-template-classic .print-gynae-extended-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .prescription-template-classic .print-gynae-extended-grid strong {
+    font-size: 7.5px;
+  }
+
+  .prescription-template-classic .print-gynae-extended-grid span {
+    font-size: 9px;
+  }
+
+  .prescription-template-classic .print-body-grid {
+    gap: 2mm;
+    grid-template-columns: 28mm minmax(0, 1fr);
+  }
+
+  .prescription-template-classic .print-body-grid--continuation {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .prescription-template-classic .print-side-panel th,
+  .prescription-template-classic .print-side-panel td {
+    font-size: 8px;
+    padding: 1.5px 3px;
+  }
+
+  .prescription-template-classic .print-mini-title {
+    font-size: 8px;
+    margin: 2mm 0 1mm;
+  }
+
+  .prescription-template-classic .print-medicine-table th,
+  .prescription-template-classic .print-medicine-table td {
+    font-size: 8px;
+    height: auto;
+    line-height: 1.15;
+    padding: 2px 3px;
+  }
+
+  .prescription-template-classic .print-medicine-table th.print-urdu-cell {
+    line-height: 1.2;
+    min-height: 0;
+    padding: 3px 2px;
+  }
+
+  .prescription-template-classic .print-urdu-note {
+    line-height: 1.35;
+    min-height: 0;
+    padding: 3px 5px;
+  }
+
+  .prescription-template-classic .print-urdu-note p {
+    font-size: 8px;
+    line-height: 1.35;
+    margin: 0 0 1px;
+  }
+
+  .prescription-template-classic .print-clinical-notes {
+    max-height: 10mm;
+  }
+
+  .prescription-template-classic .print-footer {
+    font-size: 8px;
+    margin-top: 2mm;
+    padding-top: 1mm;
+  }
+
+  .classic-rx-continuation-header {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .clinical-rx-specialty-scroll {
     max-height: none;
     overflow: visible;

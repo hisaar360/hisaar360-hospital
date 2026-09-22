@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { finalize } from 'rxjs';
 import { BackendService } from '../../../core/services/backend.service';
+import { HmsCurrencyPipe } from '../../../shared/pipes/hms-currency.pipe';
 import {
   Department,
   Doctor,
@@ -40,7 +41,7 @@ interface CalendarBlock {
 @Component({
   selector: 'app-operation-calendar',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, HmsCurrencyPipe],
   templateUrl: './operation-calendar.component.html',
   styleUrl: './operation-calendar.component.scss',
 })
@@ -60,6 +61,23 @@ export class OperationCalendarComponent implements OnInit {
   stopReason = '';
   stopRescheduleAt = '';
   savingAction = false;
+  safetyDraft = { region: '', specificSite: '', laterality: '' };
+  readonly operativeRegions = [
+    'Head',
+    'Neck',
+    'Chest',
+    'Abdomen',
+    'Groin',
+    'Breast',
+    'Back',
+    'Spine',
+    'Upper limb',
+    'Lower limb',
+    'Perianal / anorectal',
+    'Other',
+    'Not documented',
+  ];
+  readonly operativeLateralities = ['Right', 'Left', 'Bilateral', 'Midline', 'Not applicable'];
   private dragItem: OperationSchedule | null = null;
   private dragMoved = false;
   departmentFilter = '';
@@ -113,6 +131,17 @@ export class OperationCalendarComponent implements OnInit {
     this.loadLookups();
     this.refresh();
     this.route.queryParamMap.subscribe((params) => {
+      const view = String(params.get('view') || '').trim().toLowerCase();
+      if (view === 'needs' || view === 'list' || view === 'calendar') {
+        this.viewMode = view;
+      }
+
+      const doctorId = String(params.get('doctorId') || '').trim();
+      if (doctorId && doctorId !== this.doctorFilter) {
+        this.doctorFilter = doctorId;
+        this.refresh();
+      }
+
       const operationId = String(params.get('operationId') || params.get('id') || '').trim();
       if (operationId) {
         this.openOperationById(operationId);
@@ -369,6 +398,7 @@ export class OperationCalendarComponent implements OnInit {
 
   openDetails(item: OperationSchedule): void {
     this.selected = item;
+    this.syncSafetyDraft(item);
     this.drawerPanel = 'details';
     this.rescheduleAt = this.toDateTimeLocal(item.scheduledStart);
     this.stopReason = '';
@@ -385,6 +415,7 @@ export class OperationCalendarComponent implements OnInit {
     const existing = this.items.find((item) => item._id === operationId);
     if (existing) {
       this.selected = existing;
+      this.syncSafetyDraft(existing);
       return;
     }
 
@@ -392,10 +423,107 @@ export class OperationCalendarComponent implements OnInit {
       next: (item) => {
         if (item) {
           this.selected = item;
+          this.syncSafetyDraft(item);
         }
       },
       error: () => this.toastr.error('Unable to open operation details.'),
     });
+  }
+
+  syncSafetyDraft(item: OperationSchedule): void {
+    this.safetyDraft = {
+      region: item.operativeSite?.region || '',
+      specificSite: item.operativeSite?.specificSite || '',
+      laterality: item.operativeLaterality || '',
+    };
+  }
+
+  operativeSiteLabel(item: OperationSchedule): string {
+    const region = item.operativeSite?.region || '';
+    const specific = item.operativeSite?.specificSite || '';
+    if (region && specific) {
+      return `${region} — ${specific}`;
+    }
+    return region || specific || 'Not set';
+  }
+
+  saveOperativeSiteSide(item: OperationSchedule): void {
+    this.savingAction = true;
+    this.backend
+      .updateOperationSchedule(item._id, {
+        operativeSite: {
+          region: this.safetyDraft.region || '',
+          specificSite: this.safetyDraft.specificSite || '',
+        },
+        operativeLaterality: this.safetyDraft.laterality || '',
+      })
+      .pipe(finalize(() => (this.savingAction = false)))
+      .subscribe({
+        next: (res) => {
+          const updated = (res as { data?: OperationSchedule })?.data || (res as unknown as OperationSchedule);
+          this.selected = updated;
+          this.syncSafetyDraft(updated);
+          this.toastr.success('Operative site / side saved.');
+          this.refresh();
+        },
+        error: (err) => this.toastr.error(err?.error?.message || 'Unable to save site/side.'),
+      });
+  }
+
+  confirmOperativeLaterality(item: OperationSchedule): void {
+    this.savingAction = true;
+    this.backend
+      .updateOperationSchedule(item._id, {
+        operativeLaterality: item.operativeLaterality || this.safetyDraft.laterality,
+        lateralityConfirmed: true,
+      })
+      .pipe(finalize(() => (this.savingAction = false)))
+      .subscribe({
+        next: (res) => {
+          const updated = (res as { data?: OperationSchedule })?.data || (res as unknown as OperationSchedule);
+          this.selected = updated;
+          this.syncSafetyDraft(updated);
+          this.toastr.success('Operative side confirmed.');
+          this.refresh();
+        },
+        error: (err) => this.toastr.error(err?.error?.message || 'Unable to confirm side.'),
+      });
+  }
+
+  completeNextSafetyPhase(item: OperationSchedule): void {
+    const sc = item.safetyCheck;
+    let phase = 'beforeAnesthesia';
+    if (sc?.beforeAnesthesia?.completed && !sc?.beforeIncision?.completed) {
+      phase = 'beforeIncision';
+    } else if (sc?.beforeIncision?.completed && !sc?.beforeLeavingOR?.completed) {
+      phase = 'beforeLeavingOR';
+    } else if (sc?.beforeLeavingOR?.completed) {
+      this.toastr.info('All safety phases already completed.');
+      return;
+    }
+    this.savingAction = true;
+    this.backend
+      .updateOperationSafetyCheck(item._id, {
+        phase,
+        confirmations: {
+          patientIdentityConfirmed: true,
+          procedureConfirmed: true,
+          siteSideConfirmed: Boolean(
+            item.lateralityConfirmed || item.operativeLaterality === 'Not applicable'
+          ),
+          consentConfirmed: Boolean(item.consentConfirmed),
+        },
+      })
+      .pipe(finalize(() => (this.savingAction = false)))
+      .subscribe({
+        next: (res) => {
+          const updated = (res as { data?: OperationSchedule })?.data || (res as unknown as OperationSchedule);
+          this.selected = updated;
+          this.toastr.success(`Safety phase completed: ${phase}`);
+          this.refresh();
+        },
+        error: (err) => this.toastr.error(err?.error?.message || 'Unable to update safety check.'),
+      });
   }
 
   closeDetails(): void {

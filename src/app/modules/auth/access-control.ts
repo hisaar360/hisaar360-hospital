@@ -81,6 +81,18 @@ const DEFAULT_ROUTE_ACCESS: RouteAccess[] = [
     access: ['lab_orders.read'],
   },
   {
+    path: '/ward/home',
+    access: ['ward.read'],
+  },
+  {
+    path: '/ward/my-work',
+    access: ['ward.read'],
+  },
+  {
+    path: '/ward/tasks',
+    access: ['ward.read', 'ward.update'],
+  },
+  {
     path: '/ward/bed-management',
     access: ['ward.read'],
   },
@@ -112,12 +124,46 @@ export const readStoredRole = (): string => {
 export const isDoctorRole = (role: string): boolean =>
   normalizeAccessKey(role) === 'doctor';
 
-export const isWardAdminRole = (role: string): boolean =>
-  normalizeAccessKey(role) === 'wardadmin';
+export const isWardAdminRole = (role: string): boolean => {
+  const normalized = normalizeAccessKey(role);
+  return (
+    normalized === 'wardadmin' ||
+    normalized === 'wardsupervisor' ||
+    normalized === 'wardincharge' ||
+    normalized === 'nurseincharge' ||
+    normalized === 'wardmanager' ||
+    /^ward.*(admin|supervisor|incharge|manager)$/.test(normalized) ||
+    /^(admin|supervisor|incharge).*ward$/.test(normalized)
+  );
+};
 
 export const isNurseRole = (role: string): boolean => {
   const normalized = normalizeAccessKey(role);
   return normalized === 'nurse' || normalized === 'staffnurse';
+};
+
+/** Frontline ward care roles (nurse / ward boy / attendant) — simplified care menu. */
+export const isWardCareRole = (role: string): boolean => {
+  const normalized = normalizeAccessKey(role);
+  return (
+    isNurseRole(role) ||
+    normalized === 'wardboy' ||
+    normalized === 'wardattendant' ||
+    normalized === 'attendant' ||
+    normalized === 'nursingassistant'
+  );
+};
+
+/** Ward attendant / ward boy — transport & housekeeping tasks only, no clinical data. */
+export const isWardAttendantRole = (role: string): boolean => {
+  const normalized = normalizeAccessKey(role);
+  return (
+    normalized === 'wardboy' ||
+    normalized === 'wardattendant' ||
+    normalized === 'attendant' ||
+    normalized === 'wardhelper' ||
+    normalized === 'patientattendant'
+  );
 };
 
 export const isReceptionRole = (role: string): boolean => {
@@ -136,9 +182,58 @@ export const sanitizePermissions = (permissions: unknown): string[] => {
     .filter(Boolean);
 };
 
+/** Mirror backend OPD/Lab leakage strip for ward operational role names. */
+const WARD_OPD_LAB_FORBIDDEN_PERMISSIONS = new Set([
+  'prescriptions.create',
+  'prescriptions.update',
+  'prescriptions.delete',
+  'prescriptions.read',
+  'lab_orders.read',
+  'lab_orders.create',
+  'lab_orders.update',
+  'lab_tests.read',
+  'lab_tests.create',
+  'lab_tests.update',
+  'lab_results.verify',
+  'appointments.create',
+  'appointments.read',
+  'appointments.update',
+  'appointments.delete',
+  'appointments.status.update',
+  'patients_history.read',
+  'patients_history.create',
+  'patients_history.update',
+  'patients_history.delete',
+]);
+
+const NURSE_OPD_LAB_FORBIDDEN_PERMISSIONS = new Set(
+  [...WARD_OPD_LAB_FORBIDDEN_PERMISSIONS].filter((p) => p !== 'prescriptions.read')
+);
+
+export const stripClientWardOpdLabPermissions = (
+  role: string,
+  permissions: string[]
+): string[] => {
+  if (!permissions.length || permissions.includes('*')) {
+    return permissions;
+  }
+
+  if (isWardAdminRole(role) || isWardAttendantRole(role)) {
+    return permissions.filter((p) => !WARD_OPD_LAB_FORBIDDEN_PERMISSIONS.has(p));
+  }
+  if (isNurseRole(role) || isWardCareRole(role)) {
+    return permissions.filter((p) => !NURSE_OPD_LAB_FORBIDDEN_PERMISSIONS.has(p));
+  }
+
+  return permissions;
+};
+
 export const readStoredPermissions = (): string[] => {
   try {
-    return sanitizePermissions(JSON.parse(localStorage.getItem('permissions') || '[]'));
+    const permissions = sanitizePermissions(
+      JSON.parse(localStorage.getItem('permissions') || '[]')
+    );
+    return stripClientWardOpdLabPermissions(readStoredRole(), permissions);
   } catch {
     localStorage.removeItem('permissions');
     return [];
@@ -175,6 +270,115 @@ export const hasPermission = (
   permissions: string[] = readStoredPermissions()
 ): boolean => hasRouteAccess([permission], permissions);
 
+/** Full Ward Admin / Operations menu (roster, inventory, reports, nursery, dashboard). */
+export const canViewWardAdminMenu = (
+  role = readStoredRole(),
+  permissions: string[] = readStoredPermissions()
+): boolean => {
+  if (permissions.includes('*')) {
+    return true;
+  }
+  if (isWardAdminRole(role)) {
+    return true;
+  }
+  if (isWardCareRole(role)) {
+    return false;
+  }
+  return (
+    hasPermission('ward.roster.read', permissions) ||
+    hasPermission('ward.create', permissions) ||
+    hasPermission('hospitals.update', permissions)
+  );
+};
+
+/**
+ * Ward sidebar "Management" collapsible (dashboard, beds, inventory, reports, etc.).
+ * Menu visibility only — clinical/bed paths stay reachable via other nav when needed.
+ */
+export const canViewWardManagementMenu = (
+  role = readStoredRole(),
+  permissions: string[] = readStoredPermissions()
+): boolean => {
+  if (permissions.includes('*')) {
+    return true;
+  }
+  if (isWardAdminRole(role)) {
+    return true;
+  }
+  return hasPermission('ward.management.read', permissions);
+};
+
+/**
+ * Reception / admission desk staff: they book admissions and beds but do not own
+ * the ward management surface.
+ */
+export const isWardReceptionRole = (
+  role = readStoredRole(),
+  permissions: string[] = readStoredPermissions()
+): boolean => {
+  if (isWardAdminRole(role) || isWardCareRole(role) || isDoctorRole(role)) {
+    return false;
+  }
+  if (canViewWardAdminMenu(role, permissions)) {
+    return false;
+  }
+  return (
+    hasPermission('ward.admissions.create', permissions) ||
+    hasPermission('room_allotments.create', permissions)
+  );
+};
+
+/** Ward Admin / Supervisor / Nurse / Attendant / Ward Reception — work inside Ward, not OPD/Lab shells. */
+export const isWardOperationalRole = (
+  role = readStoredRole(),
+  permissions: string[] = readStoredPermissions()
+): boolean =>
+  isWardAdminRole(role) ||
+  isNurseRole(role) ||
+  isWardCareRole(role) ||
+  isWardAttendantRole(role) ||
+  isWardReceptionRole(role, permissions);
+
+/** OPD / Laboratory SPA shells that ward operational roles must never open via URL. */
+const WARD_DENIED_SHELL_PREFIXES = [
+  '/laboratory',
+  '/prescriptions',
+  '/appointments',
+  '/clinical-records',
+  '/all-doctors',
+  '/doctors',
+] as const;
+
+export const isWardDeniedShellPath = (urlPath: string): boolean => {
+  const path = String(urlPath || '').split('?')[0].replace(/\/+$/, '') || '/';
+  return WARD_DENIED_SHELL_PREFIXES.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`)
+  );
+};
+
+/** Single source of truth for where a ward user lands after login. */
+export const resolveWardLandingRoute = (
+  role = readStoredRole(),
+  permissions: string[] = readStoredPermissions()
+): string => {
+  if (isWardAttendantRole(role)) {
+    return '/ward/tasks';
+  }
+  if (isNurseRole(role)) {
+    return '/ward/my-work';
+  }
+  if (isDoctorRole(role)) {
+    return '/ward/patient-list';
+  }
+  if (isWardAdminRole(role)) {
+    return '/ward/home';
+  }
+  if (isWardReceptionRole(role, permissions)) {
+    return '/ward/admissions';
+  }
+  return '/ward/home';
+};
+
 export const resolveDefaultRoute = (
   permissions: string[],
   role = readStoredRole()
@@ -200,15 +404,11 @@ export const resolveDefaultRoute = (
   }
 
   if (isDoctorRole(role)) {
-    return '/doctor-dashboard';
+    return '/prescriptions';
   }
 
-  if (isWardAdminRole(role)) {
-    return '/ward/dashboard';
-  }
-
-  if (isNurseRole(role)) {
-    return '/ward/dashboard';
+  if (isWardAdminRole(role) || isWardCareRole(role) || isNurseRole(role)) {
+    return resolveWardLandingRoute(role, permissions);
   }
 
   if (isReceptionRole(role)) {

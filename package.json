@@ -6,7 +6,12 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "test:ward-pure": "node scripts/run-ward-pure-tests.mjs",
+    "test:specialty-pure": "node scripts/run-specialty-pure-tests.mjs",
+    "e2e": "playwright test",
+    "e2e:smoke": "playwright test e2e/smoke.spec.ts e2e/attendant-security.spec.ts",
+    "build:prod": "ng build --configuration=production"
   },
   "private": true,
   "dependencies": {
@@ -49,6 +54,7 @@
     "@angular-devkit/build-angular": "19.2.0",
     "@angular/cli": "19.2.0",
     "@angular/compiler-cli": "19.2.0",
+    "@playwright/test": "^1.49.1",
     "@types/datatables.net": "^1.10.28",
     "@types/jasmine": "~5.1.0",
     "esbuild": "^0.25.0",

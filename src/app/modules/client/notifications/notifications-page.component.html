@@ -37,26 +37,29 @@
     </div>
 
     <div class="notifications-list" *ngIf="!loading; else loadingState">
-      <article
-        *ngFor="let item of items"
-        class="notification-card"
-        [class.notification-card--unread]="!item.isRead"
-        data-testid="notification-item"
-        (click)="openNotification(item)"
-      >
-        <div class="notification-card__icon"><i class="fa fa-info-circle"></i></div>
-        <div class="notification-card__body">
-          <div class="notification-card__head">
-            <h3>{{ item.title }}</h3>
-            <time>{{ item.createdAt | date:'shortTime' }}</time>
+      <section class="notification-day" *ngFor="let group of groups">
+        <h2 class="notification-day__label">{{ group.label }}</h2>
+        <article
+          *ngFor="let item of group.items"
+          class="notification-card"
+          [class.notification-card--unread]="!item.isRead"
+          data-testid="notification-item"
+          (click)="openNotification(item)"
+        >
+          <div class="notification-card__icon"><i class="fa fa-info-circle"></i></div>
+          <div class="notification-card__body">
+            <div class="notification-card__head">
+              <h3>{{ item.title }}</h3>
+              <time>{{ item.createdAt | date:'shortTime' }}</time>
+            </div>
+            <p>{{ item.message }}</p>
+            <span class="notification-card__module">{{ item.module }}</span>
           </div>
-          <p>{{ item.message }}</p>
-          <span class="notification-card__module">{{ item.module }}</span>
-        </div>
-        <button type="button" class="notification-card__open" (click)="openNotification(item); $event.stopPropagation()">
-          Open
-        </button>
-      </article>
+          <button type="button" class="notification-card__open" (click)="openNotification(item); $event.stopPropagation()">
+            Open
+          </button>
+        </article>
+      </section>
       <p class="notifications-empty" *ngIf="!items.length">No new notifications.</p>
     </div>
 

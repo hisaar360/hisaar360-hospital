@@ -1,78 +1,67 @@
 import { PrescriptionTemplate } from '../../../shared/models/hospital.model';
 import { SpecialtyTemplateKey } from './prescription-specialty-print';
 
-export type GynaePrintLayout = 'gynae-clinical' | 'gynae-womens-health' | 'gynae-modern' | 'clinical-blue';
+/** Dedicated gynae print layouts are retired — one shared general theme for all specialties. */
+export type GynaePrintLayout = null;
 
-const GYNAE_PRINT_TEMPLATES = new Set<PrescriptionTemplate>([
+const LEGACY_GYNAE_PRINT_TEMPLATES = new Set<string>([
   'gynae-clinical',
   'gynae-womens-health',
   'gynae-modern',
-  'clinical-blue',
 ]);
 
 export function isGynaeSpecialty(specialtySection: SpecialtyTemplateKey | '' | null | undefined): boolean {
   return specialtySection === 'gynae';
 }
 
+/**
+ * Map any prescription template to the shared general theme set.
+ * Legacy gynae-only themes collapse to classic so one print design is used for everyone.
+ */
 export function normalizeGynaePrescriptionTemplate(
   template: PrescriptionTemplate | null | undefined,
-  specialtySection: SpecialtyTemplateKey | '' | null | undefined
+  _specialtySection?: SpecialtyTemplateKey | '' | null
 ): PrescriptionTemplate {
-  if (!isGynaeSpecialty(specialtySection)) {
-    if (template === 'gynae-clinical' || template === 'gynae-womens-health' || template === 'gynae-modern') {
-      return 'clinical-blue';
-    }
-
-    return template || 'classic';
+  const value = String(template || '').trim();
+  if (!value || LEGACY_GYNAE_PRINT_TEMPLATES.has(value)) {
+    return 'classic';
   }
 
-  if (template && GYNAE_PRINT_TEMPLATES.has(template)) {
-    return template;
-  }
-
-  return 'gynae-womens-health';
+  return (value as PrescriptionTemplate) || 'classic';
 }
 
+/** Always null — dedicated gynae print components are no longer selected. */
 export function resolveGynaePrintLayout(
-  specialtySection: SpecialtyTemplateKey | '' | null | undefined,
-  template: PrescriptionTemplate | null | undefined
-): GynaePrintLayout | null {
-  if (!isGynaeSpecialty(specialtySection)) {
-    return null;
-  }
-
-  const normalized = normalizeGynaePrescriptionTemplate(template, specialtySection);
-  if (normalized === 'clinical-blue') {
-    return 'gynae-womens-health';
-  }
-
-  return normalized as GynaePrintLayout;
+  _specialtySection?: SpecialtyTemplateKey | '' | null,
+  _template?: PrescriptionTemplate | null
+): GynaePrintLayout {
+  return null;
 }
 
 export function usesGynaeClinicalPrint(
-  specialtySection: SpecialtyTemplateKey | '' | null | undefined,
-  template: PrescriptionTemplate | null | undefined
+  _specialtySection?: SpecialtyTemplateKey | '' | null,
+  _template?: PrescriptionTemplate | null
 ): boolean {
-  return resolveGynaePrintLayout(specialtySection, template) === 'gynae-clinical';
+  return false;
 }
 
 export function usesGynaeWomensHealthPrint(
-  specialtySection: SpecialtyTemplateKey | '' | null | undefined,
-  template: PrescriptionTemplate | null | undefined
+  _specialtySection?: SpecialtyTemplateKey | '' | null,
+  _template?: PrescriptionTemplate | null
 ): boolean {
-  return resolveGynaePrintLayout(specialtySection, template) === 'gynae-womens-health';
+  return false;
 }
 
 export function usesGynaeModernPrint(
-  specialtySection: SpecialtyTemplateKey | '' | null | undefined,
-  template: PrescriptionTemplate | null | undefined
+  _specialtySection?: SpecialtyTemplateKey | '' | null,
+  _template?: PrescriptionTemplate | null
 ): boolean {
-  return resolveGynaePrintLayout(specialtySection, template) === 'gynae-modern';
+  return false;
 }
 
 export function usesGynaeClinicalBluePrint(
-  specialtySection: SpecialtyTemplateKey | '' | null | undefined,
-  template: PrescriptionTemplate | null | undefined
+  _specialtySection?: SpecialtyTemplateKey | '' | null,
+  _template?: PrescriptionTemplate | null
 ): boolean {
-  return resolveGynaePrintLayout(specialtySection, template) === 'clinical-blue';
+  return false;
 }

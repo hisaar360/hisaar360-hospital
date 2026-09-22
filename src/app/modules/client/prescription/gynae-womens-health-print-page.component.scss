@@ -14,33 +14,39 @@
   }
 }
 
+$wh-teal: #0f766e;
+$wh-blue: #1d4f91;
 $wh-navy: #0f2f5c;
-$wh-blue: #1f4f8f;
-$wh-border: #c8d4e3;
-$wh-muted: #5f6f82;
-$wh-bg: #f4f7fb;
+$wh-pink: #fce7f3;
+$wh-pink-strong: #db2777;
+$wh-border: #c5d4e8;
+$wh-muted: #5b6b7c;
+$wh-bg: #f3f7fc;
 $wh-danger: #b42318;
 
 .prescription-template-gynae-womens-health {
-  --wh-navy: #{$wh-navy};
+  --wh-teal: #{$wh-teal};
   --wh-blue: #{$wh-blue};
+  --wh-navy: #{$wh-navy};
+  --wh-pink: #{$wh-pink};
+  --wh-pink-strong: #{$wh-pink-strong};
   --wh-border: #{$wh-border};
   --wh-muted: #{$wh-muted};
   --wh-bg: #{$wh-bg};
-  color: #1a2433;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  font-size: 8.5pt;
-  line-height: 1.35;
+  color: #152033;
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  font-size: 8.2pt;
+  line-height: 1.3;
 }
 
 .gynae-wh-page {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 2.2mm;
+  gap: 2mm;
   margin: 0 auto;
   max-width: 100%;
-  padding: 5mm 6mm 4mm;
+  padding: 4.5mm 5.5mm 3.5mm;
   width: min(210mm, 100%);
 }
 
@@ -49,14 +55,14 @@ $wh-danger: #b42318;
   border: 1px solid var(--wh-border);
   border-radius: 2mm;
   display: flex;
-  font-size: 7.5pt;
+  font-size: 7.2pt;
   justify-content: space-between;
-  padding: 1.5mm 2.5mm;
+  padding: 1.2mm 2mm;
 
   strong {
     color: var(--wh-navy);
     display: block;
-    font-size: 8.5pt;
+    font-size: 8pt;
   }
 
   span {
@@ -76,8 +82,8 @@ $wh-danger: #b42318;
   border-radius: 2.5mm;
   display: grid;
   gap: 2mm;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.2fr) minmax(0, 0.95fr);
-  padding: 2.5mm;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.1fr) minmax(0, 0.95fr);
+  padding: 2.2mm;
 }
 
 .gynae-wh-brand {
@@ -85,36 +91,39 @@ $wh-danger: #b42318;
   display: flex;
   gap: 2mm;
   min-width: 0;
+}
 
-  .gynae-wh-clinic-name {
-    color: var(--wh-navy);
-    display: block;
-    font-size: 12pt;
-    font-weight: 800;
-    letter-spacing: 0.2mm;
-    line-height: 1.1;
-  }
+.gynae-wh-brand-copy {
+  min-width: 0;
+}
 
-  .gynae-wh-brand-ur {
-    color: var(--wh-blue);
-    display: block;
-    font-size: 8pt;
-    margin-top: 0.4mm;
-  }
+.gynae-wh-clinic-name {
+  color: var(--wh-blue);
+  display: block;
+  font-size: 11.5pt;
+  font-weight: 800;
+  letter-spacing: 0.15mm;
+  line-height: 1.1;
+}
 
-  small {
-    color: var(--wh-muted);
-    display: block;
-    font-size: 7pt;
-    margin-top: 0.5mm;
-  }
+.gynae-wh-brand-ur {
+  color: var(--wh-teal);
+  display: block;
+  font-size: 8pt;
+  margin-top: 0.4mm;
+}
+
+.gynae-wh-brand-copy small {
+  color: var(--wh-muted);
+  display: block;
+  font-size: 6.8pt;
+  margin-top: 0.5mm;
 }
 
 .gynae-wh-logo {
   align-items: center;
-  background: var(--wh-navy);
+  background: transparent;
   border-radius: 50%;
-  color: #fff;
   display: flex;
   flex: 0 0 11mm;
   height: 11mm;
@@ -124,25 +133,18 @@ $wh-danger: #b42318;
 
   img {
     height: 100%;
-    object-fit: cover;
-    width: 100%;
-  }
-
-  i {
-    font-size: 5.5mm;
-  }
-
-  &.has-logo {
-    background: transparent;
-    overflow: visible;
-  }
-
-  &.has-logo img {
-    background: transparent;
     object-fit: contain;
     transform: scale(var(--prescription-logo-scale, 1));
     transform-origin: center;
+    width: 100%;
   }
+}
+
+.gynae-wh-logo--text {
+  background: linear-gradient(145deg, var(--wh-teal), var(--wh-blue));
+  color: #fff;
+  font-size: 5mm;
+  font-weight: 800;
 }
 
 .gynae-wh-contact {
@@ -150,7 +152,7 @@ $wh-danger: #b42318;
   border-right: 1px solid var(--wh-border);
   display: flex;
   flex-direction: column;
-  gap: 1.2mm;
+  gap: 1mm;
   justify-content: center;
   min-width: 0;
   padding: 0 2mm;
@@ -159,7 +161,7 @@ $wh-danger: #b42318;
     align-items: flex-start;
     color: var(--wh-muted);
     display: flex;
-    font-size: 7.2pt;
+    font-size: 7pt;
     gap: 1.2mm;
     word-break: break-word;
   }
@@ -172,46 +174,45 @@ $wh-danger: #b42318;
   }
 }
 
+.gynae-wh-tagline {
+  color: var(--wh-teal);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 7.5pt;
+  font-style: italic;
+  font-weight: 600;
+  margin-top: 0.6mm;
+}
+
 .gynae-wh-doctor {
-  align-items: center;
   background: var(--wh-bg);
-  border: 1px solid #d7e3f2;
+  border: 1px solid #d5e3f4;
   border-radius: 2mm;
-  display: flex;
-  gap: 1.8mm;
   min-width: 0;
-  padding: 1.5mm;
+  padding: 1.6mm 1.8mm;
 
   strong {
     color: var(--wh-navy);
     display: block;
-    font-size: 8.5pt;
+    font-size: 8.6pt;
   }
 
   span,
   small {
     color: var(--wh-muted);
     display: block;
-    font-size: 6.8pt;
+    font-size: 6.7pt;
     line-height: 1.25;
+    margin-top: 0.35mm;
   }
 }
 
-.gynae-wh-doctor-icon {
-  align-items: center;
-  background: #fff;
-  border: 1px solid var(--wh-border);
-  border-radius: 50%;
-  color: var(--wh-blue);
-  display: flex;
-  flex: 0 0 8mm;
-  height: 8mm;
-  justify-content: center;
-  width: 8mm;
+.gynae-wh-doctor-ur {
+  color: var(--wh-teal) !important;
 }
 
 .gynae-wh-tabs {
-  background: var(--wh-navy);
+  background: #fff;
+  border: 1px solid var(--wh-border);
   border-radius: 2mm;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -219,46 +220,80 @@ $wh-danger: #b42318;
 }
 
 .gynae-wh-tab {
-  color: rgba(255, 255, 255, 0.78);
-  padding: 1.8mm 1mm;
+  align-items: center;
+  border-right: 1px solid var(--wh-border);
+  color: var(--wh-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4mm;
+  justify-content: center;
+  padding: 1.5mm 1mm;
   text-align: center;
 
+  &:last-child {
+    border-right: 0;
+  }
+
+  i {
+    color: var(--wh-blue);
+    font-size: 9pt;
+  }
+
   &.is-active {
-    background: var(--wh-blue);
-    color: #fff;
+    background: linear-gradient(180deg, #e8f4ff, #dcebff);
+    color: var(--wh-navy);
     font-weight: 700;
+
+    i {
+      color: var(--wh-teal);
+    }
+  }
+
+  &:nth-child(2).is-active {
+    background: linear-gradient(180deg, #fff1f7, #fce7f3);
+
+    i {
+      color: var(--wh-pink-strong);
+    }
+  }
+
+  &:nth-child(3).is-active {
+    background: linear-gradient(180deg, #e7f8f5, #d1fae5);
+
+    i {
+      color: var(--wh-teal);
+    }
   }
 }
 
 .gynae-wh-tab-en {
   display: block;
-  font-size: 8pt;
+  font-size: 7.6pt;
   font-weight: 700;
 }
 
 .gynae-wh-tab-ur {
   display: block;
-  font-size: 7pt;
-  margin-top: 0.3mm;
+  font-size: 6.5pt;
 }
 
 .gynae-wh-patient {
-  border: 1px solid var(--wh-border);
-  border-radius: 2mm;
+  background: #eef5fc;
+  border: 1px solid #c9daf0;
+  border-radius: 2.2mm;
   display: grid;
-  gap: 0;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   overflow: hidden;
 }
 
 .gynae-wh-field {
   align-items: flex-start;
-  border-bottom: 1px solid #e3eaf2;
-  border-right: 1px solid #e3eaf2;
+  border-bottom: 1px solid #d7e4f3;
+  border-right: 1px solid #d7e4f3;
   display: flex;
-  gap: 1.2mm;
-  min-height: 10mm;
-  padding: 1.2mm 1.5mm;
+  gap: 1.1mm;
+  min-height: 8.5mm;
+  padding: 1.1mm 1.4mm;
 
   &:nth-child(4n) {
     border-right: 0;
@@ -272,150 +307,112 @@ $wh-danger: #b42318;
     color: var(--wh-blue);
     flex: 0 0 auto;
     font-size: 7pt;
-    margin-top: 0.5mm;
+    margin-top: 0.4mm;
   }
 
   strong {
     color: var(--wh-muted);
     display: block;
-    font-size: 6.2pt;
+    font-size: 5.9pt;
     font-weight: 700;
-    letter-spacing: 0.05mm;
+    letter-spacing: 0.02mm;
     line-height: 1.2;
-    text-transform: uppercase;
 
     em {
-      color: #7b8ea6;
-      display: block;
-      font-size: 6pt;
+      color: #6f849c;
       font-style: normal;
       font-weight: 600;
-      margin-top: 0.2mm;
-      text-transform: none;
     }
   }
 
   span {
     color: #111827;
     display: block;
-    font-size: 7.8pt;
+    font-size: 7.5pt;
     font-weight: 700;
-    margin-top: 0.4mm;
+    margin-top: 0.3mm;
     word-break: break-word;
   }
 }
 
 .gynae-wh-metrics {
+  background: #eef2f7;
+  border: 1px solid #d5dee9;
+  border-radius: 2mm;
   display: grid;
-  gap: 1.5mm;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0;
+  grid-template-columns: repeat(auto-fit, minmax(17mm, 1fr));
+  overflow: hidden;
 
   > div {
-    border: 1px solid var(--wh-border);
-    border-radius: 1.8mm;
-    padding: 1.2mm 1mm;
+    border-right: 1px solid #d5dee9;
+    padding: 1.2mm 0.9mm;
     text-align: center;
+
+    &:last-child {
+      border-right: 0;
+    }
   }
 
   strong {
     color: var(--wh-muted);
     display: block;
-    font-size: 6pt;
+    font-size: 5.4pt;
     font-weight: 700;
-    letter-spacing: 0.04mm;
-    text-transform: uppercase;
+    line-height: 1.2;
+
+    em {
+      font-style: normal;
+      font-weight: 600;
+    }
   }
 
   span {
     color: var(--wh-navy);
     display: block;
-    font-size: 7.5pt;
-    font-weight: 700;
-    margin-top: 0.6mm;
-    word-break: break-word;
-  }
-}
-
-.gynae-wh-vitals {
-  display: grid;
-  gap: 1.5mm;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-
-  > div {
-    border: 1px solid var(--wh-border);
-    border-radius: 1.8mm;
-    padding: 1mm;
-    text-align: center;
-  }
-
-  strong {
-    color: var(--wh-muted);
-    display: block;
-    font-size: 6pt;
-    font-weight: 700;
-    text-transform: uppercase;
-  }
-
-  span {
-    color: var(--wh-navy);
-    display: block;
-    font-size: 7.5pt;
-    font-weight: 700;
-    margin-top: 0.4mm;
-  }
-}
-
-.gynae-wh-diagnosis {
-  display: grid;
-  gap: 2mm;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-
-  > div {
-    border: 1px solid var(--wh-border);
-    border-radius: 2mm;
-    min-height: 12mm;
-    padding: 1.5mm 2mm;
-  }
-
-  strong {
-    color: var(--wh-navy);
-    display: block;
-    font-size: 7.5pt;
+    font-size: 7.1pt;
     font-weight: 800;
-  }
-
-  p {
-    color: #243247;
-    font-size: 7.5pt;
-    margin: 1mm 0 0;
-    white-space: pre-wrap;
+    margin-top: 0.5mm;
     word-break: break-word;
   }
 }
 
 .gynae-wh-overview {
   display: grid;
-  gap: 1.5mm;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.4mm;
+  grid-template-columns: repeat(var(--gynae-wh-note-cols, 4), minmax(0, 1fr));
 
   article {
+    background: #fff;
     border: 1px solid var(--wh-border);
     border-radius: 1.8mm;
-    min-height: 11mm;
-    padding: 1.2mm 1.5mm;
+    border-top: 2.2px solid var(--wh-teal);
+    min-width: 0;
+    padding: 1.3mm 1.5mm;
   }
 
   strong {
-    color: var(--wh-blue);
+    color: var(--wh-teal);
     display: block;
     font-size: 6.8pt;
     font-weight: 800;
-    text-transform: uppercase;
+    margin-bottom: 0.7mm;
+
+    i {
+      margin-right: 0.6mm;
+    }
+
+    em {
+      color: var(--wh-muted);
+      font-style: normal;
+      font-weight: 600;
+    }
   }
 
   p {
-    font-size: 7.2pt;
-    margin: 0.8mm 0 0;
+    color: #243247;
+    font-size: 7pt;
+    margin: 0;
     white-space: pre-wrap;
     word-break: break-word;
   }
@@ -427,13 +424,12 @@ $wh-danger: #b42318;
   overflow: hidden;
 
   > header {
-    background: var(--wh-bg);
-    border-bottom: 1px solid var(--wh-border);
-    color: var(--wh-navy);
-    font-size: 7pt;
+    background: linear-gradient(90deg, var(--wh-teal), var(--wh-blue));
+    color: #fff;
+    font-size: 7.2pt;
     font-weight: 800;
-    letter-spacing: 0.2mm;
-    padding: 1.2mm 2mm;
+    letter-spacing: 0.15mm;
+    padding: 1.1mm 2mm;
     text-transform: uppercase;
   }
 }
@@ -441,45 +437,45 @@ $wh-danger: #b42318;
 .gynae-wh-obs-grid {
   display: grid;
   gap: 0;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 
   > div {
-    border-bottom: 1px solid #e6edf5;
-    border-right: 1px solid #e6edf5;
-    min-height: 9mm;
-    padding: 1mm 1.5mm;
+    border-bottom: 1px solid #e4ecf6;
+    border-right: 1px solid #e4ecf6;
+    min-width: 0;
+    padding: 1.1mm 1.3mm;
 
-    &:nth-child(3n) {
+    &:nth-child(6n) {
       border-right: 0;
-    }
-
-    &.span-full {
-      grid-column: 1 / -1;
-    }
-
-    &.is-danger {
-      background: #fff5f5;
-      border-color: #f2c7c7;
-
-      strong {
-        color: $wh-danger;
-      }
     }
   }
 
   strong {
     color: var(--wh-muted);
     display: block;
-    font-size: 6.2pt;
+    font-size: 5.8pt;
     font-weight: 700;
-    text-transform: uppercase;
+
+    em {
+      font-style: normal;
+      font-weight: 600;
+    }
   }
 
   p {
-    font-size: 7.2pt;
-    margin: 0.5mm 0 0;
-    white-space: pre-wrap;
+    color: #172033;
+    font-size: 7pt;
+    font-weight: 700;
+    margin: 0.4mm 0 0;
     word-break: break-word;
+  }
+
+  .span-full {
+    grid-column: 1 / -1;
+  }
+
+  .is-danger {
+    background: #fff7f7;
   }
 }
 
@@ -489,12 +485,12 @@ $wh-danger: #b42318;
   overflow: hidden;
 
   > header {
-    background: var(--wh-navy);
+    background: linear-gradient(90deg, var(--wh-blue), var(--wh-teal));
     color: #fff;
     font-size: 7.5pt;
     font-weight: 800;
     letter-spacing: 0.2mm;
-    padding: 1.4mm 2mm;
+    padding: 1.2mm 2mm;
     text-transform: uppercase;
   }
 
@@ -502,6 +498,37 @@ $wh-danger: #b42318;
     border-collapse: collapse;
     table-layout: fixed;
     width: 100%;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  th {
+    background: #e8f1fb;
+    border-bottom: 1px solid #b7cbe4;
+    color: var(--wh-navy);
+    font-size: 6.4pt;
+    font-weight: 800;
+    padding: 1mm 1.1mm;
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  td {
+    border-bottom: 1px solid #e6eef7;
+    font-size: 6.8pt;
+    padding: 0.85mm 1.1mm;
+    vertical-align: top;
+    word-break: break-word;
+  }
+
+  tbody tr:nth-child(even) td {
+    background: #f7faff;
+  }
+
+  tbody tr {
+    page-break-inside: avoid;
   }
 
   .col-num {
@@ -512,122 +539,86 @@ $wh-danger: #b42318;
     width: 24%;
   }
 
-  .col-dose,
-  .col-freq,
+  .col-dose {
+    width: 12%;
+  }
+
+  .col-freq {
+    width: 16%;
+  }
+
   .col-dur {
     width: 12%;
   }
 
   .col-inst {
-    width: 34%;
-  }
-
-  th,
-  td {
-    border-bottom: 1px solid #e3eaf2;
-    border-right: 1px solid #e3eaf2;
-    font-size: 7pt;
-    padding: 1.2mm 1.4mm;
-    vertical-align: top;
-    word-break: break-word;
-  }
-
-  th:last-child,
-  td:last-child {
-    border-right: 0;
-  }
-
-  thead th {
-    background: #e8eef7;
-    color: var(--wh-navy);
-    font-size: 6.5pt;
-    font-weight: 800;
-    text-transform: uppercase;
-  }
-
-  tbody tr:nth-child(even) td {
-    background: #fafbfd;
-  }
-
-  tbody tr:last-child td {
-    border-bottom: 0;
+    width: 30%;
   }
 }
 
-.gynae-wh-med {
-  strong {
-    color: var(--wh-navy);
-    display: block;
-    font-size: 7.5pt;
-  }
-
-  small {
-    color: var(--wh-muted);
-    display: block;
-    font-size: 6.5pt;
-    margin-top: 0.3mm;
-  }
+.gynae-wh-med strong {
+  color: var(--wh-navy);
+  display: block;
+  font-size: 7pt;
 }
 
+.gynae-wh-bilingual,
 .gynae-wh-inst {
-  white-space: pre-wrap;
-}
-
-.gynae-wh-drips {
-  border: 1px solid var(--wh-border);
-  border-radius: 2mm;
-  overflow: hidden;
-
-  > header {
-    background: var(--wh-bg);
-    border-bottom: 1px solid var(--wh-border);
-    color: var(--wh-navy);
-    font-size: 7pt;
-    font-weight: 800;
-    padding: 1mm 2mm;
-  }
-
-  > div {
-    align-items: center;
-    display: flex;
-    font-size: 7.2pt;
-    gap: 2mm;
-    justify-content: space-between;
-    padding: 1mm 2mm;
-  }
-}
-
-.gynae-wh-triple {
   display: grid;
-  gap: 1.5mm;
+  gap: 0.25mm;
+}
+
+.gynae-wh-ur {
+  color: var(--wh-teal);
+  display: block;
+  font-size: 6.3pt;
+  line-height: 1.25;
+}
+
+.gynae-wh-lower {
+  display: grid;
+  gap: 1.6mm;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.gynae-wh-lower-col {
+  align-content: start;
+  display: grid;
+  gap: 1.4mm;
+}
+
 .gynae-wh-panel {
+  background: #fff;
   border: 1px solid var(--wh-border);
   border-radius: 2mm;
-  min-height: 24mm;
-  padding: 1.5mm;
+  padding: 1.4mm 1.6mm;
 
   h4 {
     color: var(--wh-navy);
-    font-size: 7pt;
+    font-size: 6.9pt;
     font-weight: 800;
     margin: 0 0 1mm;
     text-transform: uppercase;
+
+    i {
+      color: var(--wh-teal);
+      margin-right: 0.7mm;
+    }
   }
 
   ul,
   p {
-    font-size: 7pt;
+    font-size: 6.8pt;
     margin: 0;
-    padding-left: 3.5mm;
+    padding-left: 3.2mm;
     white-space: pre-wrap;
     word-break: break-word;
   }
 
   li {
-    margin-bottom: 0.6mm;
+    display: grid;
+    gap: 0.2mm;
+    margin-bottom: 0.7mm;
   }
 }
 
@@ -645,169 +636,133 @@ $wh-danger: #b42318;
     color: var(--wh-blue);
     margin-top: 0.2mm;
   }
+
+  em {
+    color: var(--wh-muted);
+    font-style: normal;
+    font-weight: 600;
+  }
 }
 
 .gynae-wh-danger {
-  background: #fff8f8;
-  border-color: #efc7c7;
+  background: #fff7fb;
+  border-color: #f3c6d8;
 
   h4 {
-    color: $wh-danger;
-  }
+    color: var(--wh-pink-strong);
 
-  p {
-    color: #7a1f1f;
-    padding-left: 0;
-  }
-}
-
-.gynae-wh-next-visit {
-  border-top: 1px dashed #efc7c7;
-  margin-top: 1.5mm;
-  padding-top: 1mm;
-
-  strong {
-    color: var(--wh-navy);
-    display: block;
-    font-size: 6.5pt;
-  }
-
-  span {
-    color: #243247;
-    display: block;
-    font-size: 7pt;
-    font-weight: 700;
-    margin-top: 0.4mm;
-  }
-}
-
-.gynae-wh-footer {
-  display: grid;
-  gap: 1.5mm;
-  grid-template-columns: minmax(0, 1.2fr) 24mm minmax(0, 0.9fr);
-}
-
-.gynae-wh-urdu-advice {
-  border: 1px solid var(--wh-border);
-  border-radius: 2mm;
-  min-height: 18mm;
-  padding: 1.5mm;
-
-  h4 {
-    color: var(--wh-navy);
-    font-size: 7pt;
-    font-weight: 800;
-    margin: 0 0 1mm;
+    i {
+      color: var(--wh-pink-strong);
+    }
   }
 
   ul {
-    font-size: 7pt;
-    margin: 0;
-    padding-left: 3.5mm;
-
-    li {
-      margin-bottom: 0.5mm;
-    }
+    color: #7a1f4a;
   }
 }
 
-.gynae-wh-brand {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
-
-  strong {
-    color: var(--wh-blue);
-    font-size: 6.5pt;
-    line-height: 1.25;
-    margin-top: 1mm;
-  }
-}
-
-.gynae-wh-brand-icon {
-  align-items: center;
-  background: var(--wh-bg);
-  border: 1px solid var(--wh-border);
-  border-radius: 50%;
-  color: var(--wh-blue);
-  display: flex;
-  height: 10mm;
-  justify-content: center;
-  width: 10mm;
-}
-
-.gynae-wh-signature {
-  border: 1px solid var(--wh-border);
-  border-radius: 2mm;
-  padding: 1.5mm;
-  text-align: center;
-
+.gynae-wh-next {
   strong {
     color: var(--wh-navy);
     display: block;
-    font-size: 6.8pt;
+    font-size: 8.2pt;
+    font-weight: 800;
+  }
+}
+
+.gynae-wh-closing {
+  align-items: center;
+  display: grid;
+  gap: 2mm;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  padding: 1mm 0;
+}
+
+.gynae-wh-closing-brand,
+.gynae-wh-closing-care {
+  align-items: center;
+  display: flex;
+  gap: 1.5mm;
+
+  i {
+    color: var(--wh-pink-strong);
+    font-size: 10pt;
+  }
+
+  strong {
+    color: var(--wh-pink-strong);
+    display: block;
+    font-size: 7pt;
     font-weight: 800;
   }
 
   span {
+    color: var(--wh-muted);
+    display: block;
+    font-size: 6.4pt;
+    margin-top: 0.3mm;
+  }
+}
+
+.gynae-wh-closing-care {
+  justify-content: flex-end;
+  text-align: right;
+
+  strong {
+    color: var(--wh-teal);
+    font-family: Georgia, 'Times New Roman', serif;
+    font-style: italic;
+    font-weight: 600;
+  }
+}
+
+.gynae-wh-doctor-sign {
+  border: 1px solid var(--wh-border);
+  border-radius: 2mm;
+  padding: 1.5mm 2mm;
+  text-align: center;
+
+  strong {
     color: var(--wh-navy);
     display: block;
-    font-size: 7.5pt;
-    font-weight: 700;
-    margin-top: 1mm;
+    font-size: 8pt;
+    font-weight: 800;
   }
 
   small {
     color: var(--wh-muted);
     display: block;
-    font-size: 6.5pt;
-    margin-top: 0.3mm;
+    font-size: 6.4pt;
+    margin-top: 0.35mm;
   }
-}
-
-.gynae-wh-sign-box {
-  border: 1px dashed #b8c7da;
-  border-radius: 1.5mm;
-  height: 14mm;
-  margin: 1.2mm 0 0.8mm;
-  width: 100%;
 }
 
 .gynae-wh-bottom-bar {
   align-items: center;
-  background: var(--wh-navy);
+  background: linear-gradient(90deg, var(--wh-navy), var(--wh-teal));
   border-radius: 1.5mm;
   color: #fff;
   display: flex;
-  font-size: 6.8pt;
-  gap: 3mm;
-  justify-content: center;
+  flex-wrap: wrap;
+  font-size: 6.4pt;
+  gap: 2.2mm;
+  justify-content: space-between;
   padding: 1.2mm 2mm;
 
   i {
-    margin-right: 0.8mm;
+    margin-right: 0.7mm;
   }
 }
 
-.gynae-wh-disclaimer {
-  align-items: center;
-  color: var(--wh-muted);
-  display: flex;
-  font-size: 6.5pt;
-  gap: 1mm;
-  justify-content: center;
-  padding-bottom: 0.5mm;
-
-  i {
-    color: var(--wh-blue);
-  }
+.gynae-wh-disclaimer-inline {
+  font-weight: 700;
+  margin-left: auto;
+  opacity: 0.95;
 }
 
 @media print {
   @page {
-    margin: 8mm;
+    margin: 7mm;
     size: A4 portrait;
   }
 
@@ -840,144 +795,26 @@ $wh-danger: #b42318;
   }
 
   .gynae-wh-page > * {
-    margin-bottom: 2mm;
+    margin-bottom: 1.7mm;
   }
 
   .gynae-wh-page > *:last-child {
     margin-bottom: 0;
   }
 
-  .gynae-wh-header,
-  .gynae-wh-tabs,
-  .gynae-wh-patient,
-  .gynae-wh-metrics,
-  .gynae-wh-vitals,
-  .gynae-wh-diagnosis,
-  .gynae-wh-overview,
-  .gynae-wh-drips,
-  .gynae-wh-footer,
-  .gynae-wh-bottom-bar,
-  .gynae-wh-disclaimer,
-  .gynae-wh-mini-header {
-    break-inside: avoid;
-    overflow: visible !important;
-    page-break-inside: avoid;
-  }
-
-  .gynae-wh-obs,
-  .gynae-wh-medicines,
-  .gynae-wh-triple {
-    break-inside: auto;
-    overflow: visible !important;
-    page-break-inside: auto;
-  }
-
-  .gynae-wh-obs-grid > div,
-  .gynae-wh-panel,
-  .gynae-wh-urdu-advice,
-  .gynae-wh-signature,
-  .gynae-wh-field,
-  .gynae-wh-diagnosis > div,
-  .gynae-wh-overview article,
-  .gynae-wh-metrics > div,
-  .gynae-wh-vitals > div {
-    break-inside: avoid;
-    overflow: visible !important;
-    page-break-inside: avoid;
-  }
-
-  .gynae-wh-header,
-  .gynae-wh-patient,
-  .gynae-wh-metrics,
-  .gynae-wh-vitals,
-  .gynae-wh-diagnosis,
-  .gynae-wh-overview,
-  .gynae-wh-tabs {
-    display: grid !important;
-  }
-
-  .gynae-wh-footer {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1.2fr) 24mm minmax(0, 0.9fr) !important;
-  }
-
-  .gynae-wh-triple {
-    display: grid !important;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  }
-
-  .gynae-wh-obs-grid {
-    display: grid !important;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  }
-
-  .gynae-wh-medicines {
-    overflow: visible !important;
-  }
-
-  .gynae-wh-medicines table {
-    border-collapse: collapse !important;
-    table-layout: fixed;
-    width: 100% !important;
-  }
-
   .gynae-wh-medicines thead {
     display: table-header-group;
   }
 
-  .gynae-wh-medicines tbody tr {
+  .gynae-wh-medicines tr,
+  .gynae-wh-panel,
+  .gynae-wh-doctor-sign,
+  .gynae-wh-closing {
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
-  .gynae-wh-medicines th,
-  .gynae-wh-medicines td,
-  .gynae-wh-field span,
-  .gynae-wh-field strong,
-  .gynae-wh-obs-grid p,
-  .gynae-wh-obs-grid strong,
-  .gynae-wh-panel p,
-  .gynae-wh-panel li,
-  .gynae-wh-panel h4,
-  .gynae-wh-urdu-advice li,
-  .gynae-wh-contact span,
-  .gynae-wh-metrics span,
-  .gynae-wh-diagnosis p,
-  .gynae-wh-overview p {
-    hyphens: auto;
-    letter-spacing: normal !important;
-    overflow-wrap: break-word;
-    white-space: normal !important;
-    word-break: normal !important;
-    writing-mode: horizontal-tb !important;
-  }
-
-  .gynae-wh-field strong em,
-  .gynae-wh-tab-ur {
-    direction: rtl;
-    display: block;
-    unicode-bidi: isolate;
-    word-break: normal !important;
-  }
-
-  .gynae-wh-bottom-bar,
-  .gynae-wh-medicines > header,
-  .gynae-wh-tabs,
-  .gynae-wh-obs > header {
-    color-adjust: exact;
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
-  }
-
-  .gynae-wh-page-last {
-    break-after: auto;
-    page-break-after: auto;
-  }
-
-  :host {
-    display: block;
-    height: auto !important;
-    min-height: auto !important;
-    overflow: visible !important;
+  .gynae-wh-continuation .gynae-wh-medicines {
+    margin-top: 0;
   }
 }

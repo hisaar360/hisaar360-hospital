@@ -211,22 +211,26 @@
   background: #e8f2ff;
   border-radius: 11px;
   color: #1267d6;
-  display: grid;
+  display: inline-flex;
   flex: 0 0 auto;
   font-size: 18px;
   height: 44px;
   justify-content: center;
-  place-items: center;
+  line-height: 1;
   width: 44px;
 
   i {
-    display: block;
-    font-size: inherit;
+    display: inline-block;
+    font-size: 18px;
     line-height: 1;
     margin: 0;
     text-align: center;
-    width: 1em;
+    width: auto;
   }
+}
+
+.product-summary-card.is-navy .product-summary-icon i.fa-circle {
+  font-size: 12px;
 }
 
 .product-summary-card.is-green .product-summary-icon { background: #dff8ef; color: #07a477; }

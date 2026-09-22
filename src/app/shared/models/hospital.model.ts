@@ -38,6 +38,10 @@ export interface Role {
   description?: string;
   permissions: string[];
   isSystemRole?: boolean;
+  /** Owner-edited hospital copy — template sync must not overwrite. */
+  disablePermissionSync?: boolean;
+  /** Set by updateRole when a hospital system role becomes custom. */
+  convertedFromSystem?: boolean;
   isActive?: boolean;
 }
 
@@ -324,6 +328,33 @@ export interface OperationSchedule {
   status: OperationScheduleStatus;
   clinicalNotes?: string;
   operationNotes?: string;
+  /** Actual OT site — not OPD specialtyData. */
+  operativeSite?: { region?: string; specificSite?: string } | null;
+  /** Actual OT laterality — OPD prefill ≠ confirmation. */
+  operativeLaterality?: string;
+  lateralityConfirmed?: boolean;
+  lateralityConfirmedAt?: string | null;
+  lateralityConfirmedBy?: string | null;
+  opdLateralityPrefill?: string;
+  lateralityMismatchWarning?: {
+    code: string;
+    message: string;
+    opdLaterality?: string;
+    operativeLaterality?: string;
+  } | null;
+  consentConfirmed?: boolean;
+  consentDocumentId?: string | null;
+  safetyCheck?: {
+    templateKey?: string;
+    templateVersion?: string;
+    beforeAnesthesia?: { completed?: boolean; completedAt?: string | null; confirmations?: Record<string, unknown> };
+    beforeIncision?: { completed?: boolean; completedAt?: string | null; confirmations?: Record<string, unknown> };
+    beforeLeavingOR?: { completed?: boolean; completedAt?: string | null; confirmations?: Record<string, unknown> };
+  } | null;
+  safetyPolicy?: {
+    requireLateralityConfirmation?: boolean;
+    requireSafetyPhases?: string[];
+  } | null;
   treatmentPricingSnapshot?: {
     treatmentCatalogId?: string;
     code?: string;
@@ -347,13 +378,24 @@ export interface Doctor {
   user?: User | null;
   departmentId?: string | null;
   department?: Department | null;
-  clinicalDepartment?: ClinicalDepartmentKey | null;
+  clinicalDepartment?: string | null;
+  designation?: string | null;
   specialization?: string | null;
   qualification?: string | null;
   nameUrdu?: string | null;
   experienceYears?: number;
   consultationFee?: number;
+  followUpFeeEnabled?: boolean;
+  followUpWithinDays?: number;
+  followUpFeeType?: 'half' | 'fixed' | 'percent';
+  followUpFeeAmount?: number;
   prescriptionTemplate?: PrescriptionTemplate;
+  prescriptionLayout?: Array<{
+    key: string;
+    visible: boolean;
+    column: 'left' | 'right' | 'full';
+  }>;
+  prescriptionStyle?: Record<string, number | string | boolean>;
   prescriptionSpecialtyTemplate?: PrescriptionSpecialtyTemplate;
   availableDays?: string[];
   availableSlots?: Array<{ day: string; startTime: string; endTime: string }>;
@@ -439,7 +481,9 @@ export interface PatientLastVisit {
   lastVisitDate?: string | null;
   lastVisitType?: string | null;
   lastDoctorName?: string | null;
+  lastDoctorId?: string | null;
   lastAppointmentNo?: string | null;
+  daysSinceLastVisit?: number | null;
 }
 
 export interface PrescriptionMedicine {
@@ -540,7 +584,10 @@ export interface Prescription {
   patientDocuments?: PatientDocumentItem[];
   vitals?: Record<string, string> | null;
   specialtySection?: string | null;
+  specialtyKey?: string | null;
+  specialtyTemplateVersion?: string | null;
   specialtyData?: Record<string, unknown> | null;
+  pregnancyEpisodeId?: string | null;
   advice?: string | null;
   followUpDate?: string | null;
   prescriptionTemplate?: PrescriptionTemplate;
@@ -581,6 +628,7 @@ export interface LabTestCatalog {
   sampleType: string;
   tubeType?: string;
   price: number;
+  packageRate?: number;
   reportType: 'structured' | 'uploaded_report' | 'both';
   turnaroundHours?: number;
   requiresFasting?: boolean;
@@ -911,6 +959,9 @@ export interface LedgerPayment {
   sourceId?: string;
   note?: string;
   referenceNo?: string;
+  doctorId?: string | null;
+  doctorName?: string;
+  doctor?: { _id: string; name?: string } | null;
   createdAt?: string;
 }
 

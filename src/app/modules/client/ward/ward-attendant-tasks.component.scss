@@ -1,0 +1,240 @@
+@use './ward-shared.scss';
+
+.ward-tasks-page {
+  --ward-primary: #2563eb;
+  font-size: 16px;
+}
+
+.ward-tasks-container {
+  margin: 0 auto;
+  max-width: 640px;
+  padding: 14px 12px 28px;
+}
+
+.ward-tasks-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.ward-tasks-header h1 {
+  font-size: 26px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.ward-tasks-refresh {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 10px;
+  font-size: 18px;
+  min-height: 46px;
+  min-width: 52px;
+}
+
+.ward-tasks-error {
+  align-items: center;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 12px;
+  color: #9f1239;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 12px;
+}
+
+.ward-tasks-list {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+}
+
+.ward-tasks-card {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.ward-tasks-card__header {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.ward-tasks-card__bed {
+  background: var(--ward-blue-soft);
+  border-radius: 10px;
+  color: var(--ward-primary);
+  font-size: 20px;
+  font-weight: 800;
+  padding: 4px 12px;
+}
+
+.ward-tasks-card__status {
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: 999px;
+  color: #334155;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 6px;
+  letter-spacing: 0.04em;
+  padding: 5px 10px;
+}
+
+.ward-tasks-card__patient {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.ward-tasks-card__task {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.ward-tasks-card__type {
+  color: var(--ward-muted);
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.ward-tasks-card__route {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.ward-tasks-card__instruction {
+  font-size: 15px;
+  margin: 0;
+}
+
+.ward-tasks-card__meta {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 4px 0 0;
+}
+
+.ward-tasks-card__meta dt {
+  color: var(--ward-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ward-tasks-card__meta dd {
+  font-size: 15px;
+  margin: 0;
+}
+
+.ward-tasks-card__actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.ward-tasks-btn {
+  border-radius: 12px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  min-height: 54px;
+  width: 100%;
+}
+
+.ward-tasks-btn--primary {
+  background: var(--ward-primary);
+  border: 1px solid var(--ward-primary);
+  color: #fff;
+}
+
+.ward-tasks-btn--done {
+  background: #15803d;
+  border: 1px solid #15803d;
+  color: #fff;
+}
+
+.ward-tasks-btn--ghost {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  color: var(--ward-text);
+  font-size: 15px;
+  min-height: 48px;
+}
+
+.ward-tasks-card__unable {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ward-tasks-card__unable label {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.ward-tasks-card__unable input {
+  background: #f8fafc;
+  border: 1px solid var(--ward-border);
+  border-radius: 10px;
+  font-size: 16px;
+  min-height: 50px;
+  padding: 0 12px;
+}
+
+.ward-tasks-empty {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 14px;
+  color: var(--ward-muted);
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 36px 16px;
+  text-align: center;
+}
+
+.ward-tasks-empty i {
+  color: #15803d;
+  font-size: 34px;
+}
+
+.ward-tasks-empty h2 {
+  color: var(--ward-text);
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.ward-tasks-skeleton {
+  animation: ward-tasks-pulse 1.4s ease-in-out infinite;
+  background: #e2e8f0;
+  min-height: 190px;
+}
+
+@keyframes ward-tasks-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}

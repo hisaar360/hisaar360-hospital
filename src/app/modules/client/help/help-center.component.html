@@ -6,7 +6,18 @@
           <h1>Help Center</h1>
           <p class="help-subtitle">Step-by-step tutorials for modules enabled at your hospital.</p>
         </div>
-        <a class="hms-btn hms-btn-secondary" routerLink="/">Back to Dashboard</a>
+        <div class="help-page-header__actions">
+          <button
+            type="button"
+            class="hms-btn hms-btn-primary"
+            *ngIf="visibleInteractiveTutorials.length"
+            (click)="scrollToTutorials()"
+          >
+            <i class="fa fa-graduation-cap"></i>
+            <span>Tutorials</span>
+          </button>
+          <a class="hms-btn hms-btn-secondary" routerLink="/">Back to Dashboard</a>
+        </div>
       </header>
 
       <section class="help-search-panel hms-card">
@@ -76,9 +87,19 @@
               <span [innerHTML]="card.navigationHtml || card.navigationLabel"></span>
             </p>
           </div>
-          <button type="button" class="hms-btn hms-btn-primary hms-btn-sm help-guide-card__action" (click)="openArticle(card.article)">
-            Open Guide
-          </button>
+          <div class="help-guide-card__actions">
+            <button type="button" class="hms-btn hms-btn-primary hms-btn-sm help-guide-card__action" (click)="openArticle(card.article)">
+              Open Guide
+            </button>
+            <a
+              *ngIf="card.article.hasInteractiveTutorial && card.article.route"
+              class="hms-btn hms-btn-secondary hms-btn-sm help-guide-card__action"
+              [routerLink]="card.article.route"
+              [queryParams]="{ tutorial: '1' }"
+            >
+              <i class="fa fa-graduation-cap"></i> Run tutorial
+            </a>
+          </div>
         </article>
 
         <div class="help-no-results" *ngIf="!displayedResults.length">
@@ -107,6 +128,36 @@
             <span class="help-quick-card__icon"><i class="fa" [ngClass]="task.icon"></i></span>
             <span class="help-quick-card__label">{{ task.label }}</span>
           </button>
+        </div>
+      </section>
+
+      <section
+        id="help-interactive-tutorials"
+        class="help-section hms-card help-tutorials-section"
+        *ngIf="visibleInteractiveTutorials.length && !isSearchActive"
+      >
+        <div class="help-section__head help-section__head--split">
+          <div>
+            <h2>Interactive Tutorials</h2>
+            <p class="help-section__note">
+              Re-run any walkthrough anytime — tutorials always restart from the beginning.
+            </p>
+          </div>
+        </div>
+        <div class="help-tutorial-list">
+          <article *ngFor="let article of visibleInteractiveTutorials" class="help-tutorial-row">
+            <div class="help-tutorial-row__main">
+              <small class="help-guide-card__category">{{ article.category }}</small>
+              <h4>{{ article.title }}</h4>
+            </div>
+            <a
+              class="hms-btn hms-btn-primary hms-btn-sm help-tutorial-row__action"
+              [routerLink]="article.route"
+              [queryParams]="{ tutorial: '1' }"
+            >
+              <i class="fa fa-graduation-cap"></i> Run tutorial
+            </a>
+          </article>
         </div>
       </section>
 
@@ -318,9 +369,19 @@
                 <span *ngFor="let role of card.roleChips" class="help-role-chip">{{ role }}</span>
               </div>
             </div>
-            <button type="button" class="hms-btn hms-btn-primary hms-btn-sm help-guide-card__action" (click)="openArticle(card.article)">
-              Open Guide
-            </button>
+            <div class="help-guide-card__actions">
+              <button type="button" class="hms-btn hms-btn-primary hms-btn-sm help-guide-card__action" (click)="openArticle(card.article)">
+                Open Guide
+              </button>
+              <a
+                *ngIf="card.article.hasInteractiveTutorial && card.article.route"
+                class="hms-btn hms-btn-secondary hms-btn-sm help-guide-card__action"
+                [routerLink]="card.article.route"
+                [queryParams]="{ tutorial: '1' }"
+              >
+                <i class="fa fa-graduation-cap"></i> Run tutorial
+              </a>
+            </div>
           </article>
 
           <p *ngIf="!results.length" class="help-empty">No guides matched your search or filters.</p>
@@ -344,7 +405,17 @@
               <span *ngFor="let role of roleChips(article)" class="help-role-chip">{{ role }}</span>
             </div>
           </div>
-          <button type="button" class="hms-btn hms-btn-secondary" (click)="backToHome()">Back to All Guides</button>
+          <div class="help-article-header__actions">
+            <a
+              *ngIf="article.hasInteractiveTutorial && article.route"
+              class="hms-btn hms-btn-primary"
+              [routerLink]="article.route"
+              [queryParams]="{ tutorial: '1' }"
+            >
+              <i class="fa fa-graduation-cap"></i> Run tutorial
+            </a>
+            <button type="button" class="hms-btn hms-btn-secondary" (click)="backToHome()">Back to All Guides</button>
+          </div>
         </header>
 
         <div class="help-article-layout">

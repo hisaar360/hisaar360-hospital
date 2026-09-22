@@ -313,20 +313,30 @@
                   </label>
                   <label class="pay-filter-field">
                     <span>Type</span>
-                    <select class="form-control" [(ngModel)]="paymentType">
+                    <select class="form-control" [(ngModel)]="paymentType" (ngModelChange)="onPaymentTypeChange()">
                       <option value="advance">Advance</option>
                       <option value="partial">Partial</option>
                       <option value="final">Final</option>
-                      <option value="refund">Refund</option>
+                      <option value="refund">Refund (full, same day)</option>
+                    </select>
+                  </label>
+                  <label class="pay-filter-field" *ngIf="paymentType === 'refund'">
+                    <span>Authorized by Doctor</span>
+                    <select class="form-control" [(ngModel)]="refundDoctorId">
+                      <option value="">Select doctor</option>
+                      <option *ngFor="let doc of doctors" [value]="doc._id">{{ doc.name }}</option>
                     </select>
                   </label>
                   <label class="pay-filter-field">
                     <span>Note</span>
-                    <input class="form-control" type="text" [(ngModel)]="paymentNote" placeholder="Optional note" />
+                    <input class="form-control" type="text" [(ngModel)]="paymentNote" [placeholder]="paymentType === 'refund' ? 'Refund reason (required)' : 'Optional note'" />
                   </label>
                 </div>
+                <p class="text-muted mt-1" *ngIf="paymentType === 'refund'" style="font-size:12px">
+                  Same-day full refund only ({{ (refundableAmount) | hmsCurrency }}). Doctor name is saved on the refund record.
+                </p>
                 <button type="button" class="pay-btn-primary mt-2" (click)="recordPayment()">
-                  <i class="fa fa-credit-card"></i> Collect Payment
+                  <i class="fa fa-credit-card"></i> {{ paymentType === 'refund' ? 'Record Refund' : 'Collect Payment' }}
                 </button>
               </div>
             </div>

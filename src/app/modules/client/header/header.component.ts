@@ -6,6 +6,10 @@ import { BackendService } from '../../../core/services/backend.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { HospitalNotificationService, HospitalNotificationItem } from '../../../core/services/hospital-notification.service';
 import { NotificationSoundService } from '../../../core/services/notification-sound.service';
+import {
+  groupNotificationsByDay,
+  NotificationDayGroup,
+} from '../../../core/services/notification-day-groups.util';
 import { User } from '../../../shared/models/hospital.model';
 import { readStoredPermissions, resolveDefaultRoute } from '../../auth/access-control';
 import { isPharmacyModuleEnabled } from '../../auth/hospital-modules';
@@ -23,6 +27,7 @@ export class HeaderComponent implements OnInit {
   drawerOpen = false;
   unreadCount = 0;
   notificationItems: HospitalNotificationItem[] = [];
+  notificationGroups: NotificationDayGroup[] = [];
   private readonly posPermissions = [
     'sales.create',
     'sales.read',
@@ -43,7 +48,10 @@ export class HeaderComponent implements OnInit {
   ngOnInit(): void {
     if (this.notifications.canSeeNotifications()) {
       this.notifications.startPolling();
-      this.notifications.items$.subscribe((items) => (this.notificationItems = items.slice(0, 8)));
+      this.notifications.items$.subscribe((items) => {
+        this.notificationItems = items.slice(0, 20);
+        this.notificationGroups = groupNotificationsByDay(this.notificationItems);
+      });
       this.notifications.unreadCount$.subscribe((count) => (this.unreadCount = count));
     }
   }

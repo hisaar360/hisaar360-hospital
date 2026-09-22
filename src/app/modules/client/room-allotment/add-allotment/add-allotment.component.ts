@@ -11,7 +11,9 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../core/services/backend.service';
+import { formatActiveCurrency } from '../../../../core/services/currency.service';
 import { Patient, Room, Doctor, RoomAllotment, TreatmentCatalogItem } from '../../../../shared/models/hospital.model';
+import { HmsCurrencyPipe } from '../../../../shared/pipes/hms-currency.pipe';
 
 interface WardAdmissionSuccess {
   admissionNo: string;
@@ -27,7 +29,7 @@ interface WardAdmissionSuccess {
 
 @Component({
   selector: 'app-add-allotment',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, HmsCurrencyPipe],
   templateUrl: './add-allotment.component.html',
   styleUrl: './add-allotment.component.scss',
 })
@@ -248,7 +250,7 @@ export class AddAllotmentComponent implements OnInit {
   private formatDiscountLabel(type?: string, value?: number): string {
     if (!type || type === 'none') return 'None';
     if (type === 'percentage') return `${Number(value || 0)}%`;
-    return `Rs. ${Number(value || 0).toLocaleString()}`;
+    return formatActiveCurrency(value || 0, { fractionDigits: 0 });
   }
 
   private applyDiscount(gross: number, type: string, value: number): number {

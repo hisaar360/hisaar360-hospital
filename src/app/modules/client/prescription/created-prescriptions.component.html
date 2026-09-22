@@ -2,7 +2,7 @@
   <div class="created-prescriptions-shell">
     <div class="page-heading">
       <div>
-        <h1>Created Prescriptions</h1>
+        <h1>Previous Consultations</h1>
         <p>
           {{
             loading
@@ -15,7 +15,7 @@
         </p>
       </div>
       <div class="page-heading-actions">
-        <a class="btn-light" routerLink="/prescriptions">New Prescription</a>
+        <a class="btn-light" routerLink="/prescriptions">New Consultation</a>
         <button type="button" class="btn-primary" (click)="loadPrescriptions()">Refresh</button>
       </div>
     </div>
@@ -148,7 +148,7 @@
           </ng-container>
 
           <ng-container *ngIf="!usesGynaeWomensHealthPrint(preview) && !usesGynaeClinicalPrint(preview) && !usesGynaeModernPrint(preview)">
-          <ng-container *ngIf="printPreviewTemplate === 'clinical-blue'; else wrappedThemedPrint">
+          <ng-container *ngIf="printPreviewTemplate === 'clinical-blue'; else notClinicalBluePrint">
             <section class="prescription-print-sheet prescription-template-clinical-blue"
               *ngFor="let page of preview.clinicalPages; let last = last"
               [class.clinical-rx-continuation-sheet]="!page.isFirstPage"
@@ -422,6 +422,24 @@
             </section>
           </ng-container>
 
+          <ng-template #notClinicalBluePrint>
+            <ng-container *ngIf="printPreviewTemplate === 'classic'; else wrappedThemedPrint">
+              <section class="prescription-print-sheet prescription-template-classic rx-style-host"
+                *ngFor="let page of preview.clinicalPages; let last = last; trackBy: trackClinicalPage"
+                [ngStyle]="preview.prescriptionStyleCssVars"
+                [attr.data-logo-pos]="preview.prescriptionStyle.logoPosition || 'center'"
+                [class.rx-hide-urdu-advice]="!preview.prescriptionStyle.showUrduAdvice"
+                [class.rx-hide-right-note]="!preview.prescriptionStyle.showRightNote"
+                [class.rx-hide-hospital-address]="!preview.prescriptionStyle.showHospitalAddress"
+                [class.rx-compact-patient]="preview.prescriptionStyle.patientTableCompact"
+                [class.classic-rx-continuation-sheet]="!page.isFirstPage"
+                [class.classic-rx-print-page-last]="last"
+                [class.prescription-eye-sheet]="preview.specialtySection === 'eye'">
+                <ng-container *ngTemplateOutlet="classicPrescriptionPage; context: { page: page }"></ng-container>
+              </section>
+            </ng-container>
+          </ng-template>
+
           <ng-template #wrappedThemedPrint>
             <section class="prescription-print-sheet"
               [ngClass]="'prescription-template-' + printPreviewTemplate"
@@ -577,7 +595,7 @@
             </ng-container>
 
             <ng-template #purplePrescriptionLayout>
-              <ng-container *ngIf="printPreviewTemplate === 'compact-mono'; else standardPrescriptionLayout">
+              <ng-container *ngIf="printPreviewTemplate === 'compact-mono'; else emptyThemedFallback">
                 <div class="sectioned-rx-page"
                   [ngClass]="printMedicineDensityClass(preview.medicines.length)"
                   [class.sectioned-rx-eye-page]="preview.specialtySection === 'eye'">
@@ -722,8 +740,18 @@
             </ng-template>
           </ng-template>
 
-          <ng-template #standardPrescriptionLayout>
-          <header class="print-header">
+          <ng-template #emptyThemedFallback></ng-template>
+
+          <ng-template #classicPrescriptionPage let-page="page">
+          <header class="classic-rx-continuation-header" *ngIf="!page.isFirstPage">
+            <div>
+              <strong>{{ preview.doctorName }}</strong>
+              <span>{{ preview.prescriptionNo }} · {{ preview.patientName }} · {{ preview.date }}</span>
+            </div>
+            <em>Page {{ page.pageNumber }} of {{ page.totalPages }} · Medicines continued</em>
+          </header>
+
+          <header class="print-header" *ngIf="page.isFirstPage">
             <div class="doctor-print-left">
               <h1>{{ preview.doctorName }}</h1>
               <strong>{{ preview.doctorQualification }}</strong>
@@ -744,30 +772,11 @@
             </div>
           </header>
 
-          <ng-container *ngIf="printPreviewTemplate === 'classic'; else alternatePrescriptionMeta">
+          <ng-container *ngIf="page.isFirstPage">
             <div class="print-date-box">
               <strong>DATE: {{ preview.date }}</strong>
               <span>NOT VALID FOR COURT OF LAW.</span>
             </div>
-          </ng-container>
-
-          <ng-template #alternatePrescriptionMeta>
-            <div class="print-date-box">
-              <div>
-                <span>Date</span>
-                <strong>{{ preview.date }}</strong>
-              </div>
-              <div>
-                <span>Prescription No</span>
-                <strong>{{ preview.prescriptionNo }}</strong>
-              </div>
-              <div>
-                <span>File No</span>
-                <strong>{{ preview.patientNo }}</strong>
-              </div>
-              <em>NOT VALID FOR COURT OF LAW.</em>
-            </div>
-          </ng-template>
 
           <table class="print-patient-table">
             <tr>
@@ -795,11 +804,25 @@
                 <th>{{ row.label }}</th>
                 <td colspan="7">{{ row.value }}</td>
               </tr>
+              <tr *ngIf="preview.patientBloodGroup && preview.patientBloodGroup !== '-'">
+                <th>Blood Group</th>
+                <td colspan="7">{{ preview.patientBloodGroup }}</td>
+              </tr>
             </ng-container>
           </table>
 
-          <div class="print-body-grid">
-            <aside class="print-side-panel">
+          <section class="print-gynae-metrics"
+            *ngIf="preview.specialtySection === 'gynae' && preview.gynaeSummaryRows?.length">
+            <div *ngFor="let row of preview.gynaeSummaryRows">
+              <strong>{{ row.label }}</strong>
+              <span>{{ row.value }}</span>
+            </div>
+          </section>
+          </ng-container>
+
+          <div class="print-body-grid" *ngIf="page.isFirstPage || page.medicines.length > 0"
+            [class.print-body-grid--continuation]="!page.isFirstPage">
+            <aside class="print-side-panel" *ngIf="page.isFirstPage">
               <div class="print-mini-title">O/E</div>
               <table>
                 <tr *ngFor="let vital of preview.vitalRows">
@@ -812,27 +835,19 @@
                 </tr>
               </table>
 
-              <div class="print-mini-title labs-title">LAB's</div>
-              <table>
+              <div class="print-mini-title labs-title" *ngIf="preview.labTests.length > 0">LAB's</div>
+              <table *ngIf="preview.labTests.length > 0">
                 <tr *ngFor="let test of preview.labTests">
                   <th>{{ test.name }}</th>
                   <td>✓</td>
                 </tr>
-                <tr *ngIf="preview.labTests.length === 0">
-                  <th>Others</th>
-                  <td>-</td>
-                </tr>
               </table>
 
-              <div class="print-mini-title drips-title">DRIP's</div>
-              <table>
+              <div class="print-mini-title drips-title" *ngIf="preview.ivFluids.length > 0">DRIP's</div>
+              <table *ngIf="preview.ivFluids.length > 0">
                 <tr *ngFor="let drip of preview.ivFluids">
                   <th>{{ drip.name }}</th>
                   <td>{{ drip.rate }} / {{ drip.quantity }}</td>
-                </tr>
-                <tr *ngIf="preview.ivFluids.length === 0">
-                  <th>Drips</th>
-                  <td>-</td>
                 </tr>
               </table>
 
@@ -862,8 +877,8 @@
               </div>
             </aside>
 
-            <main class="print-medicine-area" [ngClass]="printMedicineDensityClass(preview.medicines.length)">
-              <ng-container *ngIf="printPreviewTemplate === 'classic'; else alternateMedicineTable">
+            <main class="print-medicine-area" *ngIf="page.isFirstPage || page.medicines.length > 0"
+              [ngClass]="printMedicineDensityClass(page.medicines.length || preview.medicines.length)">
                 <table class="print-medicine-table">
                   <thead>
                     <tr>
@@ -881,7 +896,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let medicine of preview.medicines">
+                    <tr *ngFor="let medicine of page.medicines; let medicineIndex = index">
                       <td class="print-med-name">
                         <strong>{{ medicine['name'] || 'Medicine' }}</strong>
                         <span>{{ medicine['dosage'] || '' }}</span>
@@ -895,100 +910,36 @@
                       <td>{{ slotDose(medicine, 'evening') }}</td>
                       <td>{{ slotDose(medicine, 'night') }}</td>
                     </tr>
-                    <tr *ngIf="preview.medicines.length === 0">
+                    <tr *ngIf="page.medicines.length === 0 && page.isFirstPage">
                       <td class="print-med-name" colspan="8">No medicines added</td>
                     </tr>
                   </tbody>
                 </table>
 
-                <div class="print-urdu-note print-urdu-block">
+                <div class="print-urdu-note print-urdu-block" *ngIf="page.isFirstPage">
                   <p>بلڈ پریشر کے لئے نمک کم استعمال کریں۔ چکنائی کم کریں۔ روزانہ 30 منٹ پیدل چلیں۔</p>
                   <p>دوائی جاری رکھیں اور ڈاکٹر کے مشورے کے بغیر دوا بند نہ کریں۔</p>
                 </div>
-              </ng-container>
-
-              <ng-template #alternateMedicineTable>
-                <table class="print-medicine-table">
-                  <thead>
-                    <tr>
-                      <th class="print-row-number" rowspan="2">#</th>
-                      <th class="print-medicine-title" rowspan="2">Medicine<br /><span class="print-urdu-inline">(دوائی)</span></th>
-                      <th rowspan="2">Dose</th>
-                      <th rowspan="2">Duration</th>
-                      <th class="print-timing-heading" colspan="4">Timing <span class="print-urdu-inline">(اوقات)</span></th>
-                      <th rowspan="2">Food<br /><span class="print-urdu-inline">(کھانے سے)</span></th>
-                      <th rowspan="2">Instructions<br /><span class="print-urdu-inline">(ہدایات)</span></th>
-                    </tr>
-                    <tr>
-                      <th>Morning<br /><span class="print-urdu-inline">صبح</span></th>
-                      <th>Noon<br /><span class="print-urdu-inline">دوپہر</span></th>
-                      <th>Evening<br /><span class="print-urdu-inline">شام</span></th>
-                      <th>Night<br /><span class="print-urdu-inline">رات</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let medicine of preview.medicines; let medicineIndex = index">
-                      <td class="print-row-number">{{ medicineIndex + 1 }}</td>
-                      <td class="print-med-name">
-                        <strong>{{ medicine['name'] || 'Medicine' }}</strong>
-                        <small>{{ medicine['frequency'] || '' }}</small>
-                      </td>
-                      <td>{{ medicine['dosage'] || '-' }}</td>
-                      <td>{{ medicine['duration'] || '-' }}</td>
-                      <td>{{ slotDose(medicine, 'morning') }}</td>
-                      <td>{{ slotDose(medicine, 'noon') }}</td>
-                      <td>{{ slotDose(medicine, 'evening') }}</td>
-                      <td>{{ slotDose(medicine, 'night') }}</td>
-                      <td>
-                        {{ medicine['beforeMeal'] ? 'Before Food' : medicine['afterMeal'] ? 'After Food' : '-' }}
-                      </td>
-                      <td class="print-instruction-cell">{{ medicine['instructions'] || '-' }}</td>
-                    </tr>
-                    <tr *ngIf="preview.medicines.length === 0">
-                      <td class="print-med-name" colspan="10">No medicines added</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </ng-template>
             </main>
 
-            <aside class="print-right-note print-urdu-block">
+            <aside class="print-right-note print-urdu-block" *ngIf="page.isFirstPage">
               <strong>نوٹ :</strong>
               <p>جس دوائی کے سامنے جاری رکھیں لکھا ہو اس دوائی کو جب تک ڈاکٹر سے مشورہ نہ لیں جاری رکھیں۔</p>
             </aside>
           </div>
 
-          <section class="print-gynae-extended" *ngIf="preview.specialtySection === 'gynae' && preview.gynaeExtendedRows.length > 0">
+          <section class="print-gynae-extended" *ngIf="page.isLastPage && preview.specialtySection === 'gynae' && page.gynaeExtendedRows.length > 0">
             <h4>Gynae / OBS Details</h4>
-            <table class="print-gynae-extended-table">
-              <tr *ngFor="let row of preview.gynaeExtendedRows">
-                <th>{{ row.label }}</th>
-                <td>{{ row.value }}</td>
-              </tr>
-            </table>
-          </section>
-
-          <section class="print-important-instructions" *ngIf="printPreviewTemplate !== 'classic'">
-            <strong>
-              <span>IMPORTANT INSTRUCTIONS</span>
-              <span class="print-urdu-inline">ضروری ہدایات</span>
-            </strong>
-            <div>
-              <ul>
-                <li>Take medicine as advised by the doctor.</li>
-                <li>Do not stop medicine without consultation.</li>
-                <li>Contact the hospital for unusual symptoms.</li>
-              </ul>
-              <ul class="print-urdu-block" dir="rtl">
-                <li>دوا ڈاکٹر کے مشورے کے مطابق استعمال کریں۔</li>
-                <li>بغیر مشورے کے دوا بند نہ کریں۔</li>
-                <li>غیر معمولی علامات کی صورت میں ہسپتال سے رابطہ کریں۔</li>
-              </ul>
+            <div class="print-gynae-extended-grid">
+              <article *ngFor="let row of page.gynaeExtendedRows" [class.wide]="row.wide">
+                <strong>{{ row.label }}</strong>
+                <span>{{ row.value }}</span>
+              </article>
             </div>
           </section>
 
           <div class="print-clinical-notes"
-            *ngIf="preview.patientNote || preview.consultation || preview.admissionOrderLines.length">
+            *ngIf="page.isLastPage && (preview.patientNote || preview.consultation || preview.admissionOrderLines.length)">
             <div class="print-patient-note" *ngIf="preview.patientNote">
               <strong>Note to Patient</strong>
               <p>{{ preview.patientNote }}</p>
@@ -1000,18 +951,11 @@
             </div>
           </div>
 
-          <div class="print-signature-row" *ngIf="printPreviewTemplate !== 'classic'">
-            <div></div>
-            <div>
-              <span></span>
-              <strong>Doctor Signature</strong>
-            </div>
-          </div>
-
-          <footer class="print-footer">
+          <footer class="print-footer" *ngIf="page.isLastPage">
             <strong *ngIf="preview.prescriptionRevisionNote">{{ preview.prescriptionRevisionNote }}</strong>
             <p *ngIf="preview.prescriptionFollowUpLine">{{ preview.prescriptionFollowUpLine }}</p>
             <p *ngFor="let line of preview.prescriptionFooterLines">{{ line }}</p>
+            <p class="classic-rx-page-no" *ngIf="page.totalPages > 1">Page {{ page.pageNumber }} of {{ page.totalPages }}</p>
           </footer>
           </ng-template>
         </div>

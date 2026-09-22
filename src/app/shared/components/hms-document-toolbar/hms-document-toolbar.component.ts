@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
+import { HmsPrintJobType } from '../../../core/keyboard/print-job.util';
 import { HmsDocumentOrientation } from '../../../core/services/hms-document.types';
 import { HmsDocumentService } from '../../../core/services/hms-document.service';
 
@@ -15,6 +16,7 @@ export class HmsDocumentToolbarComponent {
   @Input({ required: true }) title = '';
   @Input({ required: true }) filename = 'document.pdf';
   @Input() orientation: HmsDocumentOrientation = 'portrait';
+  @Input() jobType: HmsPrintJobType = 'a4';
   @Input() pdfLabel = 'PDF';
   @Input() withIcons = false;
   @Input() showExcel = false;
@@ -39,6 +41,7 @@ export class HmsDocumentToolbarComponent {
       html,
       filename: this.filename,
       orientation: this.orientation,
+      jobType: this.jobType,
     });
   }
 
@@ -60,7 +63,7 @@ export class HmsDocumentToolbarComponent {
     if (this.disabled) return;
     const html = this.safeHtml();
     if (!html) return;
-    this.docs.printHtml(html, this.title);
+    this.docs.printHtml(html, { jobType: this.jobType, title: this.title });
     this.onPrinted?.();
   }
 

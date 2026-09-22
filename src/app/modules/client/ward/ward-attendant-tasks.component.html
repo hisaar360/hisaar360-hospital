@@ -1,0 +1,93 @@
+<div id="main-content" class="modern-dashboard hms-page ward-page-shell ward-tasks-page">
+  <div class="container-fluid ward-tasks-container">
+    <header class="ward-tasks-header">
+      <h1>My Tasks</h1>
+      <button type="button" class="ward-tasks-refresh" (click)="load()" [disabled]="loading"
+        aria-label="Refresh my tasks">
+        <i class="fa" [ngClass]="loading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
+      </button>
+    </header>
+
+    <div class="ward-tasks-error" *ngIf="error && !loading" role="alert">
+      <span>Tasks could not be loaded.</span>
+      <button type="button" class="ward-tasks-btn ward-tasks-btn--primary" (click)="load()">Retry</button>
+    </div>
+
+    <div class="ward-tasks-list" *ngIf="loading">
+      <div class="ward-tasks-card ward-tasks-skeleton" *ngFor="let row of skeletonRows"></div>
+    </div>
+
+    <ng-container *ngIf="!loading && !error">
+      <div class="ward-tasks-list" *ngIf="tasks.length; else noTasks">
+        <article class="ward-tasks-card" *ngFor="let task of tasks">
+          <header class="ward-tasks-card__header">
+            <span class="ward-tasks-card__bed">{{ task.bedLabel || '—' }}</span>
+            <span class="ward-tasks-card__status">
+              <i class="fa" [ngClass]="task.status === 'in_progress' ? 'fa-spinner' : 'fa-clock-o'"
+                aria-hidden="true"></i>
+              <span>{{ task.status === 'in_progress' ? 'IN PROGRESS' : 'TO DO' }}</span>
+            </span>
+          </header>
+
+          <p class="ward-tasks-card__patient">{{ task.patientName || 'Patient' }}</p>
+          <p class="ward-tasks-card__task">{{ task.title || task.taskTypeLabel }}</p>
+          <p class="ward-tasks-card__type">{{ task.taskTypeLabel }}</p>
+
+          <p class="ward-tasks-card__route" *ngIf="task.fromLocation || task.toLocation">
+            {{ task.fromLocation || '—' }} <i class="fa fa-long-arrow-right" aria-hidden="true"></i>
+            {{ task.toLocation || '—' }}
+          </p>
+          <p class="ward-tasks-card__instruction" *ngIf="task.instruction">{{ task.instruction }}</p>
+
+          <dl class="ward-tasks-card__meta">
+            <div>
+              <dt>Requested by</dt>
+              <dd>{{ task.requestedByName || '—' }}</dd>
+            </div>
+            <div>
+              <dt>Due</dt>
+              <dd>{{ task.dueAt ? (task.dueAt | date: 'shortTime') : 'Any time' }}</dd>
+            </div>
+          </dl>
+
+          <div class="ward-tasks-card__actions" *ngIf="unableTaskId !== task.id">
+            <button type="button" class="ward-tasks-btn ward-tasks-btn--primary" *ngIf="task.status !== 'in_progress'"
+              (click)="start(task)" [disabled]="savingTaskId === task.id">
+              START
+            </button>
+            <button type="button" class="ward-tasks-btn ward-tasks-btn--done" (click)="markDone(task)"
+              [disabled]="savingTaskId === task.id">
+              MARK DONE
+            </button>
+            <button type="button" class="ward-tasks-btn ward-tasks-btn--ghost" (click)="openUnable(task)"
+              [disabled]="savingTaskId === task.id">
+              Unable to complete
+            </button>
+          </div>
+
+          <div class="ward-tasks-card__unable" *ngIf="unableTaskId === task.id">
+            <label [attr.for]="'unable-reason-' + task.id">Why can't this be done?</label>
+            <input [id]="'unable-reason-' + task.id" type="text" [(ngModel)]="unableReason"
+              placeholder="Short reason" maxlength="200" />
+            <div class="ward-tasks-card__actions">
+              <button type="button" class="ward-tasks-btn ward-tasks-btn--done" (click)="confirmUnable(task)"
+                [disabled]="savingTaskId === task.id">
+                SUBMIT
+              </button>
+              <button type="button" class="ward-tasks-btn ward-tasks-btn--ghost" (click)="cancelUnable()">
+                Back
+              </button>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <ng-template #noTasks>
+        <div class="ward-tasks-empty">
+          <i class="fa fa-check-circle" aria-hidden="true"></i>
+          <h2>No tasks assigned.</h2>
+        </div>
+      </ng-template>
+    </ng-container>
+  </div>
+</div>

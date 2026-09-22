@@ -57,8 +57,8 @@
       </article>
       <article class="summary-card" *ngIf="canViewLabFinance()" [attr.data-pay]="paymentStatusLabel(current)">
         <span class="summary-label">Payment · {{ paymentStatusLabel(current) }}</span>
-        <strong>Rs. {{ current.totalAmount | number:'1.0-0' }}</strong>
-        <small>Paid Rs. {{ current.paidAmount | number:'1.0-0' }} · Balance Rs. {{ current.balanceAmount | number:'1.0-0' }}</small>
+        <strong>{{ current.totalAmount | hmsCurrency }}</strong>
+        <small>Paid {{ current.paidAmount | hmsCurrency }} · Balance {{ current.balanceAmount | hmsCurrency }}</small>
         <small *ngIf="current.paidAmount > 0">
           Received by {{ current.receivedBy?.name || 'laboratory staff' }}
           <ng-container *ngIf="current.paymentMethod"> · {{ current.paymentMethod }}</ng-container>
@@ -342,7 +342,7 @@
                 <strong>{{ test.shortCode }}</strong>
                 <small>{{ test.name }}</small>
               </span>
-              <span class="addon-price">Rs. {{ test.price | number:'1.0-0' }}</span>
+              <span class="addon-price">{{ test.price | hmsCurrency }}</span>
             </label>
           </div>
           <div class="panel-empty compact" *ngIf="filteredAddonsSnapshot.length === 0">No more tests available to add.</div>

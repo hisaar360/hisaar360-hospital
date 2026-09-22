@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, HostListener, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import {
   FormArray,
   FormBuilder,
+  FormControl,
   FormGroup,
   FormsModule,
   ReactiveFormsModule,
@@ -19,10 +20,19 @@ import {
   NgApexchartsModule,
 } from 'ng-apexcharts';
 import { AppDialogService } from '../../../core/services/app-dialog.service';
+import {
+  HMS_KEYBOARD_STANDARDS,
+  HmsKeyboardService,
+  HmsSelectKeyboardDirective,
+  isEditableTarget,
+  isModKey,
+} from '../../../core/keyboard';
+import { printHtmlJob } from '../../../core/keyboard/print-job.util';
 import { BackendService } from '../../../core/services/backend.service';
 import { toCalendarYmd, todayYmd } from '../../../core/utils/calendar-date';
 import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import { MooliOfflineService, MooliQueuedWork, MooliSyncResult } from '../../../core/services/mooli-offline.service';
+import { MedicineCatalogCacheService } from '../../../core/services/medicine-catalog-cache.service';
 import {
   Appointment,
   AdmissionOrderItem,
@@ -84,6 +94,42 @@ import {
 } from './admission-order-data';
 import { AdmissionRecommendationDrawerComponent } from './admission-recommendation-drawer.component';
 import {
+  ClinicalOrdersSubTab,
+  ClinicalPatientHeaderComponent,
+  ClinicalPatientHeaderModel,
+  ClinicalSpecialtySubTab,
+  ClinicalVisitComponent,
+  ClinicalWorkspaceFacade,
+  ClinicalWorkspaceTab,
+  CURRENT_SPECIALTY_TEMPLATE_VERSION,
+  SpecialtyKey,
+  allEngineSpecialtyFieldKeys,
+  buildSpecialtySummaryLine,
+  buildSpecialtySummaryTitleLine,
+  buildEngineSpecialtyPrintRows,
+  getSpecialtyTemplate,
+  legacySectionToSpecialtyKey,
+  mergeSpecialtyDataForSave,
+  resolveSpecialtyKey,
+  shouldUseGenericSpecialtyEngine,
+  specialtyDisplayName as formatSpecialtyDisplayName,
+  specialtyKeyToLegacySection,
+  splitPreservedSpecialtyData,
+} from '../clinical-workspace';
+import { SpecialtySectionComponent } from '../clinical-workspace/specialty/specialty-section.component';
+import { ObgynPregnancyPanelComponent } from '../clinical-workspace/obgyn/obgyn-pregnancy-panel.component';
+import {
+  ObgynClinicalContext,
+  PregnancyEpisode,
+} from '../clinical-workspace/obgyn/pregnancy-episode.types';
+import { visitGestationalAgeLabel } from '../clinical-workspace/obgyn/pregnancy-dating.util';
+import { ageAtVisitLabel, agePartsAtDate } from '../clinical-workspace/pediatrics/pediatric-age.util';
+import { PediatricGrowthPoint } from '../clinical-workspace/pediatrics/pediatric-growth-panel.component';
+import {
+  resolveDoctorSpecialtyKey as resolveCatalogDoctorSpecialtyKey,
+  splitMulti as splitDoctorMultiValues,
+} from '../../../shared/catalogs/doctor-master-data.catalog';
+import {
   AdmissionRecommendationRecord,
   admissionRecommendationStatusLabel,
   doctorDisplayName,
@@ -111,6 +157,7 @@ import {
   calculateGestationalAgeFromLmp,
   GYNAE_ADVICE_TEMPLATES,
   GYNAE_CONSULT_MODES,
+  GYNAE_DEMO_DATING_VALUES,
   GYNAE_LAB_CATALOG,
   GYNAE_LAB_CATEGORIES,
   GYNAE_ULTRASOUND_STUDIES,
@@ -191,6 +238,12 @@ import {
   buildClinicalRxPrintPages,
   ClinicalRxPrintPage,
 } from './clinical-rx-print-pages';
+import {
+  DEFAULT_PRESCRIPTION_STYLE,
+  PrescriptionStyleSettings,
+  normalizePrescriptionStyle,
+  prescriptionStyleToCssVars,
+} from './prescription-style';
 
 interface PrintPreviewData {
   template: PrescriptionTemplate;
@@ -208,6 +261,9 @@ interface PrintPreviewData {
   doctorQualificationUrdu: string;
   doctorTitleEnglish: string;
   doctorTitleUrdu: string;
+  doctorSpecialty?: string;
+  clinicTagline?: string;
+  visitType?: string;
   hospitalName: string;
   hospitalNameUrdu: string;
   hospitalAddress: string;
@@ -242,6 +298,8 @@ interface PrintPreviewData {
   clinicalPages: ClinicalRxPrintPage[];
   gynaeMode: GynaeConsultMode;
   patientBloodGroup: string;
+  prescriptionStyle: PrescriptionStyleSettings;
+  prescriptionStyleCssVars: Record<string, string>;
 }
 
 type PrescriptionDateGroup = {
@@ -282,9 +340,24 @@ interface MedicineSuggestionOption {
 
 @Component({
   selector: 'app-prescription',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, NgApexchartsModule, RouterLink, GynaeClinicalPrintPageComponent, GynaeWomensHealthPrintPageComponent, PrescriptionTemplateGynaeModernComponent, AdmissionRecommendationDrawerComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    NgApexchartsModule,
+    RouterLink,
+    GynaeClinicalPrintPageComponent,
+    GynaeWomensHealthPrintPageComponent,
+    PrescriptionTemplateGynaeModernComponent,
+    AdmissionRecommendationDrawerComponent,
+    HmsSelectKeyboardDirective,
+    ClinicalPatientHeaderComponent,
+    ClinicalVisitComponent,
+    SpecialtySectionComponent,
+    ObgynPregnancyPanelComponent,
+  ],
   templateUrl: './prescription.component.html',
-  styleUrl: './prescription.component.scss',
+  styleUrls: ['./prescription.component.scss', './prescription-specialty-panels.scss'],
 })
 export class PrescriptionComponent implements OnInit, OnDestroy {
   @ViewChild('printContent', { static: false }) printContent!: ElementRef;
@@ -299,9 +372,17 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   patientHistoryDateFrom = '';
   patientHistoryDateTo = '';
   patientHistoryLoading = false;
+  patientAdmissionHistory: Array<Record<string, unknown>> = [];
+  patientAdmissionHistoryLoading = false;
+  historyPanelTab: 'prescriptions' | 'medicines' | 'labs' | 'admissions' = 'prescriptions';
   patientHistoryPage = 1;
   patientHistoryTotalPages = 0;
   readonly patientHistoryPageSize = 10;
+  pastMedicineSearch = '';
+  pastMedicineDateFilter: 'all' | '7' | '30' | '90' = 'all';
+  pastMedicinePage = 1;
+  pastMedicineMobileLimit = 4;
+  readonly pastMedicinePageSize = 8;
   patients: Patient[] = [];
   doctors: Doctor[] = [];
   appointments: Appointment[] = [];
@@ -332,7 +413,23 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   routeDoctorId = '';
   routeAppointmentId = '';
   routePrescriptionTemplate: PrescriptionTemplate | null = null;
-  activeTab = 'prescription';
+  /** @deprecated Prefer workspaceTab / ordersSubTab; kept for transitional template checks. */
+  activeTab: string = 'visit';
+  workspaceTab: ClinicalWorkspaceTab = 'visit';
+  ordersSubTab: ClinicalOrdersSubTab = 'medicines';
+  specialtySubTab: ClinicalSpecialtySubTab = 'notes';
+  /** Mobile / narrow: show Specialty Library grid instead of the form. */
+  specialtyLibraryOpen = false;
+  /** Desktop Specialty Templates right panel. */
+  specialtyTemplatesPanelOpen = true;
+  showAdvancedVisitHistory = false;
+  showVisitVitalsTrends = false;
+  /** Scalar/object specialtyData keys not bound to visible controls — preserved on save. */
+  private preservedSpecialtyData: Record<string, unknown> = {};
+  /** Once specialty data is entered on a new consult, do not silently re-resolve on doctor change. */
+  private specialtyIdentityLocked = false;
+  selectedPregnancyEpisode: PregnancyEpisode | null = null;
+  obgynClinicalContext: ObgynClinicalContext = 'pregnancy';
   patientSearch = '';
   printPreviewOpen = false;
   printPreviewLoading = false;
@@ -359,21 +456,6 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       id: 'clinical-blue',
       name: 'Clinical Blue',
       description: 'Detailed hospital style',
-    },
-    {
-      id: 'gynae-clinical',
-      name: "Gynae Theme 1 · Clinical Teal",
-      description: 'Professional teal gynae prescription layout',
-    },
-    {
-      id: 'gynae-womens-health',
-      name: "Gynae Theme 2 · Women's Health",
-      description: 'Bilingual women\'s health clinic layout',
-    },
-    {
-      id: 'gynae-modern',
-      name: "Gynae Theme 3 · Modern Purple",
-      description: 'Premium pink & purple women\'s health layout',
     },
     {
       id: 'minimal-teal',
@@ -474,6 +556,9 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   gynaeLabCategoryFilter: GynaeLabCategory | 'all' = 'all';
   readonly labCatalogItems = LAB_TEST_CATALOG;
   labTestFilter: LabTestFilter = 'all';
+  labTestSearch = '';
+  labCatalogSearch = '';
+  sidebarLabSearch = '';
   labTestRows: LabTestDisplayRow[] = [];
   patientLabOrders: LabOrder[] = [];
   selectedLabTestId: string | null = 'demo-CBC';
@@ -515,15 +600,30 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   };
   readonly vitalTrendKeys = ['weight', 'bp', 'temperature', 'pulse', 'spo2'];
   readonly specialtyTemplateOptions = Object.values(SPECIALTY_TEMPLATES);
+  readonly specialtyDisplayName = formatSpecialtyDisplayName;
+  /** Stable empty array so specialty section is not rebuilt every CD (focus steal). */
+  readonly emptyGrowthPoints: PediatricGrowthPoint[] = [];
+  specialtyGrowthPoints: PediatricGrowthPoint[] = [];
+  keyboardHintOpen = false;
+  readonly keyboardHints = [
+    ...HMS_KEYBOARD_STANDARDS,
+    { keys: 'Ctrl/Cmd+Shift+M', action: 'Add medicine row' },
+    { keys: 'Ctrl/Cmd+S', action: 'Save prescription' },
+    { keys: 'Ctrl/Cmd+P or Ctrl/Cmd+Enter', action: 'Save & Print' },
+  ];
+  private keyboardUnregister: (() => void) | null = null;
 
   constructor(
     private fb: FormBuilder,
     private route: ActivatedRoute,
     private router: Router,
     private backend: BackendService,
+    private readonly clinicalWorkspace: ClinicalWorkspaceFacade,
     readonly offline: MooliOfflineService,
+    private readonly medicineCatalog: MedicineCatalogCacheService,
     private toastr: ToastrService,
-    private dialog: AppDialogService
+    private dialog: AppDialogService,
+    private keyboard: HmsKeyboardService
   ) {
     this.prescriptionForm = this.fb.group({
       patientId: ['', Validators.required],
@@ -556,12 +656,18 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
         bp: [''],
         pulse: [''],
         weight: [''],
+        height: [''],
+        headCircumference: [''],
+        lengthOrHeightMode: [''],
         temperature: [''],
         spo2: [''],
       }),
       customVitals: this.fb.array([]),
       specialtySection: [''],
+      specialtyKey: [''],
+      specialtyTemplateVersion: [''],
       specialtyData: this.createSpecialtyDataGroup(),
+      pregnancyEpisodeId: [''],
       advice: [''],
       followUpDate: [''],
     });
@@ -625,6 +731,9 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     });
 
     this.loadLookups();
+    void this.medicineCatalog.ensureLoaded().then((items) => {
+      this.storeMedicines = items;
+    });
     this.offlineSyncSubscription = this.offline.syncCompleted$.subscribe((result) => {
       void this.handleOfflineSyncCompleted(result);
     });
@@ -640,7 +749,17 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     this.refreshIvFluidRows();
     this.refreshAdmissionOrderRows();
     this.refreshPatientDocumentRows();
-    this.prescriptionForm.get('doctorId')?.valueChanges.subscribe(() => this.applyGynaeDoctorDefaults());
+    this.prescriptionForm.get('doctorId')?.valueChanges.subscribe(() => {
+      this.applyGynaeDoctorDefaults();
+      if (!this.editingId) {
+        this.syncSpecialtyIdentityForCreate();
+      }
+    });
+    this.specialtyDataGroup.valueChanges.pipe(debounceTime(200)).subscribe(() => {
+      if (!this.editingId && this.hasEnteredSpecialtyData()) {
+        this.specialtyIdentityLocked = true;
+      }
+    });
     this.specialtyDataGroup.get('lmp')?.valueChanges.pipe(debounceTime(120)).subscribe(() => this.onGynaeLmpChange());
     [
       'gravida',
@@ -659,10 +778,18 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       });
     });
     window.setTimeout(() => this.initializePrescriptionTheme(), 0);
+
+    this.keyboardUnregister = this.keyboard.register({
+      id: 'prescription',
+      onKeydown: (event) => this.handlePrescriptionPageKeydown(event),
+      onEscape: () => this.handlePrescriptionEscape(),
+    });
   }
 
   ngOnDestroy(): void {
     this.offlineSyncSubscription?.unsubscribe();
+    this.keyboardUnregister?.();
+    this.keyboardUnregister = null;
   }
 
   get medicines(): FormArray {
@@ -754,12 +881,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     name: string;
     description: string;
   }> {
-    if (this.isGynaeDoctor()) {
-      return this.prescriptionTemplates.filter((template) =>
-        ['gynae-clinical', 'gynae-womens-health', 'gynae-modern', 'clinical-blue'].includes(template.id)
-      );
-    }
-
+    // One shared theme set for all specialties (legacy gynae-only themes hidden).
     return this.prescriptionTemplates.filter(
       (template) => !['gynae-clinical', 'gynae-womens-health', 'gynae-modern'].includes(template.id)
     );
@@ -824,12 +946,16 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   createSpecialtyDataGroup(): FormGroup {
-    return this.fb.group(
-      SPECIALTY_FIELDS.reduce((controls, field) => {
-        controls[field.key] = [''];
-        return controls;
-      }, {} as Record<string, any>)
-    );
+    const controls: Record<string, unknown[]> = {};
+    SPECIALTY_FIELDS.forEach((field) => {
+      controls[field.key] = [''];
+    });
+    allEngineSpecialtyFieldKeys().forEach((key) => {
+      if (!controls[key]) {
+        controls[key] = [''];
+      }
+    });
+    return this.fb.group(controls);
   }
 
   createLabTestGroup(test?: { name?: string; category?: string; selected?: boolean }): FormGroup {
@@ -902,17 +1028,110 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     return isMac ? 'Cmd+Shift+M' : 'Ctrl+Shift+M';
   }
 
-  @HostListener('document:keydown', ['$event'])
-  handlePrescriptionShortcut(event: KeyboardEvent): void {
+  handlePrescriptionPageKeydown(event: KeyboardEvent): boolean {
     const key = event.key.toLowerCase();
-    const hasPrimaryModifier = event.ctrlKey || event.metaKey;
 
-    if (!hasPrimaryModifier || !event.shiftKey || key !== 'm' || this.isPrescriptionShortcutBlocked()) {
-      return;
+    if (isModKey(event) && event.shiftKey && key === 'm' && !this.isPrescriptionShortcutBlocked()) {
+      this.addMedicineFromShortcut();
+      return true;
     }
 
-    event.preventDefault();
-    this.addMedicineFromShortcut();
+    if (this.keyboard.isSaveChord(event) && !this.isPrescriptionShortcutBlocked()) {
+      this.submitPrescription(false);
+      return true;
+    }
+
+    if (isModKey(event) && !event.shiftKey && !event.altKey && key === 'p' && !this.isPrescriptionShortcutBlocked()) {
+      this.submitPrescription(true);
+      return true;
+    }
+
+    if (isModKey(event) && !event.shiftKey && !event.altKey && event.key === 'Enter' && !this.isPrescriptionShortcutBlocked()) {
+      this.submitPrescription(true);
+      return true;
+    }
+
+    if (
+      (this.keyboard.isFindChord(event) || this.keyboard.isFocusSearchSlash(event)) &&
+      !this.isPrescriptionShortcutBlocked()
+    ) {
+      this.focusSmartMedicineInput();
+      return true;
+    }
+
+    if (event.key === '?' && !isEditableTarget(event.target) && !event.ctrlKey && !event.metaKey) {
+      this.keyboardHintOpen = !this.keyboardHintOpen;
+      return true;
+    }
+
+    return false;
+  }
+
+  handlePrescriptionEscape(): boolean {
+    if (this.keyboardHintOpen) {
+      this.keyboardHintOpen = false;
+      return true;
+    }
+    if (this.printPreviewOpen) {
+      this.closePrintPreview();
+      return true;
+    }
+    if (this.themeModalOpen) {
+      this.themeModalOpen = false;
+      return true;
+    }
+    if (this.medicineLibraryOpen) {
+      this.medicineLibraryOpen = false;
+      return true;
+    }
+    if (this.vitalsModalOpen) {
+      this.vitalsModalOpen = false;
+      return true;
+    }
+    if (this.vitalsTrendModalOpen) {
+      this.vitalsTrendModalOpen = false;
+      return true;
+    }
+    if (this.labTestModalOpen) {
+      this.closeLabTestModal();
+      return true;
+    }
+    if (this.labTestDetailModalOpen) {
+      this.closeLabTestDetail();
+      return true;
+    }
+    if (this.ivFluidModalOpen) {
+      this.closeIvFluidModal();
+      return true;
+    }
+    if (this.admissionRecommendationDrawerOpen) {
+      this.admissionRecommendationDrawerOpen = false;
+      return true;
+    }
+    if (this.documentModalOpen) {
+      this.closeDocumentModal();
+      return true;
+    }
+    if (this.smartMedicineSuggestions.length) {
+      this.clearSmartMedicineSuggestions();
+      return true;
+    }
+    return false;
+  }
+
+  toggleKeyboardHint(): void {
+    this.keyboardHintOpen = !this.keyboardHintOpen;
+  }
+
+  focusSmartMedicineInput(): void {
+    setTimeout(() => {
+      const el = this.smartMedicineInputRef?.nativeElement;
+      if (!el) {
+        return;
+      }
+      el.focus();
+      el.select();
+    });
   }
 
   addMedicineFromShortcut(): void {
@@ -1038,7 +1257,276 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   openVitalsTab(): void {
-    this.activeTab = 'vitals';
+    this.setWorkspaceTab('visit');
+    this.showVisitVitalsTrends = true;
+    this.activeTab = 'visit';
+  }
+
+  toggleVisitVitalsTrends(): void {
+    this.showVisitVitalsTrends = !this.showVisitVitalsTrends;
+    if (this.showVisitVitalsTrends) {
+      this.setWorkspaceTab('visit');
+      this.refreshVitalAnalytics();
+    }
+  }
+
+  setWorkspaceTab(tab: ClinicalWorkspaceTab): void {
+    this.workspaceTab = tab;
+    if (tab === 'visit') {
+      this.activeTab = 'visit';
+    } else if (tab === 'specialty') {
+      if (!this.isGynaeDoctor()) {
+        this.specialtySubTab = 'notes';
+      }
+      this.activeTab = this.specialtySubTab === 'ultrasound' ? 'ultrasound' : 'specialty';
+      this.specialtyLibraryOpen = false;
+      this.specialtyTemplatesPanelOpen = false;
+      this.lockToDoctorSpecialty();
+      this.refreshSpecialtyGrowthPoints();
+    } else if (tab === 'orders') {
+      this.activeTab = this.ordersSubTab;
+    } else {
+      this.activeTab = 'history';
+    }
+  }
+
+  openSpecialtyLibrary(): void {
+    // Multi-specialty picker disabled — only doctor specialty is shown.
+    this.specialtyLibraryOpen = false;
+    this.workspaceTab = 'specialty';
+    this.activeTab = 'specialty';
+    this.lockToDoctorSpecialty();
+  }
+
+  closeSpecialtyLibrary(): void {
+    this.specialtyLibraryOpen = false;
+  }
+
+  closeSpecialtyTemplatesPanel(): void {
+    this.specialtyTemplatesPanelOpen = false;
+  }
+
+  toggleSpecialtyTemplatesPanel(): void {
+    this.specialtyTemplatesPanelOpen = false;
+  }
+
+  /** Resolve specialty strictly from the assigned doctor's profile. */
+  resolveDoctorSpecialtyKey(): SpecialtyKey {
+    const doctor = this.selectedDoctorProfile();
+    const fromProfile = this.specialtyKeyFromDoctorProfile(doctor);
+    if (fromProfile) {
+      return fromProfile;
+    }
+
+    const appointment = this.selectedAppointment();
+    return resolveSpecialtyKey({
+      mode: 'create',
+      doctorSpecialty: doctor?.specialization || doctor?.prescriptionSpecialtyTemplate || null,
+      doctorDepartment: doctor?.clinicalDepartment || doctor?.department?.name || null,
+      appointmentDepartment: (appointment as { departmentName?: string } | null)?.departmentName || null,
+      departmentName: doctor?.department?.name || null,
+      extraText: doctor?.qualification || null,
+    });
+  }
+
+  /**
+   * Prefer clinical department catalog mapping so OBGYN subspecialties
+   * (e.g. "Gynecologic Oncology") do not flip the consult UI to Oncology.
+   */
+  private specialtyKeyFromDoctorProfile(doctor: Doctor | null | undefined): SpecialtyKey | null {
+    if (!doctor) {
+      return null;
+    }
+
+    const departmentKey = String(doctor.clinicalDepartment || '').trim();
+    const specializations = splitDoctorMultiValues(String(doctor.specialization || ''));
+    if (departmentKey || specializations.length) {
+      const catalogKey = resolveCatalogDoctorSpecialtyKey(departmentKey, specializations);
+      if (catalogKey && catalogKey !== 'OTHER') {
+        return catalogKey;
+      }
+    }
+
+    const legacyTemplate = String(doctor.prescriptionSpecialtyTemplate || '').trim();
+    if (legacyTemplate === 'gynae') {
+      return 'OBGYN';
+    }
+
+    return null;
+  }
+
+  lockToDoctorSpecialty(): void {
+    // Keep saved specialty when editing an existing prescription.
+    if (this.editingId) {
+      const saved = String(this.prescriptionForm.getRawValue().specialtyKey || '').trim();
+      if (saved) {
+        this.specialtyIdentityLocked = true;
+        return;
+      }
+    }
+    this.selectSpecialtyFromLibrary(this.resolveDoctorSpecialtyKey());
+  }
+
+  selectSpecialtyFromLibrary(key: SpecialtyKey): void {
+    const legacy = specialtyKeyToLegacySection(key);
+    const engine = getSpecialtyTemplate(key);
+    this.specialtyIdentityLocked = true;
+    this.prescriptionForm.patchValue({
+      specialtyKey: key,
+      specialtyTemplateVersion: shouldUseGenericSpecialtyEngine({
+        specialtyKey: key,
+        legacySection: legacy,
+      })
+        ? engine.version
+        : '',
+      specialtySection: SPECIALTY_TEMPLATES[legacy as SpecialtyTemplateKey]
+        ? legacy
+        : this.activeSpecialtyTemplate().key,
+    });
+    this.ensureSpecialtyDataControls(this.specialtyDataGroup.getRawValue());
+    this.specialtyLibraryOpen = false;
+    this.specialtySubTab = 'notes';
+    this.workspaceTab = 'specialty';
+    this.activeTab = 'specialty';
+  }
+
+  setOrdersSubTab(tab: ClinicalOrdersSubTab): void {
+    this.workspaceTab = 'orders';
+    this.ordersSubTab = tab;
+    this.activeTab = tab;
+  }
+
+  setSpecialtySubTab(tab: ClinicalSpecialtySubTab): void {
+    this.workspaceTab = 'specialty';
+    this.specialtySubTab = tab;
+    this.activeTab = tab === 'ultrasound' ? 'ultrasound' : 'specialty';
+  }
+
+  /** Kept for appointment-list refresh callers; panel is always expanded. */
+  syncAppointmentsPanelCollapse(_force = false): void {
+    // no-op — collapse UX removed
+  }
+
+  toggleAdvancedVisitHistory(): void {
+    this.showAdvancedVisitHistory = !this.showAdvancedVisitHistory;
+  }
+
+  clinicalPatientHeaderModel(): ClinicalPatientHeaderModel | null {
+    const patient = this.selectedPatient();
+    if (!patient) {
+      return null;
+    }
+
+    const gender = patient.gender ? String(patient.gender) : '';
+    const ageRaw = this.ageLabel(patient);
+    const ageSex = this.isGynaeDoctor()
+      ? [ageRaw, gender ? String(gender).charAt(0).toUpperCase() + String(gender).slice(1).toLowerCase() : '']
+          .filter(Boolean)
+          .join(' | ')
+      : [ageRaw, gender ? String(gender).charAt(0).toUpperCase() : ''].filter(Boolean).join(' ');
+    const allergies = (patient.allergies || []).filter(Boolean).join(', ');
+    const lastVisit = this.resolveLastVisitLabel();
+    const data = this.specialtyDataGroup.getRawValue() as Record<string, unknown>;
+    const ga = String(data['gestationalAge'] || '').trim();
+    // Banner uses specialty dating; when a pregnancy episode is linked those fields
+    // are synced from the episode so the doctor enters LMP only once.
+    const eddRaw = String(data['edd'] || '').trim();
+    const pregnancyLabel = ga
+      ? (/pregnancy/i.test(ga) ? ga : `${ga} Pregnancy`)
+      : 'Not available';
+    const eddLabel = eddRaw ? this.shortDate(eddRaw) : 'Not available';
+
+    return {
+      name: this.patientName(patient),
+      ageSex,
+      mrNo: patient.patientNo || '',
+      allergies,
+      bloodGroup: patient.bloodGroup || '',
+      lastVisit,
+      specialtySummary: this.compactSpecialtySummary(),
+      variant: this.isGynaeDoctor() ? 'gynae' : 'default',
+      phone: patient.phone || '',
+      patientId: String(patient._id || ''),
+      pregnancyLabel: this.isGynaeDoctor() ? pregnancyLabel : '',
+      eddLabel: this.isGynaeDoctor() ? eddLabel : '',
+      avatarInitials: this.initials(this.patientName(patient)),
+    };
+  }
+
+  patientAllergiesLabel(): string {
+    const patient = this.selectedPatient();
+    return (patient?.allergies || []).filter(Boolean).join(', ');
+  }
+
+  patientCurrentMedicinesLabel(): string {
+    const patient = this.selectedPatient();
+    return (patient?.currentMedications || []).filter(Boolean).join(', ');
+  }
+
+  patientChronicIllnessLabel(): string {
+    const patient = this.selectedPatient();
+    return (patient?.chronicDiseases || []).filter(Boolean).join(', ');
+  }
+
+  visitChiefComplaintPlaceholder(): string {
+    return this.isGynaeDoctor()
+      ? this.gynaeChiefComplaintPlaceholder()
+      : 'Dry cough, mild fever, weakness';
+  }
+
+  visitHistoryPlaceholder(): string {
+    return this.isGynaeDoctor()
+      ? this.gynaeHistoryPlaceholder()
+      : 'Cough for 3 days, no breathlessness...';
+  }
+
+  onVisitChaperoneChange(checked: boolean): void {
+    this.specialtyDataGroup.patchValue({ chaperonePresent: checked ? 'Yes' : 'No' });
+    this.refreshGynaeExaminationConsent();
+  }
+
+  onVisitConsentChange(checked: boolean): void {
+    this.specialtyDataGroup.patchValue({ patientConsentTaken: checked ? 'Yes' : 'No' });
+    this.refreshGynaeExaminationConsent();
+  }
+
+  onVisitPelvicExamChange(checked: boolean): void {
+    this.specialtyDataGroup.patchValue({ pelvicExamDone: checked ? 'Done' : 'Not Done' });
+    this.refreshGynaeExaminationConsent();
+  }
+
+  private resolveLastVisitLabel(): string {
+    const history = this.visiblePatientHistoryPrescriptions();
+    const latest = history[0];
+    if (!latest) {
+      return '';
+    }
+    return this.shortDate(latest.createdAt || latest.followUpDate || '');
+  }
+
+  private compactSpecialtySummary(): string | null {
+    if (this.isGynaeDoctor()) {
+      const data = this.specialtyDataGroup.getRawValue() as Record<string, unknown>;
+      const ga = String(data['gestationalAge'] || '').trim();
+      const edd = String(data['edd'] || '').trim();
+      const parts = [
+        ga ? `Pregnancy: ${ga}` : '',
+        edd ? `EDD: ${this.shortDate(edd)}` : '',
+      ].filter(Boolean);
+      return parts.length ? parts.join(' · ') : null;
+    }
+
+    if (!this.useGenericSpecialtyEngine()) {
+      return null;
+    }
+
+    const key = this.resolveActiveSpecialtyKey();
+    const line = buildSpecialtySummaryLine(
+      key,
+      this.specialtyDataGroup.getRawValue() as Record<string, unknown>,
+      getSpecialtyTemplate(key)
+    );
+    return line || null;
   }
 
   setVitalsTrendRange(range: VitalsTrendRange): void {
@@ -1465,8 +1953,9 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
         return;
       }
 
+      // Doctor personal library may still be remote; pharmacy catalog is local-only.
       this.loadDoctorMedicines(query, true);
-      this.loadStoreMedicines(query, true);
+      void this.applyLocalStoreMedicineSuggestions(query, true);
     }, 250);
   }
 
@@ -1803,7 +2292,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   printMedicineDensityClass(medicineCount: number): string {
-    if (medicineCount >= 9) {
+    if (medicineCount >= 8) {
       return 'medicine-density-ultra';
     }
 
@@ -1955,11 +2444,13 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   openLabTestModal(): void {
+    this.labCatalogSearch = '';
     this.labTestModalOpen = true;
   }
 
   closeLabTestModal(): void {
     this.labTestModalOpen = false;
+    this.labCatalogSearch = '';
   }
 
   openLabTestDetail(row: LabTestDisplayRow): void {
@@ -2065,12 +2556,37 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     this.labTestFilter = filter;
   }
 
+  filteredLabCatalogItems() {
+    const term = this.labCatalogSearch.trim().toLowerCase();
+    if (!term) {
+      return this.labCatalogItems;
+    }
+    return this.labCatalogItems.filter((test) => {
+      const haystack = [test.name, test.fullName, test.category]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(term);
+    });
+  }
+
   selectLabTestRow(row: LabTestDisplayRow): void {
     this.selectedLabTestId = row.id;
   }
 
   filteredLabTestRows(): LabTestDisplayRow[] {
-    return filterLabTestRows(this.labTestRows, this.labTestFilter);
+    const rows = filterLabTestRows(this.labTestRows, this.labTestFilter);
+    const term = this.labTestSearch.trim().toLowerCase();
+    if (!term) {
+      return rows;
+    }
+    return rows.filter((row) => {
+      const haystack = [row.name, row.fullName, row.category, row.resultSummary, row.status]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(term);
+    });
   }
 
   selectedLabTestRow(): LabTestDisplayRow | null {
@@ -2821,28 +3337,58 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.backend
-      .getPrescriptionProductSuggestions({
-        limit: 50,
-        isActive: true,
-        search: search.trim() || undefined,
-      })
-      .subscribe({
-        next: (result) => {
-          this.storeMedicines = result.items;
-          void this.offline.cacheValue(this.storeMedicinesCacheKey(search), this.storeMedicines);
-          if (updateSmartSuggestions) {
-            this.refreshSmartMedicineSuggestions(search);
-          }
-          afterLoad?.();
-        },
-        error: (err) => {
-          void this.loadCachedStoreMedicines(search, updateSmartSuggestions, afterLoad);
-          if (err?.status === 403) {
-            this.storeMedicineSearchDisabled = true;
-          }
-        },
-      });
+    void this.applyLocalStoreMedicineSuggestions(search, updateSmartSuggestions, afterLoad);
+  }
+
+  private async applyLocalStoreMedicineSuggestions(
+    search = '',
+    updateSmartSuggestions = false,
+    afterLoad?: () => void
+  ): Promise<void> {
+    if (this.storeMedicineSearchDisabled) {
+      afterLoad?.();
+      return;
+    }
+
+    try {
+      await this.medicineCatalog.ensureLoaded();
+      const query = search.trim();
+      this.storeMedicines = query
+        ? this.medicineCatalog.search(query, 50)
+        : this.medicineCatalog.snapshot();
+      if (updateSmartSuggestions) {
+        this.refreshSmartMedicineSuggestions(search);
+      }
+      afterLoad?.();
+    } catch {
+      // Fall back to legacy remote search only if local catalog is empty.
+      if (!this.medicineCatalog.snapshot().length) {
+        this.backend
+          .getPrescriptionProductSuggestions({
+            limit: 50,
+            isActive: true,
+            search: search.trim() || undefined,
+          })
+          .subscribe({
+            next: (result) => {
+              this.storeMedicines = result.items;
+              void this.offline.cacheValue(this.storeMedicinesCacheKey(search), this.storeMedicines);
+              if (updateSmartSuggestions) {
+                this.refreshSmartMedicineSuggestions(search);
+              }
+              afterLoad?.();
+            },
+            error: (err) => {
+              void this.loadCachedStoreMedicines(search, updateSmartSuggestions, afterLoad);
+              if (err?.status === 403) {
+                this.storeMedicineSearchDisabled = true;
+              }
+            },
+          });
+        return;
+      }
+      afterLoad?.();
+    }
   }
 
   onMedicineNameInput(index: number): void {
@@ -2866,7 +3412,9 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       }
 
       this.loadDoctorMedicines(query, false, () => this.refreshMedicineRowSuggestions(index, query));
-      this.loadStoreMedicines(query, false, () => this.refreshMedicineRowSuggestions(index, query));
+      void this.applyLocalStoreMedicineSuggestions(query, false, () =>
+        this.refreshMedicineRowSuggestions(index, query)
+      );
     }, 250);
 
     this.medicineInputSearchTimers.set(index, timer);
@@ -3005,11 +3553,13 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     const patientId = this.prescriptionForm.getRawValue().patientId || this.selectedPatientId;
     if (!patientId) {
       this.loadPatientLabHistory('');
+      this.patientAdmissionHistory = [];
       void this.applyPatientContextPrescriptions([], 0);
       return;
     }
 
     this.loadPatientLabHistory(patientId);
+    this.loadPatientAdmissionHistory(patientId);
     if (!this.canReadPrescriptions) {
       this.patientContextRequestId += 1;
       this.patientHistoryLoading = false;
@@ -3023,7 +3573,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       page: 1,
       limit: 100,
       patientId,
-      doctorId: this.isDoctorUser() ? this.currentUserId || undefined : undefined,
+      // Full patient chart for doctor: all hospital Rx for this patient (not only own)
       dateFrom: this.patientHistoryDateFrom || undefined,
       dateTo: this.patientHistoryDateTo || undefined,
       search: this.patientHistorySearch.trim() || undefined,
@@ -3085,6 +3635,180 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
         this.patientLabOrders = [];
         this.refreshLabTestRows();
       },
+    });
+  }
+
+  private loadPatientAdmissionHistory(patientId: string): void {
+    const resolved = String(patientId || '').trim();
+    if (!resolved || !this.offline.online()) {
+      this.patientAdmissionHistory = [];
+      return;
+    }
+
+    this.patientAdmissionHistoryLoading = true;
+    this.backend.getPatientAdmissionHistory(resolved).subscribe({
+      next: (result) => {
+        this.patientAdmissionHistory = result?.items || [];
+        this.patientAdmissionHistoryLoading = false;
+      },
+      error: () => {
+        this.patientAdmissionHistory = [];
+        this.patientAdmissionHistoryLoading = false;
+      },
+    });
+  }
+
+  pastMedicineHistoryRows(): Array<{
+    name: string;
+    dose: string;
+    frequency: string;
+    duration: string;
+    date: string;
+    dateValue: number;
+    doctor: string;
+    prescriptionId: string;
+    subtitle: string;
+  }> {
+    const rows: Array<{
+      name: string;
+      dose: string;
+      frequency: string;
+      duration: string;
+      date: string;
+      dateValue: number;
+      doctor: string;
+      prescriptionId: string;
+      subtitle: string;
+    }> = [];
+
+    for (const rx of this.visiblePatientHistoryPrescriptions()) {
+      const date = this.prescriptionDate(rx);
+      const dateValue = new Date(rx.createdAt || rx.updatedAt || date).getTime() || 0;
+      const doctor = this.prescriptionDoctorName(rx);
+      const medicines = Array.isArray(rx.medicines) ? rx.medicines : [];
+      for (const med of medicines) {
+        const raw = med as {
+          name?: string;
+          dosage?: string;
+          dose?: string;
+          frequency?: string;
+          duration?: string;
+          type?: string;
+        };
+        const name = String(raw.name || '').trim();
+        if (!name) continue;
+        const dose = String(raw.dosage || raw.dose || '').trim() || '—';
+        const frequency = String(raw.frequency || '').trim() || '—';
+        const duration = String(raw.duration || '').trim() || '—';
+        rows.push({
+          name,
+          dose,
+          frequency,
+          duration,
+          date,
+          dateValue,
+          doctor,
+          prescriptionId: rx._id,
+          subtitle: [dose, frequency, duration].filter((part) => part && part !== '—').join(' · ') || '—',
+        });
+      }
+    }
+
+    return rows;
+  }
+
+  filteredPastMedicineRows() {
+    const term = this.pastMedicineSearch.trim().toLowerCase();
+    const days = Number(this.pastMedicineDateFilter);
+    const cutoff =
+      this.pastMedicineDateFilter === 'all' || !Number.isFinite(days)
+        ? 0
+        : Date.now() - days * 24 * 60 * 60 * 1000;
+
+    return this.pastMedicineHistoryRows().filter((row) => {
+      if (cutoff && row.dateValue && row.dateValue < cutoff) {
+        return false;
+      }
+      if (!term) return true;
+      return (
+        row.name.toLowerCase().includes(term) ||
+        row.dose.toLowerCase().includes(term) ||
+        row.frequency.toLowerCase().includes(term) ||
+        row.doctor.toLowerCase().includes(term)
+      );
+    });
+  }
+
+  get pastMedicineTotalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredPastMedicineRows().length / this.pastMedicinePageSize));
+  }
+
+  pagedPastMedicineRows() {
+    const rows = this.filteredPastMedicineRows();
+    const page = Math.min(Math.max(1, this.pastMedicinePage), this.pastMedicineTotalPages);
+    const start = (page - 1) * this.pastMedicinePageSize;
+    return rows.slice(start, start + this.pastMedicinePageSize);
+  }
+
+  mobilePastMedicineRows() {
+    return this.filteredPastMedicineRows().slice(0, this.pastMedicineMobileLimit);
+  }
+
+  get pastMedicineRemainingCount(): number {
+    return Math.max(0, this.filteredPastMedicineRows().length - this.pastMedicineMobileLimit);
+  }
+
+  get pastMedicineRangeLabel(): string {
+    const total = this.filteredPastMedicineRows().length;
+    if (!total) return 'Showing 0 of 0 records';
+    const page = Math.min(Math.max(1, this.pastMedicinePage), this.pastMedicineTotalPages);
+    const start = (page - 1) * this.pastMedicinePageSize + 1;
+    const end = Math.min(total, page * this.pastMedicinePageSize);
+    return `Showing ${start}–${end} of ${total} records`;
+  }
+
+  pastMedicinePageNumbers(): number[] {
+    return Array.from({ length: this.pastMedicineTotalPages }, (_, index) => index + 1);
+  }
+
+  onPastMedicineFilterChange(): void {
+    this.pastMedicinePage = 1;
+    this.pastMedicineMobileLimit = 4;
+  }
+
+  changePastMedicinePage(nextPage: number): void {
+    if (nextPage < 1 || nextPage > this.pastMedicineTotalPages) return;
+    this.pastMedicinePage = nextPage;
+  }
+
+  loadMorePastMedicines(): void {
+    this.pastMedicineMobileLimit = Math.min(
+      this.filteredPastMedicineRows().length,
+      this.pastMedicineMobileLimit + 4
+    );
+  }
+
+  showAllPastMedicinesMobile(): void {
+    this.pastMedicineMobileLimit = this.filteredPastMedicineRows().length;
+  }
+
+  openPastMedicineView(prescriptionId: string): void {
+    const prescription = this.visiblePatientHistoryPrescriptions().find((item) => item._id === prescriptionId);
+    if (!prescription) {
+      this.toastr.warning('Prescription not found for this medicine');
+      return;
+    }
+    this.openPatientHistoryView(prescription);
+  }
+
+  asHistoryDate(value: unknown): string {
+    if (value == null || value === '') return '—';
+    const date = value instanceof Date ? value : new Date(String(value));
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
     });
   }
 
@@ -3330,7 +4054,12 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
         value.customVitals as Array<Record<string, unknown>>
       ),
       specialtySection: this.activeSpecialtyTemplate().key,
+      specialtyKey: this.resolveActiveSpecialtyKey(),
+      specialtyTemplateVersion: this.useGenericSpecialtyEngine()
+        ? this.activeEngineSpecialtyTemplate().version || CURRENT_SPECIALTY_TEMPLATE_VERSION
+        : String(value.specialtyTemplateVersion || '').trim() || undefined,
       specialtyData: this.buildSpecialtyDataPayload(value.specialtyData as Record<string, unknown>),
+      pregnancyEpisodeId: String(value.pregnancyEpisodeId || '').trim() || null,
       advice: value.advice || undefined,
       followUpDate: value.followUpDate || undefined,
       prescriptionTemplate: this.getActivePrescriptionTheme(),
@@ -3350,8 +4079,8 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     const isCreate = !shouldUpdate;
     this.saving = true;
     const request$ = shouldUpdate
-      ? this.backend.updatePrescription(this.editingId!, apiPayload)
-      : this.backend.createPrescription(apiPayload);
+      ? this.clinicalWorkspace.updateConsultation(this.editingId!, apiPayload)
+      : this.clinicalWorkspace.createConsultation(apiPayload);
 
     request$.pipe(finalize(() => (this.saving = false))).subscribe({
       next: (response) => {
@@ -3457,6 +4186,10 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
 
     if (!this.editingId && !this.prescriptionThemeTouched) {
       this.applyDoctorPrescriptionTheme();
+    }
+
+    if (!this.editingId) {
+      this.syncSpecialtyIdentityForCreate();
     }
   }
 
@@ -3624,6 +4357,34 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       this.draftPrescriptionTemplate = prescription.prescriptionTemplate;
       this.prescriptionThemeConfirmed = true;
     }
+
+    const specialtyData = prescription.specialtyData || {};
+    this.ensureSpecialtyDataControls(specialtyData);
+
+    const savedKey =
+      String(prescription.specialtyKey || '').trim() ||
+      legacySectionToSpecialtyKey(prescription.specialtySection || '');
+
+    this.specialtyIdentityLocked = true;
+
+    const mode = normalizeGynaeConsultMode((specialtyData as Record<string, unknown>)['gynaeMode']);
+    this.obgynClinicalContext =
+      mode === 'gynae_problem' ? 'gynecology' : mode === 'postnatal' ? 'postpartum' : 'pregnancy';
+
+    if (prescription.pregnancyEpisodeId) {
+      this.backend.getPregnancyEpisode(prescription.pregnancyEpisodeId).subscribe({
+        next: (episode) => {
+          this.selectedPregnancyEpisode = episode as unknown as PregnancyEpisode;
+          this.syncSpecialtyDatingFromPregnancyEpisode(this.selectedPregnancyEpisode);
+        },
+        error: () => {
+          this.selectedPregnancyEpisode = null;
+        },
+      });
+    } else {
+      this.selectedPregnancyEpisode = null;
+    }
+
     this.prescriptionForm.patchValue({
       patientId: prescription.patientId,
       doctorId: prescription.doctorId,
@@ -3636,10 +4397,9 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       advice: prescription.advice || '',
       followUpDate: prescription.followUpDate ? String(prescription.followUpDate).slice(0, 10) : '',
       specialtySection: prescription.specialtySection || '',
-      specialtyData: {
-        ...this.createSpecialtyDataGroup().getRawValue(),
-        ...(prescription.specialtyData || {}),
-      },
+      specialtyKey: savedKey,
+      specialtyTemplateVersion: prescription.specialtyTemplateVersion || '',
+      pregnancyEpisodeId: prescription.pregnancyEpisodeId || '',
       admissionOrders: {
         ...this.defaultAdmissionOrders(),
         ...(prescription.admissionOrders || {}),
@@ -3712,9 +4472,17 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     this.editingId = null;
     this.editingInPlace = false;
     this.editingPrescriptionOwnerId = null;
+    this.preservedSpecialtyData = {};
+    this.specialtyIdentityLocked = false;
+    this.gynaeTogglesResetDone = false;
+    this.selectedPregnancyEpisode = null;
+    this.obgynClinicalContext = 'pregnancy';
     this.prescriptionForm.reset({
       visitType: 'opd',
       specialtySection: '',
+      specialtyKey: '',
+      specialtyTemplateVersion: '',
+      pregnancyEpisodeId: '',
       specialtyData: this.createSpecialtyDataGroup().getRawValue(),
       admissionOrders: this.defaultAdmissionOrders(),
     });
@@ -3748,6 +4516,11 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   appointmentStatusLabel(status: string): string {
+    const normalized = String(status || '').toLowerCase().replace(/_/g, '-');
+    if (normalized === 'completed' || normalized === 'checked') return 'Checked';
+    if (normalized === 'in-progress' || normalized === 'inprogress') return 'Now';
+    if (normalized === 'confirmed') return 'Confirmed';
+    if (normalized === 'pending' || normalized === 'scheduled') return 'Pending';
     return status.replace(/_/g, ' ');
   }
 
@@ -3781,24 +4554,108 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   }
 
-  ageLabel(patient?: Patient | null): string {
+  ageLabel(patient?: Patient | null, atDate?: string | Date | null): string {
     if (!patient?.dateOfBirth) {
       return '-';
     }
-
-    const birthDate = new Date(patient.dateOfBirth);
-    if (Number.isNaN(birthDate.getTime())) {
-      return '-';
+    const editingCreatedAt = this.editingId
+      ? this.prescriptions.find((item) => item._id === this.editingId)?.createdAt
+      : null;
+    const visitDate =
+      atDate ||
+      editingCreatedAt ||
+      this.prescriptionForm?.getRawValue?.()?.visitDate ||
+      new Date();
+    const precise = ageAtVisitLabel(patient.dateOfBirth, visitDate);
+    if (precise && precise !== '-') {
+      const parts = agePartsAtDate(patient.dateOfBirth, visitDate);
+      // Adults: keep compact years when not in pediatrics context
+      if (parts && parts.years >= 18 && this.resolveActiveSpecialtyKey() !== 'PEDIATRICS') {
+        return `${parts.years} Y`;
+      }
+      return precise;
     }
+    return '-';
+  }
 
-    const today = new Date();
-    let years = today.getFullYear() - birthDate.getFullYear();
-    const monthDelta = today.getMonth() - birthDate.getMonth();
-    if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
-      years -= 1;
+  currentVisitDateIso(): string | null {
+    const editingCreatedAt = this.editingId
+      ? this.prescriptions.find((item) => item._id === this.editingId)?.createdAt
+      : null;
+    const raw =
+      editingCreatedAt ||
+      this.selectedAppointment()?.appointmentDate ||
+      this.prescriptionForm?.getRawValue?.()?.visitDate ||
+      null;
+    if (!raw) {
+      return todayYmd();
     }
+    return toCalendarYmd(raw) || String(raw).slice(0, 10);
+  }
 
-    return `${Math.max(years, 0)} Y`;
+  pediatricGrowthPoints(): PediatricGrowthPoint[] {
+    const points: PediatricGrowthPoint[] = [];
+    const pushFrom = (date: string, vitals: Record<string, unknown> | null | undefined) => {
+      if (!vitals || !date) {
+        return;
+      }
+      const weight = Number(String(vitals['weight'] || '').replace(/[^\d.]/g, ''));
+      const height = Number(String(vitals['height'] || '').replace(/[^\d.]/g, ''));
+      const length = Number(String(vitals['length'] || vitals['lengthCm'] || '').replace(/[^\d.]/g, ''));
+      const hc = Number(
+        String(vitals['headCircumference'] || vitals['headCircumferenceCm'] || '').replace(/[^\d.]/g, '')
+      );
+      if (![weight, height, length, hc].some((n) => Number.isFinite(n) && n > 0)) {
+        return;
+      }
+      points.push({
+        date,
+        weightKg: Number.isFinite(weight) && weight > 0 ? weight : null,
+        heightCm: Number.isFinite(height) && height > 0 ? height : null,
+        lengthCm: Number.isFinite(length) && length > 0 ? length : null,
+        headCircumferenceCm: Number.isFinite(hc) && hc > 0 ? hc : null,
+        lengthOrHeightMode: String(vitals['lengthOrHeightMode'] || '') || null,
+      });
+    };
+
+    const currentVitals = {
+      ...(this.vitalsGroup?.getRawValue?.() as Record<string, unknown>),
+      ...this.customVitalsToMap(),
+    };
+    pushFrom(this.currentVisitDateIso() || todayYmd(), currentVitals);
+
+    (this.patientHistoryRecords || []).forEach((record) => {
+      const date =
+        toCalendarYmd((record as { createdAt?: string }).createdAt) ||
+        String((record as { createdAt?: string }).createdAt || '').slice(0, 10);
+      pushFrom(date, (record.vitals || {}) as Record<string, unknown>);
+    });
+
+    (this.vitalTrendVisits || []).forEach((visit) => {
+      const date =
+        toCalendarYmd((visit as { date?: string; createdAt?: string }).date || (visit as { createdAt?: string }).createdAt) ||
+        String((visit as { date?: string }).date || '').slice(0, 10);
+      pushFrom(date, ((visit as { vitals?: Record<string, unknown> }).vitals || {}) as Record<string, unknown>);
+    });
+
+    const seen = new Set<string>();
+    return points.filter((p) => {
+      const key = `${p.date}|${p.weightKg}|${p.heightCm}|${p.headCircumferenceCm}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }
+
+  /** Refresh only when needed — never allocate a new array on every CD. */
+  refreshSpecialtyGrowthPoints(): void {
+    if (this.resolveActiveSpecialtyKey() !== 'PEDIATRICS' && this.resolveActiveSpecialtyKey() !== 'NEONATOLOGY') {
+      this.specialtyGrowthPoints = this.emptyGrowthPoints;
+      return;
+    }
+    this.specialtyGrowthPoints = this.pediatricGrowthPoints();
   }
 
   selectedAppointment(): Appointment | null {
@@ -3874,12 +4731,126 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     return SPECIALTY_TEMPLATES[inferSpecialtyTemplateKey(this.selectedDoctorProfile())];
   }
 
+  resolveActiveSpecialtyKey(): SpecialtyKey {
+    const raw = this.prescriptionForm.getRawValue();
+    const doctor = this.selectedDoctorProfile();
+    const appointment = this.selectedAppointment();
+
+    if (!this.editingId) {
+      const fromProfile = this.specialtyKeyFromDoctorProfile(doctor);
+      if (fromProfile) {
+        return fromProfile;
+      }
+    }
+
+    return resolveSpecialtyKey({
+      mode: this.editingId ? 'edit' : 'create',
+      savedSpecialtyKey: raw.specialtyKey,
+      doctorSpecialty: doctor?.specialization || doctor?.prescriptionSpecialtyTemplate || null,
+      doctorDepartment: doctor?.clinicalDepartment || doctor?.department?.name || null,
+      appointmentDepartment: (appointment as { departmentName?: string } | null)?.departmentName || null,
+      departmentName: doctor?.department?.name || null,
+      legacySpecialtySection: raw.specialtySection || this.activeSpecialtyTemplate().key,
+      extraText: doctor?.qualification || null,
+    });
+  }
+
+  activeEngineSpecialtyTemplate() {
+    return getSpecialtyTemplate(this.resolveActiveSpecialtyKey());
+  }
+
+  useGenericSpecialtyEngine(): boolean {
+    return shouldUseGenericSpecialtyEngine({
+      specialtyKey: this.resolveActiveSpecialtyKey(),
+      legacySection: this.activeSpecialtyTemplate().key,
+    });
+  }
+
+  isPhysiotherapySpecialty(): boolean {
+    return (
+      this.resolveActiveSpecialtyKey() === 'PHYSIOTHERAPY' ||
+      this.activeSpecialtyTemplate().key === 'physiotherapy'
+    );
+  }
+
+  specialtyWorkspaceTitle(): string {
+    if (this.isGynaeDoctor()) {
+      return 'Obstetrics & Gynaecology';
+    }
+    if (this.useGenericSpecialtyEngine()) {
+      return this.activeEngineSpecialtyTemplate().name;
+    }
+    return this.activeSpecialtyTemplate().title;
+  }
+
+  syncSpecialtyIdentityForCreate(): void {
+    if (this.editingId) {
+      return;
+    }
+    if (
+      this.specialtyIdentityLocked ||
+      (this.hasEnteredSpecialtyData() && String(this.prescriptionForm.getRawValue().specialtyKey || '').trim())
+    ) {
+      return;
+    }
+
+    const key = this.resolveActiveSpecialtyKey();
+    const legacy = specialtyKeyToLegacySection(key);
+    const engine = getSpecialtyTemplate(key);
+    this.prescriptionForm.patchValue(
+      {
+        specialtyKey: key,
+        specialtyTemplateVersion: this.useGenericSpecialtyEngine()
+          ? engine.version
+          : '',
+        specialtySection: SPECIALTY_TEMPLATES[legacy as SpecialtyTemplateKey]
+          ? legacy
+          : this.activeSpecialtyTemplate().key,
+      },
+      { emitEvent: false }
+    );
+  }
+
+  ensureSpecialtyDataControls(data: Record<string, unknown> | null | undefined): void {
+    const controlKeys = new Set([
+      ...Object.keys(this.specialtyDataGroup.controls),
+      ...allEngineSpecialtyFieldKeys(),
+    ]);
+    const { formPatch, preserved } = splitPreservedSpecialtyData(data, controlKeys);
+    this.preservedSpecialtyData = { ...preserved };
+
+    allEngineSpecialtyFieldKeys().forEach((key) => {
+      if (!this.specialtyDataGroup.contains(key)) {
+        this.specialtyDataGroup.addControl(key, new FormControl(''));
+      }
+    });
+
+    Object.entries(formPatch).forEach(([key, value]) => {
+      if (!this.specialtyDataGroup.contains(key)) {
+        this.specialtyDataGroup.addControl(key, new FormControl(value ?? ''));
+      }
+    });
+
+    this.specialtyDataGroup.patchValue(formPatch, { emitEvent: false });
+  }
+
+  private hasEnteredSpecialtyData(): boolean {
+    const data = this.specialtyDataGroup.getRawValue() as Record<string, unknown>;
+    return Object.values(data).some((value) => String(value ?? '').trim().length > 0);
+  }
+
   isGynaeDoctor(): boolean {
-    return this.activeSpecialtyTemplate().key === 'gynae';
+    return this.activeSpecialtyTemplate().key === 'gynae' || this.resolveActiveSpecialtyKey() === 'OBGYN';
   }
 
   specialtyTabLabel(): string {
-    return this.isGynaeDoctor() ? 'Gynae / OBS' : 'Specialty Notes';
+    if (this.isGynaeDoctor()) {
+      return 'Gynae / OBS';
+    }
+    if (this.useGenericSpecialtyEngine()) {
+      return this.activeEngineSpecialtyTemplate().name;
+    }
+    return 'Specialty Notes';
   }
 
   gynaeConsultMode(): GynaeConsultMode {
@@ -3889,6 +4860,13 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     }
 
     return 'antenatal';
+  }
+
+  scrollGynaeSection(id: string): void {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   setGynaeConsultMode(mode: GynaeConsultMode): void {
@@ -3914,10 +4892,25 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     }
 
     const data = this.specialtyDataGroup.getRawValue() as Record<string, unknown>;
-    const patch = buildGynaeEditSamplePatch(this.gynaeConsultMode(), data);
+    // One-time clear of auto-filled symptom / danger / complaint toggles on new consults.
+    this.clearAutoCheckedGynaeSymptoms(data);
+
+    const latest = this.specialtyDataGroup.getRawValue() as Record<string, unknown>;
+    const patch = buildGynaeEditSamplePatch(this.gynaeConsultMode(), latest);
 
     if (Object.keys(patch).length > 0) {
       this.specialtyDataGroup.patchValue(patch, { emitEvent: false });
+    }
+
+    // Strip legacy demo LMP/EDD/GA so banner never shows fake pregnancy dating.
+    const datingClear: Record<string, string> = {};
+    Object.entries(GYNAE_DEMO_DATING_VALUES).forEach(([key, demoValue]) => {
+      if (String(this.specialtyDataGroup.get(key)?.value || '').trim() === demoValue) {
+        datingClear[key] = '';
+      }
+    });
+    if (Object.keys(datingClear).length > 0) {
+      this.specialtyDataGroup.patchValue(datingClear, { emitEvent: false });
     }
 
     const formPatch: Record<string, string> = {};
@@ -3928,7 +4921,9 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     }
 
     if (!String(raw.history || '').trim()) {
-      formPatch['history'] = buildGynaeHistorySummary(data) || 'Obstetric and gynaecological history as documented.';
+      formPatch['history'] = buildGynaeHistorySummary(
+        this.specialtyDataGroup.getRawValue() as Record<string, unknown>
+      ) || 'Obstetric and gynaecological history as documented.';
     }
 
     if (!String(raw.examination || '').trim()) {
@@ -3975,7 +4970,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   toggleGynaeCounselledField(key: string, checked: boolean): void {
-    this.specialtyDataGroup.patchValue({ [key]: checked ? 'Yes' : 'No' });
+    this.specialtyDataGroup.patchValue({ [key]: checked ? 'Yes' : '' });
   }
 
   isGynaeYesField(key: string): boolean {
@@ -3983,7 +4978,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   toggleGynaeYesField(key: string, checked: boolean): void {
-    this.specialtyDataGroup.patchValue({ [key]: checked ? 'Yes' : 'No' });
+    this.specialtyDataGroup.patchValue({ [key]: checked ? 'Yes' : '' });
   }
 
   isGynaeFetalMovementYes(): boolean {
@@ -4001,6 +4996,47 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
 
   toggleGynaeComplaint(key: string, selected: boolean): void {
     this.toggleGynaeYesField(key, selected);
+  }
+
+  /**
+   * Sample defaults used to auto-check every danger sign / complaint.
+   * Clear those once on a new consult so the doctor opts in manually.
+   */
+  private gynaeTogglesResetDone = false;
+
+  private clearAutoCheckedGynaeSymptoms(data: Record<string, unknown>): void {
+    if (this.editingId || this.gynaeTogglesResetDone) {
+      return;
+    }
+    this.gynaeTogglesResetDone = true;
+
+    const toggleKeys = new Set<string>([
+      ...ANTEPARTUM_DANGER_SIGNS.map((item) => item.key),
+      ...POSTNATAL_DANGER_SIGNS.map((item) => item.key),
+      ...GYNAE_PROBLEM_RED_FLAGS.map((item) => item.key),
+      ...GYNAE_PROBLEM_COMPLAINTS.map((item) => item.key),
+      'dysmenorrhea',
+      'postcoitalBleeding',
+      'urinarySymptoms',
+      'dyspareunia',
+      'postpartumFever',
+      'urinaryComplaints',
+      'previousCSection',
+      'pvBleeding',
+      'painAbdomen',
+    ]);
+
+    const patch: Record<string, string> = {};
+    toggleKeys.forEach((key) => {
+      const value = String(data[key] || '').trim();
+      if (value === 'Yes' || value === 'Present') {
+        patch[key] = '';
+      }
+    });
+
+    if (Object.keys(patch).length > 0) {
+      this.specialtyDataGroup.patchValue(patch, { emitEvent: false });
+    }
   }
 
   shouldShowPostnatalLabTest(index: number): boolean {
@@ -4028,7 +5064,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   onGynaeLmpChange(): void {
-    if (!this.isGynaeDoctor()) {
+    if (!this.isGynaeDoctor() || this.hasLinkedPregnancyEpisode()) {
       return;
     }
 
@@ -4073,11 +5109,20 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   shouldShowSidebarLabTest(index: number): boolean {
+    const name = String(this.labTests.at(index)?.get('name')?.value || '').trim();
+    const category = String(this.labTests.at(index)?.get('category')?.value || '').trim();
+    const term = this.sidebarLabSearch.trim().toLowerCase();
+    if (term) {
+      const haystack = `${name} ${category}`.toLowerCase();
+      if (!haystack.includes(term)) {
+        return false;
+      }
+    }
+
     if (!this.isGynaeDoctor() || this.gynaeLabCategoryFilter === 'all') {
       return true;
     }
 
-    const name = String(this.labTests.at(index)?.get('name')?.value || '').trim();
     const item = GYNAE_LAB_CATALOG.find((test) => test.name.toLowerCase() === name.toLowerCase());
 
     if (!item) {
@@ -4520,6 +5565,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     this.appointments = this.mergeAppointments([...localAppointments, ...items]).filter((appointment) =>
       this.isPrescriptionAppointment(appointment),
     );
+    this.syncAppointmentsPanelCollapse();
   }
 
   private async loadCachedDoctorMedicines(
@@ -4978,9 +6024,12 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
 
   private prepareNextAppointment(appointment: Appointment): void {
     this.editingId = null;
+    this.gynaeTogglesResetDone = false;
     this.prescriptionForm.reset({
       visitType: 'opd',
       specialtySection: '',
+      specialtyKey: '',
+      specialtyTemplateVersion: '',
       specialtyData: this.createSpecialtyDataGroup().getRawValue(),
       admissionOrders: this.defaultAdmissionOrders(),
     });
@@ -5254,6 +6303,11 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       return [];
     }
 
+    const fromCatalog = this.medicineCatalog.search(normalizedQuery, 20);
+    if (fromCatalog.length) {
+      return fromCatalog;
+    }
+
     return this.storeMedicines.filter((medicine) => {
       const searchText = [
         medicine.name,
@@ -5327,10 +6381,6 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     this.smartMedicinePreview = null;
     this.clearSmartMedicineSuggestions();
     this.focusSmartMedicineInput();
-  }
-
-  private focusSmartMedicineInput(): void {
-    setTimeout(() => this.smartMedicineInputRef?.nativeElement.focus());
   }
 
   private clearSmartMedicineSuggestions(): void {
@@ -5571,7 +6621,17 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   private isPrescriptionTemplate(value: unknown): value is PrescriptionTemplate {
-    return this.prescriptionTemplates.some((template) => template.id === value);
+    const id = String(value || '').trim();
+    if (!id) {
+      return false;
+    }
+
+    if (this.prescriptionTemplates.some((template) => template.id === id)) {
+      return true;
+    }
+
+    // Legacy gynae-only themes still resolve (mapped to classic by normalizeGynaePrescriptionTemplate).
+    return ['gynae-clinical', 'gynae-womens-health', 'gynae-modern'].includes(id);
   }
 
   private openPrintPreviewWithFreshData(prescription: Prescription): void {
@@ -5621,20 +6681,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   private resolveDefaultPrescriptionTemplate(): PrescriptionTemplate {
     const doctor = this.resolvePrescriptionDoctor({ doctorId: this.activeDoctorId() });
     const template = doctor?.prescriptionTemplate || 'classic';
-
-    if (this.isGynaeDoctor()) {
-      if (['gynae-clinical', 'gynae-womens-health', 'gynae-modern', 'clinical-blue'].includes(template)) {
-        return template;
-      }
-
-      return 'gynae-womens-health';
-    }
-
-    if (['gynae-clinical', 'gynae-womens-health', 'gynae-modern'].includes(template)) {
-      return 'clinical-blue';
-    }
-
-    return template;
+    return normalizeGynaePrescriptionTemplate(template, this.activeSpecialtyTemplate().key);
   }
 
   private applyDoctorPrescriptionTheme(): void {
@@ -5776,6 +6823,9 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       (doctor?.specialization && !/consultant|physician/i.test(doctor.specialization)
         ? doctor.specialization
         : 'M.B.B.S., F.C.P.S.');
+    const doctorSpecialty = String(doctor?.specialization || '').trim();
+    const clinicTagline = String(settings.contactLine || '').trim();
+    const visitType = String(source['visitType'] || 'opd').trim().toUpperCase() || 'OPD';
     const hospitalName = hospital?.name || 'MediLink City Care Hospital';
     const hospitalAddress = this.hospitalAddressLine(hospital);
     const hospitalLogoUrl = this.safeHospitalLogoUrl(hospital?.logoUrl);
@@ -5816,9 +6866,27 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       .filter((fluid): fluid is { name: string; rate: string; quantity: string; route: string } => Boolean(fluid))
       .slice(0, 20);
     const specialtyTemplate = resolvePrintSpecialtyTemplate(source, doctor);
-    const specialtyRows = resolvePrintSpecialtyRows(source, specialtyTemplate);
-    const consultationRows = resolvePrescriptionConsultationPrintRows(source);
+    const doctorTitleEnglish = doctorSpecialty
+      ? doctorSpecialty
+      : specialtyTemplate.key === 'gynae'
+        ? 'Consultant Gynaecologist & Obstetrician'
+        : formatEnglishDoctorTitle();
+    const doctorTitleUrdu = doctorSpecialty
+      ? toPrescriptionUrduText(doctorSpecialty)
+      : specialtyTemplate.key === 'gynae'
+        ? 'کنسلٹنٹ گائناکالوجسٹ اینڈ اوبسٹٹریشن'
+        : formatUrduDoctorTitle();
     const specialtyData = (source['specialtyData'] || {}) as Record<string, unknown>;
+    const engineSpecialtyKey = String(source['specialtyKey'] || '').trim() as SpecialtyKey;
+    const enginePrintRows =
+      engineSpecialtyKey === 'GENERAL_MEDICINE' || engineSpecialtyKey === 'OTHER'
+        ? buildEngineSpecialtyPrintRows(engineSpecialtyKey, specialtyData)
+        : [];
+    const specialtyRows =
+      enginePrintRows.length > 0
+        ? enginePrintRows
+        : resolvePrintSpecialtyRows(source, specialtyTemplate);
+    const consultationRows = resolvePrescriptionConsultationPrintRows(source);
     const isGynaePrint = specialtyTemplate.key === 'gynae';
     const gynaeMode = normalizeGynaeConsultMode(specialtyData['gynaeMode']);
     const gynaeSplit = isGynaePrint ? splitGynaePrintRows(specialtyRows, gynaeMode) : { sidebar: [], extended: [] };
@@ -5832,6 +6900,16 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       label: study.label,
       value: String(specialtyData['ultrasoundNotes'] || '').trim() || 'Ordered',
     }));
+    const specialtyTitle =
+      enginePrintRows.length > 0
+        ? formatSpecialtyDisplayName(engineSpecialtyKey) + ' Findings'
+        : specialtyTemplate.title;
+
+    const prescriptionStyle = normalizePrescriptionStyle({
+      ...DEFAULT_PRESCRIPTION_STYLE,
+      logoScale: settings.logoScale,
+      ...(doctor?.prescriptionStyle || {}),
+    });
 
     return {
       template: this.resolvePrescriptionTemplate(source, doctor),
@@ -5847,8 +6925,11 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       doctorNameUrdu: formatUrduDoctorName(doctorDisplayName, doctor?.nameUrdu),
       doctorQualification,
       doctorQualificationUrdu: formatUrduQualification(doctorQualification),
-      doctorTitleEnglish: formatEnglishDoctorTitle(),
-      doctorTitleUrdu: formatUrduDoctorTitle(),
+      doctorTitleEnglish,
+      doctorTitleUrdu,
+      doctorSpecialty,
+      clinicTagline,
+      visitType,
       hospitalName: formatEnglishOrganizationName(hospitalName) || hospitalName,
       hospitalNameUrdu:
         formatUrduOrganizationName(hospitalName, hospital?.nameUrdu) ||
@@ -5857,7 +6938,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       hospitalAddressUrdu: formatUrduAddress(hospitalAddress) || formatEnglishAddress(hospitalAddress),
       hospitalLogoUrl,
       showHospitalLogo: settings.showLogo !== false && Boolean(hospitalLogoUrl),
-      hospitalLogoScale: settings.logoScale,
+      hospitalLogoScale: prescriptionStyle.logoScale || settings.logoScale,
       prescriptionRevisionNote: settings.revisionNote || '* Rx to be revised after Reports.',
       prescriptionFollowUpLine:
         settings.followUpLine || `For appointment and follow up, contact ${hospitalName}.`,
@@ -5870,7 +6951,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       labTests,
       ivFluids,
       medicines,
-      specialtyTitle: specialtyTemplate.title,
+      specialtyTitle,
       specialtySection: specialtyTemplate.key,
       specialtyRows: isGynaePrint ? gynaeSplit.sidebar : specialtyRows,
       consultationRows,
@@ -5887,6 +6968,8 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
       admissionOrderLines: this.resolvePrintAdmissionOrderLines(source),
       gynaeMode,
       patientBloodGroup: patient.bloodGroup || '-',
+      prescriptionStyle,
+      prescriptionStyleCssVars: prescriptionStyleToCssVars(prescriptionStyle),
       clinicalPages: buildClinicalRxPrintPages({
         medicines,
         specialtySection: specialtyTemplate.key,
@@ -6288,35 +7371,15 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   private openPrescriptionPrintWindow(content: string): void {
-    const iframe = document.createElement('iframe');
     const baseHref = document.baseURI || window.location.href;
     const styles = this.collectDocumentStyles();
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    iframe.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(iframe);
-
-    const printDocument = iframe.contentWindow?.document;
-    const printWindow = iframe.contentWindow;
-
-    if (!printDocument || !printWindow) {
-      iframe.remove();
-      this.toastr.error('Unable to open prescription print view.');
-      return;
-    }
-
-    printDocument.open();
-    printDocument.write(`
+    const html = `
       <!doctype html>
       <html>
         <head>
           <meta charset="utf-8" />
           <base href="${baseHref}" />
-          <title>Prescription Print</title>
+          <title>Prescription — select A4 printer</title>
           <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap" rel="stylesheet" />
           ${styles}
           <style>
@@ -6373,19 +7436,15 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
           ${content}
         </body>
       </html>
-    `);
-    printDocument.close();
-    printWindow.onafterprint = () => iframe.remove();
+    `;
 
-    window.setTimeout(() => {
-      printWindow.focus();
-      printWindow.print();
-      window.setTimeout(() => {
-        if (document.body.contains(iframe)) {
-          iframe.remove();
-        }
-      }, 15000);
-    }, 300);
+    const printed = printHtmlJob(html, {
+      jobType: 'a4',
+      title: 'Prescription — select A4 printer',
+    });
+    if (!printed) {
+      this.toastr.error('Unable to open prescription print view.');
+    }
   }
 
   private collectDocumentStyles(): string {
@@ -6421,17 +7480,143 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
     return payload;
   }
 
-  private buildSpecialtyDataPayload(data: Record<string, unknown>): Record<string, string> {
-    const payload: Record<string, string> = {};
+  private buildSpecialtyDataPayload(data: Record<string, unknown>): Record<string, unknown> {
+    const merged = mergeSpecialtyDataForSave(data || {}, this.preservedSpecialtyData || {});
 
-    Object.entries(data || {}).forEach(([key, value]) => {
-      const normalizedValue = String(value || '').trim();
-      if (normalizedValue) {
-        payload[key] = normalizedValue;
+    // Historic visit GA: document GA at visit/save time from episode dating when available.
+    if (this.selectedPregnancyEpisode?.dating && this.isGynaeDoctor()) {
+      const visitDate =
+        this.editingId && this.prescriptions.find((item) => item._id === this.editingId)?.createdAt
+          ? this.prescriptions.find((item) => item._id === this.editingId)?.createdAt
+          : new Date();
+      const documented = String(merged['visitGestationalAge'] || '').trim();
+      if (!documented) {
+        const label = visitGestationalAgeLabel(
+          {
+            lmp: (this.selectedPregnancyEpisode.dating['lmp'] as string) || null,
+            lmpCertainty: (this.selectedPregnancyEpisode.dating['lmpCertainty'] as string) || null,
+            confirmedEdd: (this.selectedPregnancyEpisode.dating['confirmedEdd'] as string) || null,
+          },
+          visitDate || new Date()
+        );
+        if (label) {
+          merged['visitGestationalAge'] = label;
+        }
       }
-    });
+      if (this.selectedPregnancyEpisode.episodeNumber) {
+        merged['pregnancyEpisodeNumber'] = String(this.selectedPregnancyEpisode.episodeNumber);
+      }
+      if (this.selectedPregnancyEpisode.datingDisplay?.eddDisplay) {
+        merged['pregnancyEddDisplay'] = this.selectedPregnancyEpisode.datingDisplay.eddDisplay;
+        merged['pregnancyEddLabel'] = this.selectedPregnancyEpisode.datingDisplay.eddLabel;
+      }
+    }
 
-    return payload;
+    return merged;
+  }
+
+  onObgynContextChange(context: ObgynClinicalContext): void {
+    this.obgynClinicalContext = context;
+    if (context === 'gynecology') {
+      this.setGynaeConsultMode('gynae_problem');
+      this.prescriptionForm.patchValue({ pregnancyEpisodeId: '' }, { emitEvent: false });
+      this.selectedPregnancyEpisode = null;
+      return;
+    }
+    if (context === 'postpartum') {
+      this.setGynaeConsultMode('postnatal');
+      return;
+    }
+    this.setGynaeConsultMode('antenatal');
+  }
+
+  onPregnancyEpisodeChange(episode: PregnancyEpisode | null): void {
+    this.selectedPregnancyEpisode = episode;
+    this.prescriptionForm.patchValue(
+      { pregnancyEpisodeId: episode?._id || '' },
+      { emitEvent: false }
+    );
+    this.syncSpecialtyDatingFromPregnancyEpisode(episode);
+  }
+
+  /** True when consult is linked to a pregnancy episode (LMP owned by that record). */
+  hasLinkedPregnancyEpisode(): boolean {
+    return Boolean(this.selectedPregnancyEpisode?._id);
+  }
+
+  /**
+   * Pregnancy episode dating is canonical — copy into visit specialtyData for
+   * banner / print so the doctor does not re-enter LMP on the antenatal form.
+   */
+  private syncSpecialtyDatingFromPregnancyEpisode(episode: PregnancyEpisode | null): void {
+    if (!episode || !this.isGynaeDoctor()) {
+      return;
+    }
+
+    const dating = (episode.dating || {}) as Record<string, unknown>;
+    const display = episode.datingDisplay;
+    const obs = (episode.obstetricSummary || {}) as Record<string, string>;
+
+    const lmpRaw = String(dating['lmp'] || display?.lmp || '').trim();
+    const lmp = lmpRaw.length >= 10 ? lmpRaw.slice(0, 10) : lmpRaw;
+
+    const eddCandidate = String(
+      dating['confirmedEdd'] ||
+        display?.confirmedEdd ||
+        dating['calculatedEddFromLmp'] ||
+        display?.calculatedEdd ||
+        display?.eddDisplay ||
+        ''
+    ).trim();
+    const edd =
+      eddCandidate.length >= 10
+        ? eddCandidate.slice(0, 10)
+        : lmp
+          ? calculateEddFromLmp(lmp)
+          : '';
+
+    const ga =
+      String(display?.gestationalAge?.label || '').trim() ||
+      (lmp ? calculateGestationalAgeFromLmp(lmp) : '');
+
+    const patch: Record<string, string> = {};
+    if (lmp) {
+      patch['lmp'] = lmp;
+    }
+    if (edd) {
+      patch['edd'] = edd;
+    }
+    if (ga) {
+      patch['gestationalAge'] = ga;
+    }
+
+    const gravida = String(obs['gravida'] || '').trim();
+    const para = String(obs['para'] || '').trim();
+    const abortion = String(obs['pregnancyLosses'] || '').trim();
+    const living = String(obs['livingChildren'] || '').trim();
+    if (gravida) {
+      patch['gravida'] = gravida;
+    }
+    if (para) {
+      patch['para'] = para;
+    }
+    if (abortion) {
+      patch['abortion'] = abortion;
+    }
+    if (living) {
+      patch['living'] = living;
+    }
+
+    if (!Object.keys(patch).length) {
+      return;
+    }
+
+    this.specialtyDataGroup.patchValue(patch, { emitEvent: false });
+    this.refreshGynaeHistoryField();
+  }
+
+  canWritePregnancyEpisode(): boolean {
+    return this.canCreatePrescriptions || this.canUpdatePrescriptions;
   }
 
   private extractDefaultVitals(vitals: Record<string, string>): Record<string, string> {

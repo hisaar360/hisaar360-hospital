@@ -1,17 +1,20 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
+import { CurrencyService, formatActiveCurrency } from '../../../core/services/currency.service';
 import { buildDischargeStatementDocumentHtml, buildRunningBillDocumentHtml } from '../../../core/documents/discharge-document.builder';
 import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../core/utils/hms-document-context.util';
 import { HmsDocumentService } from '../../../core/services/hms-document.service';
 import { HmsDocumentToolbarComponent } from '../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
+import { hasPermission } from '../../auth/access-control';
 
 @Component({
   selector: 'app-ward-billing-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, HmsDocumentToolbarComponent],
+  imports: [CommonModule, FormsModule, RouterLink, HmsDocumentToolbarComponent],
   templateUrl: './ward-billing-panel.component.html',
   styleUrl: './ward-billing-panel.component.scss',
 })
@@ -19,8 +22,11 @@ export class WardBillingPanelComponent implements OnChanges {
   @Input() admissionId = '';
   @Input() mode: 'billing' | 'payments' | 'settlement' | 'medicines' | 'doctor-visits' | 'procedures' | 'operations' | 'discharge' = 'billing';
   @Input() consultantName = '';
+  @Output() discharged = new EventEmitter<void>();
+  @Output() requestTab = new EventEmitter<string>();
 
   loading = false;
+  discharging = false;
   billData: Record<string, unknown> = {};
   dischargeData: Record<string, unknown> = {};
   now = new Date();
@@ -36,11 +42,25 @@ export class WardBillingPanelComponent implements OnChanges {
   procedures: Array<Record<string, unknown>> = [];
   operations: Array<Record<string, unknown>> = [];
 
+  readonly quickChargePresets = [
+    { title: 'Oxygen Therapy', rate: 500, category: 'oxygen' },
+    { title: 'Phototherapy', rate: 800, category: 'procedure' },
+    { title: 'Drip / IV Administration', rate: 300, category: 'drip_administration' },
+    { title: 'Nursing Care', rate: 400, category: 'nursing' },
+    { title: 'Nebulization', rate: 250, category: 'procedure' },
+  ];
+
   constructor(
     private backend: BackendService,
     private toastr: ToastrService,
-    private docs: HmsDocumentService
+    private docs: HmsDocumentService,
+    private router: Router,
+    private currency: CurrencyService
   ) {}
+
+  get currencyLabel(): string {
+    return this.currency.label;
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['admissionId']?.currentValue || changes['mode']?.currentValue) {
@@ -79,14 +99,87 @@ export class WardBillingPanelComponent implements OnChanges {
   }
 
   get billingInsight(): string {
+    const pharmacyUnpaid = this.pharmacyUnpaidAmount;
     const due = this.outstandingAmount;
+    if (pharmacyUnpaid > 0) {
+      return `Pharmacy medicines due ${this.money(pharmacyUnpaid)} — patient must clear this at Pharmacy (Ward Settlements → Receive Payment). Discharge stays locked until pharmacy receives payment.`;
+    }
     if (due > 0) {
-      return `Outstanding amount is ${this.money(due)} PKR. Collect payment to avoid delays in discharge process.`;
+      return `Ward outstanding ${this.money(due)}. Collect ward/room charges here. Pharmacy medicines (if any) are paid at Pharmacy.`;
     }
     if (Number(this.summary['securityDepositHeld'] || 0) > 0) {
       return 'Bill is settled. Security deposit remains held until discharge adjustment.';
     }
-    return 'No outstanding balance. Patient bill is currently settled.';
+    return 'No outstanding balance and pharmacy medicines are paid. Patient is ready for discharge.';
+  }
+
+  get pharmacyUnpaidAmount(): number {
+    return this.settlements
+      .filter((row) => String(row['patientPaymentStatus'] || '') === 'UNPAID')
+      .reduce((sum, row) => sum + Number(row['pharmacyAmount'] || 0), 0);
+  }
+
+  get dischargeWardBalanceClear(): boolean {
+    return this.outstandingAmount <= 0.001;
+  }
+
+  get dischargePharmacyClear(): boolean {
+    return this.pharmacyUnpaidAmount <= 0.001;
+  }
+
+  get scheduledOperationsCount(): number {
+    return this.operations.filter((row) => String(row['status'] || '') === 'SCHEDULED').length;
+  }
+
+  get dischargeOperationsClear(): boolean {
+    return this.scheduledOperationsCount === 0;
+  }
+
+  get canConfirmDischarge(): boolean {
+    return (
+      this.dischargeWardBalanceClear &&
+      this.dischargePharmacyClear &&
+      this.dischargeOperationsClear &&
+      (hasPermission('ward.discharge.create') || hasPermission('room_allotments.update'))
+    );
+  }
+
+  goToPaymentsFromDischarge(): void {
+    this.requestTab.emit('payments');
+  }
+
+  confirmDischarge(): void {
+    if (!this.admissionId || !this.canConfirmDischarge || this.discharging) {
+      return;
+    }
+    this.discharging = true;
+    this.backend.dischargeRoomAllotment(this.admissionId, {}).subscribe({
+      next: () => {
+        this.discharging = false;
+        this.toastr.success('Patient discharged. Bed is now free.');
+        this.discharged.emit();
+        void this.router.navigate(['/ward/patient-list']);
+      },
+      error: (err) => {
+        this.discharging = false;
+        this.toastr.error(
+          err?.error?.message || 'Unable to discharge. Clear ward bill and pharmacy payment first.'
+        );
+      },
+    });
+  }
+
+  get wardChargeItems(): Array<Record<string, unknown>> {
+    return this.ledgerItems.filter((item) => String(item['sourceType'] || '') !== 'pharmacy');
+  }
+
+  get pharmacyChargeItems(): Array<Record<string, unknown>> {
+    return this.ledgerItems.filter((item) => String(item['sourceType'] || '') === 'pharmacy');
+  }
+
+  applyQuickCharge(preset: { title: string; rate: number; category: string }): void {
+    this.chargeForm = { ...preset };
+    this.addCharge();
   }
 
   buildRunningBillDocument = (): string => {
@@ -284,6 +377,7 @@ export class WardBillingPanelComponent implements OnChanges {
       html,
       filename: 'ward-invoice.pdf',
       orientation: 'portrait',
+      jobType: 'invoice',
     });
   }
 
@@ -293,7 +387,10 @@ export class WardBillingPanelComponent implements OnChanges {
       this.toastr.warning('Nothing to print');
       return;
     }
-    this.docs.printHtml(html, 'Invoice / Running Bill');
+    this.docs.printHtml(html, {
+      jobType: 'invoice',
+      title: 'Invoice / Running Bill — select Invoice printer',
+    });
   }
 
   async downloadInvoice(): Promise<void> {
@@ -432,7 +529,7 @@ export class WardBillingPanelComponent implements OnChanges {
   }
 
   money(value: unknown): string {
-    return Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    return formatActiveCurrency(value, { fractionDigits: 0 });
   }
 
   settlementClass(status: unknown): string {

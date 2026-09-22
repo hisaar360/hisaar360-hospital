@@ -15,6 +15,7 @@ import { ToastrService } from 'ngx-toastr';
 import { firstValueFrom } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { BackendService } from '../../../core/services/backend.service';
+import { MedicineCatalogCacheService } from '../../../core/services/medicine-catalog-cache.service';
 import { Category, Store } from '../../../shared/models/hospital.model';
 import {
   BULK_MAX_ROWS,
@@ -113,6 +114,7 @@ const TUTORIAL_STEPS: Array<{
 })
 export class BulkProductImportComponent implements OnInit, OnDestroy {
   private readonly backend = inject(BackendService);
+  private readonly medicineCatalog = inject(MedicineCatalogCacheService);
   private readonly toastr = inject(ToastrService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -644,6 +646,7 @@ export class BulkProductImportComponent implements OnInit, OnDestroy {
         this.defaultStoreName ||
         'selected store';
       this.toastr.success(`${savedCount} medicines added to ${storeName}.`);
+      void this.medicineCatalog.refresh();
       if (this.tutorialActive) this.finishTutorial(true);
       void this.router.navigate(['/pharmacy/products'], {
         queryParams: lastStoreId ? { storeId: lastStoreId } : undefined,

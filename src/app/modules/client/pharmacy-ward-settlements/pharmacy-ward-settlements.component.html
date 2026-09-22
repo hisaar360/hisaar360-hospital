@@ -3,7 +3,7 @@
     <header class="pharmacy-hero">
       <div class="pharmacy-hero-main">
         <h1><i class="fa fa-handshake-o"></i> Ward Settlements</h1>
-        <p>Verify pharmacy amounts collected by Ward Reception at discharge.</p>
+        <p>Receive patient pharmacy dues here, then verify. Discharge unlocks only after pharmacy payment is received.</p>
       </div>
     </header>
 
@@ -17,9 +17,17 @@
         </div>
       </article>
       <article class="ph-stat">
+        <div class="ph-stat-icon amber"><i class="fa fa-money"></i></div>
+        <div>
+          <span>Unpaid by patient</span>
+          <strong>{{ unpaidCount }}</strong>
+          <small>Collect here</small>
+        </div>
+      </article>
+      <article class="ph-stat">
         <div class="ph-stat-icon amber"><i class="fa fa-clock-o"></i></div>
         <div>
-          <span>Pending</span>
+          <span>Pending verify</span>
           <strong>{{ pendingCount }}</strong>
           <small>Need verify</small>
         </div>
@@ -30,14 +38,6 @@
           <span>Settled</span>
           <strong>{{ settledCount }}</strong>
           <small>Verified</small>
-        </div>
-      </article>
-      <article class="ph-stat">
-        <div class="ph-stat-icon purple"><i class="fa fa-money"></i></div>
-        <div>
-          <span>Pharmacy Amount</span>
-          <strong>{{ money(amountTotal) }}</strong>
-          <small>Visible set</small>
         </div>
       </article>
     </section>
@@ -128,6 +128,14 @@
                 <td><span [ngClass]="statusClass(row['settlementStatus'])">{{ row['settlementStatus'] }}</span></td>
                 <td class="text-end">
                   <button
+                    *ngIf="row['patientPaymentStatus'] === 'UNPAID'"
+                    class="ph-btn primary"
+                    type="button"
+                    (click)="collectPatientPayment(row)"
+                  >
+                    Receive Payment
+                  </button>
+                  <button
                     *ngIf="row['settlementStatus'] === 'PENDING_SETTLEMENT'"
                     class="ph-btn primary"
                     type="button"
@@ -155,9 +163,24 @@
               <span>Amount {{ money(row['pharmacyAmount']) }}</span>
               <span>{{ row['patientPaymentStatus'] }}</span>
             </div>
-            <div class="ph-mobile-row" *ngIf="row['settlementStatus'] === 'PENDING_SETTLEMENT'">
+            <div class="ph-mobile-row" *ngIf="row['patientPaymentStatus'] === 'UNPAID' || row['settlementStatus'] === 'PENDING_SETTLEMENT'">
               <span></span>
-              <button class="ph-btn primary" type="button" (click)="verify(row)">Verify / Settle</button>
+              <button
+                *ngIf="row['patientPaymentStatus'] === 'UNPAID'"
+                class="ph-btn primary"
+                type="button"
+                (click)="collectPatientPayment(row)"
+              >
+                Receive Payment
+              </button>
+              <button
+                *ngIf="row['settlementStatus'] === 'PENDING_SETTLEMENT'"
+                class="ph-btn primary"
+                type="button"
+                (click)="verify(row)"
+              >
+                Verify / Settle
+              </button>
             </div>
           </article>
         </div>

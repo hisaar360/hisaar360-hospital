@@ -10,11 +10,12 @@ import { downloadExcelWorkbook } from '../../../../core/utils/excel-export.util'
 import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../../core/utils/hms-document-context.util';
 import { buildHmsStandardDocumentHtml, buildHmsTableHtml, formatHmsMoney } from '../../../../core/utils/hms-document-template.util';
 import { HmsDocumentToolbarComponent } from '../../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
-import { Encounter, EncounterLedger, LedgerPayment } from '../../../../shared/models/hospital.model';
+import { Encounter, EncounterLedger, LedgerPayment, Doctor } from '../../../../shared/models/hospital.model';
+import { HmsCurrencyPipe } from '../../../../shared/pipes/hms-currency.pipe';
 
 @Component({
   selector: 'app-encounter-ledger',
-  imports: [CommonModule, FormsModule, HmsDocumentToolbarComponent],
+  imports: [CommonModule, FormsModule, HmsDocumentToolbarComponent, HmsCurrencyPipe],
   templateUrl: './encounter-ledger.component.html',
   styleUrl: './encounter-ledger.component.scss',
 })
@@ -38,7 +39,10 @@ export class EncounterLedgerComponent implements OnInit {
   paymentMethod = 'cash';
   paymentType = 'partial';
   paymentNote = '';
+  refundDoctorId = '';
+  doctors: Array<{ _id: string; name?: string }> = [];
   selectedReceiptPayment: LedgerPayment | null = null;
+  private isDoctorUser = false;
 
   constructor(
     private backend: BackendService,
@@ -47,6 +51,32 @@ export class EncounterLedgerComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    try {
+      const raw = localStorage.getItem('user');
+      const user = raw ? JSON.parse(raw) : null;
+      const roleName = String(user?.role?.name || user?.roleName || '').toLowerCase();
+      this.isDoctorUser = roleName === 'doctor';
+      if (this.isDoctorUser && user?._id) {
+        this.refundDoctorId = String(user._id);
+      }
+    } catch {
+      this.isDoctorUser = false;
+    }
+
+    this.backend.getDoctors({ limit: 100 }).subscribe({
+      next: (result) => {
+        this.doctors = (result?.items || [])
+          .map((doc: Doctor) => ({
+            _id: String(doc.userId || doc.user?._id || doc._id),
+            name: String(doc.user?.name || doc.nameUrdu || 'Doctor'),
+          }))
+          .filter((doc) => doc._id);
+      },
+      error: () => {
+        this.doctors = [];
+      },
+    });
+
     this.route.queryParamMap.subscribe((params) => {
       const encounterId = params.get('encounterId');
       this.loadEncounters();
@@ -55,6 +85,68 @@ export class EncounterLedgerComponent implements OnInit {
         this.openLedger(encounterId);
       }
     });
+  }
+
+  get refundableAmount(): number {
+    const summary = this.selectedLedger?.encounter?.summary;
+    if (!summary) return 0;
+    return Math.max(0, Number(summary.totalPaid || 0) - Number(summary.totalRefunded || 0));
+  }
+
+  onPaymentTypeChange(): void {
+    if (this.paymentType === 'refund') {
+      this.paymentAmount = this.refundableAmount;
+      if (!this.paymentNote.trim()) {
+        this.paymentNote = 'Same-day full fee refund';
+      }
+    }
+  }
+
+  recordPayment(): void {
+    if (!this.selectedLedger || this.paymentAmount <= 0) {
+      this.toastr.error('Enter a valid payment amount');
+      return;
+    }
+
+    if (this.paymentType === 'refund') {
+      if (Math.abs(this.paymentAmount - this.refundableAmount) > 0.001) {
+        this.toastr.error(`Refund must be the full amount (${this.refundableAmount})`);
+        return;
+      }
+      if (!this.paymentNote.trim()) {
+        this.toastr.error('Refund reason is required');
+        return;
+      }
+      if (!this.refundDoctorId) {
+        this.toastr.error('Select the doctor who authorized this refund');
+        return;
+      }
+    }
+
+    const payload: Record<string, unknown> = {
+      amount: this.paymentAmount,
+      method: this.paymentMethod,
+      type: this.paymentType,
+      note: this.paymentNote,
+    };
+    if (this.paymentType === 'refund') {
+      payload['doctorId'] = this.refundDoctorId;
+    }
+
+    this.backend
+      .recordEncounterPayment(this.selectedLedger.encounter._id, payload)
+      .subscribe({
+        next: (response) => {
+          this.toastr.success(response.message || 'Payment recorded');
+          this.paymentAmount = 0;
+          this.paymentNote = '';
+          this.refundDoctorId = '';
+          this.paymentType = 'partial';
+          this.openLedger(this.selectedLedger!.encounter._id);
+          this.loadEncounters();
+        },
+        error: (err) => this.toastr.error(err?.error?.message || 'Unable to record payment'),
+      });
   }
 
   get filteredEncounters(): Encounter[] {
@@ -153,31 +245,6 @@ export class EncounterLedgerComponent implements OnInit {
           this.selectedReceiptPayment = payments.length ? payments[payments.length - 1] : null;
         },
         error: (err) => this.toastr.error(err?.error?.message || 'Unable to load patient ledger'),
-      });
-  }
-
-  recordPayment(): void {
-    if (!this.selectedLedger || this.paymentAmount <= 0) {
-      this.toastr.error('Enter a valid payment amount');
-      return;
-    }
-
-    this.backend
-      .recordEncounterPayment(this.selectedLedger.encounter._id, {
-        amount: this.paymentAmount,
-        method: this.paymentMethod,
-        type: this.paymentType,
-        note: this.paymentNote,
-      })
-      .subscribe({
-        next: (response) => {
-          this.toastr.success(response.message || 'Payment recorded');
-          this.paymentAmount = 0;
-          this.paymentNote = '';
-          this.openLedger(this.selectedLedger!.encounter._id);
-          this.loadEncounters();
-        },
-        error: (err) => this.toastr.error(err?.error?.message || 'Unable to record payment'),
       });
   }
 

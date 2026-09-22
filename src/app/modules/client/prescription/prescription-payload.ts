@@ -37,6 +37,8 @@ const PRESCRIPTION_BODY_KEYS = new Set([
   'patientDocuments',
   'vitals',
   'specialtySection',
+  'specialtyKey',
+  'specialtyTemplateVersion',
   'specialtyData',
   'advice',
   'followUpDate',
@@ -87,8 +89,8 @@ function sanitizeLabTests(raw: unknown): Array<Record<string, unknown>> {
     .filter((item) => item.name);
 }
 
-function sanitizeSpecialtyData(raw: unknown): Record<string, string> {
-  const result: Record<string, string> = {};
+function sanitizeSpecialtyData(raw: unknown): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
 
   if (!raw || typeof raw !== 'object') {
     return result;
@@ -96,15 +98,35 @@ function sanitizeSpecialtyData(raw: unknown): Record<string, string> {
 
   Object.entries(raw as Record<string, unknown>).forEach(([key, value]) => {
     const normalizedKey = String(key || '').trim();
-    const normalizedValue = String(value ?? '').trim();
-    if (!normalizedKey || !normalizedValue) {
+    if (!normalizedKey) {
       return;
     }
 
-    result[normalizedKey] =
-      normalizedValue.length > SPECIALTY_VALUE_MAX
-        ? normalizedValue.slice(0, SPECIALTY_VALUE_MAX)
-        : normalizedValue;
+    if (value === null || value === undefined) {
+      return;
+    }
+
+    if (typeof value === 'string') {
+      const normalizedValue = value.trim();
+      if (!normalizedValue) {
+        return;
+      }
+      result[normalizedKey] =
+        normalizedValue.length > SPECIALTY_VALUE_MAX
+          ? normalizedValue.slice(0, SPECIALTY_VALUE_MAX)
+          : normalizedValue;
+      return;
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      result[normalizedKey] = value;
+      return;
+    }
+
+    // Preserve nested legacy objects/arrays without stringifying them away.
+    if (typeof value === 'object') {
+      result[normalizedKey] = value;
+    }
   });
 
   return result;
@@ -197,7 +219,11 @@ export function sanitizePrescriptionPayload(
 
 export function formatApiValidationError(error: unknown): string {
   const body = (error as { error?: Record<string, unknown> } | null)?.error;
-  const baseMessage = String(body?.['message'] || 'Request validation failed');
+  const errorCode = String(body?.['error'] || '');
+  const baseMessage =
+    errorCode === 'SPECIALTY_VALIDATION_FAILED'
+      ? 'Specialty data contains invalid values'
+      : String(body?.['message'] || 'Request validation failed');
   const details = body?.['details'];
 
   if (!Array.isArray(details) || details.length === 0) {
@@ -210,8 +236,9 @@ export function formatApiValidationError(error: unknown): string {
         return '';
       }
 
-      const path = String((item as Record<string, unknown>)['path'] || 'field');
-      const message = String((item as Record<string, unknown>)['message'] || 'Invalid value');
+      const record = item as Record<string, unknown>;
+      const path = String(record['path'] || record['field'] || 'field');
+      const message = String(record['message'] || 'Invalid value');
       return `${path}: ${message}`;
     })
     .filter(Boolean)

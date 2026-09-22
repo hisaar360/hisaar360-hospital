@@ -8,13 +8,20 @@
   --rx-soft-line: #edf1f7;
   --rx-bg: #fbfcfe;
   --rx-panel: #ffffff;
+  --rx-shell-offset: 75px;
   background: #fbfcfe;
   box-sizing: border-box;
   color: #1f2937;
+  display: flex;
+  flex-direction: column;
   font-size: 12px;
-  min-height: 100vh;
+  gap: 10px;
+  height: auto;
+  max-height: none;
+  min-height: calc(100dvh - var(--rx-shell-offset));
   overflow-x: hidden;
-  padding: 10px 12px !important;
+  overflow-y: auto;
+  padding: 8px 10px !important;
   width: 100%;
 }
 
@@ -30,21 +37,233 @@
   border-radius: 8px;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.04);
   display: grid;
+  flex: 0 0 auto;
   gap: 0;
-  grid-template-columns: clamp(260px, 20vw, 310px) minmax(0, 1fr);
+  grid-template-columns: clamp(250px, 22vw, 300px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  height: calc(100dvh - var(--rx-shell-offset) - 28px);
   margin: 0 auto;
+  max-height: calc(100dvh - var(--rx-shell-offset) - 28px);
   max-width: 100%;
-  min-height: calc(100vh - 76px);
+  min-height: 0;
   min-width: 0;
   overflow: hidden;
   width: 100%;
 }
 
+.appointments-empty,
+.history-empty {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 18px 10px;
+  text-align: center;
+}
+
+.appointments-empty {
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+  border-radius: 10px;
+  margin: 8px 4px;
+}
+
+.clinical-workspace-tabs {
+  margin-top: 0;
+}
+
+.clinical-workspace-tabs button small {
+  color: #6b7280;
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.clinical-workspace-tabs button.active small {
+  color: #1168c8;
+}
+
+.clinical-orders-subtabs,
+.clinical-specialty-subtabs {
+  background: #fff;
+  border-radius: 0;
+  border-top: 0;
+  margin-top: 0;
+}
+
+.specialty-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.specialty-doctor-badge {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 2px 2px 4px;
+}
+
+.specialty-doctor-badge__pill {
+  align-items: center;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  color: #1d4ed8;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+  padding: 6px 14px;
+}
+
+.specialty-doctor-badge small {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.specialty-library-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 2px 12px;
+}
+
+.specialty-workspace-body {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  position: relative;
+}
+
+.specialty-workspace-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.specialty-workspace-main > .specialty-notes-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.specialty-quick-strip {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.specialty-quick-strip app-specialty-library {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.specialty-view-all-btn {
+  align-items: center;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  color: #1d4ed8;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  padding: 8px 12px;
+}
+
+.specialty-templates-aside {
+  min-height: 0;
+  min-width: 0;
+}
+
+.specialty-templates-aside app-specialty-library,
+.specialty-templates-aside .specialty-lib--sidebar {
+  height: 100%;
+  max-height: min(70vh, 720px);
+  overflow: auto;
+}
+
+.specialty-templates-reopen {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  color: #1d4ed8;
+  display: none;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  padding: 8px 12px;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 2;
+}
+
+.specialty-preview-strip.desktop-only {
+  display: none;
+}
+
+@media (min-width: 992px) {
+  .specialty-workspace-body.has-templates {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+  }
+
+  .specialty-templates-reopen {
+    display: inline-flex;
+  }
+
+  .specialty-preview-strip.desktop-only {
+    display: block;
+    margin-top: 4px;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .specialty-templates-aside {
+    display: none;
+  }
+
+  .specialty-templates-reopen {
+    display: none;
+  }
+}
+
+.clinical-workspace-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 2px 24px;
+}
+
+.clinical-history-in-workspace {
+  border: 0;
+  box-shadow: none;
+  margin: 0;
+  max-height: none;
+  padding: 8px 2px 12px;
+}
+
 .appointments-panel {
   background: var(--rx-panel);
   border-right: 1px solid var(--rx-line);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
-  padding: 12px;
+  overflow: hidden;
+  padding: 10px;
 }
 
 .panel-heading,
@@ -173,8 +392,10 @@
 }
 
 .appointments-list-scroll {
-  height: 200px;
+  flex: 0 1 26%;
   margin-bottom: 6px;
+  max-height: 26%;
+  min-height: 88px;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -221,28 +442,40 @@
 }
 
 .appointment-row small {
-  font-size: 11px;
-  text-align: right;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  text-align: center;
   text-transform: capitalize;
+  white-space: nowrap;
 }
 
 .status-completed {
-  color: var(--rx-green);
+  background: #dcfce7;
+  color: #15803d;
 }
 
 .status-pending {
-  color: #9a6b12;
+  background: #ffedd5;
+  color: #c2410c;
 }
 
 .status-confirmed,
 .status-in-progress {
-  color: #0369a1;
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .patient-card {
   border-top: 1px solid var(--rx-line);
-  margin-top: 10px;
-  padding-top: 12px;
+  flex: 1 1 auto;
+  margin-top: 6px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: 10px;
 }
 
 .patient-identity {
@@ -372,10 +605,10 @@ dd {
   border-radius: 8px;
   cursor: pointer;
   display: grid;
-  gap: 10px;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
-  margin-top: 8px;
-  padding: 10px;
+  gap: 8px;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  margin-top: 6px;
+  padding: 6px 8px;
   text-align: left;
   width: 100%;
 }
@@ -384,9 +617,9 @@ dd {
   align-items: center;
   border-radius: 8px;
   display: inline-flex;
-  height: 34px;
+  height: 28px;
   justify-content: center;
-  width: 34px;
+  width: 28px;
 }
 
 .vital-icon.tone-rose { background: #fff1f2; color: #e11d48; }
@@ -709,13 +942,15 @@ dd {
 }
 
 .lab-filter-tabs {
+  align-items: center;
   background: #f8fafc;
   border: 1px solid var(--rx-line);
   border-radius: 8px;
-  display: inline-flex;
-  gap: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   padding: 3px;
-  width: fit-content;
+  width: 100%;
 }
 
 .lab-filter-tabs button {
@@ -733,6 +968,44 @@ dd {
   background: #fff;
   border: 1px solid var(--rx-blue);
   color: var(--rx-blue);
+}
+
+.lab-search-field {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--rx-line);
+  border-radius: 8px;
+  color: #94a3b8;
+  display: inline-flex;
+  flex: 1 1 180px;
+  gap: 0.4rem;
+  margin-left: auto;
+  max-width: 280px;
+  min-height: 34px;
+  min-width: 160px;
+  padding: 0 0.55rem;
+}
+
+.lab-search-field input {
+  background: transparent;
+  border: 0;
+  color: #334155;
+  font-size: 12px;
+  min-width: 0;
+  outline: none;
+  width: 100%;
+}
+
+.lab-search-field--modal {
+  margin: 0 0 12px;
+  max-width: none;
+  width: 100%;
+}
+
+.lab-search-field--sidebar {
+  margin: 0 0 8px;
+  max-width: none;
+  width: 100%;
 }
 
 .lab-tests-table-wrap,
@@ -1008,6 +1281,16 @@ dd {
   gap: 10px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 12px;
+  max-height: 48vh;
+  overflow: auto;
+}
+
+.lab-test-picker-empty {
+  color: var(--rx-muted);
+  font-size: 13px;
+  grid-column: 1 / -1;
+  padding: 18px 8px;
+  text-align: center;
 }
 
 .lab-test-picker-card {
@@ -1846,9 +2129,110 @@ dd {
 }
 
 .consultation-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
   overflow: hidden;
-  padding: 12px 12px 14px;
+  padding: 8px 10px 0;
+}
+
+.consultation-idle {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px 16px 40px;
+}
+
+.consultation-idle__card {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 440px;
+  padding: 36px 28px;
+  text-align: center;
+  width: 100%;
+}
+
+.consultation-idle__icon {
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 999px;
+  color: #2563eb;
+  display: inline-flex;
+  font-size: 22px;
+  height: 56px;
+  justify-content: center;
+  margin-bottom: 4px;
+  width: 56px;
+}
+
+.consultation-idle__card h2 {
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.consultation-idle__card p {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.consultation-idle__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.consultation-panel > form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.consultation-panel > form > .consultation-header,
+.consultation-panel > form > .consultation-grid,
+.consultation-panel > form > .rx-tabs,
+.consultation-panel > form > .clinical-history-in-workspace,
+.consultation-panel > form > .prescription-save-validation,
+.consultation-panel > form > app-clinical-patient-header,
+.consultation-panel > form > .clinical-patient-header {
+  flex: 0 0 auto;
+}
+
+.consultation-panel > form > .rx-content-grid,
+.consultation-panel > form > .specialty-workspace,
+.consultation-panel > form > .specialty-notes-panel,
+.consultation-panel > form > .gynae-ultrasound-panel,
+.consultation-panel > form > .vitals-dashboard-panel,
+.consultation-panel > form > .lab-tests-dashboard-panel,
+.consultation-panel > form > .iv-fluids-dashboard-panel,
+.consultation-panel > form > .admission-orders-dashboard-panel,
+.consultation-panel > form > .documents-dashboard-panel,
+.consultation-panel > form > .gynae-documents-panel,
+.consultation-panel > form > .clinical-workspace-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .consultation-panel form,
@@ -1858,19 +2242,25 @@ dd {
   min-width: 0;
 }
 
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .consultation-header {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+}
+
+.consultation-header h1 {
+  font-size: 16px;
 }
 
 .consultation-header p {
   color: var(--rx-muted);
   font-size: 12px;
   margin: 3px 0 0;
-}
-
-.header-actions {
-  display: flex;
-  gap: 10px;
 }
 
 .prescription-save-validation {
@@ -1955,26 +2345,28 @@ dd {
 
 .consultation-grid {
   display: grid;
-  gap: 7px 12px;
+  gap: 6px 10px;
   grid-template-columns: 1fr 1fr;
+  margin-bottom: 6px;
 }
 
 .consultation-grid label {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .consultation-grid textarea {
-  min-height: 52px;
+  min-height: 40px;
   resize: vertical;
 }
 
 .rx-tabs {
-  background: var(--rx-panel);
+  background: #f8fafc;
   border: 1px solid var(--rx-line);
   border-radius: 6px 6px 0 0;
   display: flex;
-  margin-top: 10px;
+  flex: 0 0 auto;
+  margin-top: 6px;
   overflow-x: auto;
 }
 
@@ -1984,8 +2376,8 @@ dd {
   border-bottom: 2px solid transparent;
   color: #374151;
   font-size: 12px;
-  min-height: 34px;
-  padding: 0 14px;
+  min-height: 32px;
+  padding: 0 12px;
   white-space: nowrap;
 }
 
@@ -2393,6 +2785,22 @@ dd {
   gap: 8px;
 }
 
+.order-list-scroll {
+  border: 1px solid var(--rx-soft-line);
+  border-radius: 6px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.order-list-scroll--labs {
+  max-height: 160px;
+}
+
+.order-list-scroll--drips {
+  max-height: 140px;
+}
+
 .lab-row {
   align-items: center;
   border-top: 1px solid var(--rx-soft-line);
@@ -2400,11 +2808,15 @@ dd {
   gap: 6px;
   grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1fr);
   min-height: 27px;
+  padding: 0 6px;
 }
 
 .lab-head {
   background: #f8fafc;
   border-top: 0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .lab-row input {
@@ -2434,12 +2846,16 @@ dd {
   gap: 6px;
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr) 28px;
   min-height: 30px;
+  padding: 0 6px;
 }
 
 .fluid-head {
   background: #f8fafc;
   border-top: 0;
   padding: 0 8px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .fluid-row input {
@@ -2479,9 +2895,22 @@ dd {
   gap: 7px;
 }
 
+.admission-sidebar-hint {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 6px;
+  color: #0f766e;
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 0;
+  padding: 8px 9px;
+}
+
 .admission-sidebar-list {
   display: grid;
   gap: 6px;
+  max-height: 140px;
+  overflow-y: auto;
 }
 
 .admission-sidebar-row {
@@ -2547,17 +2976,406 @@ dd {
 }
 
 .prescription-history-panel {
-  background: var(--rx-panel);
+  background: #fff;
   border: 1px solid var(--rx-line);
   border-radius: 8px;
-  margin-top: 12px;
-  padding: 10px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  margin: 0;
+  max-height: none;
+  min-height: 220px;
+  overflow: hidden;
+  padding: 12px 14px 10px;
+  width: 100%;
 }
 
 .patient-history-panel {
-  margin-left: auto;
-  margin-right: auto;
-  max-width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  max-width: none;
+  width: 100%;
+}
+
+.rx-history-scroll {
+  flex: 1 1 auto;
+  max-height: min(420px, 50vh);
+  min-height: 120px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.history-panel-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.45rem;
+}
+
+.history-panel-tabs button {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dbe4e4;
+  border-radius: 999px;
+  color: #475569;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 0.35rem;
+  padding: 0.28rem 0.65rem;
+}
+
+.history-panel-tabs button span {
+  background: #e2e8f0;
+  border-radius: 999px;
+  color: #334155;
+  font-size: 10px;
+  font-weight: 800;
+  min-width: 1.1rem;
+  padding: 0 0.3rem;
+  text-align: center;
+}
+
+.history-panel-tabs button.active {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+}
+
+.history-panel-tabs button.active span {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.history-simple-table {
+  margin-bottom: 0;
+}
+
+.history-simple-table th {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.desktop-only {
+  /* visibility controlled in media queries below */
+}
+
+.mobile-only {
+  display: none !important;
+}
+
+@media (max-width: 992px) {
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: revert !important;
+  }
+
+  .past-meds-toolbar__meta.mobile-only {
+    display: inline-flex !important;
+  }
+
+  .past-meds-view-all.mobile-only {
+    display: inline-flex !important;
+  }
+
+  .past-meds-cards.mobile-only {
+    display: grid !important;
+  }
+
+  .lab-search-field {
+    margin-left: 0;
+    max-width: none;
+    width: 100%;
+  }
+}
+
+.past-meds-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  justify-content: space-between;
+  margin-bottom: 0.55rem;
+}
+
+.past-meds-toolbar__meta {
+  align-items: baseline;
+  color: #64748b;
+  display: inline-flex;
+  font-size: 12px;
+  gap: 0.3rem;
+}
+
+.past-meds-toolbar__meta strong {
+  color: #0f766e;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.past-meds-toolbar__filters {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.past-meds-search,
+.past-meds-date {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dbe4e4;
+  border-radius: 8px;
+  color: #94a3b8;
+  display: inline-flex;
+  gap: 0.4rem;
+  min-height: 34px;
+  padding: 0 0.55rem;
+}
+
+.past-meds-search {
+  flex: 1 1 180px;
+  max-width: 240px;
+}
+
+.past-meds-search input,
+.past-meds-date select {
+  background: transparent;
+  border: 0;
+  color: #334155;
+  font-size: 12px;
+  min-width: 0;
+  outline: none;
+  width: 100%;
+}
+
+.past-meds-date {
+  flex: 0 0 auto;
+  max-width: 140px;
+}
+
+.past-meds-date select {
+  appearance: none;
+  cursor: pointer;
+  padding-right: 0.15rem;
+}
+
+.past-meds-view-all {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #2563eb;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 0.25rem;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.past-meds-desktop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-height: 0;
+}
+
+.past-meds-table-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.past-meds-table {
+  margin-bottom: 0;
+}
+
+.past-meds-table thead th {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 0.55rem 0.65rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.past-meds-table tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.past-meds-table tbody tr:hover {
+  background: #f0fdfa;
+}
+
+.past-meds-table td {
+  border-top: 1px solid #edf2f7;
+  color: #334155;
+  font-size: 12px;
+  padding: 0.55rem 0.65rem;
+  vertical-align: middle;
+}
+
+.past-meds-table .col-index {
+  color: #94a3b8;
+  font-weight: 700;
+  text-align: center;
+  width: 2.25rem;
+}
+
+.past-meds-table .col-medicine strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.past-meds-table .col-action {
+  text-align: center;
+  width: 3rem;
+}
+
+.past-meds-view {
+  align-items: center;
+  background: #eff6ff;
+  border: 0;
+  border-radius: 8px;
+  color: #2563eb;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  height: 28px;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+  width: 28px;
+}
+
+.past-meds-view:hover {
+  background: #2563eb;
+  color: #fff;
+}
+
+.past-meds-footer {
+  align-items: center;
+  color: #64748b;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 0.5rem;
+  justify-content: space-between;
+  padding: 0.15rem 0.1rem 0;
+}
+
+.past-meds-pager {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.past-meds-pager button {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dbe4e4;
+  border-radius: 7px;
+  color: #475569;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  height: 28px;
+  justify-content: center;
+  min-width: 28px;
+  padding: 0 0.4rem;
+}
+
+.past-meds-pager button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.past-meds-pager button.page-num.active,
+.past-meds-pager button.page-num:hover:not(:disabled) {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.past-meds-cards {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.past-meds-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 0.7rem 0.75rem;
+}
+
+.past-meds-card__top {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.past-meds-card__top strong {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.past-meds-card__sub,
+.past-meds-card__meta {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 0.28rem 0 0;
+}
+
+.past-meds-card__meta {
+  color: #94a3b8;
+}
+
+.past-meds-load-more {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dbe4e4;
+  border-radius: 10px;
+  color: #0f766e;
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 0.35rem;
+  justify-content: center;
+  margin-top: 0.15rem;
+  min-height: 38px;
+  width: 100%;
+}
+
+.past-meds-load-more:hover {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+}
+
+.section-heading.compact {
+  margin-bottom: 0.35rem;
 }
 
 .prescription-history-panel .section-heading {
@@ -2840,13 +3658,84 @@ dd {
 }
 
 @media (max-width: 992px) {
+  .prescription-page {
+    display: block;
+    height: auto;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 8px !important;
+  }
+
   .rx-workspace {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
   }
 
   .appointments-panel {
-    border-right: 0;
     border-bottom: 1px solid #e5e7eb;
+    border-right: 0;
+    display: block;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .appointments-list-scroll {
+    flex: none;
+    height: auto;
+    max-height: 160px;
+    min-height: 0;
+  }
+
+  .patient-card {
+    flex: none;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .consultation-panel {
+    display: block;
+    height: auto;
+    overflow: visible;
+    padding: 10px;
+  }
+
+  .consultation-panel > form {
+    display: block;
+    overflow: visible;
+  }
+
+  .consultation-panel > form > .rx-content-grid,
+  .consultation-panel > form > .specialty-workspace,
+  .consultation-panel > form > .specialty-notes-panel,
+  .consultation-panel > form > .gynae-ultrasound-panel,
+  .consultation-panel > form > .vitals-dashboard-panel,
+  .consultation-panel > form > .lab-tests-dashboard-panel,
+  .consultation-panel > form > .iv-fluids-dashboard-panel,
+  .consultation-panel > form > .admission-orders-dashboard-panel,
+  .consultation-panel > form > .documents-dashboard-panel,
+  .consultation-panel > form > .gynae-documents-panel,
+  .consultation-panel > form > .clinical-workspace-panel,
+  .consultation-panel > form > .clinical-history-in-workspace {
+    flex: none;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .prescription-history-panel {
+    flex: none;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .rx-history-scroll {
+    overflow: visible;
   }
 
   .appointments-panel,
@@ -2890,7 +3779,29 @@ dd {
 
 @media (max-width: 640px) {
   .prescription-page {
-    padding: 10px !important;
+    padding: 8px !important;
+  }
+
+  .vitals-card-modern {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .vitals-card-modern .vitals-head,
+  .vitals-card-modern .vitals-trends-btn,
+  .vitals-card-modern .vitals-alerts,
+  .vitals-card-modern .vitals-empty {
+    grid-column: 1 / -1;
+  }
+
+  .vital-sidebar-row {
+    grid-template-columns: 24px minmax(0, 1fr);
+    margin-top: 0;
+  }
+
+  .vital-sidebar-row .vital-status {
+    display: none;
   }
 
   .appointment-row {
@@ -2899,12 +3810,13 @@ dd {
 
   .appointment-row small {
     grid-column: 2;
+    justify-self: start;
     text-align: left;
   }
 
   .appointments-panel,
   .consultation-panel {
-    padding: 14px;
+    padding: 10px;
   }
 
   .consultation-header,
@@ -2913,12 +3825,18 @@ dd {
     flex-direction: column;
   }
 
+  .header-actions .btn-light,
+  .header-actions .btn-primary,
+  .header-actions a {
+    width: 100%;
+  }
+
   dl div {
     grid-template-columns: 1fr;
   }
 
   .rx-content-grid {
-    padding: 10px;
+    padding: 8px;
   }
 
   .smart-medicine-bar {
@@ -2930,7 +3848,16 @@ dd {
   }
 
   .rx-tabs button {
-    padding: 0 16px;
+    padding: 0 12px;
+  }
+
+  .history-panel-tabs {
+    gap: 0.25rem;
+  }
+
+  .history-panel-tabs button {
+    font-size: 10px;
+    padding: 0.25rem 0.5rem;
   }
 
   .prescription-history-row {
@@ -2972,814 +3899,43 @@ dd {
   }
 }
 
-.specialty-notes-panel {
-  background: #fff;
-  border: 1px solid var(--rx-line);
-  border-radius: 8px;
-  padding: 18px;
-}
-
-.specialty-notes-head {
-  align-items: flex-start;
-  display: flex;
-  gap: 16px;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.specialty-notes-head h3 {
-  color: var(--rx-blue);
-  font-size: 18px;
-  font-weight: 800;
-  margin: 0 0 4px;
-}
-
-.specialty-notes-head p {
-  color: var(--rx-muted);
-  margin: 0;
-}
-
-.specialty-notes-head label,
-.specialty-notes-grid label {
-  color: var(--rx-muted);
-  display: grid;
-  font-size: 12px;
-  font-weight: 800;
-  gap: 6px;
-}
-
-.specialty-notes-grid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.specialty-notes-grid label.wide {
-  grid-column: 1 / -1;
-}
-
-.specialty-notes-grid input,
-.specialty-notes-grid select,
-.specialty-notes-grid textarea,
-.specialty-notes-head select {
-  border: 1px solid var(--rx-line);
-  border-radius: 6px;
-  color: var(--rx-ink);
-  min-height: 38px;
-  padding: 8px 10px;
-}
-
-.specialty-notes-grid textarea {
-  min-height: 96px;
-  resize: vertical;
-}
-
-@media (max-width: 900px) {
-  .specialty-notes-head {
-    flex-direction: column;
-  }
-
-  .specialty-notes-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.gynae-ultrasound-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  margin-bottom: 16px;
-}
-
-.gynae-ultrasound-panel label.wide {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.gynae-mode-switch {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.gynae-mode-switch button {
-  background: #f4f8fb;
-  border: 1px solid var(--rx-line);
-  border-radius: 999px;
-  color: var(--rx-ink);
-  cursor: pointer;
-  font-weight: 600;
-  padding: 8px 14px;
-}
-
-.gynae-mode-switch button.active {
-  background: var(--rx-accent, #003e86);
-  border-color: var(--rx-accent, #003e86);
-  color: #fff;
-}
-
-.gynae-mode-panel {
-  display: grid;
-  gap: 16px;
-}
-
-.gynae-mode-grid {
-  display: grid;
-  gap: 12px;
-}
-
-.gynae-mode-grid-7 {
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-}
-
-.gynae-mode-grid-6 {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
-.gynae-mode-grid-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.gynae-mode-grid label,
-.gynae-mode-notes-grid label,
-.gynae-mode-note {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.gynae-mode-grid input,
-.gynae-mode-grid select,
-.gynae-mode-grid textarea,
-.gynae-mode-notes-grid textarea,
-.gynae-mode-note textarea {
-  border: 1px solid var(--rx-line);
-  border-radius: 8px;
-  min-height: 38px;
-  padding: 8px 10px;
-}
-
-.gynae-mode-notes-grid textarea,
-.gynae-mode-note textarea {
-  min-height: 90px;
-  resize: vertical;
-}
-
-.gynae-mode-notes-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.gynae-mode-notes-grid-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.gynae-mode-note.wide {
-  width: 100%;
-}
-
-.gynae-mode-section h4 {
-  font-size: 14px;
-  font-weight: 800;
-  margin: 0 0 10px;
-}
-
-.gynae-mode-danger-grid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.gynae-mode-danger-grid label {
-  align-items: center;
+.kb-hint-panel {
   background: #f8fafc;
-  border: 1px solid var(--rx-line);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  padding: 10px 12px;
-}
-
-.gynae-mode-red-flags {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.gynae-mode-toggle-row {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.gynae-toggle-field {
-  align-items: center;
-  background: #f8fafc;
-  border: 1px solid var(--rx-line);
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
-  display: flex;
-  flex-direction: row;
-  gap: 10px;
-  justify-content: space-between;
-  padding: 10px 12px;
-}
-
-.gynae-toggle-field span {
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.gynae-toggle-field small {
-  color: #64748b;
-  font-size: 11px;
-  min-width: 24px;
-}
-
-.gynae-toggle {
-  background: #cbd5e1;
-  border: 0;
-  border-radius: 999px;
-  cursor: pointer;
-  height: 24px;
-  padding: 0;
+  margin: 0 0 12px;
+  padding: 12px 14px;
   position: relative;
-  width: 44px;
-}
-
-.gynae-toggle i {
-  background: #fff;
-  border-radius: 50%;
-  display: block;
-  height: 18px;
-  left: 3px;
-  position: absolute;
-  top: 3px;
-  transition: transform 0.15s ease;
-  width: 18px;
-}
-
-.gynae-toggle.on {
-  background: var(--rx-accent, #2563eb);
-}
-
-.gynae-toggle.on i {
-  transform: translateX(20px);
-}
-
-.gynae-complaint-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.gynae-complaint-chips .gynae-chip.active {
-  background: var(--rx-accent, #2563eb);
-  border-color: var(--rx-accent, #2563eb);
-  color: #fff;
-}
-
-@media (max-width: 1200px) {
-  .gynae-mode-grid-7,
-  .gynae-mode-grid-6,
-  .gynae-mode-danger-grid,
-  .gynae-mode-red-flags,
-  .gynae-mode-toggle-row,
-  .gynae-mode-notes-grid,
-  .gynae-mode-notes-grid-3 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 760px) {
-  .gynae-mode-grid-7,
-  .gynae-mode-grid-6,
-  .gynae-mode-grid-3,
-  .gynae-mode-danger-grid,
-  .gynae-mode-red-flags,
-  .gynae-mode-toggle-row,
-  .gynae-mode-notes-grid,
-  .gynae-mode-notes-grid-3 {
-    grid-template-columns: 1fr;
-  }
-}
-
-.gynae-advice-templates,
-.gynae-lab-filters,
-.gynae-consent-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.gynae-chip,
-.gynae-lab-filters button {
-  background: #eef7f7;
-  border: 1px solid #b9dedf;
-  border-radius: 999px;
-  color: #0b5d5e;
-  cursor: pointer;
-  font-size: 12px;
-  padding: 6px 10px;
-}
-
-.gynae-lab-filters button.active,
-.gynae-chip:hover {
-  background: #019c9d;
-  border-color: #019c9d;
-  color: #fff;
-}
-
-.gynae-consent-row label {
-  align-items: center;
-  display: inline-flex;
-  font-size: 12px;
-  gap: 6px;
-}
-
-.gynae-ultrasound-panel {
-  background: #fff;
-  border: 1px solid var(--rx-line);
-  border-radius: 12px;
-  padding: 16px;
-}
-
-.gynae-ultrasound-grid label {
-  align-items: center;
-  background: #f8fbff;
-  border: 1px solid var(--rx-line);
-  border-radius: 8px;
-  display: flex;
-  gap: 8px;
-  padding: 10px 12px;
-}
-
-.gynae-ultrasound-panel textarea {
-  border: 1px solid var(--rx-line);
-  border-radius: 8px;
-  min-height: 120px;
-  padding: 10px;
-  width: 100%;
-}
-
-.medicine-pregnancy-warning {
-  color: #b45309;
-  font-size: 11px;
-  font-weight: 600;
-  margin-top: 4px;
-}
-
-@media (max-width: 1100px) {
-  .gynae-ultrasound-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.gynae-postnatal-layout {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
-}
-
-.gynae-postnatal-main {
-  display: grid;
-  gap: 16px;
-}
-
-.gynae-postnatal-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.gynae-postnatal-grid label,
-.gynae-postnatal-reminder-list label,
-.gynae-postnatal-notes-grid label,
-.gynae-postnatal-plan-grid label,
-.gynae-postnatal-note {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.gynae-postnatal-grid label.wide,
-.gynae-postnatal-note.wide {
-  grid-column: 1 / -1;
-}
-
-.gynae-postnatal-grid input,
-.gynae-postnatal-grid select,
-.gynae-postnatal-grid textarea,
-.gynae-postnatal-reminder-list input,
-.gynae-postnatal-notes-grid textarea,
-.gynae-postnatal-plan-grid textarea,
-.gynae-postnatal-note textarea,
-.gynae-postnatal-card textarea {
-  border: 1px solid var(--rx-line);
-  border-radius: 8px;
-  min-height: 38px;
-  padding: 8px 10px;
-}
-
-.gynae-postnatal-grid textarea,
-.gynae-postnatal-notes-grid textarea,
-.gynae-postnatal-plan-grid textarea,
-.gynae-postnatal-note textarea,
-.gynae-postnatal-card textarea {
-  min-height: 90px;
-  resize: vertical;
-}
-
-.gynae-postnatal-section h4,
-.gynae-postnatal-card-head h4 {
-  font-size: 14px;
-  font-weight: 800;
-  margin: 0 0 10px;
-}
-
-.gynae-postnatal-notes-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.gynae-postnatal-plan-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.gynae-postnatal-danger-grid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.gynae-postnatal-danger-grid label {
-  align-items: center;
-  background: #f8fafc;
-  border: 1px solid var(--rx-line);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  padding: 10px 12px;
-}
-
-.gynae-postnatal-sidebar {
-  display: grid;
-  gap: 14px;
-}
-
-.gynae-postnatal-card {
-  background: #fff;
-  border: 1px solid var(--rx-line);
-  border-radius: 12px;
-  padding: 14px;
-}
-
-.gynae-postnatal-card-head {
-  align-items: center;
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.gynae-postnatal-card-head h4 i {
-  color: #2563eb;
-  margin-right: 6px;
-}
-
-.gynae-postnatal-lab-list {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.gynae-postnatal-lab-row {
-  align-items: center;
-  background: #f8fafc;
-  border: 1px solid var(--rx-soft-line);
-  border-radius: 8px;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: auto 1fr auto;
-  padding: 8px 10px;
-}
-
-.gynae-postnatal-lab-row strong {
-  font-size: 12px;
-}
-
-.gynae-postnatal-lab-row small {
-  color: #64748b;
-  font-size: 11px;
-}
-
-.gynae-postnatal-reminder-list {
-  display: grid;
-  gap: 10px;
-}
-
-@media (max-width: 1200px) {
-  .gynae-postnatal-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .gynae-postnatal-grid,
-  .gynae-postnatal-notes-grid,
-  .gynae-postnatal-plan-grid,
-  .gynae-postnatal-danger-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 760px) {
-  .gynae-postnatal-grid,
-  .gynae-postnatal-notes-grid,
-  .gynae-postnatal-plan-grid,
-  .gynae-postnatal-danger-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.gynae-documents-panel {
-  background: var(--rx-panel);
-  border: 1px solid var(--rx-line);
-  border-top: 0;
-  display: grid;
-  gap: 16px;
-  padding: 18px;
-}
-
-.gynae-documents-head {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.gynae-documents-head h3 {
-  font-size: 22px;
-  font-weight: 800;
-  margin: 0 0 4px;
-}
-
-.gynae-documents-head p {
-  color: #64748b;
-  margin: 0;
-}
-
-.gynae-documents-upload-btn i {
-  margin-right: 8px;
-}
-
-.gynae-documents-empty {
-  background: #f8fafc;
-  border: 1px dashed var(--rx-line);
-  border-radius: 12px;
-  color: #64748b;
-  padding: 24px;
-  text-align: center;
-}
-
-.gynae-doc-category-list {
-  display: grid;
-  gap: 14px;
-}
-
-.gynae-doc-category {
-  align-items: center;
-  background: #fff;
-  border: 1px solid var(--rx-line);
-  border-radius: 14px;
-  display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(220px, 1.1fr) minmax(180px, 0.9fr) minmax(260px, 1.2fr);
-  padding: 16px 18px;
-}
-
-.gynae-doc-category-info {
-  align-items: flex-start;
-  display: flex;
-  gap: 14px;
-}
-
-.gynae-doc-category-icon {
-  align-items: center;
-  background: #eef4ff;
-  border-radius: 12px;
-  color: #2563eb;
-  display: inline-flex;
-  flex-shrink: 0;
-  font-size: 18px;
-  height: 48px;
-  justify-content: center;
-  width: 48px;
-}
-
-.gynae-doc-category-info strong {
-  display: block;
-  font-size: 16px;
-  margin-bottom: 4px;
-}
-
-.gynae-doc-category-info p {
-  color: #64748b;
-  font-size: 12px;
-  line-height: 1.45;
-  margin: 0 0 8px;
-}
-
-.gynae-doc-count {
-  background: #f1f5f9;
-  border-radius: 999px;
-  color: #475569;
-  display: inline-flex;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 10px;
-}
-
-.gynae-doc-thumbs {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: center;
-}
-
-.gynae-doc-thumb,
-.gynae-doc-upload-drop {
-  align-items: center;
-  background: #f8fafc;
-  border: 1px solid var(--rx-line);
-  border-radius: 10px;
-  display: inline-flex;
-  height: 72px;
-  justify-content: center;
-  overflow: hidden;
-  width: 72px;
-}
-
-.gynae-doc-thumb {
-  cursor: pointer;
-  padding: 0;
-}
-
-.gynae-doc-thumb img {
-  height: 100%;
-  object-fit: cover;
-  width: 100%;
-}
-
-.gynae-doc-thumb-badge {
-  color: #2563eb;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.gynae-doc-thumb-more {
-  align-items: center;
-  background: #eef4ff;
-  border-radius: 999px;
-  color: #2563eb;
-  display: inline-flex;
-  font-size: 12px;
-  font-weight: 800;
-  height: 32px;
-  justify-content: center;
-  min-width: 32px;
-  padding: 0 8px;
-}
-
-.gynae-doc-upload-drop {
-  cursor: pointer;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 92px;
-  min-width: 140px;
-  padding: 10px;
-  text-align: center;
-}
-
-.gynae-doc-upload-drop i {
-  color: #2563eb;
-  font-size: 18px;
-}
-
-.gynae-doc-upload-drop span {
-  color: #64748b;
-  font-size: 11px;
-  line-height: 1.35;
-}
-
-.gynae-doc-latest {
-  min-width: 0;
-}
-
-.gynae-doc-latest-head {
-  align-items: flex-start;
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-}
-
-.gynae-doc-latest-title {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  min-width: 0;
-}
-
-.gynae-doc-latest-title strong {
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.gynae-doc-latest-title i {
-  color: #2563eb;
-}
-
-.gynae-doc-meta {
-  color: #64748b;
-  display: block;
-  font-size: 11px;
-  margin: 6px 0;
-}
-
-.gynae-doc-note {
-  color: #334155;
-  font-size: 12px;
-  line-height: 1.45;
-  margin: 0;
-}
-
-.gynae-doc-latest-empty {
-  display: grid;
-  gap: 10px;
-}
-
-.gynae-doc-latest-empty strong {
-  color: #64748b;
-  font-size: 13px;
-}
-
-.gynae-doc-menu-wrap {
-  position: relative;
-}
-
-.gynae-doc-menu-btn {
-  background: transparent;
-  border: 0;
-  color: #64748b;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px 8px;
-}
-
-.gynae-doc-menu {
-  background: #fff;
-  border: 1px solid var(--rx-line);
-  border-radius: 10px;
-  box-shadow: 0 12px 30px rgb(15 23 42 / 0.12);
-  display: grid;
-  min-width: 150px;
-  overflow: hidden;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
   z-index: 5;
 }
 
-.gynae-doc-menu button {
-  background: #fff;
-  border: 0;
-  cursor: pointer;
+.kb-hint-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.kb-hint-panel ul {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.kb-hint-panel li {
+  align-items: center;
+  display: flex;
+  gap: 10px;
   font-size: 12px;
-  padding: 10px 12px;
-  text-align: left;
 }
 
-.gynae-doc-menu button:hover {
-  background: #f8fafc;
-}
-
-.document-modal-form .wide textarea {
-  min-height: 90px;
-}
-
-@media (max-width: 1100px) {
-  .gynae-doc-category {
-    grid-template-columns: 1fr;
-  }
-
-  .gynae-doc-thumbs {
-    justify-content: flex-start;
-  }
+.kb-hint-panel kbd {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 11px;
+  min-width: 140px;
+  padding: 2px 6px;
 }

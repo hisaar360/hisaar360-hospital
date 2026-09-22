@@ -199,6 +199,20 @@ ul li a:hover {
   padding: 12px;
 }
 
+.hms-notification-day {
+  margin-bottom: 10px;
+}
+
+.hms-notification-day__label {
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin: 0 0 8px;
+  padding: 0 4px;
+  text-transform: uppercase;
+}
+
 .hms-notification-item {
   display: grid;
   grid-template-columns: auto auto 1fr auto;

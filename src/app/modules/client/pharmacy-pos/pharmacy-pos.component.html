@@ -178,15 +178,34 @@
                     <input type="text" [value]="resolvedCustomerName()" readonly />
                 </label>
                 <ng-template #posCustomerSelect>
-                    <label class="storepos-field">
+                    <label class="storepos-field storepos-field--customer">
                         <span>Customer</span>
-                        <select [(ngModel)]="selectedCustomerId">
-                            <option value="">Walk-in Customer</option>
-                            <option *ngFor="let customer of customers" [value]="customer._id">
-                                {{ customer.name }}{{ customer.phone ? ' · ' + customer.phone : '' }}
-                            </option>
-                        </select>
+                        <div class="storepos-customer-row">
+                            <select [(ngModel)]="selectedCustomerId" (ngModelChange)="onCustomerChange()">
+                                <option value="">Walk-in Customer</option>
+                                <option *ngFor="let customer of customers" [value]="customer._id">
+                                    {{ customer.name }}{{ customer.phone ? ' · ' + customer.phone : '' }}{{ customerCreditBadge(customer) }}
+                                </option>
+                            </select>
+                            <button
+                                type="button"
+                                class="storepos-customer-add"
+                                *ngIf="canCreateCustomer"
+                                (click)="openCreateCustomerModal()"
+                                title="Create customer (credit stays off until you set a limit)"
+                            >
+                                <i class="fa fa-user-plus"></i>
+                            </button>
+                        </div>
+                        <div class="storepos-credit-box" *ngIf="customerCreditSummary as credit">
+                          <span><strong>Limit</strong> {{ formatMoney(credit.limit) }}</span>
+                          <span><strong>Outstanding</strong> {{ formatMoney(credit.outstanding) }}</span>
+                          <span><strong>Remaining</strong> {{ formatMoney(credit.available) }}</span>
+                        </div>
                         <small class="text-muted" *ngIf="customerCreditHint">{{ customerCreditHint }}</small>
+                        <small class="text-muted" *ngIf="!customerCreditHint && selectedCustomerId">
+                            Customer selected for invoice name. Credit only if limit &gt; 0.
+                        </small>
                     </label>
                 </ng-template>
                 <label class="storepos-field">
@@ -317,12 +336,15 @@
                                 (click)="decrementLineQty(i)">-</button>
                             <input type="number" min="0" step="1" data-kb-cart-cell aria-label="Line quantity"
                                 (focus)="setCartCellFocus(i, 1)"
-                                [(ngModel)]="line.billQty" (ngModelChange)="onQtyChange(line)" />
+                                [(ngModel)]="line.billQty" (ngModelChange)="onQtyChange(line)"
+                                (keydown.enter)="$event.preventDefault(); selectInputForEdit($event.target)" />
                             <button type="button" data-kb-cart-cell (focus)="setCartCellFocus(i, 2)"
                                 (click)="incrementLineQty(i)">+</button>
                         </div>
-                        <input type="number" min="0" data-kb-cart-cell (focus)="setCartCellFocus(i, 3)"
-                            [(ngModel)]="line.unitPrice" (ngModelChange)="onUnitPriceChange(line)" />
+                        <input type="number" min="0" data-kb-cart-cell aria-label="Line unit price"
+                            (focus)="setCartCellFocus(i, 3)"
+                            [(ngModel)]="line.unitPrice" (ngModelChange)="onUnitPriceChange(line)"
+                            (keydown.enter)="$event.preventDefault(); selectInputForEdit($event.target)" />
                         <div class="storepos-discount-cell">
                             <ng-container *ngIf="itemDiscountEligible(i); else discountLocked">
                                 <div class="storepos-discount-entry">
@@ -330,7 +352,8 @@
                                         [value]="lineDiscountDisplayValue(i)" (focus)="setCartCellFocus(i, 4)"
                                         [max]="lineDiscountMaxValue(i)" title="Line discount"
                                         aria-label="Line discount value" (paste)="$event.preventDefault()"
-                                        (input)="updateLineDiscountInput(i, $any($event.target).value)" />
+                                        (input)="updateLineDiscountInput(i, $any($event.target).value)"
+                                        (keydown.enter)="$event.preventDefault(); selectInputForEdit($event.target)" />
                                 </div>
                             </ng-container>
                             <ng-template #discountLocked>
@@ -428,14 +451,16 @@
                     <input type="number" min="0" [(ngModel)]="paidAmount" (ngModelChange)="onPaidAmountChange($event)"
                         data-kb-dock-index="1"
                         [class.keyboard-active]="keyboardZone === 'actions' && selectedDockIndex === 1"
-                        (focus)="setKeyboardZone('actions', 1)" />
+                        (focus)="setKeyboardZone('actions', 1)"
+                        (keydown.enter)="$event.preventDefault(); selectInputForEdit($event.target)" />
                 </label>
                 <label *ngIf="paymentMethod === 'cash'">
                     Cash Received
                     <input type="number" min="0" [(ngModel)]="cashReceivedAmount"
                         (ngModelChange)="onCashReceivedAmountChange($event)" data-kb-dock-index="2"
                         [class.keyboard-active]="keyboardZone === 'actions' && selectedDockIndex === 2"
-                        (focus)="setKeyboardZone('actions', 2)" />
+                        (focus)="setKeyboardZone('actions', 2)"
+                        (keydown.enter)="$event.preventDefault(); selectInputForEdit($event.target)" />
                 </label>
                 <label *ngIf="paymentMethod === 'card'">
                     Card Last 4
@@ -570,6 +595,16 @@
                     <span>Close</span>
                     <strong>Press Esc to close any open POS overlay.</strong>
                 </div>
+            </div>
+
+            <div class="modern-shortcuts-standards">
+                <strong>Shared HMS standards (Mac Cmd / Win Ctrl)</strong>
+                <ul>
+                    <li *ngFor="let hint of sharedKeyboardStandards">
+                        <kbd>{{ hint.keys }}</kbd>
+                        <span>{{ hint.action }}</span>
+                    </li>
+                </ul>
             </div>
 
             <div class="modern-shortcuts-list">
@@ -1003,6 +1038,40 @@
             </button>
         </div>
     </div>
+</div>
+
+<div class="modern-modal-backdrop" *ngIf="customerModalOpen" (click)="closeCreateCustomerModal()">
+  <div class="modern-register-card" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+    <div class="modern-register-head">
+      <div>
+        <h3>Create Customer</h3>
+        <p>Name appears on the pharmacy invoice. Credit stays off until you set a credit limit later.</p>
+      </div>
+      <button type="button" class="modal-close" (click)="closeCreateCustomerModal()" aria-label="Close">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
+    <div class="modern-register-body">
+      <label class="modern-register-field">
+        <span>Name *</span>
+        <input type="text" [(ngModel)]="customerForm.name" placeholder="Customer or patient name" />
+      </label>
+      <label class="modern-register-field">
+        <span>Phone</span>
+        <input type="tel" [(ngModel)]="customerForm.phone" placeholder="Optional" />
+      </label>
+      <label class="modern-register-field">
+        <span>City</span>
+        <input type="text" [(ngModel)]="customerForm.city" placeholder="Optional" />
+      </label>
+      <p class="text-muted" style="font-size: 12px; margin: 0;">
+        Credit Limit defaults to 0 — creating a customer does not authorize credit sales.
+      </p>
+      <button type="button" class="modern-register-submit" [disabled]="customerSaving" (click)="saveNewCustomer()">
+        {{ customerSaving ? 'Saving...' : 'Create Customer' }}
+      </button>
+    </div>
+  </div>
 </div>
 
 <div class="pos-tour-offer" *ngIf="tutorialOffer && !tutorialActive">

@@ -144,6 +144,38 @@
   margin: 4px 0 0;
 }
 
+.ward-chart-sticky-head {
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.ward-id-strip {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 6px !important;
+}
+
+.ward-id-chip {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  color: #0f766e;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+}
+
+.ward-id-chip strong {
+  color: #115e59;
+  font-weight: 800;
+}
+
 .ward-patient-facts {
   align-items: center;
   color: #475569;
@@ -182,10 +214,27 @@
   padding: 12px;
 }
 
+.ward-chart-actions-card--sticky {
+  position: sticky;
+  top: 72px;
+  z-index: 19;
+}
+
 .ward-chart-actions {
   display: grid;
   gap: 0.55rem;
   grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.ward-chart-actions--primary {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 0.55rem;
+}
+
+.ward-chart-actions--more {
+  border-top: 1px dashed #e2e8f0;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  padding-top: 0.55rem;
 }
 
 .ward-chart-action {
@@ -204,6 +253,25 @@
   min-height: 72px;
   padding: 10px 8px;
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.ward-chart-action--primary {
+  background: #f8fffe;
+  border-color: #99f6e4;
+  min-height: 64px;
+}
+
+.ward-chart-action--discharge {
+  background: #fff7ed;
+  border-color: #fdba74;
+}
+
+.ward-chart-action--discharge i {
+  color: #c2410c;
+}
+
+.ward-chart-actions--more .ward-chart-action {
+  min-height: 56px;
 }
 
 .ward-chart-action i {
@@ -273,4 +341,79 @@
   .ward-chart-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+.ward-chart-action.is-keyboard-focus {
+  box-shadow: 0 0 0 2px #0f766e;
+}
+
+.kb-hint-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+}
+
+.kb-hint-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.kb-hint-panel ul {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.kb-hint-panel li {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.kb-hint-panel kbd {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 11px;
+  min-width: 140px;
+  padding: 2px 6px;
+}
+
+.ward-handover-snapshot {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+}
+
+.ward-handover-snapshot h3 {
+  font-size: 14px;
+  font-weight: 800;
+  margin: 0 0 4px;
+}
+
+.ward-handover-snapshot dl {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+}
+
+.ward-handover-snapshot dt {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ward-handover-snapshot dd {
+  font-size: 13px;
+  margin: 2px 0 0;
 }

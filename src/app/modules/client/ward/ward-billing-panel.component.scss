@@ -38,9 +38,58 @@
 }
 
 .ward-billing-form h4 {
-  margin: 0 0 0.65rem;
+  margin: 0 0 0.35rem;
   font-size: 0.95rem;
-  color: #019c9d;
+  font-weight: 700;
+}
+
+.ward-billing-hint {
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  margin: 0 0 0.75rem;
+}
+
+.ward-quick-charges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.ward-quick-charge {
+  align-items: flex-start;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 10px;
+  color: #0f766e;
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: column;
+  font-weight: 700;
+  gap: 0.15rem;
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+}
+
+.ward-quick-charge small {
+  color: #334155;
+  font-weight: 600;
+}
+
+.ward-bill-split {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  padding: 0.85rem;
+}
+
+.ward-bill-split h5 {
+  color: #9a3412;
+  font-size: 0.9rem;
+  font-weight: 800;
+  margin: 0 0 0.35rem;
 }
 
 .ward-billing-form__row {
@@ -566,6 +615,92 @@
   --ds-line: #e2e8f0;
   display: grid;
   gap: 1rem;
+}
+
+.ward-discharge-checklist {
+  background: #f8fffe;
+  border: 1px solid #99f6e4;
+  border-radius: 12px;
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+  padding: 0.9rem 1rem;
+}
+
+.ward-discharge-checklist__head h3 {
+  color: var(--ds-ink, #0f172a);
+  font-size: 1rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.ward-discharge-checklist__head p {
+  color: var(--ds-muted, #64748b);
+  font-size: 0.82rem;
+  margin: 0.25rem 0 0;
+}
+
+.ward-discharge-checklist__list {
+  display: grid;
+  gap: 0.55rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ward-discharge-checklist__list li {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 0.65rem 0.75rem;
+}
+
+.ward-discharge-checklist__list li.is-done {
+  border-color: #99f6e4;
+}
+
+.ward-discharge-checklist__list li i {
+  color: #94a3b8;
+  font-size: 1.1rem;
+}
+
+.ward-discharge-checklist__list li.is-done i {
+  color: #0d9488;
+}
+
+.ward-discharge-checklist__list strong {
+  display: block;
+  font-size: 0.88rem;
+}
+
+.ward-discharge-checklist__list span {
+  color: #64748b;
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 0.15rem;
+}
+
+.ward-discharge-checklist__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.ward-discharge-checklist__status {
+  color: #9a3412;
+  flex: 1 1 220px;
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.ward-discharge-checklist__status.is-ready {
+  color: #0f766e;
 }
 
 .ward-discharge__head {

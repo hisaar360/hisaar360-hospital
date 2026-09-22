@@ -1,0 +1,402 @@
+.clinical-visit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0 8px;
+}
+
+.clinical-visit--gynae {
+  gap: 12px;
+}
+
+.gynae-visit {
+  display: grid;
+  gap: 14px 18px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
+  min-width: 0;
+}
+
+.gynae-visit__main,
+.gynae-visit__side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.gynae-visit__visit-type {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+}
+
+.gynae-visit__visit-type label {
+  align-items: center;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.gynae-visit__field {
+  display: grid;
+  gap: 5px;
+}
+
+.gynae-visit__field > span {
+  align-items: center;
+  color: #334155;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.gynae-visit__field > span i {
+  color: #2563eb;
+}
+
+.gynae-visit__field textarea,
+.gynae-visit__field input[type='date'],
+.gynae-visit__field input[type='search'],
+.gynae-visit__vitals-grid input {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.gynae-visit__field textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.gynae-visit__consent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.gynae-visit__consent label {
+  align-items: center;
+  color: #1d4ed8;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 6px;
+}
+
+.gynae-visit__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gynae-visit__chip {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+}
+
+.gynae-visit__chip:hover {
+  background: #dbeafe;
+}
+
+.gynae-visit__diagnosis-box {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.gynae-visit__add-dx {
+  background: #2563eb;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 12px;
+}
+
+.gynae-visit__add-dx:disabled {
+  opacity: 0.5;
+}
+
+.gynae-visit__dx-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gynae-visit__dx-tag {
+  align-items: center;
+  background: #dbeafe;
+  border-radius: 999px;
+  color: #1e3a8a;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  padding: 4px 8px 4px 10px;
+}
+
+.gynae-visit__dx-tag button {
+  background: transparent;
+  border: 0;
+  color: #1e40af;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.gynae-visit__follow-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.gynae-visit__follow-quick button {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+}
+
+.gynae-visit__follow-quick button:hover {
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+
+.gynae-visit__vitals {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.gynae-visit__vitals-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.gynae-visit__vitals-head strong {
+  font-size: 13px;
+}
+
+.gynae-visit__vitals-head > div {
+  display: flex;
+  gap: 10px;
+}
+
+.gynae-visit__link {
+  background: transparent;
+  border: 0;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0;
+}
+
+.gynae-visit__vitals-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.gynae-visit__vitals-grid label {
+  display: grid;
+  gap: 3px;
+}
+
+.gynae-visit__vitals-grid span {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.clinical-visit__quick {
+  display: grid;
+  gap: 8px 12px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.clinical-visit__visit-type {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  grid-column: 1 / -1;
+}
+
+.clinical-visit__visit-type label {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 600;
+  gap: 6px;
+}
+
+.clinical-visit__field {
+  display: grid;
+  gap: 4px;
+}
+
+.clinical-visit__field--full {
+  grid-column: 1 / -1;
+}
+
+.clinical-visit__field > span {
+  color: #374151;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.clinical-visit__field input,
+.clinical-visit__field textarea {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 12px;
+  min-height: 34px;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+.clinical-visit__field textarea {
+  min-height: 56px;
+  resize: vertical;
+}
+
+.clinical-visit__vitals {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.clinical-visit__section-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.clinical-visit__section-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.clinical-visit__link {
+  background: transparent;
+  border: 0;
+  color: #1168c8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0;
+}
+
+.clinical-visit__vitals-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.clinical-visit__vital-chip {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  display: grid;
+  gap: 2px;
+  min-width: 88px;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.clinical-visit__vital-chip span {
+  color: #6b7280;
+  font-size: 10px;
+}
+
+.clinical-visit__vital-chip strong {
+  color: #111827;
+  font-size: 12px;
+}
+
+.clinical-visit__muted {
+  color: #6b7280;
+  font-size: 11px;
+  margin: 0;
+}
+
+.clinical-visit__advanced-toggle {
+  align-items: center;
+  align-self: flex-start;
+  background: transparent;
+  border: 0;
+  color: #1168c8;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.clinical-visit__advanced {
+  border-top: 1px dashed #e5e7eb;
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.clinical-visit__context-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.clinical-visit__context-card {
+  background: #fff;
+  border: 1px solid #edf1f7;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.clinical-visit__context-card strong {
+  display: block;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.clinical-visit__context-card p {
+  color: #4b5563;
+  font-size: 11px;
+  margin: 0;
+}
+
+.clinical-visit__hint {
+  font-style: italic;
+}
+
+@media (max-width: 1100px) {
+  .gynae-visit {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .clinical-visit__quick {
+    grid-template-columns: 1fr;
+  }
+
+  .clinical-visit__context-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -4,6 +4,10 @@ import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { HospitalNotificationItem, HospitalNotificationService } from '../../../core/services/hospital-notification.service';
 import { NotificationSoundService } from '../../../core/services/notification-sound.service';
+import {
+  groupNotificationsByDay,
+  NotificationDayGroup,
+} from '../../../core/services/notification-day-groups.util';
 
 @Component({
   selector: 'app-notifications-page',
@@ -20,6 +24,7 @@ export class NotificationsPageComponent implements OnInit {
   loading = false;
   filter: 'all' | 'unread' = 'all';
   items: HospitalNotificationItem[] = [];
+  groups: NotificationDayGroup[] = [];
   unreadCount = 0;
 
   ngOnInit(): void {
@@ -33,6 +38,7 @@ export class NotificationsPageComponent implements OnInit {
       .pipe(finalize(() => (this.loading = false)))
       .subscribe(({ items, unreadCount }) => {
         this.items = items;
+        this.groups = groupNotificationsByDay(items);
         this.unreadCount = unreadCount;
       });
   }

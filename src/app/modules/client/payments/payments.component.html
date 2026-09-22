@@ -60,7 +60,7 @@
         <div class="pay-kpi-card__icon tone-orange"><i class="fa fa-briefcase"></i></div>
         <div class="pay-kpi-card__body">
           <span>Outstanding Balance</span>
-          <strong>PKR {{ kpiOutstanding | number:'1.0-0' }}</strong>
+          <strong>{{ (kpiOutstanding) | hmsCurrency }}</strong>
           <small>Across loaded patients</small>
         </div>
       </article>
@@ -68,7 +68,7 @@
         <div class="pay-kpi-card__icon tone-green"><i class="fa fa-check-circle"></i></div>
         <div class="pay-kpi-card__body">
           <span>Paid (this page)</span>
-          <strong>PKR {{ kpiPaidOnPage | number:'1.0-0' }}</strong>
+          <strong>{{ (kpiPaidOnPage) | hmsCurrency }}</strong>
           <small>Sum of loaded rows</small>
         </div>
       </article>
@@ -157,16 +157,16 @@
             <div class="pay-mobile-card__amounts">
               <div>
                 <span>Total</span>
-                <strong>PKR {{ (summary.totalCharges ?? summary.netPayable) | number:'1.0-0' }}</strong>
+                <strong>{{ ((summary.totalCharges ?? summary.netPayable)) | hmsCurrency }}</strong>
               </div>
               <div>
                 <span>Paid</span>
-                <strong class="pay-amount-paid">PKR {{ summary.totalPaid | number:'1.0-0' }}</strong>
+                <strong class="pay-amount-paid">{{ (summary.totalPaid) | hmsCurrency }}</strong>
               </div>
               <div>
                 <span>Remaining</span>
                 <strong [class.pay-amount-due]="summary.balance > 0" [class.pay-amount-ok]="summary.balance <= 0">
-                  PKR {{ (summary.balance > 0 ? summary.balance : 0) | number:'1.0-0' }}
+                  {{ ((summary.balance > 0 ? summary.balance : 0)) | hmsCurrency }}
                 </strong>
               </div>
             </div>

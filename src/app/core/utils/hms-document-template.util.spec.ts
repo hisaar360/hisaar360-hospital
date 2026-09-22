@@ -10,8 +10,8 @@ describe('hms document template util', () => {
     expect(escHtml('<b>"x"</b>')).toBe('&lt;b&gt;&quot;x&quot;&lt;/b&gt;');
   });
 
-  it('formats money with PKR prefix', () => {
-    expect(formatHmsMoney(1200)).toContain('PKR');
+  it('formats money with active currency prefix', () => {
+    expect(formatHmsMoney(1200)).toMatch(/^(Rs\.|£|\$|€|₹|PKR|GBP|USD) 1,?200/);
   });
 
   it('builds a single shared document shell', () => {

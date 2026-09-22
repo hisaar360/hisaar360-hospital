@@ -7,6 +7,8 @@ import { inject } from '@angular/core';
 import {
   hasRouteAccess,
   isDoctorRole,
+  isWardDeniedShellPath,
+  isWardOperationalRole,
   readStoredPermissions,
   readStoredRole,
   resolveDefaultRoute,
@@ -24,6 +26,7 @@ import { isHospitalModuleRouteAllowed, isHospitalSetupModuleAllowed } from './ho
 export const roleGuard = (accessRequirement: AccessRequirement): CanActivateFn => {
   return (_route, state) => {
     const permissions = readStoredPermissions();
+    const role = readStoredRole();
     const router = inject(Router);
     const currentPath = state.url.split('?')[0];
 
@@ -31,18 +34,23 @@ export const roleGuard = (accessRequirement: AccessRequirement): CanActivateFn =
       isCurrentLaboratoryEdition() &&
       !isLaboratoryEditionRouteAllowed(currentPath)
     ) {
-      return router.parseUrl(resolveDefaultRoute(permissions));
+      return router.parseUrl(resolveDefaultRoute(permissions, role));
     }
 
     if (!isHospitalModuleRouteAllowed(currentPath)) {
-      return router.parseUrl(resolveDefaultRoute(permissions));
+      return router.parseUrl(resolveDefaultRoute(permissions, role));
+    }
+
+    // Defense in depth: ward roles cannot open Lab/OPD shells even with leftover localStorage perms.
+    if (isWardOperationalRole(role, permissions) && isWardDeniedShellPath(currentPath)) {
+      return router.parseUrl(resolveDefaultRoute(permissions, role));
     }
 
     if (hasRouteAccess(accessRequirement, permissions)) {
       return true;
     }
 
-    const fallbackRoute = resolveDefaultRoute(permissions);
+    const fallbackRoute = resolveDefaultRoute(permissions, role);
 
     if (fallbackRoute !== currentPath) {
       return router.parseUrl(fallbackRoute);

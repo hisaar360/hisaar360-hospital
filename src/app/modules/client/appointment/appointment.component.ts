@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import {
   FormArray,
   FormBuilder,
@@ -8,12 +8,22 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
+import {
+  HMS_KEYBOARD_STANDARDS,
+  HmsKeyboardDirective,
+  HmsKeyboardService,
+  HmsSelectKeyboardDirective,
+  isEditableTarget,
+  isModKey,
+} from '../../../core/keyboard';
 import { BackendService } from '../../../core/services/backend.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { CurrencyService, formatActiveCurrency } from '../../../core/services/currency.service';
 import { resolveAssetUrl } from '../../../core/utils/asset.util';
+import { HmsCurrencyPipe } from '../../../shared/pipes/hms-currency.pipe';
 import { toCalendarYmd, todayYmd } from '../../../core/utils/calendar-date';
 import {
   ageYearsFromIsoDate,
@@ -59,12 +69,19 @@ interface AppointmentToken {
 
 @Component({
   selector: 'app-appointment',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, HmsKeyboardDirective, HmsSelectKeyboardDirective, HmsCurrencyPipe],
   templateUrl: './appointment.component.html',
   styleUrl: './appointment.component.scss',
 })
 export class AppointmentComponent implements OnInit {
+  @ViewChild('appointmentPhoneInput') appointmentPhoneInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('appointmentFeeInput') appointmentFeeInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('appointmentDiscountInput') appointmentDiscountInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('addPatientPhoneInput') addPatientPhoneInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('addPatientModal') addPatientModal?: ElementRef<HTMLElement>;
+
   appointments: Appointment[] = [];
+  appointmentGroups: Array<{ doctorId: string; doctorName: string; items: Appointment[] }> = [];
   patients: Patient[] = [];
   doctors: Doctor[] = [];
   appointmentForm: FormGroup;
@@ -75,12 +92,14 @@ export class AppointmentComponent implements OnInit {
   patientSaving = false;
   exportingAppointments = false;
   status = '';
+  filterDoctorId = '';
   dateFrom = this.todayValue();
   dateTo = this.todayValue();
   page = 1;
   limit = 10;
   totalPages = 0;
   updatingAppointmentIds = new Set<string>();
+  private pendingDoctorId = '';
   readonly appointmentStatusOptions: Array<Appointment['status']> = [
     'pending',
     'confirmed',
@@ -97,6 +116,15 @@ export class AppointmentComponent implements OnInit {
   phoneLookupPerformed = false;
   phoneMatchedPatients: Patient[] = [];
   phoneMatchedTotal = 0;
+  highlightedPatientIndex = 0;
+  keyboardHintOpen = false;
+  readonly keyboardHints = [
+    ...HMS_KEYBOARD_STANDARDS,
+    { keys: '↑ ↓ + Enter', action: 'Select / book patient from results' },
+    { keys: 'Ctrl/Cmd+S', action: 'Save appointment when form is valid' },
+    { keys: 'Ctrl/Cmd+Enter', action: 'Save appointment' },
+    { keys: 'Ctrl/Cmd+D', action: 'Jump to fee / discount' },
+  ];
   /** Fast DOB entry for operators — years only; syncs with dateOfBirth. */
   patientAgeYears: number | null = null;
   readonly maxDateOfBirth = todayIsoDate();
@@ -113,6 +141,7 @@ export class AppointmentComponent implements OnInit {
   vitalDisplayItems: VitalDisplayItem[] = [];
   vitalTrendVisits: VitalTrendVisit[] = [];
   availableSlotOptions: Array<{ startTime: string; endTime: string; durationMinutes: number }> = [];
+  slotAvailabilityReason = '';
   slotsLoading = false;
   slotDurationMinutes = 15;
   readonly defaultVitalKeys = new Set(['bp', 'pulse', 'weight', 'temperature', 'spo2']);
@@ -132,7 +161,10 @@ export class AppointmentComponent implements OnInit {
     readonly offline: MooliOfflineService,
     private toastr: ToastrService,
     private router: Router,
-    private dialog: AppDialogService
+    private route: ActivatedRoute,
+    private dialog: AppDialogService,
+    private keyboard: HmsKeyboardService,
+    private currency: CurrencyService
   ) {
     this.appointmentForm = this.fb.group({
       patientId: ['', Validators.required],
@@ -173,7 +205,7 @@ export class AppointmentComponent implements OnInit {
 
     this.patientForm = this.fb.group({
       firstName: ['', Validators.required],
-      lastName: ['', Validators.required],
+      lastName: [''],
       email: ['', Validators.email],
       phone: [''],
       gender: ['male', Validators.required],
@@ -188,13 +220,218 @@ export class AppointmentComponent implements OnInit {
     });
   }
 
+  readonly onPageKeydown = (event: KeyboardEvent): boolean => {
+    if (this.addPatientModalOpen) {
+      return this.handleAddPatientModalKeydown(event);
+    }
+
+    if (this.vitalsModalOpen || this.vitalsTrendModalOpen) {
+      if (event.key === 'Tab') {
+        return this.trapTabInSelector(
+          event,
+          this.vitalsModalOpen ? '.vitals-modal-dialog' : '.vitals-trend-modal, .modal-backdrop-custom'
+        );
+      }
+      return false;
+    }
+
+    if (this.keyboard.isSaveChord(event)) {
+      if (!this.saving && this.appointmentForm.valid) {
+        this.submitAppointment();
+        return true;
+      }
+      if (!this.saving) {
+        this.submitAttempted = true;
+        this.toastr.error('Complete required appointment fields first.');
+        return true;
+      }
+      return true;
+    }
+
+    if (isModKey(event) && !event.shiftKey && !event.altKey && event.key === 'Enter') {
+      if (!this.saving) {
+        this.submitAppointment();
+      }
+      return true;
+    }
+
+    if (isModKey(event) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'd') {
+      this.focusFeeSection();
+      return true;
+    }
+
+    if (this.keyboard.isFindChord(event) || this.keyboard.isFocusSearchSlash(event)) {
+      this.appointmentPhoneInput?.nativeElement?.focus();
+      this.appointmentPhoneInput?.nativeElement?.select();
+      return true;
+    }
+
+    if (event.key === '?' && !isEditableTarget(event.target) && !event.ctrlKey && !event.metaKey) {
+      this.keyboardHintOpen = !this.keyboardHintOpen;
+      return true;
+    }
+
+    if (
+      this.phoneLookupPerformed &&
+      this.phoneMatchedPatients.length > 0 &&
+      !this.selectedPatient &&
+      !isEditableTarget(event.target)
+    ) {
+      if (event.key === 'ArrowDown') {
+        this.highlightedPatientIndex = Math.min(
+          this.highlightedPatientIndex + 1,
+          this.phoneMatchedPatients.length - 1
+        );
+        return true;
+      }
+      if (event.key === 'ArrowUp') {
+        this.highlightedPatientIndex = Math.max(this.highlightedPatientIndex - 1, 0);
+        return true;
+      }
+      if (event.key === 'Enter') {
+        const pick = this.phoneMatchedPatients[this.highlightedPatientIndex];
+        if (pick) {
+          this.selectPatient(pick);
+          return true;
+        }
+      }
+    }
+
+    return false;
+  };
+
+  private handleAddPatientModalKeydown(event: KeyboardEvent): boolean {
+    if (this.keyboard.isSaveChord(event)) {
+      this.submitPatientFromModal();
+      return true;
+    }
+
+    if (event.key === 'Tab') {
+      return this.trapTabInSelector(event, '.patient-modal');
+    }
+
+    return false;
+  }
+
+  /** Keep Tab inside an open dialog — background fields stay out of the cycle. */
+  private trapTabInSelector(event: KeyboardEvent, selector: string): boolean {
+    const root =
+      this.addPatientModal?.nativeElement ||
+      (typeof document !== 'undefined' ? document.querySelector(selector) : null);
+    if (!root) {
+      return false;
+    }
+
+    const focusables = Array.from(
+      root.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((el) => !el.hasAttribute('disabled') && el.tabIndex !== -1 && el.offsetParent !== null);
+
+    if (!focusables.length) {
+      return false;
+    }
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement as HTMLElement | null;
+
+    if (!active || !root.contains(active)) {
+      first.focus();
+      return true;
+    }
+
+    if (event.shiftKey && active === first) {
+      last.focus();
+      return true;
+    }
+
+    if (!event.shiftKey && active === last) {
+      first.focus();
+      return true;
+    }
+
+    // Focus is inside modal but browser would leave to inert/background — step manually.
+    const index = focusables.indexOf(active);
+    if (index < 0) {
+      first.focus();
+      return true;
+    }
+
+    const next = focusables[index + (event.shiftKey ? -1 : 1)];
+    if (next) {
+      next.focus();
+      return true;
+    }
+
+    (event.shiftKey ? last : first).focus();
+    return true;
+  }
+
+  readonly onPageEscape = (): boolean => {
+    if (this.keyboardHintOpen) {
+      this.keyboardHintOpen = false;
+      return true;
+    }
+    if (this.vitalsTrendModalOpen) {
+      this.closeVitalsTrendsModal();
+      return true;
+    }
+    if (this.vitalsModalOpen) {
+      this.closeVitalsModal();
+      return true;
+    }
+    if (this.addPatientModalOpen) {
+      this.closeAddPatientModal();
+      return true;
+    }
+    return false;
+  };
+
+  toggleKeyboardHint(): void {
+    this.keyboardHintOpen = !this.keyboardHintOpen;
+  }
+
+  focusFeeSection(): void {
+    const fee = this.appointmentFeeInput?.nativeElement;
+    if (fee) {
+      fee.focus();
+      fee.select();
+      fee.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      return;
+    }
+    this.appointmentDiscountInput?.nativeElement?.focus();
+  }
+
   ngOnInit(): void {
+    this.currency.ensureLoaded();
     const currentUser = JSON.parse(localStorage.getItem('user') || 'null') as { hospitalId?: string | null } | null;
     this.currentHospitalId = currentUser?.hospitalId || null;
     this.loadHospitalProfile();
     this.loadLookups();
+
+    const initialDoctorId = String(this.route.snapshot.queryParamMap.get('doctorId') || '').trim();
+    if (initialDoctorId) {
+      this.pendingDoctorId = initialDoctorId;
+      this.filterDoctorId = initialDoctorId;
+    }
+
     this.loadAppointments();
     void this.syncOfflineWork(false);
+
+    this.route.queryParamMap.subscribe((params) => {
+      const doctorId = String(params.get('doctorId') || '').trim();
+      if (doctorId === this.pendingDoctorId) {
+        this.applyPendingDoctorSelection();
+        return;
+      }
+      this.pendingDoctorId = doctorId;
+      this.applyPendingDoctorSelection();
+      if (doctorId && this.filterDoctorId !== doctorId) {
+        this.filterDoctorId = doctorId;
+        this.applyAppointmentFilters();
+      }
+    });
 
     this.vitalsGroup.valueChanges.subscribe(() => this.refreshVitalAnalytics());
     this.customVitals.valueChanges.subscribe(() => this.refreshVitalAnalytics());
@@ -405,6 +642,69 @@ export class AppointmentComponent implements OnInit {
     return Number(this.selectedDoctor?.consultationFee || 0);
   }
 
+  get followUpFeeApplied(): boolean {
+    return Boolean(this.feeSuggestion?.applied);
+  }
+
+  get feeSuggestionLabel(): string {
+    return this.feeSuggestion?.label || '';
+  }
+
+  /** Suggested fee from doctor follow-up rules (same doctor, within N days). */
+  feeSuggestion: { fee: number; applied: boolean; label: string } | null = null;
+
+  resolveFollowUpFee(
+    doctor: Doctor | undefined,
+    lastVisit: PatientLastVisit | null
+  ): { fee: number; applied: boolean; label: string } {
+    const base = Number(doctor?.consultationFee || 0);
+    if (!doctor?.followUpFeeEnabled || !lastVisit?.hasPreviousVisit || lastVisit.daysSinceLastVisit == null) {
+      return { fee: base, applied: false, label: 'Full consultation fee' };
+    }
+
+    const within = Number(doctor.followUpWithinDays || 7);
+    if (Number(lastVisit.daysSinceLastVisit) > within) {
+      return { fee: base, applied: false, label: 'Full consultation fee' };
+    }
+
+    const type = doctor.followUpFeeType || 'half';
+    let fee = base;
+    let label = 'Follow-up fee';
+    if (type === 'fixed') {
+      fee = Number(doctor.followUpFeeAmount || 0);
+      label = `Follow-up fixed fee (within ${within} days)`;
+    } else if (type === 'percent') {
+      const pct = Number(doctor.followUpFeeAmount || 0);
+      fee = Math.round((base * pct) / 100);
+      label = `Follow-up ${pct}% of full fee (within ${within} days)`;
+    } else {
+      fee = Math.round(base / 2);
+      label = `Follow-up half fee (within ${within} days)`;
+    }
+
+    return { fee: Math.max(0, fee), applied: true, label };
+  }
+
+  applySuggestedConsultationFee(): void {
+    const doctor = this.selectedDoctor;
+    const suggestion = this.resolveFollowUpFee(doctor, this.patientLastVisit);
+    this.feeSuggestion = suggestion;
+    this.appointmentForm.patchValue({ consultationFee: suggestion.fee });
+    if (suggestion.applied && this.visitType === 'Consultation') {
+      this.visitType = 'Follow-up';
+    }
+  }
+
+  markFeeManualOverride(): void {
+    if (this.feeSuggestion) {
+      this.feeSuggestion = {
+        ...this.feeSuggestion,
+        applied: false,
+        label: 'Manual fee override',
+      };
+    }
+  }
+
   get selectedDoctorAvailableDaysLabel(): string {
     const days = this.selectedDoctor?.availableDays || [];
     if (!days.length) {
@@ -413,16 +713,23 @@ export class AppointmentComponent implements OnInit {
     return days.map((day) => this.titleCase(String(day))).join(', ');
   }
 
+  isSelectedDateOnLeave(): boolean {
+    const ymd = this.selectedAppointmentYmd();
+    if (!ymd) {
+      return false;
+    }
+    return (this.selectedDoctor?.unavailableDates || []).some(
+      (item) => String(item || '').slice(0, 10) === ymd
+    );
+  }
+
   isSelectedDateAvailable(): boolean {
     const ymd = this.selectedAppointmentYmd();
     if (!ymd) {
       return true;
     }
 
-    const unavailable = (this.selectedDoctor?.unavailableDates || []).some(
-      (item) => String(item || '').slice(0, 10) === ymd
-    );
-    if (unavailable) {
+    if (this.isSelectedDateOnLeave()) {
       return false;
     }
 
@@ -530,7 +837,7 @@ export class AppointmentComponent implements OnInit {
       next: (result) => {
         this.doctors = result.items;
         void this.offline.cacheValue(this.doctorsCacheKey(), this.doctors);
-        if (this.doctors.length === 1 && !this.appointmentForm.value.doctorId) {
+        if (!this.applyPendingDoctorSelection() && this.doctors.length === 1 && !this.appointmentForm.value.doctorId) {
           this.appointmentForm.patchValue({ doctorId: this.doctorBindingId(this.doctors[0]) });
         }
         this.onDoctorChange();
@@ -543,6 +850,7 @@ export class AppointmentComponent implements OnInit {
 
   loadAppointments(): void {
     this.loading = true;
+    const filterDoctorId = String(this.filterDoctorId || '').trim();
     this.backend
       .getAppointments({
         page: this.page,
@@ -550,6 +858,7 @@ export class AppointmentComponent implements OnInit {
         status: this.status,
         dateFrom: this.dateFrom,
         dateTo: this.dateTo,
+        doctorId: filterDoctorId || undefined,
       })
       .pipe(finalize(() => (this.loading = false)))
       .subscribe({
@@ -938,6 +1247,7 @@ export class AppointmentComponent implements OnInit {
     this.phoneLookupPerformed = false;
     this.phoneMatchedPatients = [];
     this.phoneMatchedTotal = 0;
+    this.highlightedPatientIndex = 0;
     this.selectedPatient = null;
     this.patientLastVisit = null;
     this.patients = [];
@@ -957,6 +1267,7 @@ export class AppointmentComponent implements OnInit {
           void this.offline.mergeCachedList(this.patientsCacheKey(), matchedPatients);
           this.phoneMatchedTotal = matchedPatients.length;
           this.phoneLookupPerformed = true;
+          this.highlightedPatientIndex = 0;
 
           if (matchedPatients.length === 0) {
             this.toastr.info('No patient found against this phone number');
@@ -988,19 +1299,31 @@ export class AppointmentComponent implements OnInit {
   loadPatientLastVisit(patientId: string): void {
     if (!patientId) {
       this.patientLastVisit = null;
+      this.feeSuggestion = null;
       return;
     }
 
     this.lastVisitLoading = true;
+    const doctorId = String(this.appointmentForm.value.doctorId || '').trim();
+    const params: Record<string, unknown> = {};
+    if (this.editingId) {
+      params['excludeAppointmentId'] = this.editingId;
+    }
+    if (doctorId) {
+      params['doctorId'] = doctorId;
+    }
+
     this.backend
-      .getPatientLastVisit(patientId, this.editingId ? { excludeAppointmentId: this.editingId } : undefined)
+      .getPatientLastVisit(patientId, params)
       .pipe(finalize(() => (this.lastVisitLoading = false)))
       .subscribe({
         next: (lastVisit) => {
           this.patientLastVisit = lastVisit;
+          this.applySuggestedConsultationFee();
         },
         error: () => {
           this.patientLastVisit = null;
+          this.applySuggestedConsultationFee();
         },
       });
   }
@@ -1011,14 +1334,20 @@ export class AppointmentComponent implements OnInit {
     }
 
     if (!this.patientLastVisit?.hasPreviousVisit || !this.patientLastVisit.lastVisitDate) {
-      return 'No previous visit found. This looks like a new visit for this patient.';
+      return 'No previous visit with this doctor. Full consultation fee applies.';
     }
 
     const parts = [
-      `Last visit: ${this.shortDate(this.patientLastVisit.lastVisitDate)}`,
+      `Last visit with this doctor: ${this.shortDate(this.patientLastVisit.lastVisitDate)}`,
+      this.patientLastVisit.daysSinceLastVisit != null
+        ? `${this.patientLastVisit.daysSinceLastVisit} day(s) ago`
+        : '',
       this.patientLastVisit.lastVisitType ? this.patientLastVisit.lastVisitType : '',
-      this.patientLastVisit.lastDoctorName ? `Dr ${this.patientLastVisit.lastDoctorName}` : '',
     ].filter(Boolean);
+
+    if (this.feeSuggestion?.applied) {
+      parts.push(this.feeSuggestion.label);
+    }
 
     return parts.join(' · ');
   }
@@ -1026,10 +1355,18 @@ export class AppointmentComponent implements OnInit {
   onDoctorChange(): void {
     this.patchDepartmentFromDoctor(this.appointmentForm.value.doctorId);
     const doctor = this.selectedDoctor;
-    const consultationFee = Number(doctor?.consultationFee || 0);
     this.slotDurationMinutes = this.selectedSlotDurationMinutes;
-    this.appointmentForm.patchValue({ consultationFee });
+    const nextFee = Number(doctor?.consultationFee || 0);
+    if (Number(this.appointmentForm.value.consultationFee || 0) !== nextFee) {
+      this.appointmentForm.patchValue({ consultationFee: nextFee }, { emitEvent: false });
+    }
     this.refreshAvailableSlots();
+    const patientId = String(this.appointmentForm.value.patientId || this.selectedPatient?._id || '').trim();
+    if (patientId) {
+      this.loadPatientLastVisit(patientId);
+    } else {
+      this.applySuggestedConsultationFee();
+    }
   }
 
   onPaymentStatusChange(): void {
@@ -1045,9 +1382,13 @@ export class AppointmentComponent implements OnInit {
     }
   }
 
+  get currencyLabel(): string {
+    return this.currency.label;
+  }
+
   formatConsultationFee(value?: number | null, discount?: number | null): string {
     const amount = Number(value || 0);
-    return amount > 0 ? `PKR ${amount.toLocaleString('en-PK')}` : 'Not set';
+    return amount > 0 ? formatActiveCurrency(amount, { fractionDigits: 0 }) : 'Not set';
   }
 
   formatAppointmentFee(appointment: Appointment): string {
@@ -1056,7 +1397,7 @@ export class AppointmentComponent implements OnInit {
     const net = Number(appointment.netFee ?? Math.max(fee - discount, 0));
 
     if (discount > 0) {
-      return `PKR ${net.toLocaleString('en-PK')} (-${discount.toLocaleString('en-PK')})`;
+      return `${formatActiveCurrency(net, { fractionDigits: 0 })} (-${Number(discount).toLocaleString('en-PK')})`;
     }
 
     return this.formatConsultationFee(fee);
@@ -1269,7 +1610,24 @@ export class AppointmentComponent implements OnInit {
       currentMedications: '',
     });
     this.patientAgeYears = null;
+    // Drop focus from background (e.g. open doctor <select>) before dialog mounts.
+    (document.activeElement as HTMLElement | null)?.blur?.();
     this.addPatientModalOpen = true;
+    this.focusAddPatientPhone();
+  }
+
+  private focusAddPatientPhone(): void {
+    // Wait for *ngIf modal + inputs to render.
+    window.setTimeout(() => {
+      const phone = this.addPatientPhoneInput?.nativeElement;
+      if (!phone) {
+        return;
+      }
+      phone.focus();
+      if (phone.value) {
+        phone.select();
+      }
+    }, 0);
   }
 
   onPatientAgeYearsInput(): void {
@@ -1308,7 +1666,7 @@ export class AppointmentComponent implements OnInit {
     const value = this.patientForm.value;
     const payload: Record<string, unknown> = {
       firstName: value.firstName,
-      lastName: value.lastName,
+      lastName: value.lastName || '',
       email: value.email || undefined,
       phone: value.phone || undefined,
       gender: value.gender,
@@ -1457,6 +1815,7 @@ export class AppointmentComponent implements OnInit {
 
   private async loadCachedDoctors(): Promise<void> {
     this.doctors = await this.offline.readCachedValue<Doctor[]>(this.doctorsCacheKey(), []);
+    this.applyPendingDoctorSelection();
     this.onDoctorChange();
   }
 
@@ -1474,8 +1833,44 @@ export class AppointmentComponent implements OnInit {
   private async applyAppointmentList(items: Appointment[], totalPages: number): Promise<void> {
     this.appointments = this.mergeAppointments([...(await this.localQueuedAppointments()), ...items])
       .filter((appointment) => this.appointmentMatchesFilters(appointment));
+    this.rebuildAppointmentGroups();
     this.totalPages = totalPages;
     this.refreshVitalAnalytics();
+  }
+
+  private rebuildAppointmentGroups(): void {
+    const groups = new Map<string, { doctorId: string; doctorName: string; items: Appointment[] }>();
+
+    for (const appointment of this.appointments) {
+      const doctorId = String(appointment.doctorId || appointment.doctor?._id || 'unknown');
+      const doctorName =
+        appointment.doctor?.name || this.findDoctorByUserId(doctorId)?.user?.name || 'Doctor';
+      const existing = groups.get(doctorId);
+      if (existing) {
+        existing.items.push(appointment);
+      } else {
+        groups.set(doctorId, { doctorId, doctorName, items: [appointment] });
+      }
+    }
+
+    this.appointmentGroups = Array.from(groups.values()).sort((left, right) =>
+      left.doctorName.localeCompare(right.doctorName),
+    );
+  }
+
+  trackAppointmentGroup(
+    _index: number,
+    group: { doctorId: string; doctorName: string; items: Appointment[] },
+  ): string {
+    return group.doctorId;
+  }
+
+  trackAppointment(_index: number, appointment: Appointment): string {
+    return appointment._id;
+  }
+
+  trackErrorMessage(index: number, error: string): string {
+    return `${index}:${error}`;
   }
 
   private patientVitalHistory(): Array<{ createdAt?: string; vitals?: Record<string, string> | null }> {
@@ -1810,6 +2205,24 @@ export class AppointmentComponent implements OnInit {
     );
   }
 
+  get appointmentsListTitle(): string {
+    if (this.filterDoctorId) {
+      const doctor =
+        this.findDoctorByUserId(this.filterDoctorId) ||
+        this.doctors.find((item) => String(item._id) === this.filterDoctorId);
+      const name = doctor?.user?.name || doctor?.specialization || 'Doctor';
+      return `${name}'s Appointments`;
+    }
+    if (this.dateFrom && this.dateTo && this.dateFrom === this.dateTo && this.dateFrom === this.todayValue()) {
+      return "Today's Appointments";
+    }
+    return 'Appointments';
+  }
+
+  filterDoctorLabel(doctor: Doctor): string {
+    return this.doctorOptionLabel(doctor);
+  }
+
   private appointmentMatchesFilters(appointment: Appointment): boolean {
     if (this.status && appointment.status !== this.status) {
       return false;
@@ -1822,6 +2235,14 @@ export class AppointmentComponent implements OnInit {
 
     if (this.dateTo && appointmentDate > this.dateTo) {
       return false;
+    }
+
+    const filterDoctorId = String(this.filterDoctorId || '').trim();
+    if (filterDoctorId) {
+      const appointmentDoctorId = String(appointment.doctorId || '').trim();
+      if (appointmentDoctorId !== filterDoctorId) {
+        return false;
+      }
     }
 
     return true;
@@ -1837,6 +2258,7 @@ export class AppointmentComponent implements OnInit {
       this.page,
       this.limit,
       this.status || 'all',
+      this.filterDoctorId || 'all-doctors',
       this.dateFrom || 'from',
       this.dateTo || 'to',
     );
@@ -1881,6 +2303,7 @@ export class AppointmentComponent implements OnInit {
     const date = this.selectedAppointmentYmd();
     if (!doctorId || !date) {
       this.availableSlotOptions = [];
+      this.slotAvailabilityReason = '';
       return;
     }
 
@@ -1891,6 +2314,7 @@ export class AppointmentComponent implements OnInit {
       .subscribe({
         next: (result) => {
           this.slotDurationMinutes = Number(result.durationMinutes || 15);
+          this.slotAvailabilityReason = String(result.reason || '').trim();
           const today = todayYmd();
           const now = this.formatTime(new Date());
           this.availableSlotOptions = (result.slots || []).filter((slot) => {
@@ -1899,9 +2323,15 @@ export class AppointmentComponent implements OnInit {
             }
             return slot.startTime > now;
           });
+          if (!this.availableSlotOptions.length && this.isSelectedDateOnLeave()) {
+            this.slotAvailabilityReason = 'Doctor is on leave on that date';
+          }
         },
         error: () => {
           this.availableSlotOptions = [];
+          this.slotAvailabilityReason = this.isSelectedDateOnLeave()
+            ? 'Doctor is on leave on that date'
+            : '';
         },
       });
   }
@@ -1976,13 +2406,17 @@ export class AppointmentComponent implements OnInit {
     if (!value.appointmentDate) {
       errors.push('Date: select an appointment date.');
     } else if (value.doctorId && !this.isSelectedDateAvailable()) {
-      const weekday = this.selectedAppointmentWeekdayLabel;
-      const available = this.selectedDoctorAvailableDaysLabel;
-      errors.push(
-        weekday
-          ? `Date: doctor is not available on ${weekday}. Working days: ${available}.`
-          : `Date: doctor is not available on this date. Working days: ${available}.`
-      );
+      if (this.isSelectedDateOnLeave()) {
+        errors.push('Date: doctor is on leave on this date (not available for appointments).');
+      } else {
+        const weekday = this.selectedAppointmentWeekdayLabel;
+        const available = this.selectedDoctorAvailableDaysLabel;
+        errors.push(
+          weekday
+            ? `Date: doctor is not available on ${weekday}. Working days: ${available}.`
+            : `Date: doctor is not available on this date. Working days: ${available}.`
+        );
+      }
     }
 
     if (this.isTimeSlotMissing()) {
@@ -2065,9 +2499,38 @@ export class AppointmentComponent implements OnInit {
     return this.doctors.find((doctor) => this.doctorBindingId(doctor) === target);
   }
 
+  private applyPendingDoctorSelection(): boolean {
+    const target = String(this.pendingDoctorId || '').trim();
+    if (!target || !this.doctors.length) {
+      return false;
+    }
+
+    const match =
+      this.doctors.find((doctor) => this.doctorBindingId(doctor) === target) ||
+      this.doctors.find((doctor) => String(doctor._id || '').trim() === target);
+
+    if (!match) {
+      return false;
+    }
+
+    const bindingId = this.doctorBindingId(match);
+    if (!bindingId) {
+      return false;
+    }
+
+    if (String(this.appointmentForm.value.doctorId || '').trim() !== bindingId) {
+      this.appointmentForm.patchValue({ doctorId: bindingId });
+      this.onDoctorChange();
+    }
+    return true;
+  }
+
   private patchDepartmentFromDoctor(userId?: string | null): void {
     const departmentId = this.findDoctorByUserId(userId)?.departmentId || '';
-    this.appointmentForm.patchValue({ departmentId });
+    if (String(this.appointmentForm.value.departmentId || '') === String(departmentId || '')) {
+      return;
+    }
+    this.appointmentForm.patchValue({ departmentId }, { emitEvent: false });
   }
 
   private buildAppointmentToken(
@@ -2096,9 +2559,7 @@ export class AppointmentComponent implements OnInit {
       consultationFee: this.formatConsultationFee(
         appointment.consultationFee ?? doctorRecord?.consultationFee
       ),
-      discount: appointment.discount
-        ? `PKR ${Number(appointment.discount).toLocaleString('en-PK')}`
-        : 'PKR 0',
+      discount: formatActiveCurrency(Number(appointment.discount || 0), { fractionDigits: 0 }),
       netFee: this.formatConsultationFee(
         appointment.netFee ??
           Math.max(

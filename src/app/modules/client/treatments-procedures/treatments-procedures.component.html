@@ -121,7 +121,7 @@
             <th>Treatment / Procedure</th>
             <th>Type</th>
             <th>Department</th>
-            <th>Rate (PKR)</th>
+            <th>Rate ({{ currencyLabel }})</th>
             <th>Duration</th>
             <th>Status</th>
             <th>Actions</th>
@@ -288,9 +288,9 @@
             </select>
           </label>
           <label>
-            <span>Standard Rate (PKR) <em>*</em></span>
+            <span>Standard Rate ({{ currencyLabel }}) <em>*</em></span>
             <div class="tp-input-prefix">
-              <span class="tp-input-prefix__addon">Rs.</span>
+              <span class="tp-input-prefix__addon">{{ currencyLabel }}</span>
               <input type="number" min="0" formControlName="baseRate" />
             </div>
             <small class="tp-hint">Standard charge for this procedure</small>

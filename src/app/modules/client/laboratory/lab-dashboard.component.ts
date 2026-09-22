@@ -5,6 +5,8 @@ import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
+import { CurrencyService } from '../../../core/services/currency.service';
+import { HmsCurrencyPipe } from '../../../shared/pipes/hms-currency.pipe';
 import { LabDashboardStats, LabOrder, LabOrderStatus, Hospital, User } from '../../../shared/models/hospital.model';
 import { printLabSampleLabels } from './lab-sample-label.builder';
 import { canEditLabOrder, hasPendingSampleCollection } from './lab-order.utils';
@@ -13,7 +15,7 @@ type LabTab = 'all' | LabOrderStatus;
 
 @Component({
   selector: 'app-lab-dashboard',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, HmsCurrencyPipe],
   templateUrl: './lab-dashboard.component.html',
   styleUrl: './lab-dashboard.component.scss',
 })
@@ -55,10 +57,12 @@ export class LabDashboardComponent implements OnInit, OnDestroy {
   constructor(
     private backend: BackendService,
     private toastr: ToastrService,
-    private router: Router
+    private router: Router,
+    private currency: CurrencyService
   ) {}
 
   ngOnInit(): void {
+    this.currency.ensureLoaded();
     this.loadHospital();
     this.loadDashboard();
   }

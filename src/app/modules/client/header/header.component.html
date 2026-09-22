@@ -61,24 +61,27 @@
   </header>
 
   <div class="hms-notification-drawer__list">
-    <article
-      *ngFor="let item of notificationItems"
-      class="hms-notification-item"
-      [class.unread]="!item.isRead"
-      data-testid="notification-item"
-      (click)="openNotification(item)"
-    >
-      <span class="hms-notification-item__timeline" [class.is-unread]="!item.isRead"></span>
-      <div class="hms-notification-item__icon"><i class="fa fa-info-circle"></i></div>
-      <div class="hms-notification-item__body">
-        <div class="hms-notification-item__head">
-          <strong>{{ item.title }}</strong>
-          <small>{{ item.createdAt | date:'shortTime' }}</small>
+    <section class="hms-notification-day" *ngFor="let group of notificationGroups">
+      <h3 class="hms-notification-day__label">{{ group.label }}</h3>
+      <article
+        *ngFor="let item of group.items"
+        class="hms-notification-item"
+        [class.unread]="!item.isRead"
+        data-testid="notification-item"
+        (click)="openNotification(item)"
+      >
+        <span class="hms-notification-item__timeline" [class.is-unread]="!item.isRead"></span>
+        <div class="hms-notification-item__icon"><i class="fa fa-info-circle"></i></div>
+        <div class="hms-notification-item__body">
+          <div class="hms-notification-item__head">
+            <strong>{{ item.title }}</strong>
+            <small>{{ item.createdAt | date:'shortTime' }}</small>
+          </div>
+          <p>{{ item.message }}</p>
         </div>
-        <p>{{ item.message }}</p>
-      </div>
-      <i class="fa fa-chevron-right hms-notification-item__chevron"></i>
-    </article>
+        <i class="fa fa-chevron-right hms-notification-item__chevron"></i>
+      </article>
+    </section>
     <p class="hms-notification-drawer__empty" *ngIf="!notificationItems.length">
       You're all caught up!<br>
       We'll notify you when there's something new.

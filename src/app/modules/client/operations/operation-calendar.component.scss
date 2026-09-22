@@ -820,6 +820,83 @@
   font-weight: 700;
 }
 
+.ops-safety-banner {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.ops-safety-banner .ops-warn {
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 8px 0 0;
+}
+
+.ops-safety-banner .ops-hint {
+  color: var(--ops-muted);
+  font-size: 12px;
+  margin: 6px 0 0;
+}
+
+.ops-confirmed {
+  color: #15803d;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.ops-unconfirmed {
+  color: #b45309;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.ops-safety-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 10px;
+}
+
+.ops-safety-actions label {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ops-muted);
+}
+
+.ops-safety-actions input,
+.ops-safety-actions select {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.ops-safety-phases {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ops-phase {
+  background: #e2e8f0;
+  border-radius: 999px;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+}
+
+.ops-phase.is-done {
+  background: #dcfce7;
+  color: #166534;
+}
+
 .ops-team {
   display: grid;
   gap: 8px;

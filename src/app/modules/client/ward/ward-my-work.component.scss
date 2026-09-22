@@ -1,0 +1,193 @@
+@use './ward-shared.scss';
+
+.ward-my-work-page {
+  --ward-primary: #2563eb;
+}
+
+.ward-work-counts {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.ward-work-btn {
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+}
+
+.ward-work-btn--primary {
+  background: var(--ward-primary);
+  border: 1px solid var(--ward-primary);
+  color: #fff;
+}
+
+.ward-work-error {
+  align-items: center;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 12px;
+  color: #9f1239;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+}
+
+.ward-work-section {
+  margin-bottom: 14px;
+}
+
+.ward-work-section__header {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.ward-work-section__header h2 {
+  align-items: center;
+  display: flex;
+  font-size: 14px;
+  font-weight: 800;
+  gap: 6px;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.ward-work-section__header span {
+  color: var(--ward-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ward-work-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.ward-work-card {
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.ward-work-card--overdue {
+  border-color: #fca5a5;
+}
+
+.ward-work-card--clickable {
+  cursor: pointer;
+}
+
+.ward-work-card--clickable:focus-visible {
+  outline: 2px solid var(--ward-primary);
+  outline-offset: 2px;
+}
+
+.ward-work-card__header {
+  align-items: start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.ward-work-card__header strong {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ward-work-badge {
+  align-items: center;
+  background: #fef3c7;
+  border-radius: 999px;
+  color: #b45309;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 800;
+  gap: 4px;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+}
+
+.ward-work-badge--overdue {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ward-work-card__patient {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.ward-work-card__meta {
+  align-items: center;
+  color: var(--ward-muted);
+  display: flex;
+  font-size: 11px;
+  gap: 8px;
+  margin: 0;
+}
+
+.ward-work-priority {
+  align-items: center;
+  color: #b91c1c;
+  display: inline-flex;
+  font-weight: 800;
+  gap: 4px;
+}
+
+.ward-work-card__desc {
+  color: var(--ward-muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.ward-work-empty {
+  padding: 16px 12px;
+}
+
+.ward-work-skeleton-tile,
+.ward-work-skeleton-card {
+  animation: ward-work-pulse 1.4s ease-in-out infinite;
+  background: #e2e8f0;
+  border-radius: 12px;
+}
+
+.ward-work-skeleton-tile {
+  min-height: 62px;
+}
+
+.ward-work-skeleton-card {
+  min-height: 96px;
+}
+
+@keyframes ward-work-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (max-width: 767px) {
+  .ward-work-list {
+    grid-template-columns: 1fr;
+  }
+
+  .ward-work-counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -37,6 +37,7 @@
             <th>Sample</th>
             <th>Tube</th>
             <th>Price</th>
+            <th>Package</th>
             <th>TAT</th>
             <th>Parameters</th>
             <th>Status</th>
@@ -50,7 +51,8 @@
             <td data-label="Department">{{ test.department }}</td>
             <td data-label="Sample">{{ test.sampleType }}</td>
             <td data-label="Tube">{{ test.tubeType || '—' }}</td>
-            <td data-label="Price">Rs. {{ test.price }}</td>
+            <td data-label="Price">{{ test.price | hmsCurrency }}</td>
+            <td data-label="Package">{{ (test.packageRate ?? 0) | hmsCurrency }}</td>
             <td data-label="TAT">{{ test.turnaroundHours }}h</td>
             <td data-label="Parameters" class="catalog-params-cell">{{ test.summaryText }}</td>
             <td data-label="Status">
@@ -63,13 +65,17 @@
                 <i class="fa fa-pencil"></i>
                 <span>Edit</span>
               </button>
+              <button type="button" class="btn-light btn-sm btn-danger-outline" (click)="deleteTest(test)">
+                <i class="fa fa-trash"></i>
+                <span>Delete</span>
+              </button>
             </td>
           </tr>
           <tr *ngIf="loading">
-            <td [attr.colspan]="canUpdateTest() ? 10 : 9" class="lab-empty"><i class="fa fa-spinner fa-spin"></i> Loading catalog...</td>
+            <td [attr.colspan]="canUpdateTest() ? 11 : 10" class="lab-empty"><i class="fa fa-spinner fa-spin"></i> Loading catalog...</td>
           </tr>
           <tr *ngIf="!loading && tests.length === 0">
-            <td [attr.colspan]="canUpdateTest() ? 10 : 9" class="lab-empty">No tests in catalog.</td>
+            <td [attr.colspan]="canUpdateTest() ? 11 : 10" class="lab-empty">No tests in catalog.</td>
           </tr>
         </tbody>
       </table>
@@ -169,8 +175,12 @@
         </header>
         <div class="form-grid form-grid-pricing">
           <label class="form-field">
-            <span>Price (Rs.)</span>
+            <span>Standard Price</span>
             <input type="number" min="0" [(ngModel)]="form.price" placeholder="0" />
+          </label>
+          <label class="form-field">
+            <span>Package Rate</span>
+            <input type="number" min="0" [(ngModel)]="form.packageRate" placeholder="0" />
           </label>
           <label class="form-field">
             <span>TAT (hours)</span>

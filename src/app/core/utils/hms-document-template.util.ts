@@ -3,6 +3,7 @@ import {
   HmsDocumentMetaRow,
   HmsStandardDocumentOptions,
 } from '../services/hms-document.types';
+import { getHmsCurrencyCode, getHmsCurrencyLabel } from '../services/currency.service';
 
 export function escHtml(value: unknown): string {
   return String(value ?? '')
@@ -26,10 +27,11 @@ export function formatHmsDateTime(value?: string | Date | null): string {
   return date.toLocaleString('en-GB');
 }
 
-export function formatHmsMoney(value: unknown, currency = 'PKR'): string {
+export function formatHmsMoney(value: unknown, currency?: string): string {
   const parsed = Number(value ?? 0);
-  if (!Number.isFinite(parsed)) return `${currency} 0`;
-  return `${currency} ${parsed.toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  const prefix = String(currency || getHmsCurrencyLabel() || getHmsCurrencyCode() || 'PKR');
+  if (!Number.isFinite(parsed)) return `${prefix} 0`;
+  return `${prefix} ${parsed.toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
 
 export function patientDisplayName(patient?: { firstName?: string; lastName?: string; patientNo?: string } | null): string {

@@ -551,7 +551,7 @@
             <small>{{ fieldError(roomForm, 'capacity', 'Capacity') }}</small>
           </label>
           <label class="ward-simple-field" [class.is-invalid]="isFieldInvalid(roomForm, 'dailyCharge')">
-            <span>Daily Charge (Rs.)</span>
+            <span>Daily Charge ({{ currencyLabel }})</span>
             <div class="ward-field-control">
               <i class="fa fa-money" aria-hidden="true"></i>
               <input type="number" min="0" formControlName="dailyCharge" placeholder="e.g. 2500" />
@@ -661,7 +661,7 @@
             <small>{{ fieldError(bedForm, 'status', 'Status') }}</small>
           </label>
           <label class="ward-simple-field ward-simple-field--full" [class.is-invalid]="isFieldInvalid(bedForm, 'dailyCharge')">
-            <span>Daily Charge (Rs.)</span>
+            <span>Daily Charge ({{ currencyLabel }})</span>
             <div class="ward-field-control">
               <i class="fa fa-money" aria-hidden="true"></i>
               <input type="number" min="0" formControlName="dailyCharge" placeholder="e.g. 2500" />

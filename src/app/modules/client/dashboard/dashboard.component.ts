@@ -1,4 +1,4 @@
-import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NgApexchartsModule } from 'ng-apexcharts';
@@ -22,6 +22,7 @@ import {
   isWardModuleEnabled,
 } from '../../auth/hospital-modules';
 import { canAccessHospitalSetup } from '../../auth/hospital-scope';
+import { HmsCurrencyPipe } from '../../../shared/pipes/hms-currency.pipe';
 import {
   Appointment,
   DashboardActivityItem,
@@ -72,7 +73,7 @@ interface QuickAction {
 
 @Component({
   selector: 'app-dashboard',
-  imports: [RouterLink, CommonModule, NgApexchartsModule, DatePipe, CurrencyPipe],
+  imports: [RouterLink, CommonModule, NgApexchartsModule, DatePipe, HmsCurrencyPipe],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })

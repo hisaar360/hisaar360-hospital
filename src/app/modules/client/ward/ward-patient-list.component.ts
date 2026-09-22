@@ -8,11 +8,11 @@ import {
   OnInit,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { hasRouteAccess, readStoredPermissions } from '../../auth/access-control';
+import { hasRouteAccess, isDoctorRole, isNurseRole, readStoredPermissions, readStoredRole } from '../../auth/access-control';
 import { User } from '../../../shared/models/hospital.model';
 import {
   PatientStatus,
@@ -88,8 +88,20 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
     unassignedNurseOnly: false,
   };
 
+  pickPatientHint = false;
+  private nextChartTab = '';
+  readonly pageTitle = isDoctorRole(readStoredRole())
+    ? 'My Inpatients'
+    : isNurseRole(readStoredRole())
+      ? 'My Patients'
+      : 'Patients';
+  readonly pageSubtitle = isDoctorRole(readStoredRole())
+    ? 'Your currently admitted patients — open a card to review, order, or recommend discharge.'
+    : 'Find admitted patients by MRN, name, or bed — then open the chart for drip, medicine, and discharge.';
+
   constructor(
     private router: Router,
+    private route: ActivatedRoute,
     private toastr: ToastrService,
     private cdr: ChangeDetectorRef,
     private wardData: WardDataService
@@ -97,6 +109,11 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.syncViewportMode();
+    this.pickPatientHint = this.route.snapshot.queryParamMap.get('pickPatient') === '1';
+    this.nextChartTab = this.route.snapshot.queryParamMap.get('nextTab') || '';
+    if (this.pickPatientHint) {
+      this.toastr.info('Select a patient to continue on their chart.');
+    }
     this.loadPatients();
   }
 
@@ -378,7 +395,9 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
   }
 
   viewPatient(patient: WardPatient): void {
-    void this.router.navigate(['/ward/patient-detail', patient.admissionId]);
+    void this.router.navigate(['/ward/patient-detail', patient.admissionId], {
+      queryParams: this.nextChartTab ? { tab: this.nextChartTab } : undefined,
+    });
   }
 
   readonly moreMenuItems: HmsActionMenuItem[] = [
@@ -390,14 +409,18 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
   ];
 
   onMoreAction(patient: WardPatient, item: HmsActionMenuItem): void {
-    const routes: Record<string, string> = {
-      'View MAR': '/ward/mar',
-      'View Vitals': '/ward/vitals',
-      'View Drips / IV': '/ward/drips-iv',
-      'Nursing Notes': '/ward/nursing-care',
-      'Discharge Clearance': '/ward/admissions',
+    const tabs: Record<string, string> = {
+      'View MAR': 'medicines',
+      'View Vitals': 'vitals',
+      'View Drips / IV': 'drips',
+      'Nursing Notes': 'nursing',
+      'Discharge Clearance': 'discharge',
     };
-    this.navigateWithAdmission(routes[item.label], patient);
+    const tab = tabs[item.label];
+    this.openMenuAdmissionId = null;
+    void this.router.navigate(['/ward/patient-detail', patient.admissionId], {
+      queryParams: tab ? { tab } : undefined,
+    });
   }
 
   assignNurse(patient: WardPatient): void {

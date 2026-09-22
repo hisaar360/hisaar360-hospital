@@ -23,7 +23,7 @@
         <div>
           <span>{{ card.label }}</span>
           <strong *ngIf="!card.isCurrency">{{ loading ? '...' : card.value }}</strong>
-          <strong *ngIf="card.isCurrency">{{ loading ? '...' : (card.value | currency:'PKR':'symbol-narrow':'1.0-0') }}</strong>
+          <strong *ngIf="card.isCurrency">{{ loading ? '...' : (card.value | hmsCurrency) }}</strong>
           <small>{{ card.hint }}</small>
         </div>
       </article>
@@ -33,7 +33,7 @@
       <article class="hms-kpi-card hms-kpi-card--compact" *ngFor="let card of secondaryKpis" [ngClass]="card.tone">
         <span>{{ card.label }}</span>
         <strong *ngIf="!card.isCurrency">{{ loading ? '...' : card.value }}</strong>
-        <strong *ngIf="card.isCurrency">{{ loading ? '...' : (card.value | currency:'PKR':'symbol-narrow':'1.0-0') }}</strong>
+        <strong *ngIf="card.isCurrency">{{ loading ? '...' : (card.value | hmsCurrency) }}</strong>
         <small>{{ card.hint }}</small>
       </article>
     </section>
@@ -46,7 +46,7 @@
             <small>All time GL posted revenue</small>
           </div>
           <div class="hms-revenue-summary">
-            <strong>{{ loading ? '...' : (summary.totalRevenue | currency:'PKR':'symbol-narrow':'1.0-0') }}</strong>
+            <strong>{{ loading ? '...' : (summary.totalRevenue | hmsCurrency) }}</strong>
             <span>Total Revenue</span>
           </div>
         </section>
@@ -199,7 +199,7 @@
                   <td>{{ doctorName(appointment) }}</td>
                   <td>{{ appointment.startTime || '-' }}</td>
                   <td><span class="badge" [ngClass]="statusClass(appointment.status)">{{ statusLabel(appointment.status) }}</span></td>
-                  <td>{{ appointment.consultationFee || 0 | currency:'PKR':'symbol-narrow':'1.0-0' }}</td>
+                  <td>{{ (appointment.consultationFee || 0) | hmsCurrency }}</td>
                 </tr>
               </tbody>
             </table>

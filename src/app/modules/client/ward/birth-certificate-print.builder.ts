@@ -1,3 +1,4 @@
+import { printHtmlJob } from '../../../core/keyboard/print-job.util';
 import { resolveAssetUrl } from '../../../core/utils/asset.util';
 
 export interface BirthCertificateSnapshot {
@@ -86,6 +87,9 @@ export interface BirthRecordItem {
   birthOrder?: number;
   motherNameSnapshot?: string;
   motherMRNoSnapshot?: string;
+  motherCNICSnapshot?: string;
+  fatherName?: string;
+  fatherCNIC?: string;
   babyPatient?: Record<string, unknown>;
   motherPatient?: Record<string, unknown>;
   activeCertificate?: BirthCertificateRecord | null;
@@ -236,16 +240,15 @@ export function buildBirthCertificatePrintHtml(options: {
       ? String(certificate.qrCodeDataUrl || '').trim() || buildQrImageUrl(verifyUrl)
       : '';
 
-  const motherCnic = displayValue(mother.cnic, '');
-  const fatherCnic = displayValue(father.cnic, '');
-  const motherCnicRow =
-    printOptions.showMotherCnic && motherCnic ? fieldRow('Mother CNIC', motherCnic) : '';
-  const fatherCnicRow =
-    printOptions.showFatherCnic && fatherCnic ? fieldRow('Father CNIC', fatherCnic) : '';
-  const weightRow =
-    printOptions.showBirthWeight !== false && baby.birthWeightGrams
-      ? fieldRow('Birth Weight', `${baby.birthWeightGrams} g`)
-      : '';
+  // Always print on hospital certificate (Ward collects Mother/Father CNIC, gender, weight).
+  const motherCnicRow = fieldRow('Mother CNIC', displayValue(mother.cnic));
+  const fatherCnicRow = fieldRow('Father CNIC', displayValue(father.cnic));
+  const weightRow = fieldRow(
+    'Birth Weight',
+    baby.birthWeightGrams != null && Number(baby.birthWeightGrams) > 0
+      ? `${baby.birthWeightGrams} g`
+      : '—'
+  );
   const deliveryMode = formatModeOfDelivery(snap.delivery?.modeOfDelivery);
   const deliveryRow =
     printOptions.showDeliveryMode && deliveryMode ? fieldRow('Mode of Delivery', deliveryMode) : '';
@@ -711,13 +714,8 @@ export function buildBirthCertificatePrintHtml(options: {
 }
 
 export function printBirthCertificateHtml(html: string): void {
-  const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=980,height=900');
-  if (!printWindow) return;
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-  printWindow.focus();
-  setTimeout(() => {
-    printWindow.print();
-  }, 400);
+  printHtmlJob(html, {
+    jobType: 'a4',
+    title: 'Birth Certificate — select A4 printer',
+  });
 }

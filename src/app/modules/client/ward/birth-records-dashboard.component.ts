@@ -48,6 +48,17 @@ export class BirthRecordsDashboardComponent implements OnInit, OnDestroy {
 
   recordErrors: Record<string, string> = {};
   selectedMother: Patient | null = null;
+  /** Pre-issue modal so Ward boy can fill CNIC / weight / gender before Generate. */
+  certifyOpen = false;
+  certifySaving = false;
+  certifyRecord: BirthRecordItem | null = null;
+  certifyErrors: Record<string, string> = {};
+  certifyForm = {
+    sexAtBirth: 'female',
+    birthWeightGrams: '',
+    motherCNICSnapshot: '',
+    fatherCNIC: '',
+  };
 
   recordForm = {
     motherPatientId: '',
@@ -61,9 +72,17 @@ export class BirthRecordsDashboardComponent implements OnInit, OnDestroy {
     plurality: 'singleton',
     birthOrder: 1,
     fatherName: '',
+    motherCNICSnapshot: '',
+    fatherCNIC: '',
     notes: '',
     createNewbornPatient: true,
   };
+
+  readonly deliveryModes = [
+    { value: 'normal_vaginal', label: 'NVD (Normal vaginal delivery)' },
+    { value: 'assisted_vaginal', label: 'Assisted vaginal delivery' },
+    { value: 'c_section', label: 'C-Section' },
+  ] as const;
 
   correctionForm = { correctionReason: '', babyName: '' };
   revokeForm = { revocationReason: '' };
@@ -147,6 +166,8 @@ export class BirthRecordsDashboardComponent implements OnInit, OnDestroy {
       plurality: 'singleton',
       birthOrder: 1,
       fatherName: '',
+      motherCNICSnapshot: '',
+      fatherCNIC: '',
       notes: '',
       createNewbornPatient: true,
     };
@@ -176,8 +197,19 @@ export class BirthRecordsDashboardComponent implements OnInit, OnDestroy {
     if (!this.recordForm.dateOfBirth) {
       this.recordErrors['dateOfBirth'] = 'Date of birth is required.';
     }
-    if (this.recordForm.birthWeightGrams && Number.isNaN(Number(this.recordForm.birthWeightGrams))) {
-      this.recordErrors['birthWeightGrams'] = 'Birth weight must be a number.';
+    if (!this.recordForm.sexAtBirth) {
+      this.recordErrors['sexAtBirth'] = 'Baby gender is required.';
+    }
+    if (!String(this.recordForm.birthWeightGrams || '').trim()) {
+      this.recordErrors['birthWeightGrams'] = 'Birth weight (grams) is required for the certificate.';
+    } else if (Number.isNaN(Number(this.recordForm.birthWeightGrams)) || Number(this.recordForm.birthWeightGrams) <= 0) {
+      this.recordErrors['birthWeightGrams'] = 'Birth weight must be a positive number.';
+    }
+    if (!this.hasProvidedValue(this.recordForm.motherCNICSnapshot)) {
+      this.recordErrors['motherCNICSnapshot'] = 'Mother CNIC is required (fill before OT / certificate).';
+    }
+    if (!this.hasProvidedValue(this.recordForm.fatherCNIC)) {
+      this.recordErrors['fatherCNIC'] = 'Father CNIC is required (fill before OT / certificate).';
     }
     return Object.keys(this.recordErrors).length === 0;
   }
@@ -204,6 +236,8 @@ export class BirthRecordsDashboardComponent implements OnInit, OnDestroy {
         plurality: this.recordForm.plurality,
         birthOrder: Number(this.recordForm.birthOrder) || 1,
         fatherName: this.recordForm.fatherName,
+        motherCNICSnapshot: this.recordForm.motherCNICSnapshot.trim() || undefined,
+        fatherCNIC: this.recordForm.fatherCNIC.trim() || undefined,
         notes: this.recordForm.notes,
         createNewbornPatient: this.recordForm.createNewbornPatient,
       })
@@ -229,14 +263,118 @@ export class BirthRecordsDashboardComponent implements OnInit, OnDestroy {
   }
 
   issueCertificate(record: BirthRecordItem): void {
+    if (this.needsCertificateDetails(record)) {
+      this.openCertifyDetails(record);
+      return;
+    }
+    this.doIssueCertificate(record);
+  }
+
+  private needsCertificateDetails(record: BirthRecordItem): boolean {
+    return (
+      !this.hasProvidedValue(record.motherCNICSnapshot) ||
+      !this.hasProvidedValue(record.fatherCNIC) ||
+      !(Number(record.birthWeightGrams) > 0) ||
+      !String(record.sexAtBirth || '').trim()
+    );
+  }
+
+  openCertifyDetails(record: BirthRecordItem): void {
+    this.certifyRecord = record;
+    this.certifyErrors = {};
+    this.certifyForm = {
+      sexAtBirth: String(record.sexAtBirth || 'female'),
+      birthWeightGrams:
+        record.birthWeightGrams != null && Number(record.birthWeightGrams) > 0
+          ? String(record.birthWeightGrams)
+          : '',
+      motherCNICSnapshot: this.hasProvidedValue(record.motherCNICSnapshot)
+        ? String(record.motherCNICSnapshot)
+        : '',
+      fatherCNIC: this.hasProvidedValue(record.fatherCNIC) ? String(record.fatherCNIC) : '',
+    };
+    this.certifyOpen = true;
+  }
+
+  closeCertifyDetails(): void {
+    this.certifyOpen = false;
+    this.certifyRecord = null;
+    this.certifyErrors = {};
+  }
+
+  validateCertifyForm(): boolean {
+    this.certifyErrors = {};
+    if (!this.certifyForm.sexAtBirth) {
+      this.certifyErrors['sexAtBirth'] = 'Baby gender is required.';
+    }
+    if (!String(this.certifyForm.birthWeightGrams || '').trim()) {
+      this.certifyErrors['birthWeightGrams'] = 'Birth weight (grams) is required.';
+    } else if (
+      Number.isNaN(Number(this.certifyForm.birthWeightGrams)) ||
+      Number(this.certifyForm.birthWeightGrams) <= 0
+    ) {
+      this.certifyErrors['birthWeightGrams'] = 'Birth weight must be a positive number.';
+    }
+    if (!this.hasProvidedValue(this.certifyForm.motherCNICSnapshot)) {
+      this.certifyErrors['motherCNICSnapshot'] = 'Mother CNIC is required.';
+    }
+    if (!this.hasProvidedValue(this.certifyForm.fatherCNIC)) {
+      this.certifyErrors['fatherCNIC'] = 'Father CNIC is required.';
+    }
+    return Object.keys(this.certifyErrors).length === 0;
+  }
+
+  saveCertifyDetailsAndIssue(): void {
+    const record = this.certifyRecord;
+    if (!record) return;
+    if (!this.validateCertifyForm()) {
+      this.toastr.error('Please complete Mother/Father CNIC, baby gender, and birth weight.');
+      return;
+    }
+    this.certifySaving = true;
+    const payload = {
+      sexAtBirth: this.certifyForm.sexAtBirth,
+      birthWeightGrams: Number(this.certifyForm.birthWeightGrams),
+      motherCNICSnapshot: this.certifyForm.motherCNICSnapshot.trim(),
+      fatherCNIC: this.certifyForm.fatherCNIC.trim(),
+    };
+    this.backend
+      .updateBirthRecord(record._id, payload)
+      .pipe(finalize(() => (this.certifySaving = false)))
+      .subscribe({
+        next: () => {
+          this.certifyOpen = false;
+          this.certifyRecord = null;
+          Object.assign(record, payload);
+          this.doIssueCertificate(record);
+        },
+        error: (err) =>
+          this.toastr.error(err?.error?.message || 'Unable to save certificate details.'),
+      });
+  }
+
+  private doIssueCertificate(record: BirthRecordItem): void {
     this.backend.issueBirthCertificate(record._id).subscribe({
       next: (result) => {
         this.toastr.success(`Certificate ${result.certificate.certificateNo} issued.`);
         (result.warnings || []).forEach((warning) => this.toastr.warning(warning));
         this.loadDashboard();
       },
-      error: (err) => this.toastr.error(err?.error?.message || 'Unable to issue certificate.'),
+      error: (err) => {
+        const code = err?.error?.error || err?.error?.code || err?.error?.errorCode;
+        if (code === 'CERTIFICATE_DETAILS_REQUIRED' || /CNIC|birth weight|gender/i.test(String(err?.error?.message || ''))) {
+          this.openCertifyDetails(record);
+          this.toastr.warning(err?.error?.message || 'Complete certificate details first.');
+          return;
+        }
+        this.toastr.error(err?.error?.message || 'Unable to issue certificate.');
+      },
     });
+  }
+
+  private hasProvidedValue(value: unknown): boolean {
+    const text = String(value ?? '').trim();
+    return Boolean(text) && !/^not\s*provided$/i.test(text);
   }
 
   private resolveCertificateId(record: BirthRecordItem): string {
@@ -275,10 +413,19 @@ export class BirthRecordsDashboardComponent implements OnInit, OnDestroy {
             String(record.babyPatient?.['firstName'] || record.babyPatient?.['name'] || '').trim() ||
             `Baby of ${record.motherNameSnapshot || 'Mother'}`,
           mrNo: String(record.babyPatient?.['patientNo'] || ''),
+          sex: record.sexAtBirth,
+          birthWeightGrams: record.birthWeightGrams,
+          dateOfBirth: record.dateOfBirth,
+          timeOfBirth: record.timeOfBirth,
         },
         mother: {
           name: record.motherNameSnapshot || '—',
           mrNo: record.motherMRNoSnapshot || '',
+          cnic: record.motherCNICSnapshot,
+        },
+        father: {
+          name: record.fatherName || '',
+          cnic: record.fatherCNIC,
         },
         hospital: { name: '' },
         delivery: {},
@@ -460,7 +607,10 @@ export class BirthRecordsDashboardComponent implements OnInit, OnDestroy {
       this.toastr.error('Unable to render certificate.');
       return;
     }
-    this.docs.printHtml(html, 'Hospital Birth Certificate');
+    this.docs.printHtml(html, {
+      jobType: 'a4',
+      title: 'Hospital Birth Certificate — select A4 printer',
+    });
     this.onBirthCertificatePrinted();
   }
 
@@ -599,6 +749,24 @@ export class BirthRecordsDashboardComponent implements OnInit, OnDestroy {
   certificateMotherContact(): string {
     const mother = this.selectedRecord?.motherPatient as Record<string, unknown> | undefined;
     return this.displayRecordValue(mother?.['phone'] || mother?.['mobile'] || mother?.['contact']);
+  }
+
+  certificateMotherCnic(): string {
+    const snapshot = this.certificateDetail?.snapshot?.mother?.cnic;
+    const recordValue = this.selectedRecord?.motherCNICSnapshot;
+    return this.displayRecordValue(snapshot || recordValue);
+  }
+
+  certificateFatherName(): string {
+    const snapshot = this.certificateDetail?.snapshot?.father?.name;
+    const recordValue = this.selectedRecord?.fatherName;
+    return this.displayRecordValue(snapshot || recordValue);
+  }
+
+  certificateFatherCnic(): string {
+    const snapshot = this.certificateDetail?.snapshot?.father?.cnic;
+    const recordValue = this.selectedRecord?.fatherCNIC;
+    return this.displayRecordValue(snapshot || recordValue);
   }
 
   certificateMotherAddress(): string {

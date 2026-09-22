@@ -1,4 +1,4 @@
-import { CommonModule, CurrencyPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NgApexchartsModule } from 'ng-apexcharts';
@@ -14,6 +14,7 @@ import {
   Patient,
 } from '../../../shared/models/hospital.model';
 import { isDoctorRole } from '../../auth/access-control';
+import { HmsCurrencyPipe } from '../../../shared/pipes/hms-currency.pipe';
 
 type DonutChartOptions = {
   series: ApexNonAxisChartSeries;
@@ -39,7 +40,7 @@ type BarChartOptions = {
 @Component({
   selector: 'app-doctor-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, NgApexchartsModule, CurrencyPipe],
+  imports: [CommonModule, RouterLink, NgApexchartsModule, HmsCurrencyPipe],
   templateUrl: './doctor-dashboard.component.html',
   styleUrl: './doctor-dashboard.component.scss',
 })
@@ -196,7 +197,7 @@ export class DoctorDashboardComponent implements OnInit {
 
     this.quickLinks = [
       { label: 'Appointments', route: '/appointments', icon: 'fa-calendar', visible: this.canOpenAppointments },
-      { label: 'Prescriptions', route: '/prescriptions', icon: 'fa-file-text-o', visible: this.canOpenPrescriptions },
+      { label: 'Consultation', route: '/prescriptions', icon: 'fa-stethoscope', visible: this.canOpenPrescriptions },
       { label: 'Clinical Records', route: '/clinical-records', icon: 'fa-stethoscope', visible: this.canOpenClinicalRecords },
       { label: 'My Patients', route: '/patients/all-patients', icon: 'fa-users', visible: this.canOpenPatients },
       { label: 'Operation Calendar', route: '/operations', icon: 'fa-heartbeat', visible: this.canOpenOperations },

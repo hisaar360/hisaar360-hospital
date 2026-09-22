@@ -1,12 +1,14 @@
 import { User } from '../../shared/models/hospital.model';
+import { formatActiveCurrency } from '../../core/services/currency.service';
 
-export const formatCurrency = (value: number | string | null | undefined): string => {
-  const numeric = Number(value ?? 0);
-  const safe = Number.isFinite(numeric) ? numeric : 0;
-  return `PKR ${safe.toLocaleString('en-PK', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+export const formatCurrency = (value: unknown): string => {
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (record['$numberDecimal'] != null) {
+      return formatActiveCurrency(record['$numberDecimal'], { fractionDigits: 2 });
+    }
+  }
+  return formatActiveCurrency(value as number | string | null | undefined, { fractionDigits: 2 });
 };
 
 export const formatDate = (value: string | null | undefined): string => {

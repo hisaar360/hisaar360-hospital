@@ -1,0 +1,74 @@
+<div class="clinical-patient-header" *ngIf="model as h; else emptyHeader"
+  [class.clinical-patient-header--gynae]="h.variant === 'gynae'">
+  <ng-container *ngIf="h.variant === 'gynae'; else defaultHeader">
+    <div class="gynae-banner__identity">
+      <div class="gynae-banner__avatar" aria-hidden="true">{{ h.avatarInitials || '?' }}</div>
+      <div class="gynae-banner__who">
+        <div class="gynae-banner__name-row">
+          <strong>{{ h.name }}</strong>
+          <span *ngIf="h.ageSex">{{ h.ageSex }}</span>
+        </div>
+        <div class="gynae-banner__meta-row">
+          <span *ngIf="h.mrNo"><i class="fa fa-id-card-o" aria-hidden="true"></i> {{ h.mrNo }}</span>
+          <span *ngIf="h.phone"><i class="fa fa-phone" aria-hidden="true"></i> {{ h.phone }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="gynae-banner__cards">
+      <div class="gynae-banner__card gynae-banner__card--blood">
+        <i class="fa fa-tint" aria-hidden="true"></i>
+        <div>
+          <small>Blood Group</small>
+          <strong [class.is-muted]="!h.bloodGroup">{{ h.bloodGroup || 'Not available' }}</strong>
+        </div>
+      </div>
+      <div class="gynae-banner__card gynae-banner__card--pregnancy">
+        <i class="fa fa-female" aria-hidden="true"></i>
+        <div>
+          <small>Pregnancy</small>
+          <strong [class.is-muted]="h.pregnancyLabel === 'Not available'">{{ h.pregnancyLabel || 'Not available' }}</strong>
+        </div>
+      </div>
+      <div class="gynae-banner__card gynae-banner__card--edd">
+        <i class="fa fa-calendar" aria-hidden="true"></i>
+        <div>
+          <small>EDD</small>
+          <strong [class.is-muted]="h.eddLabel === 'Not available'">{{ h.eddLabel || 'Not available' }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <a
+      *ngIf="h.patientId"
+      class="gynae-banner__profile"
+      [routerLink]="['/patients/patient-profile', h.patientId]"
+    >
+      View Patient Profile
+    </a>
+  </ng-container>
+
+  <ng-template #defaultHeader>
+    <div class="clinical-patient-header__identity">
+      <strong class="clinical-patient-header__name">{{ h.name }}</strong>
+      <span class="clinical-patient-header__meta">{{ h.ageSex }}</span>
+      <span class="clinical-patient-header__mr" *ngIf="h.mrNo">{{ h.mrNo }}</span>
+    </div>
+    <div class="clinical-patient-header__facts">
+      <span *ngIf="h.allergies" class="clinical-patient-header__fact clinical-patient-header__fact--alert">
+        Allergy: {{ h.allergies }}
+      </span>
+      <span *ngIf="h.bloodGroup" class="clinical-patient-header__fact">Blood Group: {{ h.bloodGroup }}</span>
+      <span *ngIf="h.lastVisit" class="clinical-patient-header__fact">Last Visit: {{ h.lastVisit }}</span>
+      <span *ngIf="h.specialtySummary" class="clinical-patient-header__fact clinical-patient-header__fact--specialty">
+        {{ h.specialtySummary }}
+      </span>
+    </div>
+  </ng-template>
+</div>
+
+<ng-template #emptyHeader>
+  <div class="clinical-patient-header clinical-patient-header--empty">
+    <span>{{ emptyMessage }}</span>
+  </div>
+</ng-template>

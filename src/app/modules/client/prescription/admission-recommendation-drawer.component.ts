@@ -33,9 +33,11 @@ import {
 } from './admission-recommendation.models';
 import { HmsDoctorSelectComponent } from '../../../shared/components/hms-doctor-select/hms-doctor-select.component';
 import { HmsDocumentToolbarComponent } from '../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
+import { HmsCurrencyPipe } from '../../../shared/pipes/hms-currency.pipe';
 import {
   buildAdmissionRecommendationPrintHtml,
 } from './admission-recommendation-print.builder';
+import { OperationDoctorSchedulePreviewComponent } from '../operations/operation-doctor-schedule-preview.component';
 
 interface AdmissionTab {
   id: string;
@@ -51,7 +53,15 @@ interface MonitoringOption {
 
 @Component({
   selector: 'app-admission-recommendation-drawer',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, HmsDoctorSelectComponent, HmsDocumentToolbarComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    HmsDoctorSelectComponent,
+    HmsDocumentToolbarComponent,
+    HmsCurrencyPipe,
+    OperationDoctorSchedulePreviewComponent,
+  ],
   templateUrl: './admission-recommendation-drawer.component.html',
   styleUrl: './admission-recommendation-drawer.component.scss',
 })
@@ -569,6 +579,36 @@ export class AdmissionRecommendationDrawerComponent implements OnChanges {
     if (!id) return null;
     const item = this.treatmentCatalog.find((entry) => entry._id === id);
     return item ? Number(item.baseRate || 0) : null;
+  }
+
+  /** Operating doctor for OT calendar — explicit select, else recommending doctor. */
+  resolvedOperatingDoctorId(): string {
+    const selected = String(this.form.get('recommendedOperatingDoctorId')?.value || '').trim();
+    if (selected) {
+      return selected;
+    }
+    return String(this.doctor?._id || '').trim();
+  }
+
+  resolvedOperatingDoctorLabel(): string {
+    const id = this.resolvedOperatingDoctorId();
+    if (!id) {
+      return '';
+    }
+    const match =
+      this.doctors.find((item) => item._id === id) ||
+      this.cachedDoctors.find((item) => item._id === id) ||
+      (this.doctor?._id === id ? this.doctor : null);
+    return match ? this.doctorDisplayName(match) : 'Selected doctor';
+  }
+
+  applyPreferredOperationAt(value: string): void {
+    const next = String(value || '').trim();
+    if (!next) {
+      return;
+    }
+    this.form.patchValue({ preferredOperationAt: next });
+    this.toastr.info('Preferred operation time set from OT calendar.', 'OT Schedule');
   }
 
   private admissionContextKey(): string {

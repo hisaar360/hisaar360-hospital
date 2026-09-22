@@ -28,6 +28,7 @@ import {
 } from './lab-comparison.utils';
 import { printLabSampleLabels } from './lab-sample-label.builder';
 import { printLabInvoice } from './lab-order-invoice.builder';
+import { HmsCurrencyPipe } from '../../../shared/pipes/hms-currency.pipe';
 import {
   activeLabSamples,
   canEditLabOrder,
@@ -41,7 +42,7 @@ import {
 
 @Component({
   selector: 'app-lab-order-detail',
-  imports: [CommonModule, FormsModule, RouterLink, HmsDocumentToolbarComponent],
+  imports: [CommonModule, FormsModule, RouterLink, HmsDocumentToolbarComponent, HmsCurrencyPipe],
   templateUrl: './lab-order-detail.component.html',
   styleUrl: './lab-order-detail.component.scss',
 })

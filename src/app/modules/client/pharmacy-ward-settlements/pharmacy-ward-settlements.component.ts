@@ -14,7 +14,7 @@ import { BackendService } from '../../../core/services/backend.service';
 export class PharmacyWardSettlementsComponent implements OnInit {
   loading = false;
   items: Array<Record<string, unknown>> = [];
-  settlementStatus = 'PENDING_SETTLEMENT';
+  settlementStatus = 'UNPAID';
   wardLabel = '';
   fromDate = '';
   toDate = '';
@@ -27,6 +27,10 @@ export class PharmacyWardSettlementsComponent implements OnInit {
 
   get pendingCount(): number {
     return this.items.filter((row) => row['settlementStatus'] === 'PENDING_SETTLEMENT').length;
+  }
+
+  get unpaidCount(): number {
+    return this.items.filter((row) => row['patientPaymentStatus'] === 'UNPAID').length;
   }
 
   get settledCount(): number {
@@ -55,6 +59,23 @@ export class PharmacyWardSettlementsComponent implements OnInit {
         this.toastr.error(err?.error?.message || 'Unable to load ward settlements');
       },
     });
+  }
+
+  collectPatientPayment(row: Record<string, unknown>): void {
+    const id = String(row['_id'] || '');
+    if (!id) return;
+    this.backend
+      .collectPharmacyWardSettlementPayment(id, {
+        amount: Number(row['pharmacyAmount'] || 0),
+        method: 'cash',
+      })
+      .subscribe({
+        next: () => {
+          this.toastr.success('Pharmacy payment received — patient medicine bill cleared');
+          this.load();
+        },
+        error: (err) => this.toastr.error(err?.error?.message || 'Unable to collect pharmacy payment'),
+      });
   }
 
   verify(row: Record<string, unknown>): void {

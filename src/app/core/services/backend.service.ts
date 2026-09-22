@@ -334,6 +334,10 @@ export class BackendService {
     return this.patch<CompanyProfile>(`${CONFIG.companies}/me`, payload);
   }
 
+  updateMyCurrency(payload: { currency: string }): Observable<ApiResponse<CompanyProfile>> {
+    return this.patch<CompanyProfile>(`${CONFIG.companies}/me/currency`, payload);
+  }
+
   forgetPass(payload: { email: string }): Observable<
     ApiResponse<{ expiresInSeconds: number; resendAfterSeconds: number }>
   > {
@@ -623,6 +627,13 @@ export class BackendService {
     return this.post<OperationSchedule>(`${CONFIG.operationSchedules}/${id}/complete`, {});
   }
 
+  updateOperationSafetyCheck(
+    id: string,
+    payload: { phase: string; confirmations?: Record<string, boolean | string>; reset?: boolean }
+  ): Observable<ApiResponse<OperationSchedule>> {
+    return this.post<OperationSchedule>(`${CONFIG.operationSchedules}/${id}/safety-check`, payload);
+  }
+
   cancelOperationSchedule(id: string, payload?: Record<string, unknown>): Observable<ApiResponse<OperationSchedule>> {
     return this.post<OperationSchedule>(`${CONFIG.operationSchedules}/${id}/cancel`, payload || {});
   }
@@ -665,7 +676,11 @@ export class BackendService {
     return this.patch<Doctor>(`${CONFIG.doctors}/${id}`, payload);
   }
 
-  updateMyPrescriptionTemplate(payload: { prescriptionTemplate: string }): Observable<ApiResponse<Doctor>> {
+  updateMyPrescriptionTemplate(payload: {
+    prescriptionTemplate?: string;
+    prescriptionLayout?: Array<{ key: string; visible?: boolean; column?: string }>;
+    prescriptionStyle?: Record<string, number | string | boolean>;
+  }): Observable<ApiResponse<Doctor>> {
     return this.patch<Doctor>(`${CONFIG.doctors}/me/prescription-template`, payload);
   }
 
@@ -913,6 +928,17 @@ export class BackendService {
     return this.post<DoctorMedicine>(`${CONFIG.prescriptions}/doctor-medicines`, payload);
   }
 
+  bulkCreateDoctorMedicines(payload: Record<string, unknown>): Observable<ApiResponse<{
+    createdCount: number;
+    updatedCount: number;
+    failedCount: number;
+    created: DoctorMedicine[];
+    updated: DoctorMedicine[];
+    failed: Array<{ index: number; name?: string; type?: string; message: string }>;
+  }>> {
+    return this.post(`${CONFIG.prescriptions}/doctor-medicines/bulk`, payload);
+  }
+
   getLabTests(params?: Record<string, unknown>): Observable<ListResult<LabTestCatalog>> {
     return this.get<PaginatedResponse<LabTestCatalog>>(`${CONFIG.laboratory}/tests`, params).pipe(
       map((response) => this.unwrapData(response))
@@ -927,8 +953,12 @@ export class BackendService {
     return this.patch<LabTestCatalog>(`${CONFIG.laboratory}/tests/${id}`, payload);
   }
 
-  seedDefaultLabTests(): Observable<ApiResponse<{ seeded: number }>> {
-    return this.post<{ seeded: number }>(`${CONFIG.laboratory}/tests/seed-defaults`, {});
+  deleteLabTest(id: string): Observable<ApiResponse<LabTestCatalog>> {
+    return this.delete<LabTestCatalog>(`${CONFIG.laboratory}/tests/${id}`);
+  }
+
+  seedDefaultLabTests(): Observable<ApiResponse<{ seeded: number; totalDefaults?: number }>> {
+    return this.post<{ seeded: number; totalDefaults?: number }>(`${CONFIG.laboratory}/tests/seed-defaults`, {});
   }
 
   getLabDashboardStats(params?: Record<string, unknown>): Observable<LabDashboardStats> {
@@ -1019,6 +1049,12 @@ export class BackendService {
 
   getCustomers(params?: Record<string, unknown>): Observable<ListResult<Customer>> {
     return this.get<PaginatedResponse<Customer>>(CONFIG.customers, params).pipe(
+      map((response) => this.unwrapListResult(response))
+    );
+  }
+
+  getCustomerById(id: string): Observable<Customer> {
+    return this.get<Customer>(`${CONFIG.customers}/${id}`).pipe(
       map((response) => this.unwrapData(response))
     );
   }
@@ -1061,7 +1097,7 @@ export class BackendService {
 
   getPrescriptionProductSuggestions(params?: Record<string, unknown>): Observable<ListResult<ProductCatalogItem>> {
     return this.get<PaginatedResponse<ProductCatalogItem>>(`${CONFIG.products}/prescription-suggestions`, params).pipe(
-      map((response) => this.unwrapData(response))
+      map((response) => this.unwrapListResult<ProductCatalogItem>(response))
     );
   }
 
@@ -1451,6 +1487,31 @@ export class BackendService {
     return this.get<Record<string, unknown>>(`${CONFIG.ward}/control-center`).pipe(
       map((response) => this.unwrapData(response))
     );
+  }
+
+  getWardHomeSummary(): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.ward}/home-summary`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getWardMyWork(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.ward}/my-work`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getWardAttendantTasks(params?: Record<string, unknown>): Observable<{ items: Record<string, unknown>[] }> {
+    return this.get<{ items: Record<string, unknown>[] }>(`${CONFIG.ward}/attendant-tasks`, params).pipe(
+      map((response) => this.unwrapData(response) as { items: Record<string, unknown>[] })
+    );
+  }
+
+  updateWardAttendantTaskStatus(
+    id: string,
+    payload: Record<string, unknown>
+  ): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.ward}/attendant-tasks/${id}/status`, payload);
   }
 
   getPatientUpdates(admissionId: string): Observable<{ items: Record<string, unknown>[] }> {
@@ -1982,6 +2043,150 @@ export class BackendService {
     );
   }
 
+  listPregnancyEpisodes(params?: Record<string, unknown>): Observable<{ items: Record<string, unknown>[]; total: number }> {
+    return this.get<{ items: Record<string, unknown>[]; total: number }>(`${CONFIG.baseUrl}/pregnancy-episodes`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getActivePregnancyEpisode(patientId: string): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.baseUrl}/pregnancy-episodes/patient/${patientId}/active`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getPregnancyEpisode(id: string): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.baseUrl}/pregnancy-episodes/${id}`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createPregnancyEpisode(payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.baseUrl}/pregnancy-episodes`, payload);
+  }
+
+  updatePregnancyEpisode(id: string, payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.patch<Record<string, unknown>>(`${CONFIG.baseUrl}/pregnancy-episodes/${id}`, payload);
+  }
+
+  amendPregnancyEdd(id: string, payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.baseUrl}/pregnancy-episodes/${id}/amend-edd`, payload);
+  }
+
+  completePregnancyEpisode(id: string, payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.baseUrl}/pregnancy-episodes/${id}/complete`, payload);
+  }
+
+  getPregnancyTimeline(id: string): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.baseUrl}/pregnancy-episodes/${id}/timeline`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listImmunizations(params: Record<string, string | number | boolean | null | undefined> = {}): Observable<{
+    items: Record<string, unknown>[];
+    total: number;
+  }> {
+    return this.get<{ items: Record<string, unknown>[]; total: number }>(`${CONFIG.baseUrl}/immunizations`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createImmunization(payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.baseUrl}/immunizations`, payload);
+  }
+
+  updateImmunization(id: string, payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.patch<Record<string, unknown>>(`${CONFIG.baseUrl}/immunizations/${id}`, payload);
+  }
+
+  getImmunization(id: string): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.baseUrl}/immunizations/${id}`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listPulmonaryFunction(params: Record<string, string | number | boolean | null | undefined> = {}): Observable<{
+    items: Record<string, unknown>[];
+    total: number;
+  }> {
+    return this.get<{ items: Record<string, unknown>[]; total: number }>(
+      `${CONFIG.baseUrl}/pulmonary-function`,
+      params
+    ).pipe(map((response) => this.unwrapData(response)));
+  }
+
+  createPulmonaryFunction(payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.baseUrl}/pulmonary-function`, payload);
+  }
+
+  updatePulmonaryFunction(
+    id: string,
+    payload: Record<string, unknown>
+  ): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.patch<Record<string, unknown>>(`${CONFIG.baseUrl}/pulmonary-function/${id}`, payload);
+  }
+
+  getPulmonaryFunction(id: string): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.baseUrl}/pulmonary-function/${id}`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listEndoscopy(params: Record<string, string | number | boolean | null | undefined> = {}): Observable<{
+    items: Record<string, unknown>[];
+    total: number;
+  }> {
+    return this.get<{ items: Record<string, unknown>[]; total: number }>(
+      `${CONFIG.baseUrl}/endoscopy`,
+      params
+    ).pipe(map((response) => this.unwrapData(response)));
+  }
+
+  createEndoscopy(payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.baseUrl}/endoscopy`, payload);
+  }
+
+  updateEndoscopy(
+    id: string,
+    payload: Record<string, unknown>
+  ): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.patch<Record<string, unknown>>(`${CONFIG.baseUrl}/endoscopy/${id}`, payload);
+  }
+
+  getEndoscopy(id: string): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.baseUrl}/endoscopy/${id}`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listClinicalScores(params: Record<string, string | number | boolean | null | undefined> = {}): Observable<{
+    items: Record<string, unknown>[];
+    total: number;
+  }> {
+    return this.get<{ items: Record<string, unknown>[]; total: number }>(
+      `${CONFIG.baseUrl}/clinical-scores`,
+      params
+    ).pipe(map((response) => this.unwrapData(response)));
+  }
+
+  createClinicalScore(payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.baseUrl}/clinical-scores`, payload);
+  }
+
+  updateClinicalScore(
+    id: string,
+    payload: Record<string, unknown>
+  ): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.patch<Record<string, unknown>>(`${CONFIG.baseUrl}/clinical-scores/${id}`, payload);
+  }
+
+  getClinicalScore(id: string): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.baseUrl}/clinical-scores/${id}`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
   verifyBirthCertificatePublic(code: string): Observable<BirthCertificateVerificationResult> {
     return this.get<BirthCertificateVerificationResult>(`${CONFIG.baseUrl}/public/birth-certificates/verify/${encodeURIComponent(code)}`).pipe(
       map((response) => this.unwrapData(response))
@@ -2083,6 +2288,16 @@ export class BackendService {
     return this.post<Record<string, unknown>>(`${CONFIG.wardBilling}/pharmacy-settlements/${settlementId}/verify`, {}).pipe(
       map((response) => this.unwrapData(response))
     );
+  }
+
+  collectPharmacyWardSettlementPayment(
+    settlementId: string,
+    payload: Record<string, unknown> = {}
+  ): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(
+      `${CONFIG.wardBilling}/pharmacy-settlements/${settlementId}/collect`,
+      payload
+    ).pipe(map((response) => this.unwrapData(response)));
   }
 
   listWardMedicineRequests(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {

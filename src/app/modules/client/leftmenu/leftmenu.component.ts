@@ -10,12 +10,16 @@ import {
   RouterLink,
   RouterLinkActive,
 } from '@angular/router';
-import { trigger, style, animate, transition } from '@angular/animations';
 import { CommonModule } from '@angular/common';
 import {
+  canViewWardAdminMenu,
+  canViewWardManagementMenu,
   hasPermission,
   hasRouteAccess,
+  isWardCareRole,
+  isWardOperationalRole,
   readStoredPermissions,
+  readStoredRole,
   resolveDefaultRoute,
 } from '../../auth/access-control';
 import { isCurrentLaboratoryEdition } from '../../auth/product-edition';
@@ -29,22 +33,27 @@ import {
   isWardModuleEnabled,
 } from '../../auth/hospital-modules';
 import { canAccessHospitalSetup } from '../../auth/hospital-scope';
+import { buildWardNavSections, WardNavSection } from '../ward/ward-nav.util';
 import { AuthService } from '../../../core/services/auth.service';
+import { CurrencyService } from '../../../core/services/currency.service';
 import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import { User } from '../../../shared/models/hospital.model';
+
+type SidebarSectionKey =
+  | 'doctors'
+  | 'prescriptions'
+  | 'pharmacy'
+  | 'laboratory'
+  | 'ward'
+  | 'wardManagement'
+  | 'patients'
+  | 'rooms'
+  | 'setup'
+  | 'payments'
+  | 'accounts';
+
 @Component({
   selector: 'app-leftmenu',
-  animations: [
-    trigger('collapseExpand', [
-      transition(':enter', [
-        style({ height: 0, opacity: 0 }),
-        animate('200ms ease-out', style({ height: '*', opacity: 1 })),
-      ]),
-      transition(':leave', [
-        animate('200ms ease-in', style({ height: 0, opacity: 0 })),
-      ]),
-    ]),
-  ],
   standalone: true,
   imports: [RouterLink, RouterLinkActive, CommonModule],
   templateUrl: './leftmenu.component.html',
@@ -60,10 +69,15 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   PrescriptionCollapsed = true;
   LaboratoryCollapsed = true;
   WardCollapsed = true;
+  WardManagementCollapsed = true;
   SetupCollapsed = true;
   AccountsCollapsed = true;
+  /** Cached — must NOT be a getter. A fresh array each CD pass freezes the UI
+   *  when Ward expands (`*ngFor` destroy/recreate loop). */
+  wardNavSections: WardNavSection[] = [];
   private router = inject(Router);
   private authService = inject(AuthService);
+  private currencyService = inject(CurrencyService);
   role = localStorage.getItem('role') || '';
   permissions = readStoredPermissions();
 
@@ -73,6 +87,11 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
 
   get isDoctor(): boolean {
     return this.normalizeRole(this.role) === 'doctor';
+  }
+
+  /** Ward Admin / Nurse / Attendant / Ward Reception — work inside Ward, not OPD/Lab shells. */
+  get isWardOperationalRole(): boolean {
+    return isWardOperationalRole(this.role, this.permissions);
   }
 
   get isOwner(): boolean {
@@ -168,6 +187,9 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     if (this.isLaboratoryEdition || !isClinicalModuleEnabled()) {
       return false;
     }
+    if (this.isWardOperationalRole) {
+      return false;
+    }
     return this.canViewAllRoutes || this.hasPermission('doctors.read');
   }
 
@@ -182,6 +204,9 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     if (this.isLaboratoryEdition || !isClinicalModuleEnabled()) {
       return false;
     }
+    if (this.isWardOperationalRole) {
+      return false;
+    }
 
     return (
       this.canViewAllRoutes ||
@@ -194,6 +219,9 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     if (this.isLaboratoryEdition || !isClinicalModuleEnabled()) {
       return false;
     }
+    if (this.isWardOperationalRole) {
+      return false;
+    }
 
     return this.canViewAllRoutes || this.hasPermission('appointments.read');
   }
@@ -202,12 +230,18 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     if (this.isLaboratoryEdition || !isClinicalModuleEnabled()) {
       return false;
     }
+    if (this.isWardOperationalRole) {
+      return false;
+    }
 
     return this.canViewAllRoutes || this.hasPermission('patients_history.read');
   }
 
   get canManageClinicalRecords(): boolean {
     if (this.isLaboratoryEdition || !isClinicalModuleEnabled()) {
+      return false;
+    }
+    if (this.isWardOperationalRole) {
       return false;
     }
 
@@ -222,12 +256,19 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     if (this.isLaboratoryEdition || !isClinicalModuleEnabled()) {
       return false;
     }
+    // Ward operational roles use Ward chart / MAR — not OPD Consultation menus.
+    if (this.isWardOperationalRole) {
+      return false;
+    }
 
     return this.canViewAllRoutes || this.hasPermission('prescriptions.read');
   }
 
   get canManagePrescriptions(): boolean {
     if (this.isLaboratoryEdition || !isClinicalModuleEnabled()) {
+      return false;
+    }
+    if (this.isWardOperationalRole) {
       return false;
     }
 
@@ -381,6 +422,10 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     if (!isLaboratoryModuleEnabled()) {
       return false;
     }
+    // Lab orders from ward go through Ward patient chart — not Lab Dashboard.
+    if (this.isWardOperationalRole) {
+      return false;
+    }
 
     return (
       this.canViewAllRoutes ||
@@ -390,10 +435,16 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewLabOrders(): boolean {
+    if (this.isWardOperationalRole) {
+      return false;
+    }
     return this.canViewAllRoutes || this.hasPermission('lab_orders.read');
   }
 
   get canViewLabCatalog(): boolean {
+    if (this.isWardOperationalRole) {
+      return false;
+    }
     return (
       this.canViewAllRoutes ||
       this.hasPermission('lab_tests.create') ||
@@ -403,6 +454,9 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canCreateLaboratoryOrder(): boolean {
+    if (this.isWardOperationalRole) {
+      return false;
+    }
     return this.canViewAllRoutes || this.hasPermission('lab_orders.create');
   }
 
@@ -416,6 +470,34 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     }
 
     return this.canViewAllRoutes || this.hasPermission('ward.read');
+  }
+
+  /** Full ops submenu (dashboard, roster, inventory, nursery). Care roles see only care links. */
+  get showWardOpsMenu(): boolean {
+    return this.canViewAllRoutes || canViewWardAdminMenu(this.role, this.permissions);
+  }
+
+  get isWardCareNav(): boolean {
+    return isWardCareRole(this.role) && !this.showWardOpsMenu;
+  }
+
+  get canViewWardAdmissionsNav(): boolean {
+    return (
+      this.canViewAllRoutes ||
+      this.hasPermission('ward.admissions.create') ||
+      this.hasPermission('ward.admissions.recommend') ||
+      this.hasPermission('room_allotments.create') ||
+      this.showWardOpsMenu
+    );
+  }
+
+  /** Maternity / nursery links stay off the menu unless the user actually works there. */
+  get canViewWardMaternityNav(): boolean {
+    return (
+      this.showWardOpsMenu ||
+      this.hasNavAccess('ward.nursery.read') ||
+      this.hasNavAccess('ward.nursery.birth_records.read')
+    );
   }
 
   get canViewPatients(): boolean {
@@ -575,6 +657,7 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
 
   constructor() {
     this.initializeCollapsedStates();
+    this.rebuildWardNavSections();
   }
 
   ngOnInit(): void {
@@ -582,6 +665,7 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
       next: () => this.refreshAccess(),
       error: () => this.refreshAccess(),
     });
+    this.currencyService.ensureLoaded();
 
     this.router.events.subscribe((event) => {
       if (event instanceof NavigationEnd) {
@@ -607,6 +691,16 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     );
     this.LaboratoryCollapsed = !url.includes('laboratory');
     this.WardCollapsed = !(url.includes('/ward') || url.includes('ward-admin') || url.includes('/operations'));
+    this.WardManagementCollapsed = !(
+      url.includes('/ward/dashboard') ||
+      url.includes('/ward/bed-management') ||
+      url.includes('/ward/duty-roster') ||
+      url.includes('/ward/inventory') ||
+      url.includes('/ward/nurses-staff') ||
+      url.includes('/ward/reports') ||
+      url.includes('ward-admin') ||
+      url.includes('/operations')
+    );
     this.SetupCollapsed = !url.includes('hospital-setup');
     this.AccountsCollapsed = !url.includes('/accounts');
   }
@@ -621,6 +715,31 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   private refreshAccess(): void {
     this.role = localStorage.getItem('role') || '';
     this.permissions = readStoredPermissions();
+    this.rebuildWardNavSections();
+  }
+
+  private rebuildWardNavSections(): void {
+    this.wardNavSections = buildWardNavSections({
+      role: this.role,
+      permissions: this.permissions,
+      canViewWard: this.canViewWardAdmin,
+      canViewAllRoutes: this.canViewAllRoutes,
+      showWardOpsMenu: this.showWardOpsMenu,
+      canViewManagement:
+        this.canViewAllRoutes || canViewWardManagementMenu(this.role, this.permissions),
+      canViewAdmissions: this.canViewWardAdmissionsNav,
+      canViewRoster: this.hasNavAccess('ward.roster.read'),
+      canViewOperations: this.canViewOperations,
+      canViewMaternity: this.canViewWardMaternityNav,
+    });
+  }
+
+  trackWardSection(_index: number, section: WardNavSection): string {
+    return section.key;
+  }
+
+  trackWardItem(_index: number, item: { route: string; label: string }): string {
+    return item.route || item.label;
   }
 
   private hasPermission(permission: string): boolean {
@@ -683,6 +802,50 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   cToggoleMenu(): void {
     document.body.classList.remove('offcanvas-active');
     document.querySelector('.overlay')?.classList.remove('open');
+  }
+
+  /** Expand/collapse sidebar sections — used by all `has-arrow` parents. */
+  toggleSection(section: SidebarSectionKey, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    switch (section) {
+      case 'doctors':
+        this.isCollapsed = !this.isCollapsed;
+        break;
+      case 'prescriptions':
+        this.PrescriptionCollapsed = !this.PrescriptionCollapsed;
+        break;
+      case 'pharmacy':
+        this.PharmacyCollapsed = !this.PharmacyCollapsed;
+        break;
+      case 'laboratory':
+        this.LaboratoryCollapsed = !this.LaboratoryCollapsed;
+        break;
+      case 'ward':
+        this.WardCollapsed = !this.WardCollapsed;
+        break;
+      case 'wardManagement':
+        this.WardManagementCollapsed = !this.WardManagementCollapsed;
+        break;
+      case 'patients':
+        this.PatientCollapsed = !this.PatientCollapsed;
+        break;
+      case 'rooms':
+        this.RoomCollapsed = !this.RoomCollapsed;
+        break;
+      case 'setup':
+        this.SetupCollapsed = !this.SetupCollapsed;
+        break;
+      case 'payments':
+        this.PaymentCollapsed = !this.PaymentCollapsed;
+        break;
+      case 'accounts':
+        this.AccountsCollapsed = !this.AccountsCollapsed;
+        break;
+      default:
+        break;
+    }
   }
 
   private closeSidebarOnMobile(): void {

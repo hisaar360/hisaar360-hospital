@@ -158,11 +158,135 @@
   flex-direction: column;
   height: 100vh;
   overflow: visible;
+  /* Above app.component `.overlay` (z-index: 10). Without this, mobile
+     offcanvas clicks hit the dimmer and close the menu instead of navigating. */
+  z-index: 12;
+}
+
+:host-context(body.offcanvas-active) #left-sidebar.sidebar {
+  left: 0 !important;
+  z-index: 12;
+}
+
+/*
+ * Global mooli `.metismenu > li { flex: 1 1 0% }` forces every row to share
+ * height equally. Expandable submenus then render with ~0 usable height, so
+ * Ward / Pharmacy / Patients look like "click does nothing".
+ */
+#left-sidebar #main-menu.metismenu > li {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+#left-sidebar #main-menu.metismenu > li.header {
+  flex: 0 0 auto;
+}
+
+#left-sidebar #main-menu .nav-dropdown {
+  display: block;
+  flex: 0 0 auto;
+  height: auto;
+  max-height: none;
+  opacity: 1;
+  overflow: visible;
+  position: relative;
+  width: 100%;
+}
+
+/* Match link styling — section toggles are buttons so they cannot become
+   full-page `<a href="javascript:void(0)">` hit-targets after expand. */
+#left-sidebar #main-menu button.has-arrow {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 0.1875rem;
+  color: inherit;
+  cursor: pointer;
+  display: block;
+  font: inherit;
+  font-weight: 500;
+  margin: 0;
+  outline-width: 0;
+  padding: 8px 20px 8px 15px;
+  position: relative;
+  text-align: left;
+  user-select: none;
+  width: 100%;
+}
+
+#left-sidebar #main-menu button.has-arrow:hover,
+#left-sidebar #main-menu button.has-arrow:focus {
+  color: var(--primary-color, #019c9d);
+}
+
+/*
+ * Nested Ward "Management" toggle lives inside `.nav-dropdown`. Top-level
+ * button padding (15px) overlaps the submenu guide line — match sibling
+ * link indent (47px) and nest children one level deeper.
+ */
+#left-sidebar #main-menu .nav-dropdown > li.ward-nav-subsection {
+  flex: 0 0 auto;
+  list-style: none;
+  margin: 2px 0;
+  min-height: 0;
+  width: 100%;
+}
+
+#left-sidebar #main-menu .nav-dropdown > li.ward-nav-subsection > button.ward-nav-subsection__toggle {
+  box-sizing: border-box;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0;
+  max-width: 100%;
+  outline-offset: -2px;
+  padding: 6px 28px 6px 47px;
+  width: 100%;
+}
+
+#left-sidebar #main-menu .nav-dropdown > li.ward-nav-subsection > .ward-nav-subsection__menu {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+#left-sidebar #main-menu .nav-dropdown > li.ward-nav-subsection > .ward-nav-subsection__menu::before {
+  left: 45px;
+}
+
+#left-sidebar #main-menu .nav-dropdown > li.ward-nav-subsection > .ward-nav-subsection__menu > li > a {
+  padding-left: 70px;
+}
+
+#left-sidebar #main-menu .nav-dropdown > li.ward-nav-subsection > .ward-nav-subsection__menu > li > a::before {
+  left: 43px;
+}
+
+#left-sidebar.light_active #main-menu button.has-arrow {
+  color: var(--font-333, #333);
+}
+
+#left-sidebar.light_active #main-menu > li.active > button.has-arrow {
+  color: var(--primary-color, #019c9d);
+}
+
+#left-sidebar #main-menu .has-arrow::after {
+  pointer-events: none;
 }
 
 #left-sidebar .menu_toggle {
+  box-sizing: border-box;
+  border: 0;
+  cursor: pointer;
+  height: 30px;
+  max-height: 30px;
+  max-width: 30px;
+  padding: 0;
   position: absolute;
-  z-index: 100000;
+  width: 30px;
+  /* Stay above sidebar chrome only — never above the whole app. */
+  z-index: 20;
 }
 
 #left-sidebar .navbar-brand {

@@ -1,3 +1,4 @@
+import { printHtmlJob } from '../../../core/keyboard/print-job.util';
 import {
   AdmissionRecommendationRecord,
   admissionEnumLabel,
@@ -347,15 +348,8 @@ export function buildAdmissionRecommendationPrintHtml(options: {
 }
 
 export function printAdmissionRecommendationHtml(html: string): void {
-  const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=900,height=1100');
-  if (!printWindow) {
-    return;
-  }
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.onload = () => {
-    printWindow.print();
-  };
+  printHtmlJob(html, {
+    jobType: 'a4',
+    title: 'Admission Recommendation — select A4 printer',
+  });
 }

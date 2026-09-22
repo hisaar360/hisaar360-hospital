@@ -116,11 +116,19 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
     const moduleKey = this.route.snapshot.data['wardModuleKey'] as string;
     this.config = WARD_MODULE_PAGE_CONFIGS[moduleKey];
     this.applyRouteContext(this.route.snapshot.queryParamMap);
+
+    if (this.redirectOrphanCareRouteToChart(moduleKey)) {
+      return;
+    }
+
     this.loadWardOptions();
     this.refreshRows();
 
     this.querySub = this.route.queryParamMap.subscribe((params) => {
       this.applyRouteContext(params);
+      if (this.redirectOrphanCareRouteToChart(moduleKey)) {
+        return;
+      }
       this.openRecommendationFromQueryIfNeeded();
     });
     this.openRecommendationFromQueryIfNeeded();
@@ -495,13 +503,8 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
       this.toastr.warning('No admission found for this patient.');
       return;
     }
-    this.wardData.dischargeAllotment(admissionId).subscribe({
-      next: () => {
-        this.toastr.success('Patient discharged successfully.');
-        this.clearPatientContext();
-        this.refreshRows();
-      },
-      error: () => this.toastr.error('Failed to discharge patient.'),
+    void this.router.navigate(['/ward/patient-detail', admissionId], {
+      queryParams: { tab: 'discharge' },
     });
   }
 
@@ -595,6 +598,14 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
   }
 
   private navigateWithPatient(path: string, patientId: string, admissionId: string, patientName: string): void {
+    const chartTab = this.careRouteToChartTab(path);
+    if (admissionId && chartTab) {
+      void this.router.navigate(['/ward/patient-detail', admissionId], {
+        queryParams: { tab: chartTab },
+      });
+      return;
+    }
+
     void this.router.navigate([path], {
       queryParams: {
         patientId: patientId || undefined,
@@ -605,6 +616,51 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
         roomId: this.contextRoomId || undefined,
       },
     });
+  }
+
+  private careRouteToChartTab(path: string): string | null {
+    if (path.includes('/ward/mar')) return 'medicines';
+    if (path.includes('/ward/drips-iv')) return 'drips';
+    if (path.includes('/ward/vitals')) return 'vitals';
+    if (path.includes('/ward/nursing-care')) return 'nursing';
+    if (path.includes('/ward/io-chart')) return 'io';
+    if (path.includes('/ward/orders-services')) return 'orders';
+    return null;
+  }
+
+  /** Care modules belong on the patient chart — redirect instead of orphan list pages. */
+  private redirectOrphanCareRouteToChart(moduleKey: string): boolean {
+    const chartTabs: Record<string, string> = {
+      mar: 'medicines',
+      'drips-iv': 'drips',
+      vitals: 'vitals',
+      'nursing-care': 'nursing',
+      'io-chart': 'io',
+      'orders-services': 'orders',
+    };
+    const tab = chartTabs[moduleKey];
+    if (!tab) {
+      return false;
+    }
+
+    if (this.contextAdmissionId) {
+      void this.router.navigate(['/ward/patient-detail', this.contextAdmissionId], {
+        queryParams: { tab },
+        replaceUrl: true,
+      });
+      return true;
+    }
+
+    void this.router.navigate(['/ward/patient-list'], {
+      queryParams: {
+        pickPatient: '1',
+        nextTab: tab,
+        patientId: this.contextPatientId || undefined,
+      },
+      replaceUrl: true,
+    });
+    this.toastr.info('Select a patient first to open their chart.');
+    return true;
   }
 
   get hasPatientContext(): boolean {

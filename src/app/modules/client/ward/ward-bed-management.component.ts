@@ -15,6 +15,7 @@ import {
 } from './ward-bed-management.models';
 import { HospitalWard, WardFloor } from '../../../shared/models/hospital.model';
 import { WardDataService } from './services/ward-data.service';
+import { CurrencyService, formatActiveCurrency } from '../../../core/services/currency.service';
 import {
   buildFloorOptions,
   isPersistedWardBedId,
@@ -150,7 +151,8 @@ export class WardBedManagementComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private toastr: ToastrService,
-    private wardData: WardDataService
+    private wardData: WardDataService,
+    private currency: CurrencyService
   ) {
     this.roomForm = this.fb.group({
       wardId: ['', Validators.required],
@@ -1749,8 +1751,12 @@ export class WardBedManagementComponent implements OnInit, OnDestroy {
     });
   }
 
+  get currencyLabel(): string {
+    return this.currency.label;
+  }
+
   formatCurrency(value: number): string {
-    return `Rs. ${value.toLocaleString('en-PK')}/day`;
+    return `${formatActiveCurrency(value, { fractionDigits: 0 })}/day`;
   }
 
   fieldError(form: FormGroup, controlName: string, label: string): string {

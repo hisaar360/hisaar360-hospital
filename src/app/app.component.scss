@@ -1,0 +1,16 @@
+/* Keep the dimmer from eating clicks on the open sidebar / whole app. */
+.overlay {
+  pointer-events: none;
+}
+
+.overlay.open {
+  /* Only the main canvas is clickable to dismiss — not the 270px sidebar. */
+  left: 270px;
+  pointer-events: auto;
+}
+
+@media screen and (max-width: 420px) {
+  .overlay.open {
+    left: 0;
+  }
+}

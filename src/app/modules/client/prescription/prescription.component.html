@@ -1,10 +1,21 @@
 
 <div id="main-content" class="prescription-page">
+  <div class="kb-hint-panel" *ngIf="keyboardHintOpen">
+    <div class="kb-hint-head">
+      <strong>Keyboard shortcuts</strong>
+      <button type="button" class="btn-light" (click)="keyboardHintOpen = false">Close</button>
+    </div>
+    <ul>
+      <li *ngFor="let hint of keyboardHints"><kbd>{{ hint.keys }}</kbd> <span>{{ hint.action }}</span></li>
+    </ul>
+  </div>
   <div class="rx-workspace">
     <aside class="appointments-panel">
       <div class="panel-heading">
         <div>
-          <h2 routerLink="/appointments" style="cursor: pointer;">Today's Appointments</h2>
+          <h2 routerLink="/appointments" style="cursor: pointer;">
+            Today's Appointments
+          </h2>
           <span>{{ visibleAppointments().length }}</span>
         </div>
         <div class="panel-heading-actions">
@@ -24,6 +35,9 @@
             {{ appointmentStatusLabel(appointment.status) }}
           </small>
         </button>
+        <div class="appointments-empty" *ngIf="!appointmentsLoading && visibleAppointments().length === 0">
+          No appointments today.
+        </div>
       </div>
 
       <div class="patient-card" *ngIf="selectedPatient() as patient">
@@ -62,74 +76,6 @@
             <dd>{{ selectedDoctorName() }}</dd>
           </div>
         </dl>
-
-        <div [formGroup]="prescriptionForm">
-          <div class="visit-type">
-            <label><input type="radio" formControlName="visitType" [value]="'opd'" /> OPD</label>
-            <label><input type="radio" formControlName="visitType" [value]="'follow_up'" /> Follow Up</label>
-          </div>
-
-          <div class="vitals-card vitals-card-modern">
-            <div class="vitals-head">
-              <strong>Vitals</strong>
-              <div class="vitals-head-actions">
-                <span>{{ currentTime() }}</span>
-                <button type="button" class="vital-add-btn" (click)="openVitalsModal()" aria-label="Add vitals">
-                  <i class="fa fa-plus-circle"></i>
-                </button>
-              </div>
-            </div>
-
-            <button type="button" class="vital-sidebar-row" *ngFor="let vital of sidebarVitalItems" (click)="openVitalsModal()">
-              <span class="vital-icon" [ngClass]="'tone-' + vital.iconTone">
-                <i class="fa" [ngClass]="vital.icon"></i>
-              </span>
-              <div class="vital-sidebar-body">
-                <span class="vital-label">{{ vital.label }}</span>
-                <strong class="vital-value">{{ vital.displayValue }}</strong>
-                <span class="vital-trend" [ngClass]="vital.trendClass" *ngIf="vital.compactTrend">{{ vital.compactTrend }}</span>
-                <span class="vital-trend unknown" *ngIf="!vital.compactTrend && vital.value">No previous record</span>
-              </div>
-              <span class="vital-status" [ngClass]="vitalStatusClass(vital.status)">{{ vital.statusLabel }}</span>
-            </button>
-
-            <div class="vitals-empty" *ngIf="!hasRecordedVitals()">
-              No vitals recorded yet. Tap + to add today's vitals.
-            </div>
-
-            <button type="button" class="vitals-trends-btn" (click)="openVitalsTab()">
-              <i class="fa fa-chart-line"></i>
-              View Vitals Trends
-            </button>
-
-            <div class="vitals-alerts" *ngIf="vitalAlerts.length > 0">
-              <div class="vitals-alerts-head">
-                <strong>Alerts</strong>
-                <span class="vitals-alert-count">{{ vitalAlerts.length }}</span>
-              </div>
-              <ul>
-                <li *ngFor="let alert of vitalAlerts" [ngClass]="'alert-' + alert.severity">{{ alert.message }}</li>
-              </ul>
-            </div>
-          </div>
-
-          <div class="custom-vitals-card">
-            <div class="custom-vital-row custom-vital-head">
-              <strong>Custom Vitals</strong>
-              <button type="button" class="btn-light" (click)="openVitalsModalWithCustomRow()">+ Add Vital</button>
-            </div>
-
-            <div class="vitals-custom-empty" *ngIf="arbitraryCustomVitals().length === 0">
-              Add custom vitals like Pain Scale, GRBS, etc.
-            </div>
-
-            <button type="button" class="custom-vital-display-row" *ngFor="let vital of arbitraryCustomVitals()"
-              (click)="openVitalsModal()">
-              <span>{{ formatCustomVitalLabel(vital.key) }}</span>
-              <strong>{{ vital.value }}</strong>
-            </button>
-          </div>
-        </div>
       </div>
     </aside>
 
@@ -159,19 +105,26 @@
               <i class="fa" [ngClass]="sendingDaySummary ? 'fa-spinner fa-spin' : 'fa-envelope'"></i>
               {{ sendingDaySummary ? 'Sending...' : 'Email Day Summary' }}
             </button>
-            <a *ngIf="canReadPrescriptions" class="btn-light" routerLink="/prescriptions/created">Created Prescriptions</a>
+            <a *ngIf="canReadPrescriptions" class="btn-light" routerLink="/prescriptions/created">Previous Consultations</a>
             <button type="button" class="btn-light theme-select-btn" (click)="openPrescriptionThemeModal()">
               <i class="fa fa-paint-brush"></i>
               Theme: {{ activePrescriptionTemplateLabel }}
             </button>
-            <button type="button" class="btn-light" [disabled]="saving" (click)="submitPrescription(false)">Save
-              Draft</button>
-            <button type="button" class="btn-primary" [disabled]="saving" (click)="submitPrescription(true)">
-              <i class="fa fa-print"></i>
-              {{ saving ? 'Saving...' : 'Save & Print' }}
+            <button type="button" class="btn-light" (click)="toggleKeyboardHint()" title="Keyboard shortcuts">
+              <i class="fa fa-keyboard-o"></i>
             </button>
+            <ng-container *ngIf="hasAssignedPatient()">
+              <button type="button" class="btn-light" [disabled]="saving" (click)="submitPrescription(false)">Save
+                Draft</button>
+              <button type="button" class="btn-primary" [disabled]="saving" (click)="submitPrescription(true)">
+                <i class="fa fa-print"></i>
+                {{ saving ? 'Saving...' : 'Save & Print' }}
+              </button>
+            </ng-container>
           </div>
         </div>
+
+        <ng-container *ngIf="hasAssignedPatient(); else consultationIdle">
 
         <section
           #saveValidationSummary
@@ -184,7 +137,7 @@
             <i class="fa fa-exclamation-triangle"></i>
           </div>
           <div class="prescription-save-validation__content">
-            <strong>Prescription could not be saved</strong>
+            <strong>Consultation could not be saved</strong>
             <span>Please fix the following before trying again:</span>
             <ul>
               <li *ngFor="let message of saveValidationMessages">{{ message }}</li>
@@ -195,85 +148,220 @@
           </button>
         </section>
 
-        <div class="consultation-grid" [class.consultation-grid-gynae]="isGynaeDoctor()">
-          <label>
-            <span>Chief Complaint</span>
-            <input formControlName="chiefComplaint"
-              [placeholder]="isGynaeDoctor() ? gynaeChiefComplaintPlaceholder() : 'Dry cough, mild fever, weakness'" />
-          </label>
-          <label>
-            <span>Diagnosis</span>
-            <input formControlName="diagnosis" placeholder="Acute Upper Respiratory Tract Infection" />
-          </label>
-          <label>
-            <span>History</span>
-            <input formControlName="history"
-              [placeholder]="isGynaeDoctor() ? gynaeHistoryPlaceholder() : 'Cough for 3 days, no breathlessness...'" />
-          </label>
-          <label>
-            <span>Advice / Notes</span>
-            <textarea formControlName="advice"
-              placeholder="Rest, plenty of fluids, take medication as prescribed."></textarea>
-            <div class="gynae-advice-templates" *ngIf="isGynaeDoctor()">
-              <button type="button" class="gynae-chip" *ngFor="let template of gynaeAdviceTemplates"
-                (click)="applyGynaeAdviceTemplate(template.text)">
-                {{ template.label }}
+        <app-clinical-patient-header [model]="clinicalPatientHeaderModel()"></app-clinical-patient-header>
+
+        <div class="rx-tabs clinical-workspace-tabs">
+          <button type="button" [class.active]="workspaceTab === 'visit'" (click)="setWorkspaceTab('visit')">
+            {{ isGynaeDoctor() ? 'Visit Details' : 'Visit' }}
+          </button>
+          <button type="button" [class.active]="workspaceTab === 'specialty'" (click)="setWorkspaceTab('specialty')">
+            Specialty
+            <small>{{ specialtyWorkspaceTitle() }}</small>
+          </button>
+          <button type="button" [class.active]="workspaceTab === 'orders'" (click)="setWorkspaceTab('orders')">Orders</button>
+          <button type="button" [class.active]="workspaceTab === 'history'" (click)="setWorkspaceTab('history')">History</button>
+        </div>
+
+        <section class="clinical-workspace-panel" *ngIf="workspaceTab === 'visit'">
+          <app-clinical-visit
+            [form]="prescriptionForm"
+            [isGynaeDoctor]="isGynaeDoctor()"
+            [chiefComplaintPlaceholder]="visitChiefComplaintPlaceholder()"
+            [historyPlaceholder]="visitHistoryPlaceholder()"
+            [gynaeAdviceTemplates]="gynaeAdviceTemplates"
+            [sidebarVitalItems]="sidebarVitalItems"
+            [hasRecordedVitals]="hasRecordedVitals()"
+            [patientAllergies]="patientAllergiesLabel()"
+            [patientCurrentMedicines]="patientCurrentMedicinesLabel()"
+            [patientChronicIllness]="patientChronicIllnessLabel()"
+            [showAdvancedHistory]="showAdvancedVisitHistory"
+            (toggleAdvancedHistory)="toggleAdvancedVisitHistory()"
+            (openVitalsTrends)="toggleVisitVitalsTrends()"
+            (openVitals)="openVitalsModal()"
+            (applyAdviceTemplate)="applyGynaeAdviceTemplate($event)"
+            (chaperoneChange)="onVisitChaperoneChange($event)"
+            (consentChange)="onVisitConsentChange($event)"
+            (pelvicExamChange)="onVisitPelvicExamChange($event)">
+          </app-clinical-visit>
+
+          <section class="vitals-dashboard-panel visit-vitals-trends" *ngIf="showVisitVitalsTrends">
+            <div class="vitals-dashboard-head">
+              <h3>Vitals Trends</h3>
+              <div class="vitals-range-switch">
+                <button type="button" *ngFor="let range of vitalsTrendRanges"
+                  [class.active]="vitalsTrendRange === range.key"
+                  (click)="setVitalsTrendRange(range.key)">
+                  {{ range.label }}
+                </button>
+              </div>
+              <button type="button" class="btn-light" (click)="toggleVisitVitalsTrends()">Hide Trends</button>
+            </div>
+
+            <div class="vitals-charts-grid">
+              <article class="vital-chart-card" *ngFor="let chart of vitalMiniCharts; trackBy: trackVitalChart">
+                <div class="vital-chart-card-head">
+                  <strong>{{ chart.title }}</strong>
+                  <div class="vital-chart-meta">
+                    <span class="vital-chart-latest">{{ chart.latestValue }}</span>
+                    <span class="vital-chart-trend" [ngClass]="chart.trendClass" *ngIf="chart.compactTrend">{{ chart.compactTrend }}</span>
+                  </div>
+                </div>
+                <div class="vital-chart-body" *ngIf="chart.hasData; else emptyVisitChart">
+                  <apx-chart
+                    [series]="chart.apex.series"
+                    [chart]="chart.apex.chart"
+                    [stroke]="chart.apex.stroke"
+                    [markers]="chart.apex.markers"
+                    [xaxis]="chart.apex.xaxis"
+                    [yaxis]="vitalChartSharedYAxis"
+                    [grid]="vitalChartSharedGrid"
+                    [dataLabels]="vitalChartSharedDataLabels"
+                    [tooltip]="vitalChartSharedTooltip"
+                    [colors]="chart.apex.colors"
+                    [autoUpdateSeries]="false">
+                  </apx-chart>
+                </div>
+                <ng-template #emptyVisitChart>
+                  <div class="vital-chart-empty">No data for selected range</div>
+                </ng-template>
+              </article>
+            </div>
+
+            <div class="vitals-history-panel">
+              <div class="vitals-history-head">
+                <h3>Vitals History</h3>
+                <button type="button" class="vitals-add-link" (click)="openVitalsModal()">
+                  <i class="fa fa-plus-circle"></i>
+                  Add New Vitals
+                </button>
+              </div>
+
+              <div class="vitals-history-empty" *ngIf="vitalHistoryRows.length === 0">
+                No vitals history found for this patient.
+              </div>
+
+              <div class="vitals-history-table-wrap" *ngIf="vitalHistoryRows.length > 0">
+                <table class="vitals-history-table">
+                  <thead>
+                    <tr>
+                      <th>Date &amp; Time</th>
+                      <th>Weight (Kg)</th>
+                      <th>Height (cm)</th>
+                      <th>BP (mmHg)</th>
+                      <th>Pulse (/min)</th>
+                      <th>Temp (°F)</th>
+                      <th>SpO2 (%)</th>
+                      <th>Resp. Rate (/min)</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let row of vitalHistoryRows">
+                      <td>{{ row.dateTime }}</td>
+                      <td>
+                        <span class="history-cell">
+                          <small [ngClass]="historyTrendClass(row.trends['weight'])" *ngIf="historyTrendArrow(row.trends['weight'])">{{ historyTrendArrow(row.trends['weight']) }}</small>
+                          {{ row.weight }}
+                        </span>
+                      </td>
+                      <td>{{ row.height }}</td>
+                      <td>
+                        <span class="history-cell">
+                          <small [ngClass]="historyTrendClass(row.trends['bp'])" *ngIf="historyTrendArrow(row.trends['bp'])">{{ historyTrendArrow(row.trends['bp']) }}</small>
+                          {{ row.bp }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="history-cell">
+                          <small [ngClass]="historyTrendClass(row.trends['pulse'])" *ngIf="historyTrendArrow(row.trends['pulse'])">{{ historyTrendArrow(row.trends['pulse']) }}</small>
+                          {{ row.pulse }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="history-cell">
+                          <small [ngClass]="historyTrendClass(row.trends['temperature'])" *ngIf="historyTrendArrow(row.trends['temperature'])">{{ historyTrendArrow(row.trends['temperature']) }}</small>
+                          {{ row.temperature }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="history-cell">
+                          <small [ngClass]="historyTrendClass(row.trends['spo2'])" *ngIf="historyTrendArrow(row.trends['spo2'])">{{ historyTrendArrow(row.trends['spo2']) }}</small>
+                          {{ row.spo2 }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="history-cell">
+                          <small [ngClass]="historyTrendClass(row.trends['respiratoryRate'])" *ngIf="historyTrendArrow(row.trends['respiratoryRate'])">{{ historyTrendArrow(row.trends['respiratoryRate']) }}</small>
+                          {{ row.respiratoryRate }}
+                        </span>
+                      </td>
+                      <td>{{ row.notes }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <div class="rx-tabs clinical-orders-subtabs" *ngIf="workspaceTab === 'orders'">
+          <button type="button" [class.active]="ordersSubTab === 'medicines'" (click)="setOrdersSubTab('medicines')">Medicines</button>
+          <button type="button" [class.active]="ordersSubTab === 'lab'" (click)="setOrdersSubTab('lab')">Lab Tests</button>
+          <button type="button" [class.active]="ordersSubTab === 'iv'" (click)="setOrdersSubTab('iv')">IV / Drips</button>
+          <button type="button" [class.active]="ordersSubTab === 'admission'" (click)="setOrdersSubTab('admission')"
+            data-testid="prescription-tab-admission">Admission</button>
+          <button type="button" [class.active]="ordersSubTab === 'documents'" (click)="setOrdersSubTab('documents')">Documents</button>
+        </div>
+
+        <div class="specialty-workspace" *ngIf="workspaceTab === 'specialty'">
+          <ng-container>
+            <div class="rx-tabs clinical-specialty-subtabs" *ngIf="isGynaeDoctor()">
+              <button type="button" [class.active]="specialtySubTab === 'notes'" (click)="setSpecialtySubTab('notes')">
+                {{ specialtyTabLabel() }}
+              </button>
+              <button type="button" [class.active]="specialtySubTab === 'ultrasound'" (click)="setSpecialtySubTab('ultrasound')">
+                Ultrasound
               </button>
             </div>
-          </label>
-          <label>
-            <span>Examination</span>
-            <input formControlName="examination" placeholder="Chest clear, CVS normal..." />
-            <div class="gynae-consent-row" *ngIf="isGynaeDoctor()" formGroupName="specialtyData">
-              <label><input type="checkbox" [checked]="specialtyDataGroup.get('chaperonePresent')?.value === 'Yes'"
-                  (change)="specialtyDataGroup.patchValue({ chaperonePresent: $any($event.target).checked ? 'Yes' : 'No' }); refreshGynaeExaminationConsent()" />
-                Chaperone present</label>
-              <label><input type="checkbox" [checked]="specialtyDataGroup.get('patientConsentTaken')?.value === 'Yes'"
-                  (change)="specialtyDataGroup.patchValue({ patientConsentTaken: $any($event.target).checked ? 'Yes' : 'No' }); refreshGynaeExaminationConsent()" />
-                Consent taken</label>
-              <label><input type="checkbox" [checked]="specialtyDataGroup.get('pelvicExamDone')?.value === 'Done'"
-                  (change)="specialtyDataGroup.patchValue({ pelvicExamDone: $any($event.target).checked ? 'Done' : 'Not Done' }); refreshGynaeExaminationConsent()" />
-                Pelvic exam done</label>
-            </div>
-          </label>
-          <label>
-            <span>Follow Up Date</span>
-            <input type="date" formControlName="followUpDate" />
-          </label>
-        </div>
 
-        <div class="rx-tabs">
-          <button type="button" [class.active]="activeTab === 'prescription'"
-            (click)="activeTab = 'prescription'">Prescription</button>
-          <button type="button" [class.active]="activeTab === 'vitals'" (click)="activeTab = 'vitals'">Vitals</button>
-          <button type="button" [class.active]="activeTab === 'lab'" (click)="activeTab = 'lab'">Lab Tests</button>
-          <button type="button" [class.active]="activeTab === 'specialty'"
-            (click)="activeTab = 'specialty'">{{ specialtyTabLabel() }}</button>
-          <button type="button" *ngIf="isGynaeDoctor()" [class.active]="activeTab === 'ultrasound'"
-            (click)="activeTab = 'ultrasound'">Ultrasound</button>
-          <button type="button" [class.active]="activeTab === 'iv'" (click)="activeTab = 'iv'">Drips / IV
-            Fluids</button>
-          <button type="button" [class.active]="activeTab === 'admission'" (click)="activeTab = 'admission'"
-            data-testid="prescription-tab-admission">Admission
-            Orders</button>
-          <button type="button" [class.active]="activeTab === 'documents'"
-            (click)="activeTab = 'documents'">Documents</button>
-        </div>
+            <div class="specialty-workspace-body" *ngIf="specialtySubTab === 'notes'">
+              <div class="specialty-workspace-main">
+                <div class="specialty-doctor-badge" *ngIf="resolveActiveSpecialtyKey() as specialtyKey">
+                  <span class="specialty-doctor-badge__pill">
+                    <i class="fa fa-stethoscope" aria-hidden="true"></i>
+                    {{ specialtyDisplayName(specialtyKey) }}
+                  </span>
+                </div>
 
-        <section class="specialty-notes-panel" *ngIf="activeTab === 'specialty' && activeSpecialtyTemplate() as template">
-          <div class="specialty-notes-head">
+                <section class="specialty-notes-panel" *ngIf="activeSpecialtyTemplate() as template">
+          <ng-container *ngIf="useGenericSpecialtyEngine(); else legacySpecialtyPanel">
+            <app-specialty-section
+              [form]="specialtyDataGroup"
+              [template]="activeEngineSpecialtyTemplate()"
+              [specialtyKey]="resolveActiveSpecialtyKey()"
+              [patientDateOfBirth]="selectedPatient()?.dateOfBirth || null"
+              [patientSex]="selectedPatient()?.gender || null"
+              [visitDate]="currentVisitDateIso()"
+              [growthPoints]="specialtyGrowthPoints">
+            </app-specialty-section>
+          </ng-container>
+
+          <ng-template #legacySpecialtyPanel>
+          <div class="specialty-notes-head" *ngIf="!isGynaeDoctor()">
             <div>
-              <h3>{{ isGynaeDoctor() ? 'Gynae / OBS' : template.title }}</h3>
-              <p>{{ isGynaeDoctor() ? 'Antenatal, gynae problem and postnatal visit details.' : template.description }}</p>
+              <h3>{{ specialtyWorkspaceTitle() }}</h3>
             </div>
-            <label *ngIf="!isGynaeDoctor()">
-              <span>Template</span>
-              <select [ngModel]="template.key" [ngModelOptions]="{ standalone: true }"
-                (ngModelChange)="applySpecialtySection($event)">
-                <option *ngFor="let option of specialtyTemplateOptions" [value]="option.key">{{ option.title }}</option>
-              </select>
-            </label>
           </div>
+
+          <app-obgyn-pregnancy-panel
+            *ngIf="isGynaeDoctor()"
+            [patientId]="selectedPatientId || prescriptionForm.getRawValue().patientId || ''"
+            [canWrite]="canWritePregnancyEpisode()"
+            [clinicalContext]="obgynClinicalContext"
+            [selectedEpisodeId]="prescriptionForm.getRawValue().pregnancyEpisodeId || null"
+            (clinicalContextChange)="onObgynContextChange($event)"
+            (episodeChange)="onPregnancyEpisodeChange($event)">
+          </app-obgyn-pregnancy-panel>
 
           <div class="gynae-mode-switch" *ngIf="isGynaeDoctor()">
             <button type="button" *ngFor="let mode of gynaeConsultModes"
@@ -285,151 +373,161 @@
           <ng-container *ngIf="isGynaeDoctor() && gynaeConsultMode() === 'postnatal'">
             <div class="gynae-postnatal-layout">
               <div class="gynae-postnatal-main" formGroupName="specialtyData">
-                <div class="gynae-postnatal-grid">
-                  <label><span>Delivery Date</span><input type="date" formControlName="deliveryDate" /></label>
-                  <label><span>Mode of Delivery</span>
-                    <select formControlName="deliveryType">
-                      <option value="">Select</option>
-                      <option value="Normal Vaginal">Normal Vaginal</option>
-                      <option value="LSCS">LSCS</option>
-                      <option value="Assisted Vaginal">Assisted Vaginal</option>
-                      <option value="Forceps / Vacuum">Forceps / Vacuum</option>
-                    </select>
-                  </label>
-                  <label><span>Weeks Postpartum</span><input formControlName="weeksPostpartum" placeholder="1 Week 4 Days" /></label>
-                  <label><span>Baby Status</span>
-                    <select formControlName="babyStatus">
-                      <option value="">Select</option>
-                      <option value="Healthy (Male)">Healthy (Male)</option>
-                      <option value="Healthy (Female)">Healthy (Female)</option>
-                      <option value="NICU">NICU</option>
-                      <option value="IUGR">IUGR</option>
-                      <option value="Stillbirth">Stillbirth</option>
-                    </select>
-                  </label>
-                  <label><span>Birth Weight</span><input formControlName="birthWeight" placeholder="3.2 Kg" /></label>
-
-                  <label><span>Breastfeeding Status</span>
-                    <select formControlName="breastfeeding">
-                      <option value="">Select</option>
-                      <option value="Breastfeeding Well">Breastfeeding Well</option>
-                      <option value="Partial Breastfeeding">Partial Breastfeeding</option>
-                      <option value="Not Breastfeeding">Not Breastfeeding</option>
-                      <option value="Difficulty Latching">Difficulty Latching</option>
-                    </select>
-                  </label>
-                  <label><span>Lochia / Bleeding</span>
-                    <select formControlName="bleedingStatus">
-                      <option value="">Select</option>
-                      <option value="Scanty (Normal)">Scanty (Normal)</option>
-                      <option value="Moderate">Moderate</option>
-                      <option value="Heavy">Heavy</option>
-                      <option value="Foul Smelling">Foul Smelling</option>
-                    </select>
-                  </label>
-                  <label><span>Wound / Episiotomy Status</span>
-                    <select formControlName="stitchesStatus">
-                      <option value="">Select</option>
-                      <option value="Healing Well">Healing Well</option>
-                      <option value="Painful">Painful</option>
-                      <option value="Infected">Infected</option>
-                      <option value="Not Applicable">Not Applicable</option>
-                    </select>
-                  </label>
-                  <label><span>Postpartum Pain</span>
-                    <select formControlName="postpartumPain">
-                      <option value="">Select</option>
-                      <option value="None">None</option>
-                      <option value="Mild">Mild</option>
-                      <option value="Moderate">Moderate</option>
-                      <option value="Severe">Severe</option>
-                    </select>
-                  </label>
-                  <label><span>Fever</span>
-                    <select formControlName="postpartumFever">
-                      <option value="">Select</option>
-                      <option value="Yes">Yes</option>
-                      <option value="No">No</option>
-                    </select>
-                  </label>
-
-                  <label><span>Urinary Complaints</span>
-                    <select formControlName="urinaryComplaints">
-                      <option value="">Select</option>
-                      <option value="Yes">Yes</option>
-                      <option value="No">No</option>
-                    </select>
-                  </label>
-                  <label><span>Bowel Status</span>
-                    <select formControlName="bowelStatus">
-                      <option value="">Select</option>
-                      <option value="Normal">Normal</option>
-                      <option value="Constipation">Constipation</option>
-                      <option value="Diarrhea">Diarrhea</option>
-                    </select>
-                  </label>
-                  <label><span>Uterine Involution</span>
-                    <select formControlName="uterineInvolution">
-                      <option value="">Select</option>
-                      <option value="Uterus well contracted">Uterus well contracted</option>
-                      <option value="Subinvolution">Subinvolution</option>
-                      <option value="Tender uterus">Tender uterus</option>
-                    </select>
-                  </label>
-                  <label><span>Postpartum BP</span><input formControlName="postpartumBp" placeholder="112/72 mmHg" /></label>
-                  <label><span>Weight</span><input formControlName="postpartumWeight" placeholder="64 Kg" /></label>
-
-                  <label class="wide"><span>Mood / Depression Screening (EPDS)</span>
-                    <select formControlName="epdsScore">
-                      <option value="">Select</option>
-                      <option value="0 (Normal)">0 (Normal)</option>
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="3 (Normal)">3 (Normal)</option>
-                      <option value="4">4</option>
-                      <option value="5">5</option>
-                      <option value="6">6</option>
-                      <option value="7">7</option>
-                      <option value="8">8</option>
-                      <option value="9">9</option>
-                      <option value="10+ (Refer)">10+ (Refer)</option>
-                    </select>
-                  </label>
-                  <label class="wide"><span>Remarks</span><textarea formControlName="postnatalRemarks" placeholder="General postnatal remarks"></textarea></label>
-                </div>
-
-                <div class="gynae-postnatal-section">
-                  <h4>Clinical Notes</h4>
-                  <div class="gynae-postnatal-notes-grid">
-                    <label><span>Postpartum Examination Notes</span><textarea formControlName="postpartumExamNotes" placeholder="Per abdomen soft, uterus well contracted..."></textarea></label>
-                    <label><span>Medications</span><textarea formControlName="postnatalMedications" placeholder="Tab. Iron, Calcium, Analgesics..."></textarea></label>
-                    <label><span>Advice to Mother</span><textarea formControlName="adviceToMother" placeholder="Rest, nutrition, wound care..."></textarea></label>
-                  </div>
-                </div>
-
-                <div class="gynae-postnatal-section">
-                  <h4>Planning</h4>
-                  <div class="gynae-postnatal-plan-grid">
-                    <label><span>Family Planning / Contraception Counseling</span><textarea formControlName="familyPlanningCounseling" placeholder="Counselled on spacing and contraception options"></textarea></label>
-                    <label><span>Follow-up Plan</span><textarea formControlName="postnatalFollowUpPlan" placeholder="Review after 2 weeks"></textarea></label>
-                  </div>
-                </div>
-
-                <div class="gynae-postnatal-section">
-                  <h4>Danger Signs (Counselled)</h4>
-                  <div class="gynae-postnatal-danger-grid">
-                    <label *ngFor="let sign of postnatalDangerSigns">
-                      <input type="checkbox" [checked]="isPostnatalDangerSignCounselled(sign.key)"
-                        (change)="togglePostnatalDangerSignCounselled(sign.key, $any($event.target).checked)" />
-                      <span>{{ sign.label }}</span>
+                <article class="gynae-card">
+                  <header class="gynae-card__head"><h4>Delivery</h4></header>
+                  <div class="gynae-card__grid gynae-card__grid--3">
+                    <label><span>Delivery date</span><input type="date" formControlName="deliveryDate" /></label>
+                    <label><span>Mode of delivery</span>
+                      <select formControlName="deliveryType">
+                        <option value="">Select</option>
+                        <option value="Normal Vaginal">Normal Vaginal</option>
+                        <option value="LSCS">LSCS</option>
+                        <option value="Assisted Vaginal">Assisted Vaginal</option>
+                        <option value="Forceps / Vacuum">Forceps / Vacuum</option>
+                      </select>
                     </label>
+                    <label><span>Weeks postpartum</span><input formControlName="weeksPostpartum" placeholder="1 Week 4 Days" /></label>
+                    <label><span>Baby status</span>
+                      <select formControlName="babyStatus">
+                        <option value="">Select</option>
+                        <option value="Healthy (Male)">Healthy (Male)</option>
+                        <option value="Healthy (Female)">Healthy (Female)</option>
+                        <option value="NICU">NICU</option>
+                        <option value="IUGR">IUGR</option>
+                        <option value="Stillbirth">Stillbirth</option>
+                      </select>
+                    </label>
+                    <label><span>Birth weight</span><input formControlName="birthWeight" placeholder="3.2 Kg" /></label>
                   </div>
-                </div>
+                </article>
 
-                <label class="gynae-postnatal-note wide">
-                  <span>Note to Patient</span>
-                  <textarea formControlName="gynaeNoteToPatient" placeholder="Take medicines as advised. Follow up after 2 weeks. Visit emergency if bleeding, fever, severe pain or depression symptoms."></textarea>
-                </label>
+                <article class="gynae-card">
+                  <header class="gynae-card__head"><h4>Mother status</h4></header>
+                  <div class="gynae-card__grid gynae-card__grid--3">
+                    <label><span>Breastfeeding</span>
+                      <select formControlName="breastfeeding">
+                        <option value="">Select</option>
+                        <option value="Breastfeeding Well">Breastfeeding Well</option>
+                        <option value="Partial Breastfeeding">Partial Breastfeeding</option>
+                        <option value="Not Breastfeeding">Not Breastfeeding</option>
+                        <option value="Difficulty Latching">Difficulty Latching</option>
+                      </select>
+                    </label>
+                    <label><span>Lochia / bleeding</span>
+                      <select formControlName="bleedingStatus">
+                        <option value="">Select</option>
+                        <option value="Scanty (Normal)">Scanty (Normal)</option>
+                        <option value="Moderate">Moderate</option>
+                        <option value="Heavy">Heavy</option>
+                        <option value="Foul Smelling">Foul Smelling</option>
+                      </select>
+                    </label>
+                    <label><span>Wound / stitches</span>
+                      <select formControlName="stitchesStatus">
+                        <option value="">Select</option>
+                        <option value="Healing Well">Healing Well</option>
+                        <option value="Painful">Painful</option>
+                        <option value="Infected">Infected</option>
+                        <option value="Not Applicable">Not Applicable</option>
+                      </select>
+                    </label>
+                    <label><span>Postpartum pain</span>
+                      <select formControlName="postpartumPain">
+                        <option value="">Select</option>
+                        <option value="None">None</option>
+                        <option value="Mild">Mild</option>
+                        <option value="Moderate">Moderate</option>
+                        <option value="Severe">Severe</option>
+                      </select>
+                    </label>
+                    <label><span>Fever</span>
+                      <select formControlName="postpartumFever">
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </label>
+                    <label><span>Urinary complaints</span>
+                      <select formControlName="urinaryComplaints">
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </label>
+                    <label><span>Bowel status</span>
+                      <select formControlName="bowelStatus">
+                        <option value="">Select</option>
+                        <option value="Normal">Normal</option>
+                        <option value="Constipation">Constipation</option>
+                        <option value="Diarrhea">Diarrhea</option>
+                      </select>
+                    </label>
+                    <label><span>Uterine involution</span>
+                      <select formControlName="uterineInvolution">
+                        <option value="">Select</option>
+                        <option value="Uterus well contracted">Uterus well contracted</option>
+                        <option value="Subinvolution">Subinvolution</option>
+                        <option value="Tender uterus">Tender uterus</option>
+                      </select>
+                    </label>
+                    <label><span>Postpartum BP</span><input formControlName="postpartumBp" placeholder="112/72 mmHg" /></label>
+                    <label><span>Weight</span><input formControlName="postpartumWeight" placeholder="64 Kg" /></label>
+                  </div>
+                </article>
+
+                <article class="gynae-card">
+                  <header class="gynae-card__head"><h4>Assessment</h4></header>
+                  <div class="gynae-card__grid">
+                    <label><span>EPDS / mood screening</span>
+                      <select formControlName="epdsScore">
+                        <option value="">Select</option>
+                        <option value="0 (Normal)">0 (Normal)</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3 (Normal)">3 (Normal)</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10+ (Refer)">10+ (Refer)</option>
+                      </select>
+                    </label>
+                    <label><span>Remarks</span><input formControlName="postnatalRemarks" placeholder="General postnatal remarks" /></label>
+                  </div>
+                </article>
+
+                <article class="gynae-card">
+                  <header class="gynae-card__head"><h4>Examination / notes</h4></header>
+                  <div class="gynae-postnatal-notes-grid">
+                    <label><span>Postpartum examination</span><textarea formControlName="postpartumExamNotes" placeholder="Per abdomen soft, uterus well contracted..."></textarea></label>
+                    <label><span>Medications</span><textarea formControlName="postnatalMedications" placeholder="Tab. Iron, Calcium, Analgesics..."></textarea></label>
+                    <label><span>Advice to mother</span><textarea formControlName="adviceToMother" placeholder="Rest, nutrition, wound care..."></textarea></label>
+                  </div>
+                </article>
+
+                <article class="gynae-card">
+                  <header class="gynae-card__head"><h4>Plan</h4></header>
+                  <div class="gynae-postnatal-plan-grid">
+                    <label><span>Family planning / contraception</span><textarea formControlName="familyPlanningCounseling" placeholder="Counselled on spacing and contraception options"></textarea></label>
+                    <label><span>Follow-up plan</span><textarea formControlName="postnatalFollowUpPlan" placeholder="Review after 2 weeks"></textarea></label>
+                  </div>
+                  <div class="gynae-card__block">
+                    <span class="gynae-card__label">Danger signs counselled</span>
+                    <div class="gynae-postnatal-danger-grid">
+                      <label *ngFor="let sign of postnatalDangerSigns">
+                        <input type="checkbox" [checked]="isPostnatalDangerSignCounselled(sign.key)"
+                          (change)="togglePostnatalDangerSignCounselled(sign.key, $any($event.target).checked)" />
+                        <span>{{ sign.label }}</span>
+                      </label>
+                    </div>
+                  </div>
+                  <label class="gynae-postnatal-note wide">
+                    <span>Note to patient</span>
+                    <textarea formControlName="gynaeNoteToPatient" placeholder="Take medicines as advised. Follow up after 2 weeks. Visit emergency if bleeding, fever, severe pain or depression symptoms."></textarea>
+                  </label>
+                </article>
               </div>
 
               <aside class="gynae-postnatal-sidebar">
@@ -486,14 +584,41 @@
 
           <ng-container *ngIf="isGynaeDoctor() && gynaeConsultMode() === 'antenatal'">
             <div class="gynae-mode-panel" formGroupName="specialtyData">
+              <p class="gynae-dating-hint" *ngIf="hasLinkedPregnancyEpisode()">
+                LMP / EDD / GA are taken from the Pregnancy Record above. You do not need to enter them again —
+                use “Change Confirmed EDD” (or start a new pregnancy record) to update dating.
+              </p>
+              <p class="gynae-dating-hint" *ngIf="!hasLinkedPregnancyEpisode()">
+                Save LMP once in the Pregnancy Record above (“Start Pregnancy Record”) —
+                it will auto-fill here on each visit.
+              </p>
               <div class="gynae-mode-grid gynae-mode-grid-7">
-                <label><span>LMP</span><input type="date" formControlName="lmp" (change)="onGynaeLmpChange()" /></label>
+                <label>
+                  <span>LMP</span>
+                  <input
+                    type="date"
+                    formControlName="lmp"
+                    [readOnly]="hasLinkedPregnancyEpisode()"
+                    (change)="onGynaeLmpChange()" />
+                </label>
                 <label><span>EDD (by LMP)</span><input type="date" formControlName="edd" readonly /></label>
                 <label><span>Gestational Age</span><input formControlName="gestationalAge" readonly placeholder="22w 3d" /></label>
-                <label><span>Gravida (G)</span><input formControlName="gravida" placeholder="2" /></label>
-                <label><span>Para (P)</span><input formControlName="para" placeholder="1" /></label>
-                <label><span>Abortion (A)</span><input formControlName="abortion" placeholder="0" /></label>
-                <label><span>Living (L)</span><input formControlName="living" placeholder="1" /></label>
+                <label>
+                  <span>Gravida (G)</span>
+                  <input formControlName="gravida" placeholder="2" [readOnly]="hasLinkedPregnancyEpisode()" />
+                </label>
+                <label>
+                  <span>Para (P)</span>
+                  <input formControlName="para" placeholder="1" [readOnly]="hasLinkedPregnancyEpisode()" />
+                </label>
+                <label>
+                  <span>Abortion (A)</span>
+                  <input formControlName="abortion" placeholder="0" [readOnly]="hasLinkedPregnancyEpisode()" />
+                </label>
+                <label>
+                  <span>Living (L)</span>
+                  <input formControlName="living" placeholder="1" [readOnly]="hasLinkedPregnancyEpisode()" />
+                </label>
               </div>
 
               <div class="gynae-mode-toggle-row">
@@ -597,168 +722,199 @@
           </ng-container>
 
           <ng-container *ngIf="isGynaeDoctor() && gynaeConsultMode() === 'gynae_problem'">
-            <div class="gynae-mode-panel" formGroupName="specialtyData">
-              <div class="gynae-mode-grid gynae-mode-grid-6">
-                <label><span>LMP</span><input type="date" formControlName="lmp" (change)="onGynaeLmpChange()" /></label>
-                <label><span>Cycle Regularity</span>
-                  <select formControlName="cycleRegularity">
-                    <option value="">Select</option>
-                    <option value="Regular">Regular</option>
-                    <option value="Irregular">Irregular</option>
-                  </select>
-                </label>
-                <label><span>Cycle Length</span>
-                  <select formControlName="cycleLength">
-                    <option value="">Select</option>
-                    <option value="21-28 days">21-28 days</option>
-                    <option value="28-35 days">28-35 days</option>
-                    <option value="35-45 days">35-45 days</option>
-                    <option value="> 45 days">&gt; 45 days</option>
-                    <option value="Variable">Variable</option>
-                  </select>
-                </label>
-                <label><span>Duration of Flow</span>
-                  <select formControlName="durationOfFlow">
-                    <option value="">Select</option>
-                    <option value="2-3 days">2-3 days</option>
-                    <option value="4-5 days">4-5 days</option>
-                    <option value="5 days">5 days</option>
-                    <option value="6-7 days">6-7 days</option>
-                    <option value="> 7 days">&gt; 7 days</option>
-                  </select>
-                </label>
-                <label><span>Amount of Bleeding</span>
-                  <select formControlName="amountOfBleeding">
-                    <option value="">Select</option>
-                    <option value="Scanty">Scanty</option>
-                    <option value="Light">Light</option>
-                    <option value="Moderate">Moderate</option>
-                    <option value="Heavy">Heavy</option>
-                    <option value="Very Heavy">Very Heavy</option>
-                  </select>
-                </label>
-                <label><span>Dysmenorrhea</span>
-                  <select formControlName="dysmenorrhea">
-                    <option value="">Select</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </label>
-              </div>
+            <div class="gynae-consult" formGroupName="specialtyData">
+              <aside class="gynae-consult__nav">
+                <p class="gynae-consult__nav-title">Sections</p>
+                <button type="button" class="gynae-consult__nav-item" (click)="scrollGynaeSection('gynae-section-patient')">Patient Information</button>
+                <button type="button" class="gynae-consult__nav-item" (click)="scrollGynaeSection('gynae-section-history')">History</button>
+                <button type="button" class="gynae-consult__nav-item" (click)="scrollGynaeSection('gynae-section-examination')">Examination</button>
+                <button type="button" class="gynae-consult__nav-item" (click)="scrollGynaeSection('gynae-section-assessment')">Assessment</button>
+                <button type="button" class="gynae-consult__nav-item" (click)="scrollGynaeSection('gynae-section-plan')">Plan</button>
+              </aside>
 
-              <div class="gynae-mode-grid gynae-mode-grid-6">
-                <label><span>Marital Status</span>
-                  <select formControlName="married">
-                    <option value="">Select</option>
-                    <option value="Married">Married</option>
-                    <option value="Unmarried">Unmarried</option>
-                    <option value="Widowed">Widowed</option>
-                    <option value="Divorced">Divorced</option>
-                  </select>
-                </label>
-                <label><span>Contraception History</span>
-                  <select formControlName="contraceptionHistory">
-                    <option value="">Select</option>
-                    <option value="None">None</option>
-                    <option value="Condom (Occasional)">Condom (Occasional)</option>
-                    <option value="OCP">OCP</option>
-                    <option value="IUCD">IUCD</option>
-                    <option value="Injectable">Injectable</option>
-                    <option value="Implant">Implant</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </label>
-                <label><span>Infertility Duration</span>
-                  <select formControlName="infertilityDuration">
-                    <option value="">Select</option>
-                    <option value="--">--</option>
-                    <option value="< 6 months">&lt; 6 months</option>
-                    <option value="6-12 months">6-12 months</option>
-                    <option value="1-2 years">1-2 years</option>
-                    <option value="> 2 years">&gt; 2 years</option>
-                  </select>
-                </label>
-                <label><span>Lower Abdominal Pain</span>
-                  <select formControlName="lowerAbdominalPain">
-                    <option value="">Select</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </label>
-                <label><span>White Discharge</span>
-                  <select formControlName="whiteDischarge">
-                    <option value="">Select</option>
-                    <option value="Yes">Yes</option>
-                    <option value="Present">Present</option>
-                    <option value="No">No</option>
-                  </select>
-                </label>
-                <label><span>Postcoital Bleeding</span>
-                  <select formControlName="postcoitalBleeding">
-                    <option value="">Select</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </label>
-              </div>
+              <div class="gynae-consult__body">
+                <article class="gynae-card" id="gynae-section-patient">
+                  <header class="gynae-card__head"><h4>Patient Information</h4></header>
+                  <div class="gynae-card__grid gynae-card__grid--3">
+                    <label><span>LMP</span><input type="date" formControlName="lmp" (change)="onGynaeLmpChange()" /></label>
+                    <label><span>Cycle Regularity</span>
+                      <select formControlName="cycleRegularity">
+                        <option value="">Select</option>
+                        <option value="Regular">Regular</option>
+                        <option value="Irregular">Irregular</option>
+                      </select>
+                    </label>
+                    <label><span>Cycle Length</span>
+                      <select formControlName="cycleLength">
+                        <option value="">Select</option>
+                        <option value="21-28 days">21-28 days</option>
+                        <option value="28-35 days">28-35 days</option>
+                        <option value="35-45 days">35-45 days</option>
+                        <option value="> 45 days">&gt; 45 days</option>
+                        <option value="Variable">Variable</option>
+                      </select>
+                    </label>
+                    <label><span>Duration of Flow</span>
+                      <select formControlName="durationOfFlow">
+                        <option value="">Select</option>
+                        <option value="2-3 days">2-3 days</option>
+                        <option value="4-5 days">4-5 days</option>
+                        <option value="5 days">5 days</option>
+                        <option value="6-7 days">6-7 days</option>
+                        <option value="> 7 days">&gt; 7 days</option>
+                      </select>
+                    </label>
+                    <label><span>Amount of Bleeding</span>
+                      <select formControlName="amountOfBleeding">
+                        <option value="">Select</option>
+                        <option value="Scanty">Scanty</option>
+                        <option value="Light">Light</option>
+                        <option value="Moderate">Moderate</option>
+                        <option value="Heavy">Heavy</option>
+                        <option value="Very Heavy">Very Heavy</option>
+                      </select>
+                    </label>
+                    <label><span>Dysmenorrhea</span>
+                      <select formControlName="dysmenorrhea">
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </label>
+                    <label><span>Marital Status</span>
+                      <select formControlName="married">
+                        <option value="">Select</option>
+                        <option value="Married">Married</option>
+                        <option value="Unmarried">Unmarried</option>
+                        <option value="Widowed">Widowed</option>
+                        <option value="Divorced">Divorced</option>
+                      </select>
+                    </label>
+                    <label><span>Contraception History</span>
+                      <select formControlName="contraceptionHistory">
+                        <option value="">Select</option>
+                        <option value="None">None</option>
+                        <option value="Condom (Occasional)">Condom (Occasional)</option>
+                        <option value="OCP">OCP</option>
+                        <option value="IUCD">IUCD</option>
+                        <option value="Injectable">Injectable</option>
+                        <option value="Implant">Implant</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </label>
+                    <label><span>Menopause Status</span>
+                      <select formControlName="menopauseStatus">
+                        <option value="">Select</option>
+                        <option value="Pre-menopausal">Pre-menopausal</option>
+                        <option value="Peri-menopausal">Peri-menopausal</option>
+                        <option value="Post-menopausal">Post-menopausal</option>
+                      </select>
+                    </label>
+                  </div>
+                </article>
 
-              <div class="gynae-mode-grid gynae-mode-grid-3">
-                <label><span>Urinary Symptoms</span>
-                  <select formControlName="urinarySymptoms">
-                    <option value="">Select</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </label>
-                <label><span>Dyspareunia</span>
-                  <select formControlName="dyspareunia">
-                    <option value="">Select</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </label>
-                <label><span>Menopause Status</span>
-                  <select formControlName="menopauseStatus">
-                    <option value="">Select</option>
-                    <option value="Pre-menopausal">Pre-menopausal</option>
-                    <option value="Peri-menopausal">Peri-menopausal</option>
-                    <option value="Post-menopausal">Post-menopausal</option>
-                  </select>
-                </label>
-              </div>
+                <article class="gynae-card" id="gynae-section-history">
+                  <header class="gynae-card__head"><h4>History</h4></header>
+                  <div class="gynae-card__grid gynae-card__grid--3">
+                    <label><span>Infertility Duration</span>
+                      <select formControlName="infertilityDuration">
+                        <option value="">Select</option>
+                        <option value="--">--</option>
+                        <option value="< 6 months">&lt; 6 months</option>
+                        <option value="6-12 months">6-12 months</option>
+                        <option value="1-2 years">1-2 years</option>
+                        <option value="> 2 years">&gt; 2 years</option>
+                      </select>
+                    </label>
+                    <label><span>Lower Abdominal Pain</span>
+                      <select formControlName="lowerAbdominalPain">
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </label>
+                    <label><span>White Discharge</span>
+                      <select formControlName="whiteDischarge">
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="Present">Present</option>
+                        <option value="No">No</option>
+                      </select>
+                    </label>
+                    <label><span>Postcoital Bleeding</span>
+                      <select formControlName="postcoitalBleeding">
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </label>
+                    <label><span>Urinary Symptoms</span>
+                      <select formControlName="urinarySymptoms">
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </label>
+                    <label><span>Dyspareunia</span>
+                      <select formControlName="dyspareunia">
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="gynae-card__block">
+                    <span class="gynae-card__label">Common complaints</span>
+                    <div class="gynae-complaint-chips">
+                      <button type="button" class="gynae-chip" *ngFor="let complaint of gynaeProblemComplaints"
+                        [class.active]="isGynaeComplaintSelected(complaint.key)"
+                        (click)="toggleGynaeComplaint(complaint.key, !isGynaeComplaintSelected(complaint.key))">
+                        {{ complaint.label }}
+                      </button>
+                    </div>
+                  </div>
+                  <div class="gynae-card__block">
+                    <span class="gynae-card__label">Red flags</span>
+                    <div class="gynae-mode-danger-grid gynae-mode-red-flags">
+                      <label *ngFor="let flag of gynaeProblemRedFlags">
+                        <input type="checkbox" [checked]="isGynaeCounselledField(flag.key)"
+                          (change)="toggleGynaeCounselledField(flag.key, $any($event.target).checked)" />
+                        <span>{{ flag.label }}</span>
+                      </label>
+                    </div>
+                  </div>
+                </article>
 
-              <div class="gynae-mode-section">
-                <h4>Common Complaints / Symptoms</h4>
-                <div class="gynae-complaint-chips">
-                  <button type="button" class="gynae-chip" *ngFor="let complaint of gynaeProblemComplaints"
-                    [class.active]="isGynaeComplaintSelected(complaint.key)"
-                    (click)="toggleGynaeComplaint(complaint.key, !isGynaeComplaintSelected(complaint.key))">
-                    {{ complaint.label }}
-                  </button>
-                </div>
-              </div>
+                <article class="gynae-card" id="gynae-section-examination">
+                  <header class="gynae-card__head"><h4>Examination</h4></header>
+                  <div class="gynae-card__grid">
+                    <label class="wide"><span>Examination / Pelvic findings</span>
+                      <textarea formControlName="pelvicFindings" placeholder="Per speculum: Cervix healthy..."></textarea>
+                    </label>
+                  </div>
+                </article>
 
-              <div class="gynae-mode-section">
-                <h4>Red Flag Checklist</h4>
-                <div class="gynae-mode-danger-grid gynae-mode-red-flags">
-                  <label *ngFor="let flag of gynaeProblemRedFlags">
-                    <input type="checkbox" [checked]="isGynaeCounselledField(flag.key)"
-                      (change)="toggleGynaeCounselledField(flag.key, $any($event.target).checked)" />
-                    <span>{{ flag.label }}</span>
-                  </label>
-                </div>
-              </div>
+                <article class="gynae-card" id="gynae-section-assessment">
+                  <header class="gynae-card__head"><h4>Assessment</h4></header>
+                  <div class="gynae-card__grid">
+                    <label class="wide"><span>Provisional diagnosis</span>
+                      <textarea formControlName="provisionalDiagnosis" placeholder="Ovulatory dysfunction (AUB-O)."></textarea>
+                    </label>
+                  </div>
+                </article>
 
-              <div class="gynae-mode-notes-grid gynae-mode-notes-grid-3">
-                <label><span>Examination / Pelvic Findings</span><textarea formControlName="pelvicFindings" placeholder="Per speculum: Cervix healthy..."></textarea></label>
-                <label><span>Provisional Diagnosis</span><textarea formControlName="provisionalDiagnosis" placeholder="Ovulatory dysfunction (AUB-O)."></textarea></label>
-                <label><span>Treatment Plan</span><textarea formControlName="treatmentPlan" placeholder="Tab. Tranexamic Acid 500 mg TDS for 5 days..."></textarea></label>
+                <article class="gynae-card" id="gynae-section-plan">
+                  <header class="gynae-card__head"><h4>Plan</h4></header>
+                  <div class="gynae-card__grid">
+                    <label><span>Treatment plan</span>
+                      <textarea formControlName="treatmentPlan" placeholder="Tab. Tranexamic Acid 500 mg TDS for 5 days..."></textarea>
+                    </label>
+                    <label><span>Additional notes</span>
+                      <textarea formControlName="gynecologyNotes" placeholder="Counselled regarding cycle tracking and follow-up..."></textarea>
+                    </label>
+                  </div>
+                </article>
               </div>
-
-              <label class="gynae-mode-note wide">
-                <span>Gynecology Notes</span>
-                <textarea formControlName="gynecologyNotes" placeholder="Counselled regarding cycle tracking and follow-up..."></textarea>
-              </label>
             </div>
           </ng-container>
 
@@ -783,9 +939,12 @@
               </ng-template>
             </label>
           </div>
-        </section>
+          </ng-template>
+                </section>
+              </div>
+            </div>
 
-        <section class="gynae-ultrasound-panel" *ngIf="activeTab === 'ultrasound' && isGynaeDoctor()" formGroupName="specialtyData">
+        <section class="gynae-ultrasound-panel" *ngIf="specialtySubTab === 'ultrasound' && isGynaeDoctor()" formGroupName="specialtyData">
           <div class="specialty-notes-head">
             <div>
               <h3>Ultrasound</h3>
@@ -804,131 +963,10 @@
             <textarea formControlName="ultrasoundNotes" placeholder="Findings, impression or instructions"></textarea>
           </label>
         </section>
+          </ng-container>
+        </div>
 
-        <section class="vitals-dashboard-panel" *ngIf="activeTab === 'vitals'">
-          <div class="vitals-dashboard-head">
-            <h3>Vitals Trends</h3>
-            <div class="vitals-range-switch">
-              <button type="button" *ngFor="let range of vitalsTrendRanges"
-                [class.active]="vitalsTrendRange === range.key"
-                (click)="setVitalsTrendRange(range.key)">
-                {{ range.label }}
-              </button>
-            </div>
-          </div>
-
-          <div class="vitals-charts-grid">
-            <article class="vital-chart-card" *ngFor="let chart of vitalMiniCharts; trackBy: trackVitalChart">
-              <div class="vital-chart-card-head">
-                <strong>{{ chart.title }}</strong>
-                <div class="vital-chart-meta">
-                  <span class="vital-chart-latest">{{ chart.latestValue }}</span>
-                  <span class="vital-chart-trend" [ngClass]="chart.trendClass" *ngIf="chart.compactTrend">{{ chart.compactTrend }}</span>
-                </div>
-              </div>
-              <div class="vital-chart-body" *ngIf="chart.hasData; else emptyChart">
-                <apx-chart
-                  [series]="chart.apex.series"
-                  [chart]="chart.apex.chart"
-                  [stroke]="chart.apex.stroke"
-                  [markers]="chart.apex.markers"
-                  [xaxis]="chart.apex.xaxis"
-                  [yaxis]="vitalChartSharedYAxis"
-                  [grid]="vitalChartSharedGrid"
-                  [dataLabels]="vitalChartSharedDataLabels"
-                  [tooltip]="vitalChartSharedTooltip"
-                  [colors]="chart.apex.colors"
-                  [autoUpdateSeries]="false">
-                </apx-chart>
-              </div>
-              <ng-template #emptyChart>
-                <div class="vital-chart-empty">No data for selected range</div>
-              </ng-template>
-            </article>
-          </div>
-
-          <div class="vitals-history-panel">
-            <div class="vitals-history-head">
-              <h3>Vitals History</h3>
-              <button type="button" class="vitals-add-link" (click)="openVitalsModal()">
-                <i class="fa fa-plus-circle"></i>
-                Add New Vitals
-              </button>
-            </div>
-
-            <div class="vitals-history-empty" *ngIf="vitalHistoryRows.length === 0">
-              No vitals history found for this patient.
-            </div>
-
-            <div class="vitals-history-table-wrap" *ngIf="vitalHistoryRows.length > 0">
-              <table class="vitals-history-table">
-                <thead>
-                  <tr>
-                    <th>Date &amp; Time</th>
-                    <th>Weight (Kg)</th>
-                    <th>Height (cm)</th>
-                    <th>BP (mmHg)</th>
-                    <th>Pulse (/min)</th>
-                    <th>Temp (°F)</th>
-                    <th>SpO2 (%)</th>
-                    <th>Resp. Rate (/min)</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let row of vitalHistoryRows">
-                    <td>{{ row.dateTime }}</td>
-                    <td>
-                      <span class="history-cell">
-                        <small [ngClass]="historyTrendClass(row.trends['weight'])" *ngIf="historyTrendArrow(row.trends['weight'])">{{ historyTrendArrow(row.trends['weight']) }}</small>
-                        {{ row.weight }}
-                      </span>
-                    </td>
-                    <td>
-                      <span class="history-cell">
-                        <small [ngClass]="historyTrendClass(row.trends['height'])" *ngIf="historyTrendArrow(row.trends['height'])">{{ historyTrendArrow(row.trends['height']) }}</small>
-                        {{ row.height }}
-                      </span>
-                    </td>
-                    <td>
-                      <span class="history-cell">
-                        <small [ngClass]="historyTrendClass(row.trends['bp'])" *ngIf="historyTrendArrow(row.trends['bp'])">{{ historyTrendArrow(row.trends['bp']) }}</small>
-                        {{ row.bp }}
-                      </span>
-                    </td>
-                    <td>
-                      <span class="history-cell">
-                        <small [ngClass]="historyTrendClass(row.trends['pulse'])" *ngIf="historyTrendArrow(row.trends['pulse'])">{{ historyTrendArrow(row.trends['pulse']) }}</small>
-                        {{ row.pulse }}
-                      </span>
-                    </td>
-                    <td>
-                      <span class="history-cell">
-                        <small [ngClass]="historyTrendClass(row.trends['temperature'])" *ngIf="historyTrendArrow(row.trends['temperature'])">{{ historyTrendArrow(row.trends['temperature']) }}</small>
-                        {{ row.temperature }}
-                      </span>
-                    </td>
-                    <td>
-                      <span class="history-cell">
-                        <small [ngClass]="historyTrendClass(row.trends['spo2'])" *ngIf="historyTrendArrow(row.trends['spo2'])">{{ historyTrendArrow(row.trends['spo2']) }}</small>
-                        {{ row.spo2 }}
-                      </span>
-                    </td>
-                    <td>
-                      <span class="history-cell">
-                        <small [ngClass]="historyTrendClass(row.trends['respiratoryRate'])" *ngIf="historyTrendArrow(row.trends['respiratoryRate'])">{{ historyTrendArrow(row.trends['respiratoryRate']) }}</small>
-                        {{ row.respiratoryRate }}
-                      </span>
-                    </td>
-                    <td>{{ row.notes }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <section class="lab-tests-dashboard-panel" *ngIf="activeTab === 'lab'">
+        <section class="lab-tests-dashboard-panel" *ngIf="workspaceTab === 'orders' && ordersSubTab === 'lab'">
           <div class="lab-tests-dashboard-head">
             <div>
               <h3>Lab Tests</h3>
@@ -948,6 +986,15 @@
               (click)="setLabTestFilter(filter.key)">
               {{ filter.label }}
             </button>
+            <label class="lab-search-field">
+              <i class="fa fa-search" aria-hidden="true"></i>
+              <input
+                type="search"
+                [(ngModel)]="labTestSearch"
+                [ngModelOptions]="{ standalone: true }"
+                placeholder="Search lab tests..."
+              />
+            </label>
           </div>
 
           <div class="lab-tests-table-wrap">
@@ -1062,7 +1109,7 @@
           </section>
         </section>
 
-        <section class="iv-fluids-dashboard-panel" *ngIf="activeTab === 'iv'">
+        <section class="iv-fluids-dashboard-panel" *ngIf="workspaceTab === 'orders' && ordersSubTab === 'iv'">
           <div class="iv-fluids-dashboard-head">
             <div>
               <h3>Drips / IV Fluids</h3>
@@ -1127,19 +1174,19 @@
           </div>
         </section>
 
-        <section class="admission-orders-dashboard-panel" *ngIf="activeTab === 'admission'">
+        <section class="admission-orders-dashboard-panel" *ngIf="workspaceTab === 'orders' && ordersSubTab === 'admission'">
           <div class="admission-orders-dashboard-head">
             <div>
-              <h3>Admission Orders</h3>
+              <h3>Recommend Admission</h3>
               <p class="tab-patient-note" *ngIf="selectedPatient() as patient">
-                Orders for {{ patientName(patient) }}
+                Send {{ patientName(patient) }} to Ward Reception for IPD admission (patient is not admitted yet).
               </p>
               <p class="tab-patient-note muted" *ngIf="!hasAssignedPatient()">
-                Assign a patient appointment to view admission orders.
+                Assign a patient appointment to recommend admission.
               </p>
             </div>
             <button type="button" class="btn-light admission-add-btn" data-testid="admission-add-order"
-              (click)="openAdmissionOrderModal()">+ Add Order</button>
+              (click)="openAdmissionOrderModal()">+ Recommend Admission</button>
           </div>
 
           <div class="admission-orders-table-wrap">
@@ -1194,7 +1241,7 @@
           </div>
         </section>
 
-        <section class="documents-dashboard-panel" *ngIf="activeTab === 'documents' && !isGynaeDoctor()">
+        <section class="documents-dashboard-panel" *ngIf="workspaceTab === 'orders' && ordersSubTab === 'documents' && !isGynaeDoctor()">
           <div class="documents-dashboard-head">
             <div>
               <h3>Documents</h3>
@@ -1255,7 +1302,7 @@
           </div>
         </section>
 
-        <section class="gynae-documents-panel" *ngIf="activeTab === 'documents' && isGynaeDoctor()">
+        <section class="gynae-documents-panel" *ngIf="workspaceTab === 'orders' && ordersSubTab === 'documents' && isGynaeDoctor()">
           <div class="gynae-documents-head">
             <div>
               <h3>Documents &amp; Records</h3>
@@ -1340,7 +1387,7 @@
           </div>
         </section>
 
-        <div class="rx-content-grid" *ngIf="activeTab === 'prescription'">
+        <div class="rx-content-grid" *ngIf="workspaceTab === 'orders' && ordersSubTab === 'medicines'">
           <section class="medicines-section">
             <div class="section-heading">
               <h3>Medicines</h3>
@@ -1520,12 +1567,21 @@
                 <h3>Lab Tests</h3>
                 <button type="button" (click)="openLabTestModal()">+ Add Test</button>
               </div>
+              <label class="lab-search-field lab-search-field--sidebar">
+                <i class="fa fa-search" aria-hidden="true"></i>
+                <input
+                  type="search"
+                  [(ngModel)]="sidebarLabSearch"
+                  [ngModelOptions]="{ standalone: true }"
+                  placeholder="Search tests..."
+                />
+              </label>
               <div class="gynae-lab-filters" *ngIf="isGynaeDoctor()">
                 <button type="button" *ngFor="let filter of gynaeLabCategories"
                   [class.active]="gynaeLabCategoryFilter === filter.key"
                   (click)="gynaeLabCategoryFilter = filter.key">{{ filter.label }}</button>
               </div>
-              <div formArrayName="labTests">
+              <div formArrayName="labTests" class="order-list-scroll order-list-scroll--labs">
                 <div class="lab-row lab-head"><span></span><strong>Test</strong><strong>Category</strong></div>
                 <label class="lab-row" *ngFor="let test of labTests.controls; let i = index" [formGroupName]="i"
                   [hidden]="!shouldShowSidebarLabTest(i)">
@@ -1546,12 +1602,14 @@
                 <h3>Drips / IV Fluids</h3>
                 <button type="button" (click)="addIvFluid()">+ Add Drip</button>
               </div>
-              <div class="fluid-row fluid-head"><strong>Fluid / Drip</strong><strong>Rate</strong><strong>Duration</strong><span></span></div>
-              <div class="fluid-row" *ngFor="let fluid of ivFluids.controls; let i = index" [formGroupName]="i">
-                <input formControlName="name" placeholder="DNS" />
-                <input formControlName="rate" placeholder="80 ml/hr" />
-                <input formControlName="duration" placeholder="500 ml" />
-                <button type="button" (click)="removeIvFluid(i)"><i class="fa fa-trash"></i></button>
+              <div class="order-list-scroll order-list-scroll--drips">
+                <div class="fluid-row fluid-head"><strong>Fluid / Drip</strong><strong>Rate</strong><strong>Duration</strong><span></span></div>
+                <div class="fluid-row" *ngFor="let fluid of ivFluids.controls; let i = index" [formGroupName]="i">
+                  <input formControlName="name" placeholder="DNS" />
+                  <input formControlName="rate" placeholder="80 ml/hr" />
+                  <input formControlName="duration" placeholder="500 ml" />
+                  <button type="button" (click)="removeIvFluid(i)"><i class="fa fa-trash"></i></button>
+                </div>
               </div>
             </section>
 
@@ -1573,9 +1631,14 @@
 
             <section class="order-card admission-card">
               <div class="section-heading">
-                <h3>Admission Orders</h3>
-                <button type="button" (click)="openAdmissionOrderModal()">+ Add Order</button>
+                <h3>Recommend Admission</h3>
+                <button type="button" (click)="openAdmissionOrderModal()">+ Recommend</button>
               </div>
+
+              <p class="admission-sidebar-hint">
+                Send a recommendation to admit this patient to the ward.
+                This does not admit the patient — Ward Reception allots a bed from Pending Admissions.
+              </p>
 
               <div class="admission-sidebar-list">
                 <div class="admission-sidebar-row" *ngFor="let record of admissionRecommendations; trackBy: trackAdmissionRecommendation">
@@ -1589,37 +1652,54 @@
                     </button>
                   </div>
                 </div>
-                <div class="vitals-empty" *ngIf="admissionRecommendations.length === 0">
+                <div class="vitals-empty" *ngIf="!admissionRecommendationsLoading && admissionRecommendations.length === 0">
                   No admission recommendations yet.
                 </div>
-              </div>
-
-              <div formGroupName="admissionOrders" class="admission-quick-fields">
-                <div class="check-row">
-                  <label><input type="checkbox" formControlName="regularDiet" /> Regular Diet</label>
-                  <label><input type="checkbox" formControlName="npo" /> NPO</label>
-                </div>
-                <label>Consultation <input formControlName="consultation" placeholder="Physiotherapy" /></label>
-                <div class="check-row" formGroupName="monitoring">
-                  <label><input type="checkbox" formControlName="bp" /> BP</label>
-                  <label><input type="checkbox" formControlName="pulse" /> Pulse</label>
-                  <label><input type="checkbox" formControlName="spo2" /> SpO2</label>
-                  <label><input type="checkbox" formControlName="rbs" /> RBS</label>
-                </div>
-                <textarea formControlName="notes" placeholder="Enter notes if any..."></textarea>
               </div>
             </section>
           </aside>
         </div>
-      </form>
-    </main>
-  </div>
 
-  <section class="prescription-history-panel patient-history-panel"
-    *ngIf="hasAssignedPatient() && !editingId">
+        <section class="prescription-history-panel patient-history-panel clinical-history-in-workspace"
+          *ngIf="workspaceTab === 'history'">
     <div class="section-heading">
       <div>
-        <h3>Previous Prescriptions</h3>
+        <h3>Patient History</h3>
+        <p>Previous consultations, medicines, lab reports, and admissions.</p>
+      </div>
+      <button type="button" class="btn-light" [disabled]="patientHistoryLoading || !hasAssignedPatient()" (click)="loadPatientContextPrescriptions()">
+        Refresh
+      </button>
+    </div>
+
+    <div class="history-empty" *ngIf="!hasAssignedPatient()">
+      Select a patient to view their clinical history.
+    </div>
+
+    <ng-container *ngIf="hasAssignedPatient()">
+    <div class="history-panel-tabs">
+      <button type="button" [class.active]="historyPanelTab === 'prescriptions'" (click)="historyPanelTab = 'prescriptions'">
+        Consultations
+        <span *ngIf="visiblePatientHistoryPrescriptions().length">{{ visiblePatientHistoryPrescriptions().length }}</span>
+      </button>
+      <button type="button" [class.active]="historyPanelTab === 'medicines'" (click)="historyPanelTab = 'medicines'">
+        Past Medicines
+        <span *ngIf="pastMedicineHistoryRows().length">{{ pastMedicineHistoryRows().length }}</span>
+      </button>
+      <button type="button" [class.active]="historyPanelTab === 'labs'" (click)="historyPanelTab = 'labs'">
+        Lab Reports
+        <span *ngIf="patientLabOrders.length">{{ patientLabOrders.length }}</span>
+      </button>
+      <button type="button" [class.active]="historyPanelTab === 'admissions'" (click)="historyPanelTab = 'admissions'">
+        Admissions
+        <span *ngIf="patientAdmissionHistory.length">{{ patientAdmissionHistory.length }}</span>
+      </button>
+    </div>
+
+    <div class="rx-history-scroll">
+    <ng-container *ngIf="historyPanelTab === 'prescriptions'">
+    <div class="section-heading compact">
+      <div>
         <p>
           {{
             patientHistoryLoading
@@ -1630,9 +1710,6 @@
           <span *ngIf="!patientHistoryLoading"> · {{ patientHistoryDateFrom }} to {{ patientHistoryDateTo }}</span>
         </p>
       </div>
-      <button type="button" class="btn-light" [disabled]="patientHistoryLoading" (click)="loadPatientContextPrescriptions()">
-        Refresh
-      </button>
     </div>
 
     <div class="prescription-history-filters">
@@ -1684,14 +1761,231 @@
         </article>
       </div>
     </div>
+    </ng-container>
 
-    <div class="prescription-history-pagination" *ngIf="!patientHistoryLoading && patientHistoryTotalPages > 1">
+    <ng-container *ngIf="historyPanelTab === 'medicines'">
+      <div class="past-meds-toolbar">
+        <div class="past-meds-toolbar__meta desktop-only">
+          <strong>{{ filteredPastMedicineRows().length }}</strong>
+          <span>medicine{{ filteredPastMedicineRows().length === 1 ? '' : 's' }}</span>
+        </div>
+        <div class="past-meds-toolbar__meta mobile-only">
+          <strong>{{ mobilePastMedicineRows().length }}</strong>
+          <span>medicine{{ mobilePastMedicineRows().length === 1 ? '' : 's' }}</span>
+        </div>
+        <div class="past-meds-toolbar__filters">
+          <label class="past-meds-search">
+            <i class="fa fa-search" aria-hidden="true"></i>
+            <input
+              type="search"
+              [(ngModel)]="pastMedicineSearch"
+              [ngModelOptions]="{ standalone: true }"
+              (ngModelChange)="onPastMedicineFilterChange()"
+              placeholder="Search medicines..."
+            />
+          </label>
+          <label class="past-meds-date">
+            <i class="fa fa-calendar" aria-hidden="true"></i>
+            <select
+              [(ngModel)]="pastMedicineDateFilter"
+              [ngModelOptions]="{ standalone: true }"
+              (ngModelChange)="onPastMedicineFilterChange()"
+            >
+              <option value="all">All Dates</option>
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            class="past-meds-view-all mobile-only"
+            *ngIf="filteredPastMedicineRows().length > pastMedicineMobileLimit"
+            (click)="showAllPastMedicinesMobile()"
+          >
+            View All ({{ filteredPastMedicineRows().length }})
+            <i class="fa fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="prescription-history-empty" *ngIf="filteredPastMedicineRows().length === 0">
+        No past medicines found{{ pastMedicineSearch.trim() ? ' for this search' : '' }}.
+      </div>
+
+      <!-- Desktop table -->
+      <div class="past-meds-desktop desktop-only" *ngIf="pagedPastMedicineRows().length">
+        <div class="table-responsive past-meds-table-wrap">
+          <table class="table table-sm past-meds-table">
+            <thead>
+              <tr>
+                <th class="col-index">#</th>
+                <th>Medicine</th>
+                <th>Dose</th>
+                <th>Frequency</th>
+                <th>Duration</th>
+                <th>Date</th>
+                <th>Doctor</th>
+                <th class="col-action">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of pagedPastMedicineRows(); let i = index">
+                <td class="col-index">{{ (pastMedicinePage - 1) * pastMedicinePageSize + i + 1 }}</td>
+                <td class="col-medicine"><strong>{{ row.name }}</strong></td>
+                <td>{{ row.dose }}</td>
+                <td>{{ row.frequency }}</td>
+                <td>{{ row.duration }}</td>
+                <td>{{ row.date }}</td>
+                <td>{{ row.doctor }}</td>
+                <td class="col-action">
+                  <button type="button" class="past-meds-view" (click)="openPastMedicineView(row.prescriptionId)" title="View prescription" aria-label="View prescription">
+                    <i class="fa fa-eye"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="past-meds-footer" *ngIf="filteredPastMedicineRows().length">
+          <span>{{ pastMedicineRangeLabel }}</span>
+          <div class="past-meds-pager" *ngIf="filteredPastMedicineRows().length > pastMedicinePageSize">
+            <button type="button" (click)="changePastMedicinePage(pastMedicinePage - 1)" [disabled]="pastMedicinePage <= 1" aria-label="Previous page">
+              <i class="fa fa-chevron-left"></i>
+            </button>
+            <button
+              type="button"
+              class="page-num"
+              *ngFor="let page of pastMedicinePageNumbers()"
+              [class.active]="page === pastMedicinePage"
+              (click)="changePastMedicinePage(page)"
+            >
+              {{ page }}
+            </button>
+            <button type="button" (click)="changePastMedicinePage(pastMedicinePage + 1)" [disabled]="pastMedicinePage >= pastMedicineTotalPages" aria-label="Next page">
+              <i class="fa fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile cards -->
+      <div class="past-meds-cards mobile-only" *ngIf="mobilePastMedicineRows().length">
+        <article class="past-meds-card" *ngFor="let row of mobilePastMedicineRows()">
+          <div class="past-meds-card__top">
+            <strong>{{ row.name }}</strong>
+            <button type="button" class="past-meds-view" (click)="openPastMedicineView(row.prescriptionId)" title="View prescription" aria-label="View prescription">
+              <i class="fa fa-eye"></i>
+            </button>
+          </div>
+          <p class="past-meds-card__sub">{{ row.subtitle }}</p>
+          <p class="past-meds-card__meta">{{ row.date }} · {{ row.doctor }}</p>
+        </article>
+        <button
+          type="button"
+          class="past-meds-load-more"
+          *ngIf="pastMedicineRemainingCount > 0"
+          (click)="loadMorePastMedicines()"
+        >
+          Load More ({{ pastMedicineRemainingCount }} remaining)
+          <i class="fa fa-chevron-down"></i>
+        </button>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="historyPanelTab === 'labs'">
+      <div class="prescription-history-empty" *ngIf="!patientLabOrders.length">
+        No lab reports found for this patient.
+        <button type="button" class="btn-light" style="margin-left:8px" (click)="setOrdersSubTab('lab')">Open Lab Tests</button>
+      </div>
+      <div class="table-responsive" *ngIf="patientLabOrders.length">
+        <table class="table table-sm history-simple-table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Status</th>
+              <th>Tests</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let order of patientLabOrders">
+              <td><strong>{{ order.orderNo || order._id }}</strong></td>
+              <td>{{ order.status || '—' }}</td>
+              <td>{{ (order.items || []).length || '—' }}</td>
+              <td>{{ asHistoryDate(order.createdAt) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="historyPanelTab === 'admissions'">
+      <div class="prescription-history-empty" *ngIf="patientAdmissionHistoryLoading">Loading admission history...</div>
+      <div class="prescription-history-empty" *ngIf="!patientAdmissionHistoryLoading && !patientAdmissionHistory.length">
+        No previous ward admissions found for this patient.
+      </div>
+      <div class="table-responsive" *ngIf="!patientAdmissionHistoryLoading && patientAdmissionHistory.length">
+        <table class="table table-sm history-simple-table">
+          <thead>
+            <tr>
+              <th>Admission</th>
+              <th>Ward / Bed</th>
+              <th>Status</th>
+              <th>Admitted</th>
+              <th>Discharged</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of patientAdmissionHistory">
+              <td><strong>{{ row['admissionNo'] || row['_id'] || '—' }}</strong></td>
+              <td>{{ row['wardLabel'] || row['roomBed'] || '—' }}</td>
+              <td>{{ row['status'] || '—' }}</td>
+              <td>{{ asHistoryDate(row['admittedAt']) }}</td>
+              <td>{{ asHistoryDate(row['dischargedAt']) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </ng-container>
+
+    <div class="prescription-history-pagination" *ngIf="historyPanelTab === 'prescriptions' && !patientHistoryLoading && patientHistoryTotalPages > 1">
       <button type="button" class="btn-light" (click)="changePatientHistoryPage(patientHistoryPage - 1)" [disabled]="patientHistoryPage <= 1">Previous</button>
       <span>Page {{ patientHistoryPage }} of {{ patientHistoryTotalPages }} · {{ patientHistoryPageSize }} per page</span>
       <button type="button" class="btn-light" (click)="changePatientHistoryPage(patientHistoryPage + 1)" [disabled]="patientHistoryPage >= patientHistoryTotalPages">Next</button>
     </div>
-  </section>
-</div>
+    </div>
+    </ng-container>
+        </section>
+        </ng-container>
+
+        <ng-template #consultationIdle>
+          <div class="consultation-idle" role="status">
+            <div class="consultation-idle__card">
+              <span class="consultation-idle__icon" aria-hidden="true">
+                <i class="fa fa-stethoscope"></i>
+              </span>
+              <h2>Select a patient to begin</h2>
+              <p *ngIf="visibleAppointments().length > 0; else noApptsIdleHint">
+                Choose a patient from <strong>Today's Appointments</strong> on the left to open the consultation workspace.
+              </p>
+              <ng-template #noApptsIdleHint>
+                <p>
+                  No appointments today. Book patients from Appointments — they will appear in the left panel, then select one to start.
+                </p>
+              </ng-template>
+              <div class="consultation-idle__actions">
+                <a class="btn-primary" routerLink="/appointments">Open Appointments</a>
+                <a class="btn-light" routerLink="/prescriptions/created" *ngIf="canReadPrescriptions">Previous Consultations</a>
+              </div>
+            </div>
+          </div>
+        </ng-template>
+      </form>
+
+    </main>
+  </div>
 
   <input #documentFileInput type="file" class="sr-only-file-input" hidden
     accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.doc,.docx"
@@ -1887,7 +2181,7 @@
           </ng-container>
 
           <ng-container *ngIf="!usesGynaeWomensHealthPrint(preview) && !usesGynaeClinicalPrint(preview) && !usesGynaeModernPrint(preview)">
-          <ng-container *ngIf="printPreviewTemplate === 'clinical-blue'; else wrappedThemedPrint">
+          <ng-container *ngIf="printPreviewTemplate === 'clinical-blue'; else notClinicalBluePrint">
             <section class="prescription-print-sheet prescription-template-clinical-blue"
               *ngFor="let page of preview.clinicalPages; let last = last"
               [class.clinical-rx-continuation-sheet]="!page.isFirstPage"
@@ -2161,6 +2455,24 @@
             </section>
           </ng-container>
 
+          <ng-template #notClinicalBluePrint>
+            <ng-container *ngIf="printPreviewTemplate === 'classic'; else wrappedThemedPrint">
+              <section class="prescription-print-sheet prescription-template-classic rx-style-host"
+                *ngFor="let page of preview.clinicalPages; let last = last; trackBy: trackClinicalPage"
+                [ngStyle]="preview.prescriptionStyleCssVars"
+                [attr.data-logo-pos]="preview.prescriptionStyle.logoPosition || 'center'"
+                [class.rx-hide-urdu-advice]="!preview.prescriptionStyle.showUrduAdvice"
+                [class.rx-hide-right-note]="!preview.prescriptionStyle.showRightNote"
+                [class.rx-hide-hospital-address]="!preview.prescriptionStyle.showHospitalAddress"
+                [class.rx-compact-patient]="preview.prescriptionStyle.patientTableCompact"
+                [class.classic-rx-continuation-sheet]="!page.isFirstPage"
+                [class.classic-rx-print-page-last]="last"
+                [class.prescription-eye-sheet]="preview.specialtySection === 'eye'">
+                <ng-container *ngTemplateOutlet="classicPrescriptionPage; context: { page: page }"></ng-container>
+              </section>
+            </ng-container>
+          </ng-template>
+
           <ng-template #wrappedThemedPrint>
             <section class="prescription-print-sheet"
               [ngClass]="'prescription-template-' + printPreviewTemplate"
@@ -2319,7 +2631,7 @@
             </ng-container>
 
             <ng-template #purplePrescriptionLayout>
-              <ng-container *ngIf="printPreviewTemplate === 'compact-mono'; else standardPrescriptionLayout">
+              <ng-container *ngIf="printPreviewTemplate === 'compact-mono'; else emptyThemedFallback">
                 <div class="sectioned-rx-page"
                   [ngClass]="printMedicineDensityClass(preview.medicines.length)"
                   [class.sectioned-rx-eye-page]="preview.specialtySection === 'eye'">
@@ -2466,8 +2778,18 @@
             </ng-template>
           </ng-template>
 
-          <ng-template #standardPrescriptionLayout>
-          <header class="print-header">
+          <ng-template #emptyThemedFallback></ng-template>
+
+          <ng-template #classicPrescriptionPage let-page="page">
+          <header class="classic-rx-continuation-header" *ngIf="!page.isFirstPage">
+            <div>
+              <strong>{{ preview.doctorName }}</strong>
+              <span>{{ preview.prescriptionNo }} · {{ preview.patientName }} · {{ preview.date }}</span>
+            </div>
+            <em>Page {{ page.pageNumber }} of {{ page.totalPages }} · Medicines continued</em>
+          </header>
+
+          <header class="print-header" *ngIf="page.isFirstPage">
             <div class="doctor-print-left">
               <h1>{{ preview.doctorName }}</h1>
               <strong>{{ preview.doctorQualification }}</strong>
@@ -2488,30 +2810,11 @@
             </div>
           </header>
 
-          <ng-container *ngIf="printPreviewTemplate === 'classic'; else alternatePrescriptionMeta">
+          <ng-container *ngIf="page.isFirstPage">
             <div class="print-date-box">
               <strong>DATE: {{ preview.date }}</strong>
               <span>NOT VALID FOR COURT OF LAW.</span>
             </div>
-          </ng-container>
-
-          <ng-template #alternatePrescriptionMeta>
-            <div class="print-date-box">
-              <div>
-                <span>Date</span>
-                <strong>{{ preview.date }}</strong>
-              </div>
-              <div>
-                <span>Prescription No</span>
-                <strong>{{ preview.prescriptionNo }}</strong>
-              </div>
-              <div>
-                <span>File No</span>
-                <strong>{{ preview.patientNo }}</strong>
-              </div>
-              <em>NOT VALID FOR COURT OF LAW.</em>
-            </div>
-          </ng-template>
 
           <table class="print-patient-table">
             <tr>
@@ -2539,11 +2842,25 @@
                 <th>{{ row.label }}</th>
                 <td colspan="7">{{ row.value }}</td>
               </tr>
+              <tr *ngIf="preview.patientBloodGroup && preview.patientBloodGroup !== '-'">
+                <th>Blood Group</th>
+                <td colspan="7">{{ preview.patientBloodGroup }}</td>
+              </tr>
             </ng-container>
           </table>
 
-          <div class="print-body-grid">
-            <aside class="print-side-panel">
+          <section class="print-gynae-metrics"
+            *ngIf="preview.specialtySection === 'gynae' && preview.gynaeSummaryRows?.length">
+            <div *ngFor="let row of preview.gynaeSummaryRows">
+              <strong>{{ row.label }}</strong>
+              <span>{{ row.value }}</span>
+            </div>
+          </section>
+          </ng-container>
+
+          <div class="print-body-grid" *ngIf="page.isFirstPage || page.medicines.length > 0"
+            [class.print-body-grid--continuation]="!page.isFirstPage">
+            <aside class="print-side-panel" *ngIf="page.isFirstPage">
               <div class="print-mini-title">O/E</div>
               <table>
                 <tr *ngFor="let vital of preview.vitalRows">
@@ -2556,27 +2873,19 @@
                 </tr>
               </table>
 
-              <div class="print-mini-title labs-title">LAB's</div>
-              <table>
+              <div class="print-mini-title labs-title" *ngIf="preview.labTests.length > 0">LAB's</div>
+              <table *ngIf="preview.labTests.length > 0">
                 <tr *ngFor="let test of preview.labTests">
                   <th>{{ test.name }}</th>
                   <td>✓</td>
                 </tr>
-                <tr *ngIf="preview.labTests.length === 0">
-                  <th>Others</th>
-                  <td>-</td>
-                </tr>
               </table>
 
-              <div class="print-mini-title drips-title">DRIP's</div>
-              <table>
+              <div class="print-mini-title drips-title" *ngIf="preview.ivFluids.length > 0">DRIP's</div>
+              <table *ngIf="preview.ivFluids.length > 0">
                 <tr *ngFor="let drip of preview.ivFluids">
                   <th>{{ drip.name }}</th>
                   <td>{{ drip.rate }} / {{ drip.quantity }}</td>
-                </tr>
-                <tr *ngIf="preview.ivFluids.length === 0">
-                  <th>Drips</th>
-                  <td>-</td>
                 </tr>
               </table>
 
@@ -2606,8 +2915,8 @@
               </div>
             </aside>
 
-            <main class="print-medicine-area" [ngClass]="printMedicineDensityClass(preview.medicines.length)">
-              <ng-container *ngIf="printPreviewTemplate === 'classic'; else alternateMedicineTable">
+            <main class="print-medicine-area" *ngIf="page.isFirstPage || page.medicines.length > 0"
+              [ngClass]="printMedicineDensityClass(page.medicines.length || preview.medicines.length)">
                 <table class="print-medicine-table">
                   <thead>
                     <tr>
@@ -2625,7 +2934,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let medicine of preview.medicines">
+                    <tr *ngFor="let medicine of page.medicines; let medicineIndex = index">
                       <td class="print-med-name">
                         <strong>{{ medicine['name'] || 'Medicine' }}</strong>
                         <span>{{ medicine['dosage'] || '' }}</span>
@@ -2639,100 +2948,36 @@
                       <td>{{ slotDose(medicine, 'evening') }}</td>
                       <td>{{ slotDose(medicine, 'night') }}</td>
                     </tr>
-                    <tr *ngIf="preview.medicines.length === 0">
+                    <tr *ngIf="page.medicines.length === 0 && page.isFirstPage">
                       <td class="print-med-name" colspan="8">No medicines added</td>
                     </tr>
                   </tbody>
                 </table>
 
-                <div class="print-urdu-note print-urdu-block">
+                <div class="print-urdu-note print-urdu-block" *ngIf="page.isFirstPage">
                   <p>بلڈ پریشر کے لئے نمک کم استعمال کریں۔ چکنائی کم کریں۔ روزانہ 30 منٹ پیدل چلیں۔</p>
                   <p>دوائی جاری رکھیں اور ڈاکٹر کے مشورے کے بغیر دوا بند نہ کریں۔</p>
                 </div>
-              </ng-container>
-
-              <ng-template #alternateMedicineTable>
-                <table class="print-medicine-table">
-                  <thead>
-                    <tr>
-                      <th class="print-row-number" rowspan="2">#</th>
-                      <th class="print-medicine-title" rowspan="2">Medicine<br /><span class="print-urdu-inline">(دوائی)</span></th>
-                      <th rowspan="2">Dose</th>
-                      <th rowspan="2">Duration</th>
-                      <th class="print-timing-heading" colspan="4">Timing <span class="print-urdu-inline">(اوقات)</span></th>
-                      <th rowspan="2">Food<br /><span class="print-urdu-inline">(کھانے سے)</span></th>
-                      <th rowspan="2">Instructions<br /><span class="print-urdu-inline">(ہدایات)</span></th>
-                    </tr>
-                    <tr>
-                      <th>Morning<br /><span class="print-urdu-inline">صبح</span></th>
-                      <th>Noon<br /><span class="print-urdu-inline">دوپہر</span></th>
-                      <th>Evening<br /><span class="print-urdu-inline">شام</span></th>
-                      <th>Night<br /><span class="print-urdu-inline">رات</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let medicine of preview.medicines; let medicineIndex = index">
-                      <td class="print-row-number">{{ medicineIndex + 1 }}</td>
-                      <td class="print-med-name">
-                        <strong>{{ medicine['name'] || 'Medicine' }}</strong>
-                        <small>{{ medicine['frequency'] || '' }}</small>
-                      </td>
-                      <td>{{ medicine['dosage'] || '-' }}</td>
-                      <td>{{ medicine['duration'] || '-' }}</td>
-                      <td>{{ slotDose(medicine, 'morning') }}</td>
-                      <td>{{ slotDose(medicine, 'noon') }}</td>
-                      <td>{{ slotDose(medicine, 'evening') }}</td>
-                      <td>{{ slotDose(medicine, 'night') }}</td>
-                      <td>
-                        {{ medicine['beforeMeal'] ? 'Before Food' : medicine['afterMeal'] ? 'After Food' : '-' }}
-                      </td>
-                      <td class="print-instruction-cell">{{ medicine['instructions'] || '-' }}</td>
-                    </tr>
-                    <tr *ngIf="preview.medicines.length === 0">
-                      <td class="print-med-name" colspan="10">No medicines added</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </ng-template>
             </main>
 
-            <aside class="print-right-note print-urdu-block">
+            <aside class="print-right-note print-urdu-block" *ngIf="page.isFirstPage">
               <strong>نوٹ :</strong>
               <p>جس دوائی کے سامنے جاری رکھیں لکھا ہو اس دوائی کو جب تک ڈاکٹر سے مشورہ نہ لیں جاری رکھیں۔</p>
             </aside>
           </div>
 
-          <section class="print-gynae-extended" *ngIf="preview.specialtySection === 'gynae' && preview.gynaeExtendedRows.length > 0">
+          <section class="print-gynae-extended" *ngIf="page.isLastPage && preview.specialtySection === 'gynae' && page.gynaeExtendedRows.length > 0">
             <h4>Gynae / OBS Details</h4>
-            <table class="print-gynae-extended-table">
-              <tr *ngFor="let row of preview.gynaeExtendedRows">
-                <th>{{ row.label }}</th>
-                <td>{{ row.value }}</td>
-              </tr>
-            </table>
-          </section>
-
-          <section class="print-important-instructions" *ngIf="printPreviewTemplate !== 'classic'">
-            <strong>
-              <span>IMPORTANT INSTRUCTIONS</span>
-              <span class="print-urdu-inline">ضروری ہدایات</span>
-            </strong>
-            <div>
-              <ul>
-                <li>Take medicine as advised by the doctor.</li>
-                <li>Do not stop medicine without consultation.</li>
-                <li>Contact the hospital for unusual symptoms.</li>
-              </ul>
-              <ul class="print-urdu-block" dir="rtl">
-                <li>دوا ڈاکٹر کے مشورے کے مطابق استعمال کریں۔</li>
-                <li>بغیر مشورے کے دوا بند نہ کریں۔</li>
-                <li>غیر معمولی علامات کی صورت میں ہسپتال سے رابطہ کریں۔</li>
-              </ul>
+            <div class="print-gynae-extended-grid">
+              <article *ngFor="let row of page.gynaeExtendedRows" [class.wide]="row.wide">
+                <strong>{{ row.label }}</strong>
+                <span>{{ row.value }}</span>
+              </article>
             </div>
           </section>
 
           <div class="print-clinical-notes"
-            *ngIf="preview.patientNote || preview.consultation || preview.admissionOrderLines.length">
+            *ngIf="page.isLastPage && (preview.patientNote || preview.consultation || preview.admissionOrderLines.length)">
             <div class="print-patient-note" *ngIf="preview.patientNote">
               <strong>Note to Patient</strong>
               <p>{{ preview.patientNote }}</p>
@@ -2744,18 +2989,11 @@
             </div>
           </div>
 
-          <div class="print-signature-row" *ngIf="printPreviewTemplate !== 'classic'">
-            <div></div>
-            <div>
-              <span></span>
-              <strong>Doctor Signature</strong>
-            </div>
-          </div>
-
-          <footer class="print-footer">
+          <footer class="print-footer" *ngIf="page.isLastPage">
             <strong *ngIf="preview.prescriptionRevisionNote">{{ preview.prescriptionRevisionNote }}</strong>
             <p *ngIf="preview.prescriptionFollowUpLine">{{ preview.prescriptionFollowUpLine }}</p>
             <p *ngFor="let line of preview.prescriptionFooterLines">{{ line }}</p>
+            <p class="classic-rx-page-no" *ngIf="page.totalPages > 1">Page {{ page.pageNumber }} of {{ page.totalPages }}</p>
           </footer>
           </ng-template>
         </div>
@@ -2988,14 +3226,28 @@
         <button type="button" class="modal-close-btn" (click)="closeLabTestModal()">&times;</button>
       </div>
 
+      <label class="lab-search-field lab-search-field--modal">
+        <i class="fa fa-search" aria-hidden="true"></i>
+        <input
+          type="search"
+          [(ngModel)]="labCatalogSearch"
+          [ngModelOptions]="{ standalone: true }"
+          placeholder="Search by name, code, or category..."
+          autofocus
+        />
+      </label>
+
       <div class="lab-test-picker-grid">
-        <button type="button" class="lab-test-picker-card" *ngFor="let test of labCatalogItems"
+        <button type="button" class="lab-test-picker-card" *ngFor="let test of filteredLabCatalogItems()"
           [disabled]="isLabTestAlreadyOrdered(test.name)"
           (click)="orderLabTest(test.name, test.category)">
           <strong>{{ test.name }}</strong>
           <span>{{ test.category }}</span>
           <small>{{ test.fullName }}</small>
         </button>
+        <div class="lab-test-picker-empty" *ngIf="filteredLabCatalogItems().length === 0">
+          No lab tests match “{{ labCatalogSearch }}”.
+        </div>
       </div>
 
       <div class="lab-test-custom-add">

@@ -1,4 +1,12 @@
-<div id="main-content" class="appointments-page">
+<div
+  id="main-content"
+  class="appointments-page"
+  hmsKeyboard
+  pageId="appointment"
+  [keyboardHandler]="onPageKeydown"
+  [escapeHandler]="onPageEscape"
+  [attr.inert]="addPatientModalOpen || vitalsModalOpen || vitalsTrendModalOpen ? '' : null"
+>
   <div class="appointments-shell">
     <div class="page-heading">
       <div>
@@ -6,6 +14,9 @@
         <p>Create and manage patient appointments</p>
       </div>
       <div class="offline-actions">
+        <button class="icon-action" type="button" (click)="toggleKeyboardHint()" title="Keyboard shortcuts">
+          <i class="fa fa-keyboard-o"></i>
+        </button>
         <span class="offline-pill" [class.offline]="offline.statusTone() === 'offline'"
           [class.syncing]="offline.statusTone() === 'syncing'" [class.failed]="offline.statusTone() === 'failed'">
           <i class="fa fa-circle"></i>
@@ -22,6 +33,16 @@
           <i class="fa fa-plus"></i>
         </button>
       </div>
+    </div>
+
+    <div class="kb-hint-panel" *ngIf="keyboardHintOpen">
+      <div class="kb-hint-head">
+        <strong>Keyboard shortcuts</strong>
+        <button type="button" class="sync-action" (click)="keyboardHintOpen = false">Close</button>
+      </div>
+      <ul>
+        <li *ngFor="let hint of keyboardHints"><kbd>{{ hint.keys }}</kbd> <span>{{ hint.action }}</span></li>
+      </ul>
     </div>
 
     <div class="stats-grid">
@@ -71,7 +92,7 @@
           <div class="form-error-banner" id="appointment-form-errors" *ngIf="appointmentSubmitErrors.length">
             <strong>Cannot save appointment</strong>
             <ul>
-              <li *ngFor="let error of appointmentSubmitErrors">{{ error }}</li>
+              <li *ngFor="let error of appointmentSubmitErrors; trackBy: trackErrorMessage">{{ error }}</li>
             </ul>
           </div>
 
@@ -81,8 +102,15 @@
 
           <label class="field-label">Mobile Number *</label>
           <div class="phone-search" [class.is-invalid]="showAppointmentError('patientId')">
-            <input type="tel" name="patientPhone" [(ngModel)]="patientPhone" [ngModelOptions]="{ standalone: true }"
-              placeholder="03004444444" (keydown.enter)="$event.preventDefault(); lookupPatientsByPhone()" />
+            <input
+              #appointmentPhoneInput
+              type="tel"
+              name="patientPhone"
+              [(ngModel)]="patientPhone"
+              [ngModelOptions]="{ standalone: true }"
+              placeholder="03004444444"
+              (keydown.enter)="$event.preventDefault(); lookupPatientsByPhone()"
+            />
             <button type="button" [disabled]="!canSearchPatientPhone()" (click)="lookupPatientsByPhone()">
               {{ phoneLookupLoading ? 'Finding...' : 'Find Patient' }}
             </button>
@@ -110,8 +138,14 @@
             </div>
 
             <div class="patient-results" *ngIf="phoneMatchedTotal > 0">
-              <button type="button" class="patient-result-card" *ngFor="let patient of phoneMatchedPatients"
-                [class.is-selected]="selectedPatient?._id === patient._id" (click)="selectPatient(patient)">
+              <button
+                type="button"
+                class="patient-result-card"
+                *ngFor="let patient of phoneMatchedPatients; let i = index"
+                [class.is-selected]="selectedPatient?._id === patient._id"
+                [class.is-keyboard-focus]="i === highlightedPatientIndex"
+                (click)="selectPatient(patient)"
+              >
                 <div class="patient-result-left">
                   <div class="avatar avatar-green">{{ initials(patientName(patient)) }}</div>
                   <div class="patient-result-info">
@@ -187,12 +221,32 @@
               </small>
             </label>
             <div class="consultation-fee-card" *ngIf="appointmentForm.value.doctorId">
-              <span>Consultation Fee</span>
-              <strong>{{ formatConsultationFee(selectedDoctorConsultationFee) }}</strong>
+              <span>Consultation Fee (editable)</span>
+              <input
+                #appointmentFeeInput
+                class="fee-input"
+                type="number"
+                min="0"
+                step="1"
+                formControlName="consultationFee"
+                (change)="markFeeManualOverride()"
+              />
+              <small *ngIf="followUpFeeApplied" class="fee-hint is-follow-up">{{ feeSuggestionLabel }}</small>
+              <small *ngIf="!followUpFeeApplied && selectedDoctor?.followUpFeeEnabled" class="fee-hint">
+                Full fee · follow-up window {{ selectedDoctor?.followUpWithinDays || 7 }} days
+              </small>
+              <button
+                type="button"
+                class="fee-reset"
+                *ngIf="selectedDoctor"
+                (click)="applySuggestedConsultationFee()"
+              >
+                Reset suggested
+              </button>
             </div>
             <label>
-              <span>Discount (PKR)</span>
-              <input type="number" min="0" formControlName="discount" />
+              <span>Discount ({{ currencyLabel }})</span>
+              <input #appointmentDiscountInput type="number" min="0" step="1" formControlName="discount" />
             </label>
             <label class="wide" *ngIf="(appointmentForm.value.discount || 0) > 0"
               [class.is-invalid]="showDiscountReasonError()">
@@ -205,7 +259,7 @@
             </label>
             <div class="consultation-fee-card net-fee-card" *ngIf="appointmentForm.value.doctorId">
               <span>Net Fee</span>
-              <strong>{{ formatConsultationFee(netConsultationFee) }}</strong>
+              <strong>{{ netConsultationFee | hmsCurrency }}</strong>
             </div>
             <label [class.is-invalid]="showAppointmentError('appointmentDate') || showDateUnavailableError()">
               <span>Date *</span>
@@ -218,7 +272,11 @@
                 Select an appointment date.
               </small>
               <small class="field-error"
-                *ngIf="showDateUnavailableError()">
+                *ngIf="showDateUnavailableError() && isSelectedDateOnLeave()">
+                Doctor is on leave on this date — not available for appointments.
+              </small>
+              <small class="field-error"
+                *ngIf="showDateUnavailableError() && !isSelectedDateOnLeave()">
                 Doctor is not available on {{ selectedAppointmentWeekdayLabel || 'this date' }}.
                 Working days: {{ selectedDoctorAvailableDaysLabel }}.
               </small>
@@ -271,7 +329,12 @@
               {{ selectedSlotDurationMinutes }} minutes per patient
             </small>
             <p class="slot-empty" *ngIf="!slotsLoading && appointmentForm.value.doctorId && !timeSlots.length">
-              No open slots for this date. Choose another date or check the doctor's working hours.
+              <ng-container *ngIf="isSelectedDateOnLeave() || slotAvailabilityReason; else noSlotsGeneric">
+                {{ slotAvailabilityReason || 'Doctor is on leave on that date' }} — not available for appointments.
+              </ng-container>
+              <ng-template #noSlotsGeneric>
+                No open slots for this date. Choose another date or check the doctor's working hours.
+              </ng-template>
             </p>
             <p class="field-error" *ngIf="showTimeSlotError()">
               Select a time slot to continue.
@@ -359,7 +422,7 @@
         <div class="list-header">
           <div class="panel-title">
             <span class="panel-icon"><i class="fa fa-calendar"></i></span>
-            <h2>Today's Appointments</h2>
+            <h2>{{ appointmentsListTitle }}</h2>
           </div>
           <button class="export-btn" type="button" (click)="exportAppointments()" [disabled]="loading || exportingAppointments">
             <i class="fa fa-download"></i>
@@ -368,6 +431,16 @@
         </div>
 
         <div class="filters-row">
+          <select
+            [ngModel]="filterDoctorId"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="filterDoctorId = $event; applyAppointmentFilters()"
+          >
+            <option value="">All Doctors</option>
+            <option *ngFor="let doctor of doctors" [value]="doctorBindingId(doctor)">
+              {{ filterDoctorLabel(doctor) }}
+            </option>
+          </select>
           <select [ngModel]="status" [ngModelOptions]="{ standalone: true }" (ngModelChange)="status = $event; applyAppointmentFilters()">
             <option value="">All Status</option>
             <option value="pending">Pending</option>
@@ -401,9 +474,18 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let appointment of appointments" class="appointment-row-link"
-                [class.is-clickable]="canOpenPrescriptions() && appointment.status !== 'cancelled'"
-                (click)="openPrescriptionForAppointment(appointment)">
+              <ng-container *ngFor="let group of appointmentGroups; trackBy: trackAppointmentGroup">
+                <tr class="doctor-group-row">
+                  <td colspan="10">
+                    <div class="doctor-group-label">
+                      <strong><i class="fa fa-user-md"></i> {{ group.doctorName }}</strong>
+                      <small>{{ group.items.length }} appointment{{ group.items.length === 1 ? '' : 's' }}</small>
+                    </div>
+                  </td>
+                </tr>
+                <tr *ngFor="let appointment of group.items; trackBy: trackAppointment" class="appointment-row-link"
+                  [class.is-clickable]="canOpenPrescriptions() && appointment.status !== 'cancelled'"
+                  (click)="openPrescriptionForAppointment(appointment)">
                 <td>{{ appointment.appointmentNo }}</td>
                 <td>
                   <div class="person-cell">
@@ -482,11 +564,12 @@
                   </div>
                 </td>
               </tr>
+              </ng-container>
               <tr *ngIf="!loading && appointments.length === 0">
-                <td colspan="9" class="empty-row">No appointments found</td>
+                <td colspan="10" class="empty-row">No appointments found</td>
               </tr>
               <tr *ngIf="loading">
-                <td colspan="9" class="empty-row">Loading...</td>
+                <td colspan="10" class="empty-row">Loading...</td>
               </tr>
             </tbody>
           </table>
@@ -509,8 +592,15 @@
   </div>
 </div>
 
-<div class="modal-backdrop-custom patient-modal-backdrop" *ngIf="addPatientModalOpen">
-  <div class="patient-modal" role="dialog" aria-modal="true" aria-labelledby="add-patient-modal-title">
+<div class="modal-backdrop-custom patient-modal-backdrop" *ngIf="addPatientModalOpen" (mousedown)="$event.target === $event.currentTarget && closeAddPatientModal()">
+  <div
+    #addPatientModal
+    class="patient-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="add-patient-modal-title"
+    (mousedown)="$event.stopPropagation()"
+  >
     <div class="patient-modal-header">
       <div>
         <h3 id="add-patient-modal-title">Add New Patient</h3>
@@ -526,15 +616,15 @@
         <div class="modal-grid">
           <label>
             <span>Mobile Number *</span>
-            <input formControlName="phone" placeholder="03XXXXXXXXX" />
+            <input #addPatientPhoneInput formControlName="phone" type="tel" placeholder="03XXXXXXXXX" autocomplete="tel" />
           </label>
           <label>
             <span>First Name *</span>
             <input formControlName="firstName" placeholder="e.g. Muhammad" />
           </label>
           <label>
-            <span>Last Name *</span>
-            <input formControlName="lastName" placeholder="Ali" />
+            <span>Last Name</span>
+            <input formControlName="lastName" placeholder="Ali (optional)" />
           </label>
           <label>
             <span>Gender *</span>

@@ -10,8 +10,9 @@
 
     <div class="ward-page-header ward-page-header--compact">
       <div class="ward-page-header__copy">
-        <h1>Patient List — Ward Wise</h1>
-        <p>View and manage admitted patients grouped by ward. Monitor status, assign staff, and access patient charts.</p>
+        <h1>{{ pageTitle }}</h1>
+        <p *ngIf="!pickPatientHint">{{ pageSubtitle }}</p>
+        <p *ngIf="pickPatientHint" class="ward-pick-hint">Select a patient to continue on their chart.</p>
       </div>
       <div class="ward-page-header__actions">
         <button type="button" class="btn btn-sm ward-btn-outline-teal" (click)="exportCsv()">

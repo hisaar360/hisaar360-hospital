@@ -4,12 +4,20 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize, firstValueFrom } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
+import {
+  HMS_KEYBOARD_STANDARDS,
+  HmsKeyboardService,
+  HmsSelectKeyboardDirective,
+} from '../../../core/keyboard';
+import { printHtmlJob } from '../../../core/keyboard/print-job.util';
 import { BackendService } from '../../../core/services/backend.service';
+import { formatActiveCurrency } from '../../../core/services/currency.service';
 import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import {
   MooliOfflineService,
   MooliQueuedWork,
 } from '../../../core/services/mooli-offline.service';
+import { MedicineCatalogCacheService } from '../../../core/services/medicine-catalog-cache.service';
 import {
   CompanyProfile,
   ReceiptLetterheadSettings,
@@ -228,7 +236,7 @@ interface PharmacyReturnLine {
 @Component({
   selector: 'app-pharmacy-pos',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, HmsSelectKeyboardDirective],
   templateUrl: './pharmacy-pos.component.html',
   styleUrl: './pharmacy-pos.component.scss',
 })
@@ -242,6 +250,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   prescription: Prescription | null = null;
   selectedStoreId = '';
   selectedCustomerId = '';
+  customerModalOpen = false;
+  customerSaving = false;
+  customerForm = { name: '', phone: '', city: '' };
+  private prescriptionCustomerLinking = false;
   settlementMode: 'COUNTER' | 'ENCOUNTER' = 'COUNTER';
   selectedPatientId = '';
   selectedEncounterId = '';
@@ -387,13 +399,17 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       defaultCombo: 'Ctrl+/',
     },
   ];
+  readonly sharedKeyboardStandards = HMS_KEYBOARD_STANDARDS;
+  private keyboardUnregister: (() => void) | null = null;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private backend: BackendService,
     readonly offline: MooliOfflineService,
+    private readonly medicineCatalog: MedicineCatalogCacheService,
     private toastr: ToastrService,
+    private keyboard: HmsKeyboardService,
   ) {}
 
   ngOnInit(): void {
@@ -401,6 +417,22 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.loadShortcutBindings();
     this.loadCustomers();
     this.loadPatients();
+    this.keyboardUnregister = this.keyboard.register({
+      id: 'pharmacy-pos',
+      onKeydown: (event) => {
+        this.handleKeyboardShortcuts(event);
+        return event.defaultPrevented;
+      },
+      onEscape: () => {
+        this.closeSaleReturn();
+        this.closeReports();
+        this.closeShortcutInfo();
+        this.closeReceiptPreview();
+        this.closeSaleHistory();
+        this.closeCloseRegister();
+        return true;
+      },
+    });
     this.route.queryParamMap.subscribe((params) => {
       this.prescriptionId = params.get('prescriptionId') || '';
       this.selectedStoreId =
@@ -430,6 +462,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.keyboardUnregister?.();
+    this.keyboardUnregister = null;
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);
       this.searchDebounceTimer = null;
@@ -623,16 +657,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     });
   }
 
-  @HostListener('document:keydown', ['$event'])
   handleKeyboardShortcuts(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
-      event.preventDefault();
-      this.closeSaleReturn();
-      this.closeReports();
-      this.closeShortcutInfo();
-      this.closeReceiptPreview();
-      this.closeSaleHistory();
-      this.closeCloseRegister();
+      // Escape is handled by HmsKeyboardService onEscape stack.
       return;
     }
 
@@ -1076,6 +1103,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
     this.productsLoading = true;
     this.searchResults = null;
+    void this.medicineCatalog.ensureLoaded();
     this.backend
       .getProducts({ limit: POS_CATALOG_LIMIT, isActive: true, storeId })
       .pipe(
@@ -1086,7 +1114,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (result) => {
-          this.products = result.items || [];
+          this.products = this.mergeProductsPreservingZeroStock(
+            this.products,
+            result.items || [],
+          );
           void this.offline.cacheValue(
             this.productsCacheKey(storeId),
             this.products,
@@ -1121,6 +1152,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               this.onSettlementPatientChange();
             }
           }
+          this.ensureCustomerFromPrescription();
         },
         error: (err) => {
           void this.loadCachedPrescription(id, err);
@@ -1370,13 +1402,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Instant local suggestions while remote search is in flight.
+    // Instant local suggestions from store stock + hospital catalog cache (no API per keystroke).
     this.searchResults = this.localProductMatches(raw).slice(0, POS_SEARCH_LIMIT);
     this.showSearchDropdown = true;
-
-    this.searchDebounceTimer = setTimeout(() => {
-      void this.runCatalogSearch(raw);
-    }, 180);
   }
 
   handleProductSearchKeydown(event: KeyboardEvent): void {
@@ -1603,7 +1631,21 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         !this.isExactCodeMatch(product, raw) &&
         this.productSearchText(product).includes(query),
     );
-    return [...exact, ...partial];
+    const fromStore = [...exact, ...partial];
+    const seen = new Set(fromStore.map((item) => String(item._id)));
+
+    const fromCatalog = this.medicineCatalog
+      .search(raw, POS_SEARCH_LIMIT)
+      .filter((item) => {
+        const id = String(item._id || '');
+        if (!id || seen.has(id)) {
+          return false;
+        }
+        seen.add(id);
+        return true;
+      });
+
+    return [...fromStore, ...fromCatalog];
   }
 
   private findLocalExactCodeMatch(raw: string): ProductCatalogItem | null {
@@ -1631,6 +1673,80 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.products = [product, ...this.products];
   }
 
+  /**
+   * Keep products that disappeared from the API (e.g. stock hit 0 / pagination)
+   * so POS still shows them as out of stock instead of removing them.
+   */
+  private mergeProductsPreservingZeroStock(
+    previous: ProductCatalogItem[],
+    fresh: ProductCatalogItem[],
+  ): ProductCatalogItem[] {
+    const merged = [...(fresh || [])];
+    const freshIds = new Set(
+      merged.map((item) => String(item?._id || '')).filter(Boolean),
+    );
+
+    for (const prev of previous || []) {
+      const id = String(prev?._id || '');
+      if (!id || freshIds.has(id)) {
+        continue;
+      }
+      merged.push({
+        ...prev,
+        availableQuantity: '0',
+        stockQuantity: '0',
+      });
+    }
+
+    return merged;
+  }
+
+  private applyOptimisticStockDeltas(
+    deltas: Array<{ productId: string; delta: number }>,
+  ): void {
+    if (!deltas?.length) {
+      return;
+    }
+
+    let changed = false;
+    for (const { productId, delta } of deltas) {
+      const id = String(productId || '');
+      const qtyDelta = Number(delta || 0);
+      if (!id || !Number.isFinite(qtyDelta) || qtyDelta === 0) {
+        continue;
+      }
+
+      const index = this.products.findIndex((item) => String(item._id) === id);
+      if (index < 0) {
+        continue;
+      }
+
+      const product = this.products[index];
+      const nextQty = Math.max(0, this.productAvailableQty(product) + qtyDelta);
+      this.products[index] = {
+        ...product,
+        availableQuantity: String(nextQty),
+        stockQuantity: String(nextQty),
+      };
+      changed = true;
+    }
+
+    if (!changed) {
+      return;
+    }
+
+    this.products = [...this.products];
+    const storeId = this.currentStoreId();
+    if (storeId) {
+      void this.offline.cacheValue(this.productsCacheKey(storeId), this.products);
+    }
+  }
+
+  private refreshLocalStockAfterTransaction(): void {
+    this.loadProducts();
+    void this.medicineCatalog.refresh();
+  }
+
   checkoutWith(method: SalePaymentMethod): void {
     this.paymentMethod = method;
     this.paidAmount = this.payableAmount;
@@ -1656,6 +1772,30 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     return this.customers.find((item) => item._id === this.selectedCustomerId) || null;
   }
 
+  get customerCreditSummary(): {
+    limit: number;
+    outstanding: number;
+    available: number;
+    enabled: boolean;
+  } | null {
+    const customer = this.selectedCustomer;
+    if (!customer) {
+      return null;
+    }
+    const limit = Number(customer.creditLimit || 0);
+    const outstanding = Number(customer.outstandingBalance ?? customer.openingBalance ?? 0);
+    const available =
+      customer.availableCredit != null && customer.availableCredit !== ''
+        ? Number(customer.availableCredit || 0)
+        : Math.max(limit - outstanding, 0);
+    return {
+      limit,
+      outstanding,
+      available: Number.isFinite(available) ? available : 0,
+      enabled: limit > 0,
+    };
+  }
+
   get customerCreditHint(): string {
     const customer = this.selectedCustomer;
     if (!customer) {
@@ -1663,15 +1803,47 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         ? 'Select a customer with a credit limit before using Credit.'
         : '';
     }
-    const limit = Number(customer.creditLimit || 0);
-    if (limit <= 0) {
+    const summary = this.customerCreditSummary;
+    if (!summary || !summary.enabled) {
       return 'Credit not allowed for this customer (limit is 0).';
     }
-    const available =
-      customer.availableCredit != null && customer.availableCredit !== ''
-        ? Number(customer.availableCredit || 0)
-        : Math.max(limit - Number(customer.outstandingBalance || customer.openingBalance || 0), 0);
-    return `Available credit ~ ${this.formatMoney(available)} (limit ${this.formatMoney(limit)}).`;
+    return `Limit ${this.formatMoney(summary.limit)} · Outstanding ${this.formatMoney(summary.outstanding)} · Remaining ${this.formatMoney(summary.available)}`;
+  }
+
+  onCustomerChange(): void {
+    this.refreshSelectedCustomerCredit();
+  }
+
+  private refreshSelectedCustomerCredit(): void {
+    const customerId = String(this.selectedCustomerId || '').trim();
+    if (!customerId || !this.backend.hasPermission('customers.read')) {
+      return;
+    }
+
+    this.backend.getCustomerById(customerId).subscribe({
+      next: (customer) => this.upsertCustomer(customer),
+      error: () => undefined,
+    });
+  }
+
+  private upsertCustomer(customer: Customer): void {
+    if (!customer?._id) {
+      return;
+    }
+    const index = this.customers.findIndex((item) => item._id === customer._id);
+    if (index >= 0) {
+      this.customers = [
+        ...this.customers.slice(0, index),
+        customer,
+        ...this.customers.slice(index + 1),
+      ];
+    } else {
+      this.customers = [customer, ...this.customers];
+    }
+  }
+
+  formatMoney(value: number | string | null | undefined): string {
+    return formatActiveCurrency(value, { fractionDigits: 2 });
   }
 
   private assertCustomerCreditAllowed(billTotal: number): string | null {
@@ -1700,10 +1872,6 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return `Credit limit exceeded. Outstanding ${this.formatMoney(outstanding)} + bill ${this.formatMoney(billTotal)} > limit ${this.formatMoney(limit)}.`;
     }
     return null;
-  }
-
-  private formatMoney(value: number | string | null | undefined): string {
-    return `PKR ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
   clearSale(): void {
@@ -2072,6 +2240,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       this.toastr.warning(
         `${this.productDisplay(product)} is out of stock. Tell the patient it is not available in this store.`,
       );
+      this.focusProductSearch(true);
       return;
     }
 
@@ -2080,6 +2249,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         this.toastr.warning(
           `Only ${availableQty} in stock for ${this.productDisplay(product)}. Tell the patient the rest is not available.`,
         );
+        this.focusProductSearch(true);
         return;
       }
       existing.billQty = Math.min(
@@ -2088,7 +2258,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       );
       this.syncLineDiscount(existing);
       this.refreshPaidAmount();
-      this.focusCartRow(existingIndex, true, 1);
+      this.focusProductSearch(true);
       return;
     }
 
@@ -2105,7 +2275,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         product.maxDiscountType === 'percentage' ? 'percentage' : 'amount',
     });
     this.refreshPaidAmount();
-    this.focusCartRow(this.billLines.length - 1, true, 1);
+    this.focusProductSearch(true);
   }
 
   removeLine(index: number): void {
@@ -2415,7 +2585,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         ? `Pharmacy bill for prescription ${this.prescription._id}`
         : 'Pharmacy POS bill',
       settlementMode: this.settlementMode,
-      patientId: this.settlementMode === 'ENCOUNTER' ? this.selectedPatientId : undefined,
+      patientId:
+        this.settlementMode === 'ENCOUNTER'
+          ? this.selectedPatientId
+          : this.prescription?.patientId || this.selectedPatientId || undefined,
       encounterId: this.settlementMode === 'ENCOUNTER' ? this.selectedEncounterId : undefined,
       prescriptionId: this.prescription?._id || this.prescriptionId || undefined,
       attributedDoctorId: this.prescription?.doctorId || undefined,
@@ -2425,6 +2598,13 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       void this.queueOfflineSale(payload);
       return;
     }
+
+    const soldStockDeltas = this.billLines
+      .filter((line) => line.billQty > 0 && line.product?._id)
+      .map((line) => ({
+        productId: String(line.product._id),
+        delta: -Number(line.billQty || 0),
+      }));
 
     this.saleSaving = true;
     this.backend
@@ -2444,7 +2624,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             'success',
           );
           this.clearSale();
-          this.loadProducts();
+          this.applyOptimisticStockDeltas(soldStockDeltas);
+          this.refreshLocalStockAfterTransaction();
           this.refreshRegisterState();
         },
         error: (err) => {
@@ -2601,6 +2782,11 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         this.returnRefundAmount > 0 ? this.returnPaymentMethod : undefined,
     };
 
+    const returnedStockDeltas = items.map((item) => ({
+      productId: String(item.productId),
+      delta: Number(item.qty || 0),
+    }));
+
     this.saleReturnSubmitting = true;
     this.saleReturnErrorMessage = '';
     this.backend
@@ -2610,7 +2796,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         next: (salesReturn) => {
           this.closeSaleReturn();
           this.closeSaleHistory();
-          this.loadProducts();
+          this.applyOptimisticStockDeltas(returnedStockDeltas);
+          this.refreshLocalStockAfterTransaction();
           this.loadRecentSales();
           this.showPosMessage(
             `Sales return ${salesReturn.returnNo || salesReturn._id} completed successfully.`,
@@ -2685,10 +2872,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   formatCurrency(value: unknown): string {
-    return `${Number(value || 0).toLocaleString('en-PK', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return formatActiveCurrency(value, { fractionDigits: 2 });
   }
 
   formatCompactNumber(value: unknown): string {
@@ -2888,54 +3072,24 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   private openReceiptPrintWindow(receipt: ReceiptPreviewData): void {
-    const popup = window.open('', '_blank', 'width=420,height=760');
-    if (!popup) {
-      this.toastr.error('Allow popups to print the receipt.');
-      return;
-    }
-
+    const html = this.receiptHtml(receipt);
     this.receiptPreviewOpen = false;
     this.receiptPreview = null;
 
-    let focusRestored = false;
-    let closedPoll: number | undefined;
-    const restoreSearchFocus = () => {
-      if (focusRestored) {
-        return;
-      }
+    const printed = printHtmlJob(html, {
+      jobType: 'invoice',
+      title: `Invoice — ${receipt.reference}`,
+    });
 
-      focusRestored = true;
-      if (closedPoll !== undefined) {
-        window.clearInterval(closedPoll);
-      }
-      try {
-        if (!popup.closed) {
-          popup.close();
-        }
-      } catch {
-        // The print context may already be unavailable.
-      }
+    if (!printed) {
+      this.toastr.error('Unable to open the print dialog.');
+      return;
+    }
+
+    window.setTimeout(() => {
       window.focus();
       this.schedulePrintSearchFocus();
-    };
-
-    popup.onafterprint = restoreSearchFocus;
-    popup.document.write(this.receiptHtml(receipt));
-    popup.document.close();
-    window.setTimeout(() => {
-      try {
-        popup.focus();
-        popup.print();
-      } catch {
-        restoreSearchFocus();
-      }
-    }, 250);
-
-    closedPoll = window.setInterval(() => {
-      if (popup.closed) {
-        restoreSearchFocus();
-      }
-    }, 250);
+    }, 400);
   }
 
   private receiptHtml(receipt: ReceiptPreviewData): string {
@@ -3039,7 +3193,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
     const result = await this.offline.syncQueuedWork();
     if (result.syncedCount > 0) {
-      this.loadProducts();
+      this.refreshLocalStockAfterTransaction();
       this.refreshRegisterState();
       this.loadRecentSales();
       if (showToast) {
@@ -3215,6 +3369,12 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       note: `${this.prescription ? `Prescription ${this.prescription._id}. ` : ''}Saved offline`,
     };
     const sale = this.buildLocalSale(localId, invoiceNo, payload, receipt);
+    const soldStockDeltas = (payload.items || [])
+      .filter((item) => Number(item.qty || 0) > 0 && item.productId)
+      .map((item) => ({
+        productId: String(item.productId),
+        delta: -Number(item.qty || 0),
+      }));
 
     await this.offline.enqueueWork({
       id: localId,
@@ -3236,6 +3396,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.selectedProductIndex = 0;
     this.paidAmount = '0';
     this.cashReceivedAmount = '0';
+    this.applyOptimisticStockDeltas(soldStockDeltas);
     this.saleSaving = false;
     this.showPosMessage(`Sale saved offline: ${invoiceNo}`, 'success');
   }
@@ -3330,14 +3491,151 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.backend.getCustomers({ limit: 100, isActive: true }).subscribe({
+    this.backend.getCustomers({ limit: 500, isActive: true }).subscribe({
       next: (result) => {
         this.customers = result.items;
+        if (this.selectedCustomerId) {
+          this.refreshSelectedCustomerCredit();
+        }
+        if (this.prescription) {
+          this.ensureCustomerFromPrescription();
+        }
       },
       error: () => {
         this.customers = [];
       },
     });
+  }
+
+  get canCreateCustomer(): boolean {
+    return this.backend.hasPermission('customers.create');
+  }
+
+  customerCreditBadge(customer: Customer): string {
+    const limit = Number(customer.creditLimit || 0);
+    if (limit <= 0) {
+      return '';
+    }
+    const available =
+      customer.availableCredit != null && customer.availableCredit !== ''
+        ? Number(customer.availableCredit || 0)
+        : Math.max(limit - Number(customer.outstandingBalance || 0), 0);
+    return ` · Credit ${this.formatMoney(available)} / ${this.formatMoney(limit)}`;
+  }
+
+  openCreateCustomerModal(): void {
+    if (!this.canCreateCustomer) {
+      this.toastr.error('Missing permission: customers.create');
+      return;
+    }
+    this.customerForm = { name: '', phone: '', city: '' };
+    this.customerModalOpen = true;
+  }
+
+  closeCreateCustomerModal(): void {
+    if (this.customerSaving) {
+      return;
+    }
+    this.customerModalOpen = false;
+  }
+
+  saveNewCustomer(): void {
+    const name = this.customerForm.name.trim();
+    if (name.length < 2) {
+      this.toastr.error('Enter customer name.');
+      return;
+    }
+
+    this.customerSaving = true;
+    this.backend
+      .createCustomer({
+        name,
+        phone: this.customerForm.phone.trim() || undefined,
+        city: this.customerForm.city.trim() || undefined,
+        creditLimit: 0,
+        openingBalance: 0,
+        isActive: true,
+        notes: 'Created from Pharmacy POS (credit not authorized until limit is set).',
+      })
+      .pipe(finalize(() => (this.customerSaving = false)))
+      .subscribe({
+        next: (response) => {
+          const customer = response.data;
+          if (customer?._id) {
+            this.customers = [customer, ...this.customers.filter((item) => item._id !== customer._id)];
+            this.selectedCustomerId = customer._id;
+          }
+          this.customerModalOpen = false;
+          this.toastr.success('Customer created. Credit stays off until you set a credit limit.');
+        },
+        error: (err) => {
+          this.toastr.error(err?.error?.message || 'Unable to create customer.');
+        },
+      });
+  }
+
+  /** Link/create a pharmacy customer from the prescription patient (creditLimit 0). */
+  private ensureCustomerFromPrescription(): void {
+    if (!this.prescription || this.prescriptionCustomerLinking) {
+      return;
+    }
+
+    const name = this.patientName();
+    if (!name || name === '-') {
+      return;
+    }
+
+    const phone = String(this.prescription.patient?.phone || '').trim();
+    const existing = this.findCustomerMatch(name, phone);
+    if (existing) {
+      this.selectedCustomerId = existing._id;
+      return;
+    }
+
+    if (!this.canCreateCustomer) {
+      return;
+    }
+
+    this.prescriptionCustomerLinking = true;
+    this.backend
+      .createCustomer({
+        name,
+        phone: phone || undefined,
+        creditLimit: 0,
+        openingBalance: 0,
+        isActive: true,
+        notes: `Auto-added from prescription ${this.prescription._id}. Credit not authorized.`,
+      })
+      .pipe(finalize(() => (this.prescriptionCustomerLinking = false)))
+      .subscribe({
+        next: (response) => {
+          const customer = response.data;
+          if (!customer?._id) {
+            return;
+          }
+          this.customers = [customer, ...this.customers.filter((item) => item._id !== customer._id)];
+          this.selectedCustomerId = customer._id;
+        },
+        error: () => undefined,
+      });
+  }
+
+  private findCustomerMatch(name: string, phone: string): Customer | null {
+    const normalizedPhone = phone.replace(/\D/g, '');
+    if (normalizedPhone.length >= 7) {
+      const byPhone = this.customers.find(
+        (item) => String(item.phone || '').replace(/\D/g, '') === normalizedPhone,
+      );
+      if (byPhone) {
+        return byPhone;
+      }
+    }
+
+    const normalizedName = name.trim().toLowerCase();
+    return (
+      this.customers.find((item) => String(item.name || '').trim().toLowerCase() === normalizedName) ||
+      null
+    );
   }
 
   onSettlementModeChange(): void {
@@ -3973,10 +4271,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             if (dockIndexes.length) {
               this.focusActionDockButton(dockIndexes.at(-1) || 0);
             }
+          } else if (this.billLines.length) {
+            this.focusCartRow(this.selectedCartIndex, true, 1);
           } else if (this.filteredProducts().length) {
             this.focusProductCard(0);
-          } else if (this.billLines.length) {
-            this.focusCartRow(this.selectedCartIndex);
           } else {
             this.focusActionDockButton(this.selectedDockIndex);
           }
@@ -3986,13 +4284,18 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       }
     }
 
+    if (this.handleEditableValueKeydown(event)) {
+      return true;
+    }
+
     if (this.handleCartValueStepKeydown(event)) {
       return true;
     }
 
     if (
       this.isEditableTarget(event.target) &&
-      !this.isCartKeyboardTarget(event.target)
+      !this.isCartKeyboardTarget(event.target) &&
+      !this.isDockEditableTarget(event.target)
     ) {
       return false;
     }
@@ -4082,6 +4385,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         );
         return true;
       case 'ArrowDown':
+        if (this.isCartNumberInputTarget(event.target)) {
+          return false;
+        }
         event.preventDefault();
         this.focusCartRow(
           cartIndexes[Math.min(currentPosition + 1, cartIndexes.length - 1)],
@@ -4090,6 +4396,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         );
         return true;
       case 'ArrowUp':
+        if (this.isCartNumberInputTarget(event.target)) {
+          return false;
+        }
         event.preventDefault();
         this.focusCartRow(
           cartIndexes[Math.max(currentPosition - 1, 0)],
@@ -4140,32 +4449,60 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         return true;
       case 'Enter':
         event.preventDefault();
+        if (this.isCartNumberInputTarget(event.target)) {
+          this.selectFocusedInput(event.target);
+          return true;
+        }
         this.focusCartCell(this.selectedCartIndex, this.selectedCartCellIndex);
+        window.setTimeout(() => {
+          const cell = this.cartCellElements(this.selectedCartIndex)[
+            this.selectedCartCellIndex
+          ];
+          this.selectFocusedInput(cell);
+        });
         return true;
       case 'Tab':
         event.preventDefault();
         if (event.shiftKey) {
-          if (currentPosition > 0) {
-            this.focusCartRow(
-              cartIndexes[currentPosition - 1],
-              true,
-              this.selectedCartCellIndex,
-            );
-          } else {
-            this.focusProductCard(this.selectedProductIndex || 0);
-          }
-        } else if (currentPosition < cartIndexes.length - 1) {
-          this.focusCartRow(
-            cartIndexes[currentPosition + 1],
-            true,
-            this.selectedCartCellIndex,
-          );
+          this.moveCartFocus(-1, cartIndexes, currentPosition);
         } else {
-          this.focusActionDockButton(this.selectedDockIndex);
+          this.moveCartFocus(1, cartIndexes, currentPosition);
         }
         return true;
       default:
         return false;
+    }
+  }
+
+  private moveCartFocus(
+    direction: 1 | -1,
+    cartIndexes: number[],
+    currentPosition: number,
+  ): void {
+    const cells = this.cartCellElements(this.selectedCartIndex);
+    const maxCell = Math.max(cells.length - 1, 0);
+    const nextCell = this.selectedCartCellIndex + direction;
+
+    if (nextCell >= 0 && nextCell <= maxCell) {
+      this.focusCartCell(this.selectedCartIndex, nextCell);
+      return;
+    }
+
+    if (direction > 0) {
+      if (currentPosition < cartIndexes.length - 1) {
+        this.focusCartRow(cartIndexes[currentPosition + 1], true, 0);
+      } else {
+        this.focusActionDockButton(this.selectedDockIndex);
+      }
+      return;
+    }
+
+    if (currentPosition > 0) {
+      const prevIndex = cartIndexes[currentPosition - 1];
+      const prevCells = this.cartCellElements(prevIndex);
+      this.focusCartRow(prevIndex, true, Math.max(prevCells.length - 1, 0));
+    } else {
+      this.focusProductSearch(true);
     }
   }
 
@@ -4709,9 +5046,11 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return false;
     }
 
+    const direction = event.key === 'ArrowUp' ? 1 : -1;
+
     if (this.isQtyInputTarget(event.target)) {
       event.preventDefault();
-      if (event.key === 'ArrowUp') {
+      if (direction > 0) {
         this.incrementLineQty(cartIndex);
       } else {
         this.decrementLineQty(cartIndex);
@@ -4720,14 +5059,118 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return true;
     }
 
+    if (this.isUnitPriceInputTarget(event.target)) {
+      event.preventDefault();
+      this.stepLineUnitPrice(cartIndex, direction);
+      this.focusCartCell(cartIndex, this.selectedCartCellIndex);
+      return true;
+    }
+
     if (this.isDiscountInputTarget(event.target)) {
       event.preventDefault();
-      this.stepLineDiscount(cartIndex, event.key === 'ArrowUp' ? 0.5 : -0.5);
+      this.stepLineDiscount(cartIndex, direction > 0 ? 0.5 : -0.5);
       this.focusCartCell(cartIndex, this.selectedCartCellIndex);
       return true;
     }
 
     return false;
+  }
+
+  private handleEditableValueKeydown(event: KeyboardEvent): boolean {
+    if (this.isSearchInputTarget(event.target)) {
+      return false;
+    }
+
+    if (event.key === 'Enter' && this.isNumberOrTextInputTarget(event.target)) {
+      event.preventDefault();
+      this.selectFocusedInput(event.target);
+      return true;
+    }
+
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') {
+      return false;
+    }
+
+    if (!this.isDockAmountInputTarget(event.target)) {
+      return false;
+    }
+
+    event.preventDefault();
+    const step = event.key === 'ArrowUp' ? 1 : -1;
+    const input = event.target as HTMLInputElement;
+    const dockIndex = Number(input.getAttribute('data-kb-dock-index') || -1);
+
+    if (dockIndex === 1) {
+      const next = Math.max(0, Number(this.paidAmount || 0) + step);
+      this.paidAmount = String(next);
+      this.onPaidAmountChange(this.paidAmount);
+      return true;
+    }
+
+    if (dockIndex === 2 && this.paymentMethod === 'cash') {
+      const next = Math.max(0, Number(this.cashReceivedAmount || 0) + step);
+      this.cashReceivedAmount = String(next);
+      this.onCashReceivedAmountChange(this.cashReceivedAmount);
+      return true;
+    }
+
+    return false;
+  }
+
+  private stepLineUnitPrice(index: number, direction: number): void {
+    const line = this.billLines[index];
+    if (!line) {
+      return;
+    }
+    line.unitPrice = Math.max(0, Number(line.unitPrice || 0) + direction);
+    this.onUnitPriceChange(line);
+  }
+
+  private selectFocusedInput(target: EventTarget | null | undefined): void {
+    const element = target as HTMLInputElement | HTMLTextAreaElement | null;
+    if (!element || typeof element.select !== 'function') {
+      return;
+    }
+    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+      element.focus();
+      element.select();
+    }
+  }
+
+  private isNumberOrTextInputTarget(target: EventTarget | null): boolean {
+    const element = target as HTMLElement | null;
+    return Boolean(element?.matches?.('input:not([type="checkbox"]):not([type="radio"]), textarea'));
+  }
+
+  private isCartNumberInputTarget(target: EventTarget | null): boolean {
+    return (
+      this.isQtyInputTarget(target) ||
+      this.isUnitPriceInputTarget(target) ||
+      this.isDiscountInputTarget(target)
+    );
+  }
+
+  private isUnitPriceInputTarget(target: EventTarget | null): boolean {
+    const element = target as HTMLElement | null;
+    return Boolean(element?.matches?.('input[aria-label="Line unit price"]'));
+  }
+
+  selectInputForEdit(target: EventTarget | null): void {
+    this.selectFocusedInput(target);
+  }
+
+  private isDockEditableTarget(target: EventTarget | null): boolean {
+    const element = target as HTMLElement | null;
+    return Boolean(element?.closest?.('.dock-payment'));
+  }
+
+  private isDockAmountInputTarget(target: EventTarget | null): boolean {
+    const element = target as HTMLElement | null;
+    return Boolean(
+      element?.matches?.(
+        '.dock-payment input[type="number"][data-kb-dock-index="1"], .dock-payment input[type="number"][data-kb-dock-index="2"]',
+      ),
+    );
   }
 
   private resolveCartIndexFromTarget(target: EventTarget | null): number {

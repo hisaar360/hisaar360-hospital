@@ -29,6 +29,19 @@ import {
   WardTaskRow,
 } from '../ward-dashboard.models';
 import { WardModuleKey, WardModuleReportCard, WardModuleRow, WardModuleFilters } from '../ward-module.models';
+import {
+  buildWardBedCards,
+  EMPTY_WARD_WORK_COUNTS,
+  normalizeWardAttendantTask,
+  normalizeWardHomeSummary,
+  normalizeWardMyWork,
+  UNASSIGNED_WARD_LABEL,
+  WardAttendantTask,
+  WardBedBoardAdmission,
+  WardBedCard,
+  WardHomeSummary,
+  WardMyWork,
+} from '../ward-home.util';
 import { WardPatient } from '../ward-patient-list.models';
 import {
   buildFloorOptions,
@@ -357,6 +370,116 @@ export class WardDataService {
       map((result) => normalizeWardFloorRecords(result.items, id)),
       catchError(() => of([] as WardFloor[]))
     );
+  }
+
+  loadWardHomeSummary(): Observable<WardHomeSummary> {
+    return this.backend.getWardHomeSummary().pipe(map((data) => normalizeWardHomeSummary(data)));
+  }
+
+  loadMyWork(): Observable<WardMyWork> {
+    return this.backend.getWardMyWork().pipe(map((data) => normalizeWardMyWork(data)));
+  }
+
+  /**
+   * Bed board for Ward Home: beds and ward names come from the bed catalogue, the
+   * chart-level details (MRN, consultant) from the ward control centre, and the
+   * "next due" hint from the nurse work list. Enrichment failures degrade to bare beds.
+   */
+  loadWardBedBoard(): Observable<WardBedCard[]> {
+    return forkJoin({
+      bedManagement: this.loadBedManagement().pipe(
+        catchError(() =>
+          of({ rooms: [], beds: [], wardOptions: [], hospitalWards: [], wardFloors: [], floorOptions: [] } as WardBedManagementData)
+        )
+      ),
+      controlCenter: this.backend.getWardControlCenter().pipe(catchError(() => of({} as Record<string, unknown>))),
+      work: this.loadMyWork().pipe(
+        catchError(() => of({ overdue: [], dueNow: [], upcoming: [], counts: EMPTY_WARD_WORK_COUNTS } as WardMyWork))
+      ),
+    }).pipe(
+      map(({ bedManagement, controlCenter, work }) => {
+        const roomWardNames: Record<string, string> = {};
+        bedManagement.rooms.forEach((room) => {
+          roomWardNames[String(room.id)] = room.wardName || UNASSIGNED_WARD_LABEL;
+        });
+
+        const admissions: WardBedBoardAdmission[] = (
+          (controlCenter['patients'] as Array<Record<string, unknown>> | undefined) || []
+        ).map((row) => ({
+          admissionId: String(row['admissionId'] || ''),
+          patientName: String(row['patientName'] || ''),
+          mrn: String(row['mrn'] || ''),
+          consultant: String(row['doctor'] || ''),
+          wardName: String(row['ward'] || ''),
+          bedLabel: String(row['roomBed'] || ''),
+          admittedAt: String(row['admittedAt'] || ''),
+        }));
+
+        return buildWardBedCards({
+          beds: bedManagement.beds.map((bed) => ({
+            id: bed.id,
+            roomId: String(bed.roomId),
+            bedLabel: bed.bedNo,
+            status: bed.status,
+            admissionId: bed.admissionId,
+            patientName: bed.patientName,
+            age: bed.age,
+            sex: bed.sex,
+            occupiedSince: bed.occupiedSince,
+          })),
+          roomWardNames,
+          admissions,
+          workItems: [...work.overdue, ...work.dueNow, ...work.upcoming],
+        });
+      })
+    );
+  }
+
+  loadAttendantTasks(): Observable<WardAttendantTask[]> {
+    return this.backend
+      .getWardAttendantTasks()
+      .pipe(map((result) => (result.items || []).map((item) => normalizeWardAttendantTask(item))));
+  }
+
+  createAttendantTask(payload: {
+    patientId: string;
+    admissionId?: string;
+    taskType: string;
+    title: string;
+    instruction?: string;
+    fromLocation?: string;
+    toLocation?: string;
+    dueAt?: string;
+    priority?: string;
+  }): Observable<unknown> {
+    return this.backend.createWardActivity({
+      activityType: 'nursing_task',
+      patientId: payload.patientId,
+      admissionId: payload.admissionId || undefined,
+      title: payload.title,
+      description: payload.instruction || undefined,
+      priority: payload.priority || 'normal',
+      scheduledAt: payload.dueAt || undefined,
+      status: 'pending',
+      metadata: {
+        taskType: payload.taskType,
+        instruction: payload.instruction || '',
+        fromLocation: payload.fromLocation || '',
+        toLocation: payload.toLocation || '',
+      },
+    });
+  }
+
+  updateAttendantTaskStatus(
+    taskId: string,
+    status: 'in_progress' | 'completed' | 'cancelled',
+    reason = ''
+  ): Observable<unknown> {
+    const payload: Record<string, unknown> = { status };
+    if (reason.trim()) {
+      payload['reason'] = reason.trim();
+    }
+    return this.backend.updateWardAttendantTaskStatus(taskId, payload);
   }
 
   loadDashboard(wardFilter = ''): Observable<WardDashboardData> {
@@ -729,6 +852,8 @@ export class WardDataService {
 
   loadPatientDetail(admissionId: string): Observable<{
     patient: WardPatient | null;
+    /** Raw allotment so the workspace can read admission reason / plan link without another call. */
+    allotment: RoomAllotment | null;
     vitals: WardModuleRow[];
     mar: WardModuleRow[];
     drips: WardModuleRow[];
@@ -777,6 +902,7 @@ export class WardDataService {
             );
             return {
               patient,
+              allotment: enriched,
               vitals: this.rowsFromClinicalBundle(bundle, 'vitals', 'all', '', filters),
               mar: this.rowsFromClinicalBundle(bundle, 'mar', 'all', '', filters),
               drips: this.rowsFromClinicalBundle(bundle, 'drips-iv', 'all', '', filters),

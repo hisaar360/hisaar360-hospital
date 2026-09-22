@@ -1,0 +1,122 @@
+<div id="main-content" class="modern-dashboard hms-page ward-page-shell ward-home-page">
+  <div class="container-fluid ward-page-container">
+    <header class="ward-page-header ward-page-header--compact">
+      <div class="ward-page-header__copy">
+        <h1>Ward Home</h1>
+        <p>Bed board, pending admissions, and what needs attention right now.</p>
+      </div>
+      <div class="ward-page-header__actions">
+        <button type="button" class="btn btn-sm ward-refresh-btn" (click)="loadSummary(); loadBoard()"
+          [disabled]="summaryLoading || boardLoading" aria-label="Refresh ward home">
+          <i class="fa" [ngClass]="summaryLoading || boardLoading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Summary strip -->
+    <section class="ward-kpi-grid ward-home-summary" *ngIf="!summaryLoading && !summaryError">
+      <article class="ward-kpi-card ward-home-tile" *ngFor="let tile of summaryTiles"
+        [ngClass]="'ward-kpi-card--' + tile.tone">
+        <span class="ward-kpi-card__icon"><i class="fa" [ngClass]="tile.icon"></i></span>
+        <span class="ward-kpi-card__copy">
+          <strong>{{ tile.value }}</strong>
+          <small>{{ tile.label }}</small>
+        </span>
+        <a class="ward-home-tile__link" *ngIf="tile.route" [routerLink]="[tile.route]">Open</a>
+      </article>
+    </section>
+
+    <section class="ward-kpi-grid ward-home-summary" *ngIf="summaryLoading">
+      <article class="ward-kpi-card ward-home-skeleton-tile" *ngFor="let row of [1,2,3,4,5,6]"></article>
+    </section>
+
+    <section class="ward-home-widget-error" *ngIf="summaryError && !summaryLoading" role="alert">
+      <span><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Ward summary could not be loaded.</span>
+      <button type="button" class="btn btn-sm ward-home-btn ward-home-btn--primary" (click)="loadSummary()">Retry</button>
+    </section>
+
+    <!-- Filters -->
+    <section class="ward-home-filters" aria-label="Bed board filters">
+      <button type="button" class="ward-home-chip" *ngFor="let filter of filters"
+        [class.ward-home-chip--active]="activeFilter === filter.key" [attr.aria-pressed]="activeFilter === filter.key"
+        (click)="setFilter(filter.key)">
+        {{ filter.label }}
+      </button>
+      <span class="ward-home-filters__hint" *ngIf="activeFilter === 'my-ward' && myWard">{{ myWard }}</span>
+    </section>
+
+    <!-- Bed board -->
+    <section class="ward-home-board" *ngIf="boardLoading">
+      <div class="ward-home-card ward-home-skeleton-card" *ngFor="let row of skeletonRows"></div>
+    </section>
+
+    <section class="ward-home-widget-error" *ngIf="boardError && !boardLoading" role="alert">
+      <span><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Bed board could not be loaded.</span>
+      <button type="button" class="btn btn-sm ward-home-btn ward-home-btn--primary" (click)="loadBoard()">Retry</button>
+    </section>
+
+    <ng-container *ngIf="!boardLoading && !boardError">
+      <section class="ward-home-ward-group" *ngFor="let group of groups">
+        <header class="ward-home-ward-group__header">
+          <h2>{{ group.wardName }}</h2>
+          <span>{{ group.cards.length }} beds</span>
+        </header>
+
+        <div class="ward-home-board">
+          <article class="ward-home-card" *ngFor="let card of group.cards"
+            [class.ward-home-card--occupied]="card.statusKey === 'occupied'"
+            [class.ward-home-card--attention]="card.needsAttention"
+            [class.ward-home-card--clickable]="card.statusKey === 'occupied' && card.admissionId"
+            [attr.tabindex]="card.statusKey === 'occupied' && card.admissionId ? 0 : null"
+            [attr.role]="card.statusKey === 'occupied' && card.admissionId ? 'button' : null"
+            (click)="openCard(card)" (keyup.enter)="openCard(card)">
+            <header class="ward-home-card__header">
+              <strong class="ward-home-card__bed">{{ card.bedLabel }}</strong>
+              <span class="ward-home-card__status">
+                <i class="fa" [ngClass]="card.statusIcon" aria-hidden="true"></i>
+                <span>{{ card.statusLabel }}</span>
+              </span>
+            </header>
+
+            <ng-container *ngIf="card.statusKey === 'occupied'; else vacantCard">
+              <p class="ward-home-card__patient">
+                <strong>{{ card.patientName || 'Patient' }}</strong>
+                <span *ngIf="card.ageSexLabel"> · {{ card.ageSexLabel }}</span>
+              </p>
+              <dl class="ward-home-card__meta">
+                <div><dt>MRN</dt><dd>{{ card.mrn || '—' }}</dd></div>
+                <div><dt>Consultant</dt><dd>{{ card.consultant || '—' }}</dd></div>
+                <div><dt>Stay</dt><dd>{{ card.lengthOfStayLabel || '—' }}</dd></div>
+              </dl>
+              <p class="ward-home-card__alert" *ngIf="card.alertLabel">
+                <i class="fa fa-exclamation-circle" aria-hidden="true"></i>
+                <span>{{ card.alertLabel }}</span>
+              </p>
+              <p class="ward-home-card__next" *ngIf="card.nextDueLabel">{{ card.nextDueLabel }}</p>
+              <p class="ward-home-card__next" *ngIf="!card.nextDueLabel">No due items right now.</p>
+            </ng-container>
+
+            <ng-template #vacantCard>
+              <p class="ward-home-card__vacant">{{ card.statusLabel }}</p>
+              <p class="ward-home-card__alert" *ngIf="card.alertLabel">
+                <i class="fa fa-exclamation-circle" aria-hidden="true"></i>
+                <span>{{ card.alertLabel }}</span>
+              </p>
+              <a class="btn btn-sm ward-home-btn ward-home-btn--primary"
+                *ngIf="card.statusKey === 'available' && canAssignBed" [routerLink]="['/ward/admissions']"
+                (click)="$event.stopPropagation()">
+                Assign
+              </a>
+            </ng-template>
+          </article>
+        </div>
+      </section>
+
+      <div class="ward-empty-state" *ngIf="!visibleCardCount">
+        <span class="ward-empty-state__icon"><i class="fa fa-bed"></i></span>
+        <h3>{{ emptyBoardMessage() }}</h3>
+        <p *ngIf="!summary.admissions.pendingRecommendations">No pending admissions.</p>
+      </div>
+    </ng-container>
+  </div>
+</div>

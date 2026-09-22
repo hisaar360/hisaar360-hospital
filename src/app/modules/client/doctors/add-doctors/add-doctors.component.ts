@@ -11,21 +11,30 @@ import { debounceTime, distinctUntilChanged, finalize, of, Subject, switchMap, t
 import { catchError } from 'rxjs/operators';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../core/services/backend.service';
+import { CurrencyService } from '../../../../core/services/currency.service';
 import {
   AUTO_PRESCRIPTION_SPECIALTY,
-  CLINICAL_DEPARTMENTS,
-  CUSTOM_SPECIALIZATION_VALUE,
-  CatalogOption,
   PRESCRIPTION_SPECIALTY_OPTIONS,
-  QUALIFICATION_OPTIONS,
-  findSpecializationOption,
-  inferClinicalDepartmentFromSpecialization,
-  resolveSpecialtyTemplateForSpecialization,
-  specializationsForDepartment,
   specialtyTemplateLabel,
 } from '../../../../shared/catalogs/doctor-specialization.catalog';
 import {
-  ClinicalDepartmentKey,
+  CLINICAL_DEPARTMENTS,
+  CUSTOM_VALUE,
+  DOCTOR_DEPARTMENTS,
+  DOCTOR_DESIGNATIONS,
+  DOCTOR_QUALIFICATIONS,
+  DoctorDepartmentOption,
+  clinicalDepartmentLabel,
+  filterOptions,
+  findDepartmentByKey,
+  inferDepartmentFromSpecialization,
+  joinMulti,
+  mapSpecialtyKeyToPrescriptionTemplate,
+  resolveDoctorSpecialtyKey,
+  specializationsForDepartment,
+  splitMulti,
+} from '../../../../shared/catalogs/doctor-master-data.catalog';
+import {
   Department,
   Doctor,
   Hospital,
@@ -58,24 +67,42 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
   saving = false;
   autoUrduName = true;
   pendingPhoto: File | null = null;
+
+  get currencyLabel(): string {
+    return this.currency.label;
+  }
   pendingPreviewUrl: string | null = null;
   removeExistingPhoto = false;
   photoUploadFailed = false;
   viewerOpen = false;
+  departmentSearch = '';
+  designationSearch = '';
   specializationSearch = '';
   qualificationSearch = '';
+  departmentDropdownOpen = false;
+  designationDropdownOpen = false;
   specializationDropdownOpen = false;
   qualificationDropdownOpen = false;
-  filteredSpecializationOptions: CatalogOption[] = [];
-  filteredQualificationOptions: CatalogOption[] = [];
+  filteredDepartmentOptions: DoctorDepartmentOption[] = [];
+  filteredDesignationOptions: string[] = [];
+  filteredSpecializationOptions: string[] = [];
+  filteredQualificationOptions: string[] = [];
+  selectedSpecializations: string[] = [];
+  selectedQualifications: string[] = [];
+  specializationCustomDraft = '';
+  qualificationCustomDraft = '';
+  clinicalMultiTouched = false;
   autoPrescriptionSpecialtyLabelText = 'Auto by specialization';
   private lastAutoUrduName = '';
   private readonly destroy$ = new Subject<void>();
 
-  readonly clinicalDepartments = CLINICAL_DEPARTMENTS;
-  readonly qualificationOptions = QUALIFICATION_OPTIONS;
+  readonly doctorDepartments = DOCTOR_DEPARTMENTS;
+  readonly doctorQualificationCatalog = DOCTOR_QUALIFICATIONS.filter(
+    (item) => item !== 'Other / Custom'
+  );
+  readonly doctorDesignationCatalog = DOCTOR_DESIGNATIONS.filter((item) => item !== 'Other');
   readonly prescriptionSpecialtyOptions = PRESCRIPTION_SPECIALTY_OPTIONS;
-  readonly customSpecializationValue = CUSTOM_SPECIALIZATION_VALUE;
+  readonly customCatalogValue = CUSTOM_VALUE;
   readonly autoPrescriptionSpecialty = AUTO_PRESCRIPTION_SPECIALTY;
 
   days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -127,7 +154,8 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private backend: BackendService,
     private toastr: ToastrService,
-    private router: Router
+    private router: Router,
+    private currency: CurrencyService
   ) {
     this.doctorForm = this.fb.group({
       hospitalId: ['', Validators.required],
@@ -138,12 +166,14 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
       phone: [''],
       departmentId: [''],
       clinicalDepartment: ['', Validators.required],
-      specializationSelect: ['', Validators.required],
-      specializationCustom: [''],
-      qualificationSelect: ['', Validators.required],
-      qualificationCustom: [''],
+      designation: ['', Validators.required],
+      designationCustom: [''],
       experienceYears: [0],
       consultationFee: [0, [Validators.required, Validators.min(0)]],
+      followUpFeeEnabled: [false],
+      followUpWithinDays: [7, [Validators.min(1), Validators.max(90)]],
+      followUpFeeType: ['half' as 'half' | 'fixed' | 'percent'],
+      followUpFeeAmount: [0, [Validators.min(0)]],
       slotDurationMinutes: [15, Validators.required],
       prescriptionSpecialtyMode: [AUTO_PRESCRIPTION_SPECIALTY, Validators.required],
       prescriptionSpecialtyTemplate: ['general' as PrescriptionSpecialtyTemplate],
@@ -157,7 +187,6 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
     this.setLoggedInUser();
     this.applyEditingState();
     this.setupNameTranslation();
-    this.setupClinicalFieldWatchers();
     this.loadInitialData();
   }
 
@@ -226,36 +255,57 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
     this.pendingPreviewUrl = null;
   }
 
-  get showCustomSpecialization(): boolean {
-    return this.doctorForm.get('specializationSelect')?.value === CUSTOM_SPECIALIZATION_VALUE;
-  }
-
-  get showCustomQualification(): boolean {
-    return this.doctorForm.get('qualificationSelect')?.value === CUSTOM_SPECIALIZATION_VALUE;
+  get showCustomDesignation(): boolean {
+    return this.doctorForm.get('designation')?.value === CUSTOM_VALUE;
   }
 
   get isManualPrescriptionSpecialty(): boolean {
     return this.doctorForm.get('prescriptionSpecialtyMode')?.value !== AUTO_PRESCRIPTION_SPECIALTY;
   }
 
-  selectedClinicalDepartment(): ClinicalDepartmentKey | '' {
-    return String(this.doctorForm.get('clinicalDepartment')?.value || '') as ClinicalDepartmentKey | '';
+  selectedClinicalDepartment(): string {
+    return String(this.doctorForm.get('clinicalDepartment')?.value || '');
   }
 
-  selectedSpecializationLabel(): string {
-    const value = String(this.doctorForm.get('specializationSelect')?.value || '');
-    if (!value || value === CUSTOM_SPECIALIZATION_VALUE) {
-      return this.doctorForm.get('specializationCustom')?.value || 'Select specialization';
+  selectedDepartmentLabel(): string {
+    const key = this.selectedClinicalDepartment();
+    if (!key) {
+      return 'Select department';
+    }
+    return clinicalDepartmentLabel(key);
+  }
+
+  selectedDesignationLabel(): string {
+    const value = String(this.doctorForm.get('designation')?.value || '');
+    if (!value || value === CUSTOM_VALUE) {
+      return this.doctorForm.get('designationCustom')?.value || 'Select designation';
     }
     return value;
   }
 
-  selectedQualificationLabel(): string {
-    const value = String(this.doctorForm.get('qualificationSelect')?.value || '');
-    if (!value || value === CUSTOM_SPECIALIZATION_VALUE) {
-      return this.doctorForm.get('qualificationCustom')?.value || 'Select qualification';
+  specializationChipSummary(): string {
+    if (!this.selectedSpecializations.length) {
+      return this.selectedClinicalDepartment() ? 'Add specialization' : 'Select department first';
     }
-    return value;
+    return `${this.selectedSpecializations.length} selected`;
+  }
+
+  qualificationChipSummary(): string {
+    return this.selectedQualifications.length
+      ? `${this.selectedQualifications.length} selected`
+      : 'Add qualification';
+  }
+
+  isSpecializationSelected(value: string): boolean {
+    return this.selectedSpecializations.some(
+      (item) => item.trim().toLowerCase() === value.trim().toLowerCase()
+    );
+  }
+
+  isQualificationSelected(value: string): boolean {
+    return this.selectedQualifications.some(
+      (item) => item.trim().toLowerCase() === value.trim().toLowerCase()
+    );
   }
 
   setLoggedInUser(): void {
@@ -334,14 +384,75 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
 
   onClinicalDepartmentChange(): void {
     this.specializationSearch = '';
+    this.specializationCustomDraft = '';
+    this.selectedSpecializations = [];
     this.closeCatalogDropdowns();
-    this.doctorForm.patchValue({
-      specializationSelect: '',
-      specializationCustom: '',
-    });
-    this.syncSpecializationValidators();
     this.refreshSpecializationOptions();
     this.applyAutoPrescriptionSpecialty();
+  }
+
+  toggleDepartmentDropdown(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    this.designationDropdownOpen = false;
+    this.specializationDropdownOpen = false;
+    this.qualificationDropdownOpen = false;
+    this.departmentDropdownOpen = !this.departmentDropdownOpen;
+
+    if (this.departmentDropdownOpen) {
+      this.refreshDepartmentOptions();
+    }
+  }
+
+  toggleDesignationDropdown(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    this.departmentDropdownOpen = false;
+    this.specializationDropdownOpen = false;
+    this.qualificationDropdownOpen = false;
+    this.designationDropdownOpen = !this.designationDropdownOpen;
+
+    if (this.designationDropdownOpen) {
+      this.refreshDesignationOptions();
+    }
+  }
+
+  onDepartmentSearchInput(event: Event): void {
+    this.departmentSearch = (event.target as HTMLInputElement).value;
+    this.refreshDepartmentOptions();
+  }
+
+  onDesignationSearchInput(event: Event): void {
+    this.designationSearch = (event.target as HTMLInputElement).value;
+    this.refreshDesignationOptions();
+  }
+
+  selectDepartment(option: DoctorDepartmentOption): void {
+    this.doctorForm.patchValue({ clinicalDepartment: option.key });
+    this.departmentSearch = '';
+    this.departmentDropdownOpen = false;
+    this.onClinicalDepartmentChange();
+  }
+
+  selectDesignation(value: string | typeof CUSTOM_VALUE): void {
+    if (value === CUSTOM_VALUE) {
+      this.doctorForm.patchValue({
+        designation: CUSTOM_VALUE,
+        designationCustom: '',
+      });
+    } else {
+      this.doctorForm.patchValue({
+        designation: value,
+        designationCustom: '',
+      });
+    }
+
+    this.designationSearch = '';
+    this.designationDropdownOpen = false;
+    this.syncDesignationValidators();
+    this.refreshDesignationOptions();
   }
 
   toggleSpecializationDropdown(event: Event): void {
@@ -352,6 +463,8 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.departmentDropdownOpen = false;
+    this.designationDropdownOpen = false;
     this.qualificationDropdownOpen = false;
     this.specializationDropdownOpen = !this.specializationDropdownOpen;
 
@@ -364,6 +477,8 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
     event.preventDefault();
     event.stopPropagation();
 
+    this.departmentDropdownOpen = false;
+    this.designationDropdownOpen = false;
     this.specializationDropdownOpen = false;
     this.qualificationDropdownOpen = !this.qualificationDropdownOpen;
 
@@ -383,6 +498,8 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
   }
 
   closeCatalogDropdowns(): void {
+    this.departmentDropdownOpen = false;
+    this.designationDropdownOpen = false;
     this.specializationDropdownOpen = false;
     this.qualificationDropdownOpen = false;
   }
@@ -397,47 +514,73 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
     this.closeCatalogDropdowns();
   }
 
-  trackCatalogOption(_index: number, option: CatalogOption): string {
-    return option.value;
+  trackDepartmentOption(_index: number, option: DoctorDepartmentOption): string {
+    return option.key;
   }
 
-  selectSpecialization(option: CatalogOption | typeof CUSTOM_SPECIALIZATION_VALUE): void {
-    if (option === CUSTOM_SPECIALIZATION_VALUE) {
-      this.doctorForm.patchValue({
-        specializationSelect: CUSTOM_SPECIALIZATION_VALUE,
-        specializationCustom: '',
-      });
-    } else {
-      this.doctorForm.patchValue({
-        specializationSelect: option.value,
-        specializationCustom: '',
-      });
+  trackStringOption(_index: number, option: string): string {
+    return option;
+  }
+
+  toggleSpecializationOption(value: string): void {
+    if (this.isSpecializationSelected(value)) {
+      this.removeSpecialization(value);
+      return;
     }
 
-    this.specializationSearch = '';
-    this.specializationDropdownOpen = false;
-    this.refreshSpecializationOptions();
-    this.syncSpecializationValidators();
+    this.selectedSpecializations = [...this.selectedSpecializations, value];
     this.applyAutoPrescriptionSpecialty();
   }
 
-  selectQualification(option: CatalogOption | typeof CUSTOM_SPECIALIZATION_VALUE): void {
-    if (option === CUSTOM_SPECIALIZATION_VALUE) {
-      this.doctorForm.patchValue({
-        qualificationSelect: CUSTOM_SPECIALIZATION_VALUE,
-        qualificationCustom: '',
-      });
-    } else {
-      this.doctorForm.patchValue({
-        qualificationSelect: option.value,
-        qualificationCustom: '',
-      });
+  removeSpecialization(value: string): void {
+    const normalized = value.trim().toLowerCase();
+    this.selectedSpecializations = this.selectedSpecializations.filter(
+      (item) => item.trim().toLowerCase() !== normalized
+    );
+    this.applyAutoPrescriptionSpecialty();
+  }
+
+  confirmCustomSpecialization(): void {
+    const text = this.specializationCustomDraft.trim();
+    if (!text) {
+      return;
     }
 
-    this.qualificationSearch = '';
-    this.qualificationDropdownOpen = false;
-    this.refreshQualificationOptions();
-    this.syncQualificationValidators();
+    if (!this.isSpecializationSelected(text)) {
+      this.selectedSpecializations = [...this.selectedSpecializations, text];
+      this.applyAutoPrescriptionSpecialty();
+    }
+
+    this.specializationCustomDraft = '';
+  }
+
+  toggleQualificationOption(value: string): void {
+    if (this.isQualificationSelected(value)) {
+      this.removeQualification(value);
+      return;
+    }
+
+    this.selectedQualifications = [...this.selectedQualifications, value];
+  }
+
+  removeQualification(value: string): void {
+    const normalized = value.trim().toLowerCase();
+    this.selectedQualifications = this.selectedQualifications.filter(
+      (item) => item.trim().toLowerCase() !== normalized
+    );
+  }
+
+  confirmCustomQualification(): void {
+    const text = this.qualificationCustomDraft.trim();
+    if (!text) {
+      return;
+    }
+
+    if (!this.isQualificationSelected(text)) {
+      this.selectedQualifications = [...this.selectedQualifications, text];
+    }
+
+    this.qualificationCustomDraft = '';
   }
 
   onPrescriptionSpecialtyModeChange(): void {
@@ -527,10 +670,14 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.syncSpecializationValidators();
-    this.syncQualificationValidators();
+    this.syncDesignationValidators();
+    this.clinicalMultiTouched = true;
 
-    if (this.doctorForm.invalid) {
+    if (
+      this.doctorForm.invalid ||
+      this.selectedSpecializations.length === 0 ||
+      this.selectedQualifications.length === 0
+    ) {
       this.doctorForm.markAllAsTouched();
       return;
     }
@@ -553,10 +700,15 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
       phone: value.phone || undefined,
       departmentId: value.departmentId || undefined,
       clinicalDepartment: value.clinicalDepartment,
+      designation: this.resolvedDesignation(),
       specialization,
       qualification,
       experienceYears: Number(value.experienceYears || 0),
       consultationFee: Number(value.consultationFee || 0),
+      followUpFeeEnabled: Boolean(value.followUpFeeEnabled),
+      followUpWithinDays: Number(value.followUpWithinDays || 7),
+      followUpFeeType: value.followUpFeeType || 'half',
+      followUpFeeAmount: Number(value.followUpFeeAmount || 0),
       slotDurationMinutes: Number(value.slotDurationMinutes || 15),
       prescriptionTemplate: value.prescriptionTemplate || 'classic',
       prescriptionSpecialtyTemplate: this.resolvedPrescriptionSpecialtyTemplate(),
@@ -631,13 +783,6 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
       });
   }
 
-  private setupClinicalFieldWatchers(): void {
-    this.doctorForm
-      .get('specializationCustom')
-      ?.valueChanges.pipe(debounceTime(150), takeUntil(this.destroy$))
-      .subscribe(() => this.applyAutoPrescriptionSpecialty());
-  }
-
   private applyEditingState(): void {
     if (!this.editingDoctor) {
       return;
@@ -662,17 +807,22 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
     });
     const specialization = String(this.editingDoctor.specialization || '').trim();
     const qualification = String(this.editingDoctor.qualification || '').trim();
-    const clinicalDepartment =
-      this.editingDoctor.clinicalDepartment ||
-      inferClinicalDepartmentFromSpecialization(specialization) ||
-      '';
-    const specializationMatch = findSpecializationOption(clinicalDepartment, specialization);
-    const qualificationMatch = this.qualificationOptions.find(
-      (item) => item.value.toLowerCase() === qualification.toLowerCase()
+    this.selectedSpecializations = this.parseStoredMulti(specialization);
+    this.selectedQualifications = this.parseStoredMulti(qualification);
+
+    let clinicalDepartment = String(this.editingDoctor.clinicalDepartment || '').trim();
+    if (!clinicalDepartment) {
+      const firstSpec = this.selectedSpecializations[0] || specialization;
+      clinicalDepartment = inferDepartmentFromSpecialization(firstSpec) || '';
+    }
+
+    const designationRaw = String(this.editingDoctor.designation || '').trim();
+    const designationMatch = this.doctorDesignationCatalog.find(
+      (item) => item.toLowerCase() === designationRaw.toLowerCase()
     );
-    const autoTemplate = resolveSpecialtyTemplateForSpecialization(
-      specialization,
-      clinicalDepartment as ClinicalDepartmentKey
+
+    const autoTemplate = mapSpecialtyKeyToPrescriptionTemplate(
+      resolveDoctorSpecialtyKey(clinicalDepartment, this.selectedSpecializations)
     );
     const storedTemplate = this.editingDoctor.prescriptionSpecialtyTemplate || autoTemplate;
     const manualPrescriptionSpecialty = storedTemplate !== autoTemplate;
@@ -686,20 +836,18 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
       phone: this.editingDoctor.user?.phone || '',
       departmentId: this.editingDoctor.departmentId || '',
       clinicalDepartment,
-      specializationSelect: specializationMatch
-        ? specializationMatch.value
-        : specialization
-          ? CUSTOM_SPECIALIZATION_VALUE
+      designation: designationMatch
+        ? designationMatch
+        : designationRaw
+          ? CUSTOM_VALUE
           : '',
-      specializationCustom: specializationMatch ? '' : specialization,
-      qualificationSelect: qualificationMatch
-        ? qualificationMatch.value
-        : qualification
-          ? CUSTOM_SPECIALIZATION_VALUE
-          : '',
-      qualificationCustom: qualificationMatch ? '' : qualification,
+      designationCustom: designationMatch ? '' : designationRaw,
       experienceYears: this.editingDoctor.experienceYears || 0,
       consultationFee: this.editingDoctor.consultationFee || 0,
+      followUpFeeEnabled: Boolean(this.editingDoctor.followUpFeeEnabled),
+      followUpWithinDays: this.editingDoctor.followUpWithinDays || 7,
+      followUpFeeType: this.editingDoctor.followUpFeeType || 'half',
+      followUpFeeAmount: this.editingDoctor.followUpFeeAmount || 0,
       slotDurationMinutes: this.editingDoctor.slotDurationMinutes || 15,
       prescriptionSpecialtyMode: manualPrescriptionSpecialty ? 'manual' : AUTO_PRESCRIPTION_SPECIALTY,
       prescriptionSpecialtyTemplate: storedTemplate,
@@ -709,8 +857,9 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
 
     this.doctorForm.get('password')?.clearValidators();
     this.doctorForm.get('password')?.updateValueAndValidity();
-    this.syncSpecializationValidators();
-    this.syncQualificationValidators();
+    this.syncDesignationValidators();
+    this.refreshDepartmentOptions();
+    this.refreshDesignationOptions();
     this.refreshSpecializationOptions();
     this.refreshQualificationOptions();
     this.updateAutoPrescriptionSpecialtyLabel();
@@ -752,18 +901,34 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
     this.autoUrduName = true;
   }
 
-  private resolvedSpecialization(): string {
-    const selected = String(this.doctorForm.get('specializationSelect')?.value || '').trim();
-    if (selected === CUSTOM_SPECIALIZATION_VALUE) {
-      return String(this.doctorForm.get('specializationCustom')?.value || '').trim();
+  private parseStoredMulti(value: string): string[] {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) {
+      return [];
     }
-    return selected;
+
+    if (trimmed.includes('|')) {
+      return splitMulti(trimmed);
+    }
+
+    return trimmed
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  private resolvedSpecialization(): string {
+    return joinMulti(this.selectedSpecializations);
   }
 
   private resolvedQualification(): string {
-    const selected = String(this.doctorForm.get('qualificationSelect')?.value || '').trim();
-    if (selected === CUSTOM_SPECIALIZATION_VALUE) {
-      return String(this.doctorForm.get('qualificationCustom')?.value || '').trim();
+    return joinMulti(this.selectedQualifications);
+  }
+
+  private resolvedDesignation(): string {
+    const selected = String(this.doctorForm.get('designation')?.value || '').trim();
+    if (selected === CUSTOM_VALUE) {
+      return String(this.doctorForm.get('designationCustom')?.value || '').trim();
     }
     return selected;
   }
@@ -774,11 +939,11 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
         'general') as PrescriptionSpecialtyTemplate;
     }
 
-    const specialization = this.resolvedSpecialization();
-    return resolveSpecialtyTemplateForSpecialization(
-      specialization,
-      this.selectedClinicalDepartment()
+    const specialtyKey = resolveDoctorSpecialtyKey(
+      this.selectedClinicalDepartment(),
+      this.selectedSpecializations
     );
+    return mapSpecialtyKeyToPrescriptionTemplate(specialtyKey) as PrescriptionSpecialtyTemplate;
   }
 
   private applyAutoPrescriptionSpecialty(): void {
@@ -797,48 +962,79 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
     this.updateAutoPrescriptionSpecialtyLabel();
   }
 
+  private legacyDepartmentOption(): DoctorDepartmentOption | null {
+    const key = this.selectedClinicalDepartment();
+    if (!key || findDepartmentByKey(key)) {
+      return null;
+    }
+
+    const legacy = CLINICAL_DEPARTMENTS.find((item) => item.key === key);
+    if (legacy) {
+      return {
+        key: legacy.key,
+        label: `${legacy.label} (legacy)`,
+        specialtyKey: 'OTHER',
+      };
+    }
+
+    return {
+      key,
+      label: clinicalDepartmentLabel(key),
+      specialtyKey: 'OTHER',
+    };
+  }
+
+  private refreshDepartmentOptions(): void {
+    const query = this.departmentSearch.trim().toLowerCase();
+    let options = this.doctorDepartments.filter(
+      (item) => !query || item.label.toLowerCase().includes(query)
+    );
+
+    const legacy = this.legacyDepartmentOption();
+    if (legacy && (!query || legacy.label.toLowerCase().includes(query))) {
+      if (!options.some((item) => item.key === legacy.key)) {
+        options = [legacy, ...options];
+      }
+    }
+
+    this.filteredDepartmentOptions = options;
+  }
+
+  private refreshDesignationOptions(): void {
+    this.filteredDesignationOptions = filterOptions(
+      [...this.doctorDesignationCatalog],
+      this.designationSearch
+    );
+  }
+
   private refreshSpecializationOptions(): void {
     const department = this.selectedClinicalDepartment();
-    const query = this.specializationSearch.trim().toLowerCase();
-    this.filteredSpecializationOptions = specializationsForDepartment(department).filter((item) =>
-      !query ? true : item.value.toLowerCase().includes(query)
+    this.filteredSpecializationOptions = filterOptions(
+      specializationsForDepartment(department),
+      this.specializationSearch
     );
   }
 
   private refreshQualificationOptions(): void {
-    const query = this.qualificationSearch.trim().toLowerCase();
-    this.filteredQualificationOptions = this.qualificationOptions.filter((item) =>
-      !query ? true : item.value.toLowerCase().includes(query)
+    this.filteredQualificationOptions = filterOptions(
+      [...this.doctorQualificationCatalog],
+      this.qualificationSearch
     );
   }
 
   private updateAutoPrescriptionSpecialtyLabel(): void {
-    const specialization = this.resolvedSpecialization();
-    const department = this.selectedClinicalDepartment();
-
-    if (!specialization) {
+    if (!this.selectedSpecializations.length) {
       this.autoPrescriptionSpecialtyLabelText = 'Auto by specialization';
       return;
     }
 
-    const key = resolveSpecialtyTemplateForSpecialization(specialization, department);
-    this.autoPrescriptionSpecialtyLabelText = specialtyTemplateLabel(key);
+    const template = this.resolvedPrescriptionSpecialtyTemplate();
+    this.autoPrescriptionSpecialtyLabelText = specialtyTemplateLabel(template);
   }
 
-  private syncSpecializationValidators(): void {
-    const customControl = this.doctorForm.get('specializationCustom');
-    if (this.showCustomSpecialization) {
-      customControl?.setValidators([Validators.required, Validators.maxLength(150)]);
-    } else {
-      customControl?.clearValidators();
-      customControl?.setValue('', { emitEvent: false });
-    }
-    customControl?.updateValueAndValidity({ emitEvent: false });
-  }
-
-  private syncQualificationValidators(): void {
-    const customControl = this.doctorForm.get('qualificationCustom');
-    if (this.showCustomQualification) {
+  private syncDesignationValidators(): void {
+    const customControl = this.doctorForm.get('designationCustom');
+    if (this.showCustomDesignation) {
       customControl?.setValidators([Validators.required, Validators.maxLength(150)]);
     } else {
       customControl?.clearValidators();

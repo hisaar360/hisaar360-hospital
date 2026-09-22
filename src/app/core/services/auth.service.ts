@@ -387,6 +387,17 @@ export class AuthService {
     this.refreshInFlight$ = null;
     this.hostedLoginRedirectInFlight = false;
     this.clearAccessTokenWatch();
+
+    if (typeof sessionStorage !== 'undefined') {
+      const keys: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i += 1) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith('medicine-catalog-fresh:')) {
+          keys.push(key);
+        }
+      }
+      keys.forEach((key) => sessionStorage.removeItem(key));
+    }
   }
 
   /**

@@ -19,6 +19,8 @@ export interface HmsDocumentSession {
   html: string;
   filename: string;
   orientation: HmsDocumentOrientation;
+  /** Paper preset for browser print dialog (invoice thermal vs A4). */
+  jobType?: 'invoice' | 'a4';
 }
 
 export interface HmsStandardDocumentOptions {

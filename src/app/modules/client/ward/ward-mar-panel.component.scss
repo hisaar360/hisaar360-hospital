@@ -1,4 +1,5 @@
 @use './ward-chart-section.scss';
+@use './ward-modal-shared.scss';
 
 .ward-mar-list {
   display: grid;
@@ -153,4 +154,23 @@
   display: flex;
   gap: 0.5rem;
   justify-content: flex-end;
+  margin-top: 0.25rem;
+  padding-top: 0.35rem;
+}
+
+.ward-mar-record-dialog footer .hms-btn--ghost {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+}
+
+.ward-mar-record-dialog footer .hms-btn--primary {
+  background: #0d9488;
+  border: 1px solid #0d9488;
+  color: #fff;
+}
+
+.ward-mar-record-dialog footer .hms-btn--primary:hover:not(:disabled) {
+  background: #0f766e;
+  border-color: #0f766e;
 }

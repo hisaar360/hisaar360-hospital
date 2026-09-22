@@ -170,6 +170,10 @@
               <strong>{{ hospitalDisplayName }}</strong>
             </div>
             <div class="settings-detail-row">
+              <span class="label">Currency</span>
+              <strong>{{ currencyDisplayLabel }}</strong>
+            </div>
+            <div class="settings-detail-row">
               <span class="label">Time Zone</span>
               <strong>{{ timezoneDisplay }}</strong>
             </div>
@@ -177,6 +181,9 @@
               <span class="label">Date Format</span>
               <strong>{{ dateFormatDisplay }}</strong>
             </div>
+            <p class="settings-field__hint" *ngIf="canReadHospitalSettings">
+              Change currency under <button type="button" class="settings-inline-link" (click)="setTab('hospital')">Hospital Settings</button>.
+            </p>
           </div>
         </section>
       </aside>
@@ -212,7 +219,7 @@
           <span class="settings-card__icon"><i class="fa fa-hospital-o" aria-hidden="true"></i></span>
           <div>
             <h2>Hospital Settings</h2>
-            <p>Update hospital identity and prescription print defaults.</p>
+            <p>Update hospital identity, currency, and prescription print defaults.</p>
           </div>
         </div>
       </div>
@@ -257,6 +264,23 @@
             <input class="form-control" type="text" [(ngModel)]="hospitalCountry" name="hospitalCountry"
               [disabled]="!canManageHospitalSettings" />
           </label>
+          <div class="settings-field">
+            <span>Currency</span>
+            <select
+              class="form-control"
+              [(ngModel)]="hospitalCurrency"
+              name="hospitalCurrency"
+              [disabled]="!canManageCurrency"
+            >
+              <option *ngFor="let option of currencyOptions" [ngValue]="option.code">{{ option.label }}</option>
+            </select>
+            <small class="settings-field__hint" *ngIf="canManageCurrency">
+              Default PKR. Used on lab, pharmacy, and invoices. Save Hospital Settings to apply.
+            </small>
+            <small class="settings-field__hint" *ngIf="!canManageCurrency">
+              Read-only — needs hospitals.update or company.manage to change.
+            </small>
+          </div>
         </div>
 
         <hr class="settings-divider" />
@@ -344,7 +368,7 @@
           </div>
         </div>
 
-        <div class="settings-actions" *ngIf="canManageHospitalSettings">
+        <div class="settings-actions" *ngIf="canManageHospitalSettings || canManageCurrency">
           <button type="button" class="settings-btn-primary"
             [disabled]="hospitalLoading || hospitalSaving" (click)="saveHospitalSettings()">
             <i class="fa fa-save" aria-hidden="true"></i>

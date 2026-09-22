@@ -262,13 +262,15 @@
 }
 
 .doc-order-btn--ghost {
-  background: #f1f5f9;
+  background: #fff;
   border-color: #cbd5e1;
-  color: #334155;
+  color: #475569;
 }
 
 .doc-order-btn--ghost:hover:not(:disabled) {
-  background: #e2e8f0;
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
 }
 
 .doc-order-btn--outline {

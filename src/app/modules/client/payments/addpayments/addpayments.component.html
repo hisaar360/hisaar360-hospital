@@ -4,7 +4,7 @@
       <div class="pay-page-header__copy">
         <a class="pay-back-link" routerLink="/payments">&larr; Back to Payments</a>
         <h1>Add Payments / Create Invoice</h1>
-        <p>Create a patient bill and optionally record payment. All amounts are in PKR.</p>
+        <p>Create a patient bill and optionally record payment. Amounts use the hospital currency from Settings.</p>
       </div>
     </div>
 
@@ -59,8 +59,8 @@
                   <tr>
                     <th>Description</th>
                     <th>QTY</th>
-                    <th class="text-right">Unit Price (PKR)</th>
-                    <th class="text-right">Total (PKR)</th>
+                    <th class="text-right">Unit Price</th>
+                    <th class="text-right">Total</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -123,15 +123,15 @@
             </div>
             <div class="pay-filter-row">
               <label class="pay-filter-field">
-                <span>Discount (PKR)</span>
+                <span>Discount</span>
                 <input class="form-control" type="number" min="0" formControlName="discount" />
               </label>
               <label class="pay-filter-field">
-                <span>Tax (PKR)</span>
+                <span>Tax</span>
                 <input class="form-control" type="number" min="0" formControlName="tax" />
               </label>
               <label class="pay-filter-field">
-                <span>Paid Amount (PKR)</span>
+                <span>Paid Amount</span>
                 <input class="form-control" type="number" min="0" formControlName="paidAmount" />
               </label>
               <label class="pay-filter-field">
@@ -176,7 +176,7 @@
       <div class="pay-sticky-footer">
         <div class="pay-sticky-footer__due">
           <span>Balance Due</span>
-          <strong>PKR {{ remaining() | number:'1.0-0' }}</strong>
+          <strong>{{ (remaining()) | hmsCurrency }}</strong>
         </div>
         <button type="submit" class="pay-btn-primary" [disabled]="saving">
           {{ saving ? 'Saving...' : 'Save & Collect Payment' }}

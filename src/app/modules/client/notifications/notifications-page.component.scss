@@ -79,6 +79,21 @@
   gap: 12px;
 }
 
+.notification-day {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notification-day__label {
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin: 4px 0 0;
+  text-transform: uppercase;
+}
+
 .notification-card {
   display: grid;
   grid-template-columns: auto 1fr auto;

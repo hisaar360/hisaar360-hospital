@@ -46,9 +46,12 @@ export class RolesComponent implements OnInit {
     {
       title: 'Hospitals',
       permissions: [
+        { key: 'hospitals.create', label: 'Create Hospitals' },
         { key: 'hospitals.read', label: 'View Hospitals' },
         { key: 'hospitals.update', label: 'Update Hospitals' },
         { key: 'hospitals.delete', label: 'Delete Hospitals' },
+        { key: 'company.manage', label: 'Manage Company' },
+        { key: 'companies.read', label: 'View Companies' },
       ],
     },
     {
@@ -107,30 +110,116 @@ export class RolesComponent implements OnInit {
       ],
     },
     {
+      title: 'Clinical Specialty',
+      permissions: [
+        { key: 'pregnancy_episodes.read', label: 'View Pregnancy Episodes' },
+        { key: 'pregnancy_episodes.create', label: 'Create Pregnancy Episodes' },
+        { key: 'pregnancy_episodes.update', label: 'Update Pregnancy Episodes' },
+        { key: 'pregnancy_episodes.complete', label: 'Complete Pregnancy Episodes' },
+        { key: 'immunizations.read', label: 'View Immunizations' },
+        { key: 'immunizations.create', label: 'Create Immunizations' },
+        { key: 'immunizations.update', label: 'Update Immunizations' },
+        { key: 'pulmonary_function.read', label: 'View Pulmonary Function' },
+        { key: 'pulmonary_function.create', label: 'Create Pulmonary Function' },
+        { key: 'pulmonary_function.update', label: 'Update Pulmonary Function' },
+        { key: 'endoscopy.read', label: 'View Endoscopy' },
+        { key: 'endoscopy.create', label: 'Create Endoscopy' },
+        { key: 'endoscopy.update', label: 'Update Endoscopy' },
+        { key: 'clinical_scores.read', label: 'View Clinical Scores' },
+        { key: 'clinical_scores.create', label: 'Create Clinical Scores' },
+        { key: 'clinical_scores.update', label: 'Update Clinical Scores' },
+        { key: 'treatment_catalog.read', label: 'View Treatment Catalog' },
+        { key: 'treatment_catalog.create', label: 'Create Treatment Catalog' },
+        { key: 'treatment_catalog.update', label: 'Update Treatment Catalog' },
+      ],
+    },
+    {
       title: 'Pharmacy / POS',
       permissions: [
         { key: 'products.read', label: 'View POS Medicine Catalog' },
         { key: 'products.create', label: 'Add POS Medicines' },
         { key: 'products.update', label: 'Update POS Medicines' },
         { key: 'products.delete', label: 'Delete POS Medicines' },
-        { key: 'sales.create', label: 'Dispense Medicines / Create POS Sales' },
-        { key: 'sales.read', label: 'View POS Sales' },
-        { key: 'stores.read', label: 'View POS Stores' },
-        { key: 'customers.read', label: 'View POS Customers' },
         { key: 'categories.create', label: 'Add Medicine Categories' },
         { key: 'categories.read', label: 'View Medicine Categories' },
+        { key: 'categories.update', label: 'Update Medicine Categories' },
+        { key: 'categories.delete', label: 'Delete Medicine Categories' },
+        { key: 'customers.create', label: 'Create POS Customers' },
+        { key: 'customers.read', label: 'View POS Customers' },
+        { key: 'customers.update', label: 'Update POS Customers' },
+        { key: 'customers.delete', label: 'Delete POS Customers' },
+        { key: 'suppliers.create', label: 'Create Suppliers' },
+        { key: 'suppliers.read', label: 'View Suppliers' },
+        { key: 'suppliers.update', label: 'Update Suppliers' },
+        { key: 'suppliers.delete', label: 'Delete Suppliers' },
+        { key: 'stores.read', label: 'View POS Stores' },
+        { key: 'stores.manage', label: 'Manage POS Stores' },
+        { key: 'warehouses.read', label: 'View Warehouses' },
+        { key: 'warehouses.manage', label: 'Manage Warehouses' },
         { key: 'inventory.read', label: 'View Medicine Stock' },
         { key: 'inventory.adjust', label: 'Adjust Store Stock' },
+        { key: 'stock_movements.read', label: 'View Stock Movements' },
+        { key: 'sales.create', label: 'Dispense Medicines / Create POS Sales' },
+        { key: 'sales.read', label: 'View POS Sales' },
+        { key: 'sales.cancel', label: 'Cancel POS Sales' },
         { key: 'register_sessions.open', label: 'Open Cash Register' },
         { key: 'register_sessions.read', label: 'View Cash Register' },
         { key: 'register_sessions.close', label: 'Close Cash Register' },
+        { key: 'register_sessions.admin_read', label: 'Admin View All Registers' },
+        { key: 'pharmacy.ward_issues.read', label: 'View Pharmacy Ward Issues' },
+        { key: 'pharmacy.ward_issues.create', label: 'Create Pharmacy Ward Issues' },
+        { key: 'pharmacy.ward_requests.read', label: 'View Pharmacy Ward Requests' },
+        { key: 'pharmacy.ward_requests.issue', label: 'Issue Pharmacy Ward Requests' },
+        { key: 'pharmacy.ward_settlements.read', label: 'View Pharmacy Ward Settlements' },
+        { key: 'pharmacy.ward_settlements.verify', label: 'Verify Pharmacy Ward Settlements' },
+      ],
+    },
+    {
+      title: 'Purchases & Transfers',
+      permissions: [
+        { key: 'purchases.create', label: 'Create Purchases' },
+        { key: 'purchases.read', label: 'View Purchases' },
+        { key: 'purchases.update', label: 'Update Purchases' },
+        { key: 'purchases.cancel', label: 'Cancel Purchases' },
+        { key: 'purchases.receive', label: 'Receive Purchases' },
+        { key: 'purchase_returns.create', label: 'Create Purchase Returns' },
+        { key: 'transfers.create', label: 'Create Stock Transfers' },
+        { key: 'transfers.read', label: 'View Stock Transfers' },
+        { key: 'transfers.approve', label: 'Approve Stock Transfers' },
+        { key: 'transfers.dispatch', label: 'Dispatch Stock Transfers' },
+        { key: 'transfers.receive', label: 'Receive Stock Transfers' },
+        { key: 'transfers.cancel', label: 'Cancel Stock Transfers' },
+        { key: 'returns.create', label: 'Create Sales Returns' },
+        { key: 'returns.read', label: 'View Sales Returns' },
+        { key: 'returns.approve', label: 'Approve Sales Returns' },
+      ],
+    },
+    {
+      title: 'Accounts & Finance',
+      permissions: [
+        { key: 'payments.create', label: 'Create Payments' },
+        { key: 'payments.read', label: 'View Payments' },
+        { key: 'expenses.create', label: 'Create Expenses' },
+        { key: 'expenses.read', label: 'View Expenses' },
+        { key: 'expenses.update', label: 'Update Expenses' },
+        { key: 'expenses.delete', label: 'Delete Expenses' },
+        { key: 'expenses.reverse', label: 'Reverse Expenses' },
+        { key: 'accounts.read', label: 'View Accounts' },
+        { key: 'accounts.journals.read', label: 'View Account Journals' },
+        { key: 'accounts.journals.create', label: 'Create Account Journals' },
+        { key: 'accounts.reports.read', label: 'View Account Reports' },
+        { key: 'accounts.patient_profitability.read', label: 'View Patient Profitability' },
+        { key: 'financial_reconciliation.read', label: 'View Financial Reconciliation' },
+        { key: 'charge_catalog.create', label: 'Create Charge Catalog' },
+        { key: 'charge_catalog.read', label: 'View Charge Catalog' },
+        { key: 'charge_catalog.update', label: 'Update Charge Catalog' },
+        { key: 'ledger_items.create', label: 'Create Ledger Items' },
+        { key: 'ledger_items.cancel', label: 'Cancel Ledger Items' },
       ],
     },
     {
       title: 'POS Reports',
-      permissions: [
-        { key: 'reports.read', label: 'View POS Reports' },
-      ],
+      permissions: [{ key: 'reports.read', label: 'View POS Reports' }],
     },
     {
       title: 'Rooms',
@@ -157,8 +246,10 @@ export class RolesComponent implements OnInit {
         { key: 'bills.update_payment', label: 'Update Bill Payments' },
         { key: 'encounters.create', label: 'Create Visit / Encounter' },
         { key: 'encounters.read', label: 'View Visit / Encounter' },
+        { key: 'encounters.update', label: 'Update Visit / Encounter' },
         { key: 'ledger_payments.create', label: 'Collect Ledger Payments' },
         { key: 'ledger_payments.read', label: 'View Ledger Payments' },
+        { key: 'admission_discounts.approve', label: 'Approve Admission Discounts' },
       ],
     },
     {
@@ -171,6 +262,69 @@ export class RolesComponent implements OnInit {
         { key: 'lab_orders.create', label: 'Create Lab Orders' },
         { key: 'lab_orders.update', label: 'Update Orders / Enter Results / Collect Payment' },
         { key: 'lab_results.verify', label: 'Verify Results (Pathologist)' },
+      ],
+    },
+    {
+      title: 'Ward & Nursing',
+      permissions: [
+        { key: 'ward.read', label: 'View Ward Module' },
+        { key: 'ward.create', label: 'Create Ward Records / Care Entries' },
+        { key: 'ward.update', label: 'Update Ward Records / Care Entries' },
+        { key: 'ward.management.read', label: 'View Ward Management Dashboard' },
+        { key: 'ward.assignments.read', label: 'View Nurse Assignments' },
+        { key: 'ward.assignments.manage', label: 'Manage Nurse Assignments (Supervisor)' },
+        { key: 'ward.admissions.read', label: 'View Admissions' },
+        { key: 'ward.admissions.create', label: 'Create / Admit Patients' },
+        { key: 'ward.admissions.update', label: 'Update Admissions / Transfers' },
+        { key: 'ward.admissions.recommend', label: 'Recommend Admission (Doctor)' },
+        { key: 'ward.billing.read', label: 'View Ward Billing' },
+        { key: 'ward.billing.create', label: 'Add Ward Charges' },
+        { key: 'ward.payments.collect', label: 'Collect Ward Payments' },
+        { key: 'ward.discharge.read', label: 'View Discharge' },
+        { key: 'ward.discharge.create', label: 'Process Discharge' },
+        { key: 'ward.doctor_visits.read', label: 'View Doctor Visits' },
+        { key: 'ward.doctor_visits.create', label: 'Record Doctor Visits' },
+        { key: 'ward.doctor_visits.update', label: 'Update Doctor Visits' },
+        { key: 'ward.roster.read', label: 'View Duty Roster' },
+        { key: 'ward.roster.create', label: 'Create Duty Roster' },
+        { key: 'ward.roster.update', label: 'Update Duty Roster' },
+        { key: 'ward.settlements.read', label: 'View Ward Settlements' },
+        { key: 'ward.medicine_requests.read', label: 'View Medicine Requests' },
+        { key: 'ward.medicine_requests.create', label: 'Create Medicine Requests' },
+        { key: 'ward.procedures.read', label: 'View Ward Procedures' },
+        { key: 'ward.procedures.create', label: 'Create Ward Procedures' },
+        { key: 'ward.procedures.update', label: 'Update Ward Procedures' },
+        { key: 'ward.operations.read', label: 'View Ward Operations / OT Links' },
+        { key: 'ward.operations.create', label: 'Create Ward Operations Links' },
+        { key: 'ward.operations.update', label: 'Update Ward Operations Links' },
+        { key: 'ward.nursery.read', label: 'View Nursery / Newborn' },
+        { key: 'ward.nursery.create', label: 'Create Nursery Records' },
+        { key: 'ward.nursery.update', label: 'Update Nursery Records' },
+        { key: 'ward.nursery.allocate_bed', label: 'Allocate Nursery Bed' },
+        { key: 'ward.nursery.discharge', label: 'Discharge Newborn' },
+        { key: 'ward.nursery.feeding.read', label: 'View Nursery Feeding' },
+        { key: 'ward.nursery.feeding.create', label: 'Record Nursery Feeding' },
+        { key: 'ward.nursery.birth_records.read', label: 'View Birth Records' },
+        { key: 'ward.nursery.birth_records.create', label: 'Create Birth Records' },
+        { key: 'ward.nursery.birth_records.update', label: 'Update Birth Records' },
+        { key: 'ward.nursery.birth_records.verify', label: 'Verify Birth Records' },
+        { key: 'ward.nursery.birth_certificates.read', label: 'View Birth Certificates' },
+        { key: 'ward.nursery.birth_certificates.issue', label: 'Issue Birth Certificates' },
+        { key: 'ward.nursery.birth_certificates.print', label: 'Print Birth Certificates' },
+        { key: 'ward.nursery.birth_certificates.correct', label: 'Correct Birth Certificates' },
+        { key: 'ward.nursery.birth_certificates.revoke', label: 'Revoke Birth Certificates' },
+      ],
+    },
+    {
+      title: 'Operations / OT',
+      permissions: [
+        { key: 'operations.read', label: 'View Operations' },
+        { key: 'operations.read_all', label: 'View All Operations' },
+        { key: 'operations.create', label: 'Create Operations' },
+        { key: 'operations.update', label: 'Update Operations' },
+        { key: 'operations.assign', label: 'Assign Operations Staff' },
+        { key: 'operations.complete', label: 'Complete Operations' },
+        { key: 'operations.cancel', label: 'Cancel Operations' },
       ],
     },
     {
@@ -220,12 +374,17 @@ export class RolesComponent implements OnInit {
     'Patient History': 'fa-file-text-o',
     Appointments: 'fa-calendar',
     Prescriptions: 'fa-medkit',
+    'Clinical Specialty': 'fa-stethoscope',
     'Pharmacy / POS': 'fa-shopping-cart',
+    'Purchases & Transfers': 'fa-truck',
+    'Accounts & Finance': 'fa-money',
     'POS Reports': 'fa-bar-chart',
     Rooms: 'fa-bed',
     'Room Allotments': 'fa-exchange',
     Billing: 'fa-credit-card',
     Laboratory: 'fa-flask',
+    'Ward & Nursing': 'fa-heartbeat',
+    'Operations / OT': 'fa-scissors',
     Administration: 'fa-cog',
   };
 
@@ -267,11 +426,16 @@ export class RolesComponent implements OnInit {
       'Patient History': () => modules.clinical,
       Appointments: () => modules.clinical,
       Prescriptions: () => modules.clinical,
+      'Clinical Specialty': () => modules.clinical,
       'Pharmacy / POS': () => modules.pharmacy,
+      'Purchases & Transfers': () => modules.pharmacy,
+      'Accounts & Finance': () => modules.pharmacy || modules.clinical || modules.ward,
       'POS Reports': () => modules.pharmacy,
       Laboratory: () => modules.laboratory,
       Rooms: () => modules.ward,
       'Room Allotments': () => modules.ward,
+      'Ward & Nursing': () => modules.ward,
+      'Operations / OT': () => modules.ward || modules.clinical,
       Patients: () => modules.clinical || modules.ward || modules.laboratory,
       Billing: () => modules.clinical || modules.ward || modules.laboratory,
     };
@@ -624,6 +788,17 @@ export class RolesComponent implements OnInit {
     return this.can('roles.update') && !this.isProtectedRole(role);
   }
 
+  /** System template shown for this hospital — saving converts it to a hospital custom role. */
+  get willConvertSystemRoleOnSave(): boolean {
+    const role = this.selectedRole;
+    return Boolean(
+      this.editingRoleId &&
+        role?.isSystemRole &&
+        !this.isProtectedRole(role) &&
+        this.can('roles.update')
+    );
+  }
+
   submitRole(): void {
     if (!this.editingRoleId && !this.can('roles.create')) {
       return;
@@ -665,7 +840,14 @@ export class RolesComponent implements OnInit {
 
     request$.pipe(finalize(() => (this.saving = false))).subscribe({
       next: (response) => {
-        this.toastr.success(response?.message || 'Role saved successfully.');
+        const saved = response?.data;
+        if (saved?.convertedFromSystem) {
+          this.toastr.success(
+            `"${saved.name}" is now a custom role for this hospital. Template sync will no longer overwrite it.`
+          );
+        } else {
+          this.toastr.success(response?.message || 'Role saved successfully.');
+        }
         const keepName = payload.name;
         this.resetForm(false);
         this.loadRoles();

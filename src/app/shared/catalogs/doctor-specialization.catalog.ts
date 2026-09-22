@@ -1,181 +1,48 @@
-import { PrescriptionTemplate } from '../models/hospital.model';
+/**
+ * Compatibility shim — prefer `doctor-master-data.catalog` for new code.
+ */
+export {
+  CUSTOM_VALUE as CUSTOM_SPECIALIZATION_VALUE,
+  CUSTOM_VALUE,
+  CLINICAL_DEPARTMENTS,
+  DOCTOR_DEPARTMENTS,
+  DOCTOR_DESIGNATIONS,
+  DOCTOR_QUALIFICATIONS,
+  DOCTOR_SPECIALIZATIONS,
+  LEGACY_DEPARTMENT_ALIASES,
+  clinicalDepartmentLabel,
+  filterOptions,
+  findDepartmentByKey,
+  findDepartmentByLabel,
+  inferDepartmentFromSpecialization as inferClinicalDepartmentFromSpecialization,
+  joinMulti,
+  mapSpecialtyKeyToPrescriptionTemplate,
+  resolveDoctorSpecialtyKey,
+  splitMulti,
+  type DoctorDepartmentOption,
+  type LegacyClinicalDepartmentKey as ClinicalDepartmentKey,
+} from './doctor-master-data.catalog';
+
+import {
+  DOCTOR_QUALIFICATIONS,
+  mapSpecialtyKeyToPrescriptionTemplate,
+  resolveDoctorSpecialtyKey,
+  specializationsForDepartment as masterSpecializationsForDepartment,
+} from './doctor-master-data.catalog';
 import { SpecialtyTemplateKey } from '../../modules/client/prescription/prescription-specialty-print';
 
-export const CUSTOM_SPECIALIZATION_VALUE = '__custom__';
 export const AUTO_PRESCRIPTION_SPECIALTY = 'auto';
-
-export type ClinicalDepartmentKey =
-  | 'general_medical'
-  | 'surgery'
-  | 'women_child'
-  | 'pediatrics'
-  | 'eye_ent_dental'
-  | 'physiotherapy'
-  | 'diagnostics'
-  | 'emergency_critical_care'
-  | 'anesthesia'
-  | 'oncology'
-  | 'other_common';
-
-export interface ClinicalDepartmentOption {
-  key: ClinicalDepartmentKey;
-  label: string;
-}
 
 export interface CatalogOption {
   value: string;
   label?: string;
   specialtyTemplate?: SpecialtyTemplateKey;
-  prescriptionTemplate?: PrescriptionTemplate;
+  prescriptionTemplate?: string;
 }
 
-export const CLINICAL_DEPARTMENTS: ClinicalDepartmentOption[] = [
-  { key: 'general_medical', label: 'General / Medical' },
-  { key: 'surgery', label: 'Surgery' },
-  { key: 'women_child', label: 'Women & Child / OBS-Gynae' },
-  { key: 'pediatrics', label: 'Pediatrics' },
-  { key: 'eye_ent_dental', label: 'Eye / ENT / Dental' },
-  { key: 'physiotherapy', label: 'Physiotherapy & Rehabilitation' },
-  { key: 'diagnostics', label: 'Diagnostics / Laboratory / Radiology' },
-  { key: 'emergency_critical_care', label: 'Emergency & Critical Care' },
-  { key: 'anesthesia', label: 'Anesthesia & Pain Management' },
-  { key: 'oncology', label: 'Oncology / Cancer Care' },
-  { key: 'other_common', label: 'Other / Allied Health' },
-];
-
-const SPECIALIZATIONS: Record<ClinicalDepartmentKey, CatalogOption[]> = {
-  general_medical: [
-    { value: 'General Physician', specialtyTemplate: 'general' },
-    { value: 'Family Physician', specialtyTemplate: 'general' },
-    { value: 'Internal Medicine', specialtyTemplate: 'general' },
-    { value: 'Consultant Physician', specialtyTemplate: 'general' },
-    { value: 'Diabetologist', specialtyTemplate: 'general' },
-    { value: 'Endocrinologist', specialtyTemplate: 'general' },
-    { value: 'Cardiologist', specialtyTemplate: 'general' },
-    { value: 'Pulmonologist / Chest Specialist', specialtyTemplate: 'general' },
-    { value: 'Gastroenterologist', specialtyTemplate: 'general' },
-    { value: 'Nephrologist', specialtyTemplate: 'general' },
-    { value: 'Neurologist', specialtyTemplate: 'general' },
-    { value: 'Dermatologist', specialtyTemplate: 'general' },
-    { value: 'Psychiatrist', specialtyTemplate: 'general' },
-    { value: 'Rheumatologist', specialtyTemplate: 'general' },
-    { value: 'Infectious Disease Specialist', specialtyTemplate: 'general' },
-  ],
-  surgery: [
-    { value: 'General Surgeon', specialtyTemplate: 'general' },
-    { value: 'Orthopedic Surgeon', specialtyTemplate: 'general' },
-    { value: 'Neurosurgeon', specialtyTemplate: 'general' },
-    { value: 'Urologist', specialtyTemplate: 'general' },
-    { value: 'ENT Surgeon', specialtyTemplate: 'general' },
-    { value: 'Plastic Surgeon', specialtyTemplate: 'general' },
-    { value: 'Vascular Surgeon', specialtyTemplate: 'general' },
-    { value: 'Pediatric Surgeon', specialtyTemplate: 'general' },
-    { value: 'Cardiac Surgeon', specialtyTemplate: 'general' },
-  ],
-  women_child: [
-    { value: 'Gynecologist', specialtyTemplate: 'gynae' },
-    { value: 'Obstetrician', specialtyTemplate: 'gynae' },
-    { value: 'Consultant Gynecologist / Obstetrician', specialtyTemplate: 'gynae' },
-    { value: 'Fertility Specialist', specialtyTemplate: 'gynae' },
-    { value: 'Maternal-Fetal Medicine Specialist', specialtyTemplate: 'gynae' },
-  ],
-  pediatrics: [
-    { value: 'Pediatrician', specialtyTemplate: 'general' },
-    { value: 'Neonatologist', specialtyTemplate: 'general' },
-    { value: 'Pediatric Cardiologist', specialtyTemplate: 'general' },
-    { value: 'Pediatric Surgeon', specialtyTemplate: 'general' },
-    { value: 'Pediatric Neurologist', specialtyTemplate: 'general' },
-    { value: 'Pediatric Pulmonologist', specialtyTemplate: 'general' },
-    { value: 'Pediatric Endocrinologist', specialtyTemplate: 'general' },
-  ],
-  eye_ent_dental: [
-    { value: 'Eye Specialist / Ophthalmologist', specialtyTemplate: 'eye' },
-    { value: 'Optometrist', specialtyTemplate: 'eye' },
-    { value: 'ENT Specialist', specialtyTemplate: 'general' },
-    { value: 'Audiologist', specialtyTemplate: 'general' },
-    { value: 'Dentist', specialtyTemplate: 'dental' },
-    { value: 'Orthodontist', specialtyTemplate: 'dental' },
-    { value: 'Oral & Maxillofacial Surgeon', specialtyTemplate: 'dental' },
-    { value: 'Periodontist', specialtyTemplate: 'dental' },
-    { value: 'Endodontist', specialtyTemplate: 'dental' },
-  ],
-  physiotherapy: [
-    { value: 'Physiotherapist', specialtyTemplate: 'physiotherapy' },
-    { value: 'Orthopedic Physiotherapist', specialtyTemplate: 'physiotherapy' },
-    { value: 'Sports Physiotherapist', specialtyTemplate: 'physiotherapy' },
-    { value: 'Neuro Physiotherapist', specialtyTemplate: 'physiotherapy' },
-    { value: 'Pediatric Physiotherapist', specialtyTemplate: 'physiotherapy' },
-    { value: 'Geriatric Physiotherapist', specialtyTemplate: 'physiotherapy' },
-    { value: 'Cardio-Pulmonary Physiotherapist', specialtyTemplate: 'physiotherapy' },
-    { value: 'Manual Therapist', specialtyTemplate: 'physiotherapy' },
-    { value: 'Chiropractor', specialtyTemplate: 'physiotherapy' },
-    { value: 'Rehabilitation Specialist', specialtyTemplate: 'physiotherapy' },
-  ],
-  diagnostics: [
-    { value: 'Radiologist', specialtyTemplate: 'radiology' },
-    { value: 'Sonologist / Ultrasound Specialist', specialtyTemplate: 'ultrasound' },
-    { value: 'Interventional Radiologist', specialtyTemplate: 'radiology' },
-    { value: 'Pathologist', specialtyTemplate: 'lab' },
-    { value: 'Microbiologist', specialtyTemplate: 'lab' },
-    { value: 'Hematologist', specialtyTemplate: 'lab' },
-    { value: 'Biochemist', specialtyTemplate: 'lab' },
-    { value: 'Lab Consultant', specialtyTemplate: 'lab' },
-    { value: 'Histopathologist', specialtyTemplate: 'lab' },
-  ],
-  emergency_critical_care: [
-    { value: 'Emergency Physician', specialtyTemplate: 'general' },
-    { value: 'Consultant Emergency Medicine', specialtyTemplate: 'general' },
-    { value: 'Intensivist / Critical Care Specialist', specialtyTemplate: 'general' },
-    { value: 'Trauma Surgeon', specialtyTemplate: 'general' },
-    { value: 'Accident & Emergency Specialist', specialtyTemplate: 'general' },
-  ],
-  anesthesia: [
-    { value: 'Anesthesiologist', specialtyTemplate: 'general' },
-    { value: 'Consultant Anesthesia', specialtyTemplate: 'general' },
-    { value: 'Pain Management Specialist', specialtyTemplate: 'general' },
-    { value: 'Cardiac Anesthesiologist', specialtyTemplate: 'general' },
-  ],
-  oncology: [
-    { value: 'Medical Oncologist', specialtyTemplate: 'general' },
-    { value: 'Radiation Oncologist', specialtyTemplate: 'general' },
-    { value: 'Clinical Oncologist', specialtyTemplate: 'general' },
-    { value: 'Surgical Oncologist', specialtyTemplate: 'general' },
-    { value: 'Hematologist-Oncologist', specialtyTemplate: 'general' },
-  ],
-  other_common: [
-    { value: 'Nutritionist / Dietitian', specialtyTemplate: 'general' },
-    { value: 'Speech Therapist', specialtyTemplate: 'general' },
-    { value: 'Occupational Therapist', specialtyTemplate: 'physiotherapy' },
-    { value: 'Psychologist', specialtyTemplate: 'general' },
-    { value: 'Homeopathic Doctor', specialtyTemplate: 'general' },
-    { value: 'Hakim / Tibb Specialist', specialtyTemplate: 'general' },
-  ],
-};
-
-export const QUALIFICATION_OPTIONS: CatalogOption[] = [
-  { value: 'MBBS' },
-  { value: 'BDS' },
-  { value: 'DPT' },
-  { value: 'DVM' },
-  { value: 'FCPS' },
-  { value: 'MCPS' },
-  { value: 'FRCS' },
-  { value: 'MRCP' },
-  { value: 'FRCR' },
-  { value: 'MS' },
-  { value: 'MD' },
-  { value: 'MRCS' },
-  { value: 'DOMS' },
-  { value: 'DLO' },
-  { value: 'DCH' },
-  { value: 'DMRD' },
-  { value: 'DMRT' },
-  { value: 'MDS' },
-  { value: 'MPhil' },
-  { value: 'PhD' },
-  { value: 'Diploma' },
-  { value: 'Fellowship' },
-];
+export const QUALIFICATION_OPTIONS: CatalogOption[] = DOCTOR_QUALIFICATIONS.filter(
+  (item) => item !== 'Other / Custom'
+).map((value) => ({ value, label: value }));
 
 export const PRESCRIPTION_SPECIALTY_OPTIONS: Array<{ key: SpecialtyTemplateKey; label: string }> = [
   { key: 'general', label: 'General Prescription (Medicines + Vitals + Lab)' },
@@ -188,28 +55,23 @@ export const PRESCRIPTION_SPECIALTY_OPTIONS: Array<{ key: SpecialtyTemplateKey; 
   { key: 'lab', label: 'Lab Report Format' },
 ];
 
-export function specializationsForDepartment(
-  departmentKey: ClinicalDepartmentKey | ''
-): CatalogOption[] {
-  if (!departmentKey) {
-    return [];
-  }
-
-  return (SPECIALIZATIONS[departmentKey] || []).map((item) => ({
-    ...item,
-    label: item.label || item.value,
+/** CatalogOption-shaped specialization list (legacy callers). */
+export function specializationsForDepartment(departmentKey: string): CatalogOption[] {
+  return masterSpecializationsForDepartment(departmentKey).map((value) => ({
+    value,
+    label: value,
+    specialtyTemplate: resolveSpecialtyTemplateForSpecialization(value, departmentKey),
   }));
 }
 
 export function findSpecializationOption(
-  departmentKey: ClinicalDepartmentKey | '',
+  departmentKey: string,
   value: string
 ): CatalogOption | null {
   const normalized = String(value || '').trim().toLowerCase();
   if (!normalized) {
     return null;
   }
-
   return (
     specializationsForDepartment(departmentKey).find(
       (item) => item.value.trim().toLowerCase() === normalized
@@ -217,56 +79,14 @@ export function findSpecializationOption(
   );
 }
 
-export function inferClinicalDepartmentFromSpecialization(
-  specialization: string
-): ClinicalDepartmentKey | '' {
-  const normalized = String(specialization || '').trim().toLowerCase();
-  if (!normalized) {
-    return '';
-  }
-
-  for (const department of CLINICAL_DEPARTMENTS) {
-    const match = specializationsForDepartment(department.key).some(
-      (item) => item.value.trim().toLowerCase() === normalized
-    );
-    if (match) {
-      return department.key;
-    }
-  }
-
-  return '';
-}
-
 export function resolveSpecialtyTemplateForSpecialization(
   specialization: string,
-  departmentKey: ClinicalDepartmentKey | '' = ''
+  departmentKey = ''
 ): SpecialtyTemplateKey {
-  const fromCatalog = findSpecializationOption(departmentKey, specialization);
-  if (fromCatalog?.specialtyTemplate) {
-    return fromCatalog.specialtyTemplate;
-  }
-
-  const source = specialization.toLowerCase();
-  if (/eye|ophthalm|optom|vision|refraction/.test(source)) return 'eye';
-  if (/ultra|sonolog|usg|doppler/.test(source)) return 'ultrasound';
-  if (/radio|x-?ray|ct|mri|imaging/.test(source)) return 'radiology';
-  if (/gyn|obst|obs|pregnan|antenatal|fertility/.test(source)) return 'gynae';
-  if (/dental|dentist|tooth|oral|orthodont/.test(source)) return 'dental';
-  if (/physio|rehab|chiropract|occupational therapist/.test(source)) return 'physiotherapy';
-  if (/patholog|microbiolog|hematolog|biochemist|lab consultant/.test(source)) return 'lab';
-  return 'general';
+  const specialtyKey = resolveDoctorSpecialtyKey(departmentKey, [specialization]);
+  return mapSpecialtyKeyToPrescriptionTemplate(specialtyKey);
 }
 
 export function specialtyTemplateLabel(key: SpecialtyTemplateKey): string {
   return PRESCRIPTION_SPECIALTY_OPTIONS.find((item) => item.key === key)?.label || key;
-}
-
-export function clinicalDepartmentLabel(
-  key: ClinicalDepartmentKey | '' | null | undefined
-): string {
-  if (!key) {
-    return '-';
-  }
-
-  return CLINICAL_DEPARTMENTS.find((item) => item.key === key)?.label || key;
 }

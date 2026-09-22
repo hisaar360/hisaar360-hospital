@@ -30,27 +30,27 @@
       <div class="summary-grid">
         <article class="summary-tile">
           <span>Total Bill</span>
-          <strong>PKR {{ data.totals.totalCharges | number:'1.0-0' }}</strong>
+          <strong>{{ (data.totals.totalCharges) | hmsCurrency }}</strong>
         </article>
         <article class="summary-tile">
           <span>Discount</span>
-          <strong>PKR {{ data.totals.totalDiscount | number:'1.0-0' }}</strong>
+          <strong>{{ (data.totals.totalDiscount) | hmsCurrency }}</strong>
         </article>
         <article class="summary-tile summary-tile--paid">
           <span>Paid Amount</span>
-          <strong>PKR {{ data.totals.totalPaid | number:'1.0-0' }}</strong>
+          <strong>{{ (data.totals.totalPaid) | hmsCurrency }}</strong>
         </article>
         <article class="summary-tile" [class.summary-tile--balance]="outstandingBalance() > 0" [class.summary-tile--credit]="creditBalance() > 0">
           <span>{{ creditBalance() > 0 ? 'Credit / Overpayment' : 'Remaining Balance' }}</span>
           <strong [class.is-due]="outstandingBalance() > 0" [class.is-credit]="creditBalance() > 0" [class.is-ok]="outstandingBalance() <= 0 && creditBalance() <= 0">
-            PKR {{ (creditBalance() > 0 ? creditBalance() : outstandingBalance()) | number:'1.0-0' }}
+            {{ ((creditBalance() > 0 ? creditBalance() : outstandingBalance())) | hmsCurrency }}
           </strong>
         </article>
       </div>
 
       <div class="security-held" *ngIf="securityHeld() > 0">
         <span>Security deposit held (not applied to bill)</span>
-        <strong>PKR {{ securityHeld() | number:'1.0-0' }}</strong>
+        <strong>{{ (securityHeld()) | hmsCurrency }}</strong>
       </div>
 
       <section class="modal-section" *ngIf="canCollect()">
@@ -58,7 +58,7 @@
           <label class="collect-field">
             <span>Amount Received *</span>
             <div class="input-prefix">
-              <em>PKR</em>
+              <em>{{ currencyLabel }}</em>
               <input class="form-control" type="number" min="0" [(ngModel)]="collectAmount" placeholder="Enter amount" />
             </div>
           </label>
@@ -73,9 +73,9 @@
             </select>
           </label>
           <label class="collect-field">
-            <span>Discount (PKR)</span>
+            <span>Discount</span>
             <div class="input-prefix">
-              <em>PKR</em>
+              <em>{{ currencyLabel }}</em>
               <input class="form-control" type="number" min="0" [(ngModel)]="discountAmount" placeholder="0" />
             </div>
           </label>
@@ -94,7 +94,7 @@
         </div>
         <div class="projected-balance">
           <span>After this action remaining</span>
-          <strong>PKR {{ projectedBalance() | number:'1.0-0' }}</strong>
+          <strong>{{ (projectedBalance()) | hmsCurrency }}</strong>
         </div>
       </section>
 
@@ -106,7 +106,7 @@
         <ul class="breakdown-list">
           <li *ngFor="let source of remainingSources()">
             <span>{{ source.label }}</span>
-            <strong>PKR {{ source.remaining | number:'1.0-0' }}</strong>
+            <strong>{{ (source.remaining) | hmsCurrency }}</strong>
           </li>
         </ul>
       </section>
@@ -119,7 +119,7 @@
         <ul class="breakdown-list">
           <li *ngFor="let item of data.items | slice:0:8">
             <span>{{ item.title }}</span>
-            <strong>PKR {{ item.netAmount | number:'1.0-0' }}</strong>
+            <strong>{{ (item.netAmount) | hmsCurrency }}</strong>
           </li>
           <li *ngIf="data.items.length === 0">
             <span class="text-muted">No charges found</span>
@@ -182,7 +182,7 @@
           >
             <div class="payment-card__top">
               <strong>{{ payment.paymentNo }}</strong>
-              <span>PKR {{ payment.amount | number:'1.0-0' }}</span>
+              <span>{{ (payment.amount) | hmsCurrency }}</span>
             </div>
             <div class="payment-card__meta">
               <span>{{ payment.method }}</span>

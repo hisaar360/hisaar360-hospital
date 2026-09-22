@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 
@@ -48,6 +49,7 @@ export class PharmacyCustomersComponent implements OnInit {
     );
 
   constructor(
+    private route: ActivatedRoute,
     private backend: BackendService,
     private toastr: ToastrService,
     private dialog: AppDialogService,
@@ -55,6 +57,11 @@ export class PharmacyCustomersComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadCustomers();
+    this.route.queryParamMap.subscribe((params) => {
+      if (params.get('create') === '1' && this.canCreate) {
+        setTimeout(() => this.openCreate());
+      }
+    });
   }
 
   get canCreate(): boolean {
@@ -94,7 +101,7 @@ export class PharmacyCustomersComponent implements OnInit {
     this.loading = true;
     this.backend
       .getCustomers({
-        limit: 100,
+        limit: 500,
         search: this.search.trim() || undefined,
         isActive: this.statusFilter === '' ? undefined : this.statusFilter,
       })
@@ -134,6 +141,26 @@ export class PharmacyCustomersComponent implements OnInit {
       isActive: customer.isActive,
     };
     this.modalOpen = true;
+    this.backend.getCustomerById(customer._id).subscribe({
+      next: (fresh) => {
+        this.editingCustomer = fresh;
+        this.form.creditLimit = String(fresh.creditLimit ?? 0);
+        this.form.openingBalance = String(fresh.openingBalance ?? 0);
+        this.upsertLocalCustomer(fresh);
+      },
+      error: () => undefined,
+    });
+  }
+
+  private upsertLocalCustomer(customer: Customer): void {
+    const index = this.customers.findIndex((item) => item._id === customer._id);
+    if (index >= 0) {
+      this.customers = [
+        ...this.customers.slice(0, index),
+        customer,
+        ...this.customers.slice(index + 1),
+      ];
+    }
   }
 
   closeModal(): void {

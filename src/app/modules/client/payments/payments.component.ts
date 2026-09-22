@@ -7,12 +7,13 @@ import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
 import { PatientPaymentSummary } from '../../../shared/models/hospital.model';
 import { PatientPaymentDetailModalComponent } from './patient-payment-detail-modal/patient-payment-detail-modal.component';
+import { HmsCurrencyPipe } from '../../../shared/pipes/hms-currency.pipe';
 
 export type PaymentStatusFilter = 'all' | 'partial' | 'paid' | 'overdue';
 
 @Component({
   selector: 'app-payments',
-  imports: [CommonModule, FormsModule, RouterLink, PatientPaymentDetailModalComponent],
+  imports: [CommonModule, FormsModule, RouterLink, PatientPaymentDetailModalComponent, HmsCurrencyPipe],
   templateUrl: './payments.component.html',
   styleUrl: './payments.component.scss',
 })

@@ -5,6 +5,11 @@ import { RouterLink } from '@angular/router';
 import { catchError, finalize, of } from 'rxjs';
 import { BackendService } from '../../../core/services/backend.service';
 import { AuthService } from '../../../core/services/auth.service';
+import {
+  CurrencyService,
+  DEFAULT_CURRENCY,
+  HMS_CURRENCY_OPTIONS,
+} from '../../../core/services/currency.service';
 import { ToastrService } from 'ngx-toastr';
 import { Doctor, Hospital, PrescriptionPrintSettings, Store, User } from '../../../shared/models/hospital.model';
 import { CompanyProfile } from '../../../shared/models/company.model';
@@ -126,7 +131,9 @@ export class SettingsComponent implements OnInit {
   hospitalAddress = '';
   hospitalCity = '';
   hospitalCountry = '';
+  hospitalCurrency = DEFAULT_CURRENCY;
   hospitalLogoUrl = '';
+  readonly currencyOptions = HMS_CURRENCY_OPTIONS;
   prescriptionShowLogo = true;
   prescriptionLogoScale = 100;
   prescriptionRevisionNote = '* Rx to be revised after Reports.';
@@ -142,6 +149,7 @@ export class SettingsComponent implements OnInit {
   constructor(
     private backend: BackendService,
     private authService: AuthService,
+    private currencyService: CurrencyService,
     private toaster: ToastrService
   ) {
     this.permissions = this.readPermissionsSafe();
@@ -175,6 +183,20 @@ export class SettingsComponent implements OnInit {
 
   get canManageHospitalSettings(): boolean {
     return this.permissions.includes('*') || this.permissions.includes('hospitals.update');
+  }
+
+  /** Matches PATCH /companies/me/currency — company.manage or hospitals.update. */
+  get canManageCurrency(): boolean {
+    return (
+      this.permissions.includes('*') ||
+      this.permissions.includes('hospitals.update') ||
+      this.permissions.includes('company.manage')
+    );
+  }
+
+  get currencyDisplayLabel(): string {
+    const match = this.currencyOptions.find((option) => option.code === this.hospitalCurrency);
+    return match?.label || this.hospitalCurrency || DEFAULT_CURRENCY;
   }
 
   get roleDisplayName(): string {
@@ -296,8 +318,13 @@ export class SettingsComponent implements OnInit {
   }
 
   saveHospitalSettings(): void {
-    if (!this.canManageHospitalSettings) {
+    if (!this.canManageHospitalSettings && !this.canManageCurrency) {
       this.toaster.error('You do not have permission to update hospital settings.');
+      return;
+    }
+
+    if (!this.canManageHospitalSettings && this.canManageCurrency) {
+      this.saveCurrencyOnly();
       return;
     }
 
@@ -336,12 +363,54 @@ export class SettingsComponent implements OnInit {
       .subscribe({
         next: (response) => {
           this.applyHospitalProfile(response.data);
-          this.toaster.success('Hospital settings updated successfully.');
+          this.persistCurrencyAfterHospitalSave();
         },
         error: (error) => {
           this.toaster.error(error?.error?.message || 'Unable to update hospital settings.');
         },
       });
+  }
+
+  private saveCurrencyOnly(): void {
+    const next = (this.hospitalCurrency || DEFAULT_CURRENCY).trim().toUpperCase();
+    if (!next || next === this.currencyService.code) {
+      this.toaster.info('Currency is already set to ' + (next || DEFAULT_CURRENCY) + '.');
+      return;
+    }
+
+    this.hospitalSaving = true;
+    this.currencyService
+      .saveCurrency(next)
+      .pipe(finalize(() => (this.hospitalSaving = false)))
+      .subscribe({
+        next: () => {
+          this.hospitalCurrency = this.currencyService.code;
+          this.toaster.success('Currency updated successfully.');
+        },
+        error: (error) => {
+          this.toaster.error(error?.error?.message || 'Unable to update currency.');
+        },
+      });
+  }
+
+  private persistCurrencyAfterHospitalSave(): void {
+    const next = (this.hospitalCurrency || DEFAULT_CURRENCY).trim().toUpperCase();
+    if (!next || next === this.currencyService.code) {
+      this.toaster.success('Hospital settings updated successfully.');
+      return;
+    }
+
+    this.currencyService.saveCurrency(next).subscribe({
+      next: () => {
+        this.toaster.success('Hospital settings and currency updated successfully.');
+      },
+      error: (error) => {
+        this.toaster.warning(
+          error?.error?.message ||
+            'Hospital saved, but currency could not be updated. Check company.manage / hospitals.update permission.'
+        );
+      },
+    });
   }
 
   onHospitalLogoSelected(event: Event): void {
@@ -509,6 +578,8 @@ export class SettingsComponent implements OnInit {
       .subscribe({
         next: (company) => {
           this.companyProfile = company;
+          this.currencyService.applyCompany(company);
+          this.hospitalCurrency = this.currencyService.code;
         },
       });
   }

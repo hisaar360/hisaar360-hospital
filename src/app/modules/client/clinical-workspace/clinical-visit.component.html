@@ -1,0 +1,218 @@
+<div class="clinical-visit" [formGroup]="form" [class.clinical-visit--gynae]="isGynaeDoctor">
+  <ng-container *ngIf="isGynaeDoctor; else defaultVisit">
+    <div class="gynae-visit">
+      <div class="gynae-visit__main">
+        <div class="gynae-visit__visit-type">
+          <label><input type="radio" formControlName="visitType" [value]="'opd'" /> OPD</label>
+          <label><input type="radio" formControlName="visitType" [value]="'follow_up'" /> Follow Up</label>
+        </div>
+
+        <label class="gynae-visit__field">
+          <span><i class="fa fa-clipboard" aria-hidden="true"></i> Chief Complaint</span>
+          <textarea formControlName="chiefComplaint" rows="2" [placeholder]="chiefComplaintPlaceholder"></textarea>
+        </label>
+
+        <label class="gynae-visit__field">
+          <span><i class="fa fa-stethoscope" aria-hidden="true"></i> Examination</span>
+          <textarea formControlName="examination" rows="2" placeholder="Consent taken. Chaperone present during examination..."></textarea>
+        </label>
+
+        <div class="gynae-visit__consent" *ngIf="specialtyDataGroup" [formGroup]="specialtyDataGroup">
+          <label>
+            <input type="checkbox" [checked]="isYes('chaperonePresent')"
+              (change)="chaperoneChange.emit($any($event.target).checked)" />
+            Chaperone present
+          </label>
+          <label>
+            <input type="checkbox" [checked]="isYes('patientConsentTaken')"
+              (change)="consentChange.emit($any($event.target).checked)" />
+            Consent taken
+          </label>
+          <label>
+            <input type="checkbox" [checked]="isPelvicDone()"
+              (change)="pelvicExamChange.emit($any($event.target).checked)" />
+            Pelvic exam done
+          </label>
+        </div>
+
+        <label class="gynae-visit__field">
+          <span><i class="fa fa-th-large" aria-hidden="true"></i> Clinical Plan / Advice</span>
+          <textarea formControlName="advice" rows="3" placeholder="Take medicines as prescribed. Rest and follow-up as advised."></textarea>
+        </label>
+
+        <div class="gynae-visit__chips" *ngIf="gynaeAdviceTemplates.length">
+          <button type="button" class="gynae-visit__chip" *ngFor="let template of gynaeAdviceTemplates"
+            (click)="applyAdviceTemplate.emit(template.text)">
+            {{ template.label }}
+          </button>
+        </div>
+      </div>
+
+      <aside class="gynae-visit__side">
+        <div class="gynae-visit__field">
+          <span><i class="fa fa-search" aria-hidden="true"></i> Assessment / Diagnosis</span>
+          <div class="gynae-visit__diagnosis-box">
+            <input
+              type="search"
+              [ngModel]="diagnosisDraft"
+              [ngModelOptions]="{ standalone: true }"
+              (ngModelChange)="diagnosisDraft = $event"
+              (keydown.enter)="$event.preventDefault(); addDiagnosisTag()"
+              placeholder="Search diagnosis (e.g. Intrauterine pregnancy)"
+            />
+            <button type="button" class="gynae-visit__add-dx" (click)="addDiagnosisTag()" [disabled]="!diagnosisDraft.trim()">
+              Add
+            </button>
+          </div>
+          <div class="gynae-visit__dx-tags" *ngIf="diagnosisTags.length">
+            <span class="gynae-visit__dx-tag" *ngFor="let tag of diagnosisTags; let i = index">
+              {{ tag }}
+              <button type="button" (click)="removeDiagnosisTag(i)" aria-label="Remove diagnosis">&times;</button>
+            </span>
+          </div>
+        </div>
+
+        <label class="gynae-visit__field">
+          <span><i class="fa fa-calendar" aria-hidden="true"></i> Follow-up Date</span>
+          <input type="date" formControlName="followUpDate" />
+          <div class="gynae-visit__follow-quick">
+            <button type="button" *ngFor="let quick of followUpQuickOptions" (click)="applyFollowUpQuick(quick.days)">
+              {{ quick.label }}
+            </button>
+          </div>
+        </label>
+
+        <section class="gynae-visit__vitals" [formGroup]="vitalsGroup" *ngIf="vitalsGroup">
+          <div class="gynae-visit__vitals-head">
+            <strong>Vitals</strong>
+            <div>
+              <button type="button" class="gynae-visit__link" (click)="openVitals.emit()">+ Add / Edit</button>
+              <button type="button" class="gynae-visit__link" (click)="openVitalsTrends.emit()">View Trends</button>
+            </div>
+          </div>
+          <div class="gynae-visit__vitals-grid">
+            <label><span>Weight (kg)</span><input formControlName="weight" inputmode="decimal" /></label>
+            <label><span>Height (cm)</span><input formControlName="height" inputmode="decimal" /></label>
+            <label><span>BMI</span><input [value]="bmiDisplay" readonly tabindex="-1" /></label>
+            <label><span>BP (mmHg)</span><input formControlName="bp" placeholder="120/80" /></label>
+            <label><span>Pulse (bpm)</span><input formControlName="pulse" inputmode="numeric" /></label>
+            <label><span>Temp (°C)</span><input formControlName="temperature" inputmode="decimal" /></label>
+            <label><span>SpO2 (%)</span><input formControlName="spo2" inputmode="numeric" /></label>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <button type="button" class="clinical-visit__advanced-toggle" (click)="toggleAdvancedHistory.emit()">
+      <i class="fa" [ngClass]="showAdvancedHistory ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+      {{ showAdvancedHistory ? 'Hide' : 'More' }} history details
+    </button>
+
+    <div class="clinical-visit__advanced" *ngIf="showAdvancedHistory">
+      <label class="clinical-visit__field clinical-visit__field--full">
+        <span>History of Present Illness</span>
+        <textarea formControlName="history" [placeholder]="historyPlaceholder" rows="3"></textarea>
+      </label>
+      <div class="clinical-visit__context-grid">
+        <div class="clinical-visit__context-card">
+          <strong>Known Allergies</strong>
+          <p>{{ patientAllergies || 'No known allergies on file' }}</p>
+        </div>
+        <div class="clinical-visit__context-card">
+          <strong>Current Medicines</strong>
+          <p>{{ patientCurrentMedicines || 'None on file' }}</p>
+        </div>
+        <div class="clinical-visit__context-card">
+          <strong>Relevant Past Medical History</strong>
+          <p>{{ patientChronicIllness || 'None on file' }}</p>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-template #defaultVisit>
+    <div class="clinical-visit__quick">
+      <div class="clinical-visit__visit-type">
+        <label><input type="radio" formControlName="visitType" [value]="'opd'" /> OPD</label>
+        <label><input type="radio" formControlName="visitType" [value]="'follow_up'" /> Follow Up</label>
+      </div>
+
+      <label class="clinical-visit__field clinical-visit__field--full">
+        <span>Chief Complaint</span>
+        <input formControlName="chiefComplaint" [placeholder]="chiefComplaintPlaceholder" />
+      </label>
+
+      <label class="clinical-visit__field">
+        <span>Examination</span>
+        <input formControlName="examination" placeholder="Chest clear, CVS normal..." />
+      </label>
+
+      <label class="clinical-visit__field">
+        <span>Assessment / Diagnosis</span>
+        <input formControlName="diagnosis" placeholder="Acute Upper Respiratory Tract Infection" />
+      </label>
+
+      <label class="clinical-visit__field clinical-visit__field--full">
+        <span>Clinical Plan / Advice</span>
+        <textarea formControlName="advice" placeholder="Rest, plenty of fluids, take medication as prescribed."></textarea>
+      </label>
+
+      <label class="clinical-visit__field">
+        <span>Follow-up Date</span>
+        <input type="date" formControlName="followUpDate" />
+      </label>
+    </div>
+
+    <section class="clinical-visit__vitals">
+      <div class="clinical-visit__section-head">
+        <strong>Vitals</strong>
+        <div class="clinical-visit__section-actions">
+          <button type="button" class="clinical-visit__link" (click)="openVitals.emit()">+ Add / Edit</button>
+          <button type="button" class="clinical-visit__link" (click)="openVitalsTrends.emit()">Trends</button>
+        </div>
+      </div>
+      <div class="clinical-visit__vitals-row" *ngIf="hasRecordedVitals; else noVitals">
+        <button type="button" class="clinical-visit__vital-chip" *ngFor="let vital of sidebarVitalItems"
+          (click)="openVitals.emit()">
+          <span>{{ vital.label }}</span>
+          <strong>{{ vital.displayValue }}</strong>
+        </button>
+      </div>
+      <ng-template #noVitals>
+        <p class="clinical-visit__muted">No vitals recorded yet. Tap + Add / Edit to enter today's vitals.</p>
+      </ng-template>
+    </section>
+
+    <button type="button" class="clinical-visit__advanced-toggle" (click)="toggleAdvancedHistory.emit()">
+      <i class="fa" [ngClass]="showAdvancedHistory ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+      {{ showAdvancedHistory ? 'Hide' : 'More' }} history details
+    </button>
+
+    <div class="clinical-visit__advanced" *ngIf="showAdvancedHistory">
+      <label class="clinical-visit__field clinical-visit__field--full">
+        <span>History of Present Illness</span>
+        <textarea formControlName="history" [placeholder]="historyPlaceholder" rows="3"></textarea>
+      </label>
+
+      <div class="clinical-visit__context-grid">
+        <div class="clinical-visit__context-card">
+          <strong>Known Allergies</strong>
+          <p>{{ patientAllergies || 'No known allergies on file' }}</p>
+        </div>
+        <div class="clinical-visit__context-card">
+          <strong>Current Medicines</strong>
+          <p>{{ patientCurrentMedicines || 'None on file' }}</p>
+        </div>
+        <div class="clinical-visit__context-card">
+          <strong>Relevant Past Medical History</strong>
+          <p>{{ patientChronicIllness || 'None on file' }}</p>
+        </div>
+      </div>
+
+      <p class="clinical-visit__muted clinical-visit__hint">
+        Past surgical, family, and social history can be noted in History of Present Illness for now.
+        Specialty-specific structured history belongs on the Specialty tab.
+      </p>
+    </div>
+  </ng-template>
+</div>

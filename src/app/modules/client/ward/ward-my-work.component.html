@@ -1,0 +1,123 @@
+<div id="main-content" class="modern-dashboard hms-page ward-page-shell ward-my-work-page">
+  <div class="container-fluid ward-page-container">
+    <header class="ward-page-header ward-page-header--compact">
+      <div class="ward-page-header__copy">
+        <h1>My Work</h1>
+        <p>Overdue first, then what is due now. Open an item to chart on the patient.</p>
+      </div>
+      <div class="ward-page-header__actions">
+        <a routerLink="/ward/patient-list" class="btn btn-sm ward-work-btn ward-work-btn--primary">My Patients</a>
+        <button type="button" class="btn btn-sm ward-refresh-btn" (click)="load()" [disabled]="loading"
+          aria-label="Refresh my work">
+          <i class="fa" [ngClass]="loading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
+        </button>
+      </div>
+    </header>
+
+    <section class="ward-kpi-grid ward-work-counts" *ngIf="!loading">
+      <article class="ward-kpi-card" *ngFor="let tile of countTiles">
+        <span class="ward-kpi-card__icon"><i class="fa" [ngClass]="tile.icon"></i></span>
+        <span class="ward-kpi-card__copy">
+          <strong>{{ tile.value }}</strong>
+          <small>{{ tile.label }}</small>
+        </span>
+      </article>
+    </section>
+
+    <section class="ward-kpi-grid ward-work-counts" *ngIf="loading">
+      <article class="ward-kpi-card ward-work-skeleton-tile" *ngFor="let row of [1,2,3,4,5,6]"></article>
+    </section>
+
+    <section class="ward-work-error" *ngIf="error && !loading" role="alert">
+      <span><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Your work list could not be loaded.</span>
+      <button type="button" class="btn btn-sm ward-work-btn ward-work-btn--primary" (click)="load()">Retry</button>
+    </section>
+
+    <section class="ward-work-section" *ngIf="loading">
+      <div class="ward-work-card ward-work-skeleton-card" *ngFor="let row of skeletonRows"></div>
+    </section>
+
+    <ng-container *ngIf="!loading && !error">
+      <section class="ward-work-section" aria-label="My Patients">
+        <header class="ward-work-section__header">
+          <h2>
+            <i class="fa fa-users" aria-hidden="true"></i>
+            My Patients
+          </h2>
+          <span>{{ myPatients.length }}</span>
+        </header>
+        <div class="ward-work-list" *ngIf="myPatients.length; else noMyPatients">
+          <article
+            class="ward-work-card ward-work-card--clickable"
+            *ngFor="let card of myPatients"
+            tabindex="0"
+            role="button"
+            (click)="openPatient(card)"
+            (keyup.enter)="openPatient(card)"
+          >
+            <header class="ward-work-card__header">
+              <strong>{{ card.patientName }}</strong>
+              <span class="ward-work-badge">
+                <i class="fa fa-list" aria-hidden="true"></i>
+                <span>{{ card.dueCount }} due</span>
+              </span>
+            </header>
+            <p class="ward-work-card__patient" *ngIf="card.bedLabel">Bed {{ card.bedLabel }}</p>
+          </article>
+        </div>
+        <ng-template #noMyPatients>
+          <div class="ward-empty-state ward-work-empty">
+            <span class="ward-empty-state__icon"><i class="fa fa-users"></i></span>
+            <h3>No patients assigned.</h3>
+          </div>
+        </ng-template>
+      </section>
+
+      <section class="ward-work-section" *ngFor="let section of sections" [attr.aria-label]="section.label">
+        <header class="ward-work-section__header">
+          <h2>
+            <i class="fa" [ngClass]="section.icon" aria-hidden="true"></i>
+            {{ section.label }}
+          </h2>
+          <span>{{ section.items.length }}</span>
+        </header>
+
+        <div class="ward-work-list" *ngIf="section.items.length; else emptySection">
+          <article class="ward-work-card" *ngFor="let item of section.items"
+            [class.ward-work-card--overdue]="section.key === 'overdue'"
+            [class.ward-work-card--clickable]="item.admissionId" [attr.tabindex]="item.admissionId ? 0 : null"
+            [attr.role]="item.admissionId ? 'button' : null" (click)="openItem(item)" (keyup.enter)="openItem(item)">
+            <header class="ward-work-card__header">
+              <strong>{{ item.title || 'Ward task' }}</strong>
+              <span class="ward-work-badge" *ngIf="section.key !== 'upcoming'"
+                [class.ward-work-badge--overdue]="section.key === 'overdue'">
+                <i class="fa" [ngClass]="section.icon" aria-hidden="true"></i>
+                <span>{{ section.badge }}</span>
+              </span>
+            </header>
+            <p class="ward-work-card__patient">
+              {{ item.patientName || 'Patient' }}
+              <span *ngIf="item.bedLabel"> · Bed {{ item.bedLabel }}</span>
+            </p>
+            <p class="ward-work-card__meta">
+              <span *ngIf="item.scheduledAt">{{ item.scheduledAt | date: 'shortTime' }}</span>
+              <span *ngIf="!item.scheduledAt">Not scheduled</span>
+              <span class="ward-work-priority" *ngIf="isEscalatedPriority(item)">
+                <i class="fa fa-bolt" aria-hidden="true"></i>
+                <span>{{ item.priority | uppercase }}</span>
+              </span>
+            </p>
+            <p class="ward-work-card__desc" *ngIf="item.description">{{ item.description }}</p>
+          </article>
+        </div>
+
+        <ng-template #emptySection>
+          <div class="ward-empty-state ward-work-empty">
+            <span class="ward-empty-state__icon"><i class="fa" [ngClass]="section.icon"></i></span>
+            <h3>{{ section.emptyMessage }}</h3>
+          </div>
+        </ng-template>
+      </section>
+    </ng-container>
+  </div>
+</div>

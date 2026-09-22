@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FullCalendarModule } from '@fullcalendar/angular';
 import { Calendar, CalendarOptions, DatesSetArg, EventClickArg, EventInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -12,6 +12,7 @@ import { forkJoin, of } from 'rxjs';
 import { catchError, finalize } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { BackendService } from '../../../../core/services/backend.service';
+import { AppDialogService } from '../../../../core/services/app-dialog.service';
 import { toCalendarYmd } from '../../../../core/utils/calendar-date';
 import { Appointment, Doctor, OperationSchedule, User } from '../../../../shared/models/hospital.model';
 import { isDoctorRole } from '../../../auth/access-control';
@@ -109,11 +110,21 @@ export class DoctorsScheduleComponent implements OnInit {
     private backend: BackendService,
     private authService: AuthService,
     private toastr: ToastrService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute,
+    private dialog: AppDialogService
   ) {}
 
   ngOnInit(): void {
     this.loadSchedule();
+    this.route.queryParamMap.subscribe((params) => {
+      const panel = String(params.get('panel') || '').trim().toLowerCase();
+      if (panel === 'hours' || panel === 'availability') {
+        this.openHoursPanel();
+      } else if (panel === 'leave') {
+        this.openLeavePanel();
+      }
+    });
   }
 
   get currentUser(): User | null {
@@ -147,9 +158,35 @@ export class DoctorsScheduleComponent implements OnInit {
       this.backend.hasPermission('operations.read') ||
       this.backend.hasPermission('operations.read_all') ||
       this.backend.hasPermission('ward.admissions.recommend') ||
+      this.backend.hasPermission('operations.create') ||
+      this.backend.hasPermission('operations.update') ||
       this.backend.hasPermission('*') ||
       this.isDoctorUser
     );
+  }
+
+  get appointmentQueryParams(): Record<string, string> {
+    const doctor = this.selectedDoctor || this.ownDoctor;
+    const doctorUserId = String(doctor?.userId || doctor?.user?._id || '').trim();
+    return doctorUserId ? { doctorId: doctorUserId } : {};
+  }
+
+  get operationQueryParams(): Record<string, string> {
+    const doctorId = String(this.selectedDoctorId || this.ownDoctor?._id || '').trim();
+    const params: Record<string, string> = { view: 'needs' };
+    if (doctorId) {
+      params['doctorId'] = doctorId;
+    }
+    return params;
+  }
+
+  get workingDaysCount(): number {
+    return (this.selectedDoctor?.availableDays || []).length || this.weekDays.filter((day) => this.dayHours[day]?.enabled).length;
+  }
+
+  get upcomingLeaveDates(): string[] {
+    const today = this.toYmd(new Date());
+    return this.normalizedLeaveDates().filter((day) => day >= today);
   }
 
   get doctorDisplayName(): string {
@@ -159,7 +196,7 @@ export class DoctorsScheduleComponent implements OnInit {
     return this.isOwnDoctor(doctor) ? `${name} (Me)` : name;
   }
 
-  get kpis(): { appointmentsToday: number; operationsToday: number; upcomingWeek: number; leaveDays: number } {
+  get kpis(): { appointmentsToday: number; operationsToday: number; upcomingWeek: number; workingDays: number } {
     const today = this.toYmd(new Date());
     const weekEnd = this.toYmd(this.addDays(new Date(), 7));
 
@@ -178,7 +215,7 @@ export class DoctorsScheduleComponent implements OnInit {
       appointmentsToday,
       operationsToday,
       upcomingWeek: upcomingAppointments + upcomingOperations,
-      leaveDays: this.unavailableDates.filter((day) => day >= today).length,
+      workingDays: this.workingDaysCount,
     };
   }
 
@@ -209,36 +246,115 @@ export class DoctorsScheduleComponent implements OnInit {
     this.reloadCalendarRange();
   }
 
-  setTab(tab: ScheduleTab): void {
-    this.activeTab = tab;
-    if (tab === 'appointments') {
-      this.filters = { opd: true, followup: true, operations: false, leave: false };
-    } else if (tab === 'operations') {
-      this.filters = { opd: false, followup: false, operations: true, leave: false };
-    } else if (tab === 'leave') {
-      this.filters = { opd: false, followup: false, operations: false, leave: true };
-      this.showLeavePanel = true;
-    } else if (tab === 'availability') {
-      this.showHoursPanel = true;
-    } else {
-      this.filters = { opd: true, followup: true, operations: true, leave: true };
-    }
-    this.applyFiltersToCalendar();
-  }
-
   toggleFilter(key: keyof typeof this.filters): void {
     this.filters[key] = !this.filters[key];
     this.applyFiltersToCalendar();
   }
 
   openHoursPanel(): void {
+    this.showLeavePanel = false;
     this.showHoursPanel = true;
     this.activeTab = 'availability';
   }
 
+  closeHoursPanel(): void {
+    this.showHoursPanel = false;
+    if (this.activeTab === 'availability') {
+      this.activeTab = 'schedule';
+    }
+  }
+
   openLeavePanel(): void {
+    this.showHoursPanel = false;
     this.showLeavePanel = true;
     this.activeTab = 'leave';
+    this.applyDoctorToEditor(this.selectedDoctor);
+    this.filters = { ...this.filters, leave: true };
+    this.applyFiltersToCalendar();
+  }
+
+  closeLeavePanel(): void {
+    this.showLeavePanel = false;
+    if (this.activeTab === 'leave') {
+      this.activeTab = 'schedule';
+    }
+  }
+
+  setTab(tab: ScheduleTab): void {
+    this.activeTab = tab;
+    if (tab === 'availability') {
+      this.openHoursPanel();
+      return;
+    }
+    if (tab === 'leave') {
+      this.openLeavePanel();
+      return;
+    }
+    if (tab === 'appointments') {
+      this.filters = { opd: true, followup: true, operations: false, leave: true };
+      this.applyFiltersToCalendar();
+      void this.router.navigate(['/appointments'], { queryParams: this.appointmentQueryParams });
+      return;
+    }
+    if (tab === 'operations') {
+      this.filters = { opd: false, followup: false, operations: true, leave: true };
+      this.applyFiltersToCalendar();
+      void this.router.navigate(['/operations'], { queryParams: this.operationQueryParams });
+      return;
+    }
+    this.filters = { opd: true, followup: true, operations: true, leave: true };
+    this.applyFiltersToCalendar();
+  }
+
+  addLeaveDate(): void {
+    const ymd = String(this.leaveDate || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+      this.toastr.error('Select a date to mark as leave.');
+      return;
+    }
+    const next = this.normalizedLeaveDates();
+    if (!next.includes(ymd)) {
+      next.push(ymd);
+      next.sort();
+    }
+    this.unavailableDates = next;
+    if (this.selectedDoctor) {
+      this.selectedDoctor = { ...this.selectedDoctor, unavailableDates: [...next] };
+    }
+    this.leaveDate = '';
+    this.filters = { ...this.filters, leave: true };
+    this.applyFiltersToCalendar();
+    this.persistLeaveDates('Leave marked on calendar.');
+  }
+
+  removeLeaveDate(ymd: string): void {
+    const next = this.normalizedLeaveDates().filter((item) => item !== ymd);
+    this.unavailableDates = next;
+    if (this.selectedDoctor) {
+      this.selectedDoctor = { ...this.selectedDoctor, unavailableDates: [...next] };
+    }
+    this.applyFiltersToCalendar();
+    this.persistLeaveDates('Leave cancelled.');
+  }
+
+  async cancelLeaveDate(ymd: string): Promise<void> {
+    if (!this.canEditSelected) {
+      return;
+    }
+    const confirmed = await this.dialog.confirm({
+      title: 'Cancel Leave',
+      message: `Cancel leave on ${ymd}? Appointments can be booked again on this day.`,
+      confirmText: 'Cancel Leave',
+      tone: 'danger',
+    });
+    if (!confirmed) {
+      return;
+    }
+    this.removeLeaveDate(ymd);
+  }
+
+  saveLeaveDates(): void {
+    this.persistLeaveDates('Leave dates saved.');
   }
 
   days(doctor: Doctor | null): string {
@@ -286,29 +402,45 @@ export class DoctorsScheduleComponent implements OnInit {
       next: (response) => {
         const doctor = response.data;
         if (doctor) this.replaceDoctor(doctor);
-        this.toastr.success(response.message || 'Schedule saved.');
+        this.toastr.success(response.message || 'Working hours saved.');
         this.reloadCalendarRange();
+        this.closeHoursPanel();
       },
       error: (err) => this.toastr.error(err?.error?.message || 'Unable to save schedule'),
     });
   }
 
-  addLeaveDate(): void {
-    const ymd = String(this.leaveDate || '').trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
-      this.toastr.error('Select a date to mark unavailable.');
+  private persistLeaveDates(successMessage: string): void {
+    if (!this.canEditSelected || !this.selectedDoctor) {
       return;
     }
-    if (!this.unavailableDates.includes(ymd)) {
-      this.unavailableDates = [...this.unavailableDates, ymd].sort();
-    }
-    this.leaveDate = '';
-    this.applyFiltersToCalendar();
-  }
 
-  removeLeaveDate(ymd: string): void {
-    this.unavailableDates = this.unavailableDates.filter((item) => item !== ymd);
-    this.applyFiltersToCalendar();
+    const payload = {
+      unavailableDates: this.normalizedLeaveDates(),
+    };
+
+    this.saving = true;
+    const request$ =
+      this.isOwnDoctor(this.selectedDoctor) && !this.canManageAllSchedules
+        ? this.backend.updateMyDoctorSchedule(payload)
+        : this.backend.updateDoctor(this.selectedDoctor._id, payload);
+
+    request$.pipe(finalize(() => (this.saving = false))).subscribe({
+      next: (response) => {
+        const doctor = response.data;
+        if (doctor) {
+          this.replaceDoctor(doctor);
+        } else if (this.selectedDoctor) {
+          this.selectedDoctor = {
+            ...this.selectedDoctor,
+            unavailableDates: [...this.unavailableDates],
+          };
+        }
+        this.toastr.success(response.message || successMessage);
+        this.applyFiltersToCalendar();
+      },
+      error: (err) => this.toastr.error(err?.error?.message || 'Unable to save leave dates'),
+    });
   }
 
   private onDatesSet(arg: DatesSetArg): void {
@@ -323,6 +455,13 @@ export class DoctorsScheduleComponent implements OnInit {
     const kind = String(props['kind'] || '');
 
     if (kind === 'leave') {
+      const day =
+        String(props['leaveDate'] || '').trim() ||
+        String(arg.event.startStr || '').slice(0, 10) ||
+        String(arg.event.id || '').replace(/^leave-/, '');
+      if (day && this.canEditSelected) {
+        void this.cancelLeaveDate(day);
+      }
       return;
     }
 
@@ -436,9 +575,10 @@ export class DoctorsScheduleComponent implements OnInit {
     }
 
     if (this.filters.leave) {
-      for (const day of this.unavailableDates) {
+      for (const day of this.normalizedLeaveDates()) {
+        // FullCalendar datesSet end is exclusive.
         if (this.rangeFrom && day < this.rangeFrom) continue;
-        if (this.rangeTo && day > this.rangeTo) continue;
+        if (this.rangeTo && day >= this.rangeTo) continue;
         events.push(this.leaveToEvent(day));
       }
     }
@@ -447,11 +587,24 @@ export class DoctorsScheduleComponent implements OnInit {
     this.patchCalendarEvents(events);
   }
 
+  private normalizedLeaveDates(): string[] {
+    return (this.unavailableDates || [])
+      .map((item) => String(item || '').slice(0, 10))
+      .filter((item) => /^\d{4}-\d{2}-\d{2}$/.test(item))
+      .filter((item, index, list) => list.indexOf(item) === index)
+      .sort();
+  }
+
   private patchCalendarEvents(events: EventInput[]): void {
     this.calendarOptions = {
       ...this.calendarOptions,
-      events,
+      events: [...events],
     };
+
+    const api = this.calendar?.getApi?.();
+    if (api) {
+      api.setOption('events', [...events]);
+    }
   }
 
   private appointmentKind(appointment: Appointment): 'opd' | 'followup' {
@@ -525,14 +678,14 @@ export class DoctorsScheduleComponent implements OnInit {
     const colors = EVENT_COLORS.leave;
     return {
       id: `leave-${day}`,
-      title: 'Leave',
+      title: 'On Leave',
       start: day,
       allDay: true,
       backgroundColor: colors.bg,
       borderColor: colors.border,
       textColor: colors.text,
-      classNames: ['evt-leave'],
-      extendedProps: { kind: 'leave' },
+      classNames: ['evt-leave', 'is-clickable'],
+      extendedProps: { kind: 'leave', leaveDate: day },
     };
   }
 

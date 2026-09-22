@@ -112,6 +112,7 @@ export class HelpCenterComponent implements OnInit, OnDestroy {
   });
   visibleModuleGuides: HelpModuleGuide[] = [];
   visibleQuickTasks: HelpQuickTask[] = [];
+  visibleInteractiveTutorials: HelpArticle[] = [];
   commonTasks: HelpQuickTask[] = [];
   isSearchActive = false;
   guidesHeading = 'All guides';
@@ -178,7 +179,16 @@ export class HelpCenterComponent implements OnInit, OnDestroy {
       (guide) => isHelpModuleVisible(guide.module, moduleFlags) && this.canAccessModuleGuide(guide)
     );
     this.visibleModuleGuides = filterModuleGuidesForRole(visibleModuleGuides, this.selectedRole, () => true);
+    this.visibleInteractiveTutorials = HELP_ARTICLES.filter(
+      (article) =>
+        Boolean(article.hasInteractiveTutorial && article.route) &&
+        isHelpModuleVisible(article.module, moduleFlags) &&
+        filterHelpArticlesByRole([article], this.selectedRole).length > 0
+    );
     this.visibleQuickTasks = filterQuickTasksForRole(this.quickTasks, this.selectedRole, (task) => {
+      if (task.action === 'scroll-tutorials') {
+        return this.visibleInteractiveTutorials.length > 0;
+      }
       const article = getHelpArticleBySlug(task.slug);
       if (!article) return true;
       return (
@@ -186,6 +196,14 @@ export class HelpCenterComponent implements OnInit, OnDestroy {
         filterHelpArticlesByRole([article], this.selectedRole).length > 0
       );
     });
+    const tutorialsTask = this.quickTasks.find((task) => task.action === 'scroll-tutorials');
+    if (
+      tutorialsTask &&
+      this.visibleInteractiveTutorials.length &&
+      !this.visibleQuickTasks.some((task) => task.action === 'scroll-tutorials')
+    ) {
+      this.visibleQuickTasks = [tutorialsTask, ...this.visibleQuickTasks];
+    }
     const commonSlugs = new Set(this.activeWorkflow.commonTaskSlugs);
     this.commonTasks = this.visibleQuickTasks.filter((task) => commonSlugs.has(task.slug)).slice(0, 5);
     this.isSearchActive = Boolean(this.searchQuery.trim());
@@ -359,10 +377,39 @@ export class HelpCenterComponent implements OnInit, OnDestroy {
   }
 
   openQuickTask(task: HelpQuickTask): void {
+    if (task.action === 'scroll-tutorials') {
+      this.scrollToTutorials();
+      return;
+    }
     void this.router.navigate(['/help', task.slug], {
       queryParams: { role: this.selectedRole || null },
       queryParamsHandling: 'merge',
     });
+  }
+
+  scrollToTutorials(): void {
+    if (this.activeArticle) {
+      this.activeArticle = null;
+      void this.router.navigate(['/help'], {
+        queryParams: { role: this.selectedRole || null },
+        queryParamsHandling: 'merge',
+      });
+    }
+    if (this.isSearchActive) {
+      this.searchQuery = '';
+      this.searchResults = [];
+      this.refreshResults(false);
+    }
+    this.cdr.markForCheck();
+    if (typeof document === 'undefined') {
+      return;
+    }
+    window.setTimeout(() => {
+      document.getElementById('help-interactive-tutorials')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 50);
   }
 
   openWorkflowStep(step: HelpWorkflowStep): void {

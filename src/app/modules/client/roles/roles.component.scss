@@ -513,6 +513,16 @@
     line-height: 1.45;
     margin: 0;
   }
+
+  &--convert {
+    background: #fff7ed;
+    border-color: #fed7aa;
+    color: #9a3412;
+
+    i {
+      color: #ea580c;
+    }
+  }
 }
 
 .roles-detail__fields {

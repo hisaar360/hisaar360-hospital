@@ -176,6 +176,15 @@
               <p>{{ moduleClipNote }}</p>
             </div>
 
+            <div class="roles-module-note roles-module-note--convert" *ngIf="willConvertSystemRoleOnSave" role="note">
+              <i class="fa fa-exchange" aria-hidden="true"></i>
+              <p>
+                This is a <strong>system role</strong>. Saving your changes converts it to a
+                <strong>custom role for this hospital</strong> only. Other hospitals keep the default template,
+                and Hisaar360 will stop overwriting this role on sync.
+              </p>
+            </div>
+
             <div class="roles-detail__fields">
               <label class="roles-field">
                 <span>Role Name</span>

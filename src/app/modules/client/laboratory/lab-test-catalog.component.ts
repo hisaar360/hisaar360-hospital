@@ -6,6 +6,7 @@ import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
 import { LabTestCatalog, LabTestParameterTemplate } from '../../../shared/models/hospital.model';
+import { HmsCurrencyPipe } from '../../../shared/pipes/hms-currency.pipe';
 
 type LabTestReportType = 'structured' | 'uploaded_report' | 'both';
 
@@ -25,7 +26,7 @@ type LabTestCatalogRow = LabTestCatalog & { summaryText: string };
 
 @Component({
   selector: 'app-lab-test-catalog',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, HmsCurrencyPipe],
   templateUrl: './lab-test-catalog.component.html',
   styleUrl: './lab-test-catalog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -85,6 +86,7 @@ export class LabTestCatalogComponent implements OnInit, OnDestroy {
       sampleType: 'Blood',
       tubeType: 'EDTA',
       price: 0,
+      packageRate: 0,
       reportType: 'structured' as LabTestReportType,
       turnaroundHours: 2,
       requiresFasting: false,
@@ -183,6 +185,7 @@ export class LabTestCatalogComponent implements OnInit, OnDestroy {
       sampleType: test.sampleType,
       tubeType: test.tubeType || '',
       price: test.price,
+      packageRate: test.packageRate ?? Math.round(Number(test.price || 0) * 0.85),
       reportType: (test.reportType || 'structured') as LabTestReportType,
       turnaroundHours: test.turnaroundHours ?? 2,
       requiresFasting: Boolean(test.requiresFasting),
@@ -268,7 +271,7 @@ export class LabTestCatalogComponent implements OnInit, OnDestroy {
   loadTests(): void {
     this.loading = true;
     this.backend
-      .getLabTests({ limit: 100, search: this.search.trim() || undefined })
+      .getLabTests({ limit: 500, search: this.search.trim() || undefined })
       .pipe(finalize(() => {
         this.loading = false;
         this.cdr.markForCheck();
@@ -292,10 +295,33 @@ export class LabTestCatalogComponent implements OnInit, OnDestroy {
     }
     this.backend.seedDefaultLabTests().subscribe({
       next: (response) => {
-        this.toastr.success(`${response.data?.seeded || 0} default tests seeded.`);
+        const seeded = response.data?.seeded || 0;
+        const total = response.data?.totalDefaults || 0;
+        this.toastr.success(
+          seeded > 0
+            ? `${seeded} new default tests added (${total} in master list).`
+            : `Catalog already has all ${total || 'default'} master tests. Package rates refreshed where missing.`
+        );
         this.loadTests();
       },
       error: (err) => this.toastr.error(err?.error?.message || 'Unable to seed tests.'),
+    });
+  }
+
+  deleteTest(test: LabTestCatalogRow): void {
+    if (!this.canUpdateTest()) {
+      return;
+    }
+    if (!confirm(`Delete lab test "${test.name}" (${test.shortCode})? This cannot be undone from the active catalog.`)) {
+      return;
+    }
+
+    this.backend.deleteLabTest(test._id).subscribe({
+      next: () => {
+        this.toastr.success('Lab test deleted.');
+        this.loadTests();
+      },
+      error: (err) => this.toastr.error(err?.error?.message || 'Unable to delete test.'),
     });
   }
 
@@ -323,6 +349,7 @@ export class LabTestCatalogComponent implements OnInit, OnDestroy {
       sampleType: this.form.sampleType.trim(),
       tubeType: this.form.tubeType.trim(),
       price: Number(this.form.price || 0),
+      packageRate: Number(this.form.packageRate || 0),
       reportType: this.form.reportType,
       turnaroundHours: Number(this.form.turnaroundHours || 0),
       requiresFasting: this.form.requiresFasting,

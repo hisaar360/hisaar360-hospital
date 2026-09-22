@@ -236,8 +236,15 @@
               </div>
               <div class="col-md-6">
                 <label class="form-label">Credit Limit</label>
-                <input class="form-control" type="number" [(ngModel)]="form.creditLimit" />
-                <small class="text-muted">0 = credit sales blocked. Opening balance + unpaid POS bills count toward this limit.</small>
+                <input class="form-control" type="number" min="0" [(ngModel)]="form.creditLimit" />
+                <small class="text-muted">
+                  Creating a customer does <strong>not</strong> authorize credit. Leave at <strong>0</strong> for cash/card only.
+                  Set a limit &gt; 0 only when you intentionally allow unpaid credit sales.
+                </small>
+                <div class="ph-credit-snapshot" *ngIf="editingCustomer">
+                  <span>Outstanding: <strong>{{ currency(editingCustomer.outstandingBalance) }}</strong></span>
+                  <span>Remaining: <strong>{{ currency(editingCustomer.availableCredit) }}</strong></span>
+                </div>
               </div>
               <div class="col-12">
                 <label class="form-label">Address</label>
@@ -272,12 +279,16 @@
         <p>Simple guide for pharmacy counter credit sales.</p>
         <div class="pharmacy-rules-list">
           <article>
+            <strong>Customer ≠ Credit</strong>
+            <p>Adding a customer only saves a name for billing / invoices. Credit is off until you set Credit Limit &gt; 0 on that customer.</p>
+          </article>
+          <article>
             <strong>What is Credit Limit?</strong>
             <p>Maximum unpaid amount this customer can owe. Example: limit PKR 10,000 means unpaid POS bills cannot go above 10,000.</p>
           </article>
           <article>
             <strong>Credit Limit = 0</strong>
-            <p>Credit sale not allowed. Customer must pay in full (cash/card/bank). Walk-in with no customer also cannot use Credit.</p>
+            <p>Credit sale not allowed. Customer must pay in full (cash/card/bank). Walk-in with no customer also cannot use Credit. Doctor prescription patients are auto-added as customers with limit 0.</p>
           </article>
           <article>
             <strong>Opening Balance</strong>

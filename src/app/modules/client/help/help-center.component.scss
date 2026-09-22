@@ -28,6 +28,19 @@
   margin-bottom: 14px;
 }
 
+.help-page-header__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.help-page-header__actions .hms-btn {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
 .help-page-header h1,
 .help-article-header h1 {
   color: var(--help-text);
@@ -384,6 +397,49 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.help-tutorials-section {
+  border: 1px solid rgba(1, 156, 157, 0.18);
+}
+
+.help-tutorial-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.help-tutorial-row {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--help-border);
+  border-radius: var(--help-radius-sm);
+  box-shadow: var(--help-shadow);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.help-tutorial-row__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.help-tutorial-row__main h4 {
+  color: var(--help-text);
+  font-size: 14px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.help-tutorial-row__action {
+  align-items: center;
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 6px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
 .help-workflow__heading {
   color: var(--help-text);
   font-size: 14px;
@@ -652,8 +708,25 @@
   padding: 3px 8px;
 }
 
+.help-guide-card__actions {
+  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
 .help-guide-card__action {
   flex-shrink: 0;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.help-article-header__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .help-empty {
@@ -939,8 +1012,22 @@
     flex-direction: column;
   }
 
+  .help-guide-card__actions {
+    width: 100%;
+  }
+
   .help-guide-card__action {
     width: 100%;
+  }
+
+  .help-tutorial-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .help-tutorial-row__action {
+    width: 100%;
+    justify-content: center;
   }
 }
 

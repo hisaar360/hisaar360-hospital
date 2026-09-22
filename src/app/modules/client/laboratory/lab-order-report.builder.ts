@@ -1,3 +1,4 @@
+import { printHtmlJob } from '../../../core/keyboard/print-job.util';
 import {
   Hospital,
   LabComparisonRow,
@@ -1113,54 +1114,8 @@ export function openLabReportPrintWindow(html: string): boolean {
     return false;
   }
 
-  const iframe = document.createElement('iframe');
-  iframe.setAttribute('title', 'Lab report print');
-  iframe.setAttribute('aria-hidden', 'true');
-  Object.assign(iframe.style, {
-    border: '0',
-    height: '0',
-    left: '-10000px',
-    opacity: '0',
-    pointerEvents: 'none',
-    position: 'fixed',
-    top: '0',
-    width: '0',
+  return printHtmlJob(content, {
+    jobType: 'a4',
+    title: 'Lab Report — select A4 printer',
   });
-
-  document.body.appendChild(iframe);
-
-  const printWindow = iframe.contentWindow;
-  const printDocument = iframe.contentDocument || printWindow?.document;
-  if (!printWindow || !printDocument) {
-    iframe.remove();
-    return false;
-  }
-
-  printDocument.open();
-  printDocument.write(content);
-  printDocument.close();
-
-  let handled = false;
-  const finish = () => {
-    if (handled) {
-      return;
-    }
-
-    handled = true;
-    iframe.remove();
-  };
-
-  printWindow.onafterprint = finish;
-
-  window.setTimeout(() => {
-    try {
-      printWindow.focus();
-      printWindow.print();
-    } catch {
-      finish();
-    }
-  }, 300);
-
-  window.setTimeout(finish, 30000);
-  return true;
 }

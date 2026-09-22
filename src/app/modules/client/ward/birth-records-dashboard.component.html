@@ -175,16 +175,18 @@
             <input type="time" [(ngModel)]="recordForm.timeOfBirth" />
           </label>
           <label class="hms-form-field">
-            <span class="hms-form-field__label">Sex</span>
-            <select [(ngModel)]="recordForm.sexAtBirth">
+            <span class="hms-form-field__label">Gender of Baby *</span>
+            <select [(ngModel)]="recordForm.sexAtBirth" (ngModelChange)="clearRecordError('sexAtBirth')">
               <option value="male">Male</option>
               <option value="female">Female</option>
               <option value="other">Other</option>
             </select>
+            <span class="hms-form-field__error" *ngIf="recordErrors['sexAtBirth']">{{ recordErrors['sexAtBirth'] }}</span>
           </label>
           <label class="hms-form-field">
-            <span class="hms-form-field__label">Birth Weight (g)</span>
-            <input type="number" [(ngModel)]="recordForm.birthWeightGrams" placeholder="e.g. 2850" />
+            <span class="hms-form-field__label">Birth Weight (g) *</span>
+            <input type="number" [(ngModel)]="recordForm.birthWeightGrams" placeholder="e.g. 2700" (ngModelChange)="clearRecordError('birthWeightGrams')" />
+            <small class="hms-form-field__hint">Required on birth certificate. Collect at birth / before OT.</small>
             <span class="hms-form-field__error" *ngIf="recordErrors['birthWeightGrams']">{{ recordErrors['birthWeightGrams'] }}</span>
           </label>
           <label class="hms-form-field">
@@ -208,7 +210,10 @@
         <div class="hms-form-grid">
           <label class="hms-form-field">
             <span class="hms-form-field__label">Mode of Delivery</span>
-            <input [(ngModel)]="recordForm.modeOfDelivery" placeholder="e.g. Normal vaginal delivery" />
+            <select [(ngModel)]="recordForm.modeOfDelivery">
+              <option value="">Select mode</option>
+              <option *ngFor="let mode of deliveryModes" [value]="mode.value">{{ mode.label }}</option>
+            </select>
           </label>
           <label class="hms-form-field">
             <span class="hms-form-field__label">Delivered By (doctor)</span>
@@ -220,11 +225,25 @@
       </section>
 
       <section class="hms-modal-card">
-        <div class="hms-modal-card__title"><i class="fa fa-users"></i><h4>Parent / Guardian Details</h4></div>
-        <label class="hms-form-field">
-          <span class="hms-form-field__label">Father Name</span>
-          <input [(ngModel)]="recordForm.fatherName" placeholder="Enter father name or leave blank if unknown" />
-        </label>
+        <div class="hms-modal-card__title"><i class="fa fa-users"></i><h4>Parent / Guardian Details (certificate fields)</h4></div>
+        <div class="hms-form-grid">
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Mother CNIC *</span>
+            <input [(ngModel)]="recordForm.motherCNICSnapshot" placeholder="XXXXX-XXXXXXX-X" autocomplete="off" (ngModelChange)="clearRecordError('motherCNICSnapshot')" />
+            <small class="hms-form-field__hint">Printed on the birth certificate. Ward boy fills before OT / Generate.</small>
+            <span class="hms-form-field__error" *ngIf="recordErrors['motherCNICSnapshot']">{{ recordErrors['motherCNICSnapshot'] }}</span>
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Father Name</span>
+            <input [(ngModel)]="recordForm.fatherName" placeholder="Enter father name or leave blank if unknown" />
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Father CNIC *</span>
+            <input [(ngModel)]="recordForm.fatherCNIC" placeholder="XXXXX-XXXXXXX-X" autocomplete="off" (ngModelChange)="clearRecordError('fatherCNIC')" />
+            <small class="hms-form-field__hint">Collect before OT when possible (especially C-section). Shown on certificate.</small>
+            <span class="hms-form-field__error" *ngIf="recordErrors['fatherCNIC']">{{ recordErrors['fatherCNIC'] }}</span>
+          </label>
+        </div>
       </section>
 
       <section class="hms-modal-card">
@@ -354,12 +373,15 @@
 
         <article class="birth-record-card-panel birth-record-card-panel--mother">
           <header>
-            <span class="birth-record-card-panel__icon"><i class="fa fa-female" aria-hidden="true"></i></span>
-            <h4>Mother</h4>
+            <span class="birth-record-card-panel__icon"><i class="fa fa-users" aria-hidden="true"></i></span>
+            <h4>Parents</h4>
           </header>
           <dl class="birth-record-card-panel__details">
             <div><dt>Name</dt><dd>{{ certificateMotherName() }}</dd></div>
             <div><dt>Patient ID</dt><dd>{{ certificateMotherMr() }}</dd></div>
+            <div><dt>Mother CNIC</dt><dd>{{ certificateMotherCnic() }}</dd></div>
+            <div><dt>Father Name</dt><dd>{{ certificateFatherName() }}</dd></div>
+            <div><dt>Father CNIC</dt><dd>{{ certificateFatherCnic() }}</dd></div>
             <div><dt>Age</dt><dd>{{ certificateMotherAge() }}</dd></div>
             <div><dt>Contact</dt><dd>{{ certificateMotherContact() }}</dd></div>
             <div><dt>Address</dt><dd>{{ certificateMotherAddress() }}</dd></div>
@@ -417,6 +439,57 @@
         [onPrinted]="onBirthCertificatePrinted.bind(this)"
       ></app-hms-document-toolbar>
       <button type="button" class="birth-record-view__button birth-record-view__button--outline" (click)="closeCertificateSummary()">Close</button>
+    </footer>
+  </section>
+</div>
+
+<div class="hms-modal-backdrop" *ngIf="certifyOpen" (click)="closeCertifyDetails()">
+  <section class="hms-modal" role="dialog" aria-modal="true" aria-labelledby="certify-details-title" (click)="$event.stopPropagation()">
+    <header class="hms-modal__header">
+      <div class="hms-modal__header-copy">
+        <h3 id="certify-details-title">Complete Certificate Details</h3>
+        <p>Ward boy fills Mother/Father CNIC, baby gender, and birth weight before Generate / Issue Certificate.</p>
+      </div>
+      <button type="button" class="hms-modal__close" aria-label="Close" (click)="closeCertifyDetails()">&times;</button>
+    </header>
+    <div class="hms-modal__body">
+      <section class="hms-modal-card">
+        <div class="hms-modal-card__title"><i class="fa fa-id-card"></i><h4>Required for certificate</h4></div>
+        <div class="hms-form-grid">
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Gender of Baby *</span>
+            <select [(ngModel)]="certifyForm.sexAtBirth">
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+            <span class="hms-form-field__error" *ngIf="certifyErrors['sexAtBirth']">{{ certifyErrors['sexAtBirth'] }}</span>
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Birth Weight (g) *</span>
+            <input type="number" [(ngModel)]="certifyForm.birthWeightGrams" placeholder="e.g. 2700" />
+            <span class="hms-form-field__error" *ngIf="certifyErrors['birthWeightGrams']">{{ certifyErrors['birthWeightGrams'] }}</span>
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Mother CNIC *</span>
+            <input [(ngModel)]="certifyForm.motherCNICSnapshot" placeholder="XXXXX-XXXXXXX-X" autocomplete="off" />
+            <span class="hms-form-field__error" *ngIf="certifyErrors['motherCNICSnapshot']">{{ certifyErrors['motherCNICSnapshot'] }}</span>
+          </label>
+          <label class="hms-form-field">
+            <span class="hms-form-field__label">Father CNIC *</span>
+            <input [(ngModel)]="certifyForm.fatherCNIC" placeholder="XXXXX-XXXXXXX-X" autocomplete="off" />
+            <span class="hms-form-field__error" *ngIf="certifyErrors['fatherCNIC']">{{ certifyErrors['fatherCNIC'] }}</span>
+          </label>
+        </div>
+      </section>
+    </div>
+    <footer class="hms-modal__footer">
+      <button type="button" class="hms-btn hms-btn--ghost" (click)="closeCertifyDetails()">Cancel</button>
+      <div class="hms-modal__footer-actions">
+        <button type="button" class="hms-btn hms-btn--primary" [disabled]="certifySaving" (click)="saveCertifyDetailsAndIssue()">
+          {{ certifySaving ? 'Saving…' : 'Save & Issue Certificate' }}
+        </button>
+      </div>
     </footer>
   </section>
 </div>

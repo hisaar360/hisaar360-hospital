@@ -585,9 +585,7 @@ export function buildGynaeConsentSummary(data: Record<string, unknown>): string 
 
 const GYNAE_EDIT_SAMPLE_BY_MODE: Record<GynaeConsultMode, Record<string, string>> = {
   antenatal: {
-    lmp: '2026-01-20',
-    edd: '2026-10-27',
-    gestationalAge: '22 weeks 3 days',
+    // Dating (LMP / EDD / GA) is never auto-filled — doctor enters on Specialty tab.
     gravida: '2',
     para: '1',
     abortion: '0',
@@ -602,19 +600,9 @@ const GYNAE_EDIT_SAMPLE_BY_MODE: Record<GynaeConsultMode, Record<string, string>
     fundalHeight: '21',
     fetalHeartRate: '152 /min',
     presentation: 'Cephalic',
-    pvExamination: 'Not indicated (22 weeks). Abdomen soft, uterus 20 weeks size.',
-    antenatalOtherNotes: 'Routine ANC. Next anomaly scan advised at 24 weeks.',
-    antenatalDangerHeavyBleedingCounselled: 'Yes',
-    antenatalDangerFeverCounselled: 'Yes',
-    antenatalDangerSevereAbdominalPainCounselled: 'Yes',
-    antenatalDangerSevereVomitingCounselled: 'Yes',
-    antenatalDangerSevereHeadacheCounselled: 'Yes',
-    antenatalDangerDecreasedFetalMovementCounselled: 'Yes',
-    antenatalDangerSwellingHypertensionCounselled: 'Yes',
-    antenatalDangerConvulsionsCounselled: 'Yes',
+    pvExamination: 'Abdomen soft. Examination findings as documented.',
+    antenatalOtherNotes: 'Routine ANC. Follow investigations as advised.',
     gynaeNoteToPatient: ANTEPARTUM_DEFAULT_NOTE_TO_PATIENT,
-    chaperonePresent: 'Yes',
-    patientConsentTaken: 'Yes',
     pelvicExamDone: 'Not Done',
   },
   gynae_problem: {
@@ -623,34 +611,16 @@ const GYNAE_EDIT_SAMPLE_BY_MODE: Record<GynaeConsultMode, Record<string, string>
     cycleLength: '35-45 days',
     durationOfFlow: '5 days',
     amountOfBleeding: 'Moderate',
-    dysmenorrhea: 'Yes',
     married: 'Married',
     contraceptionHistory: 'Condom (Occasional)',
     infertilityDuration: '--',
-    lowerAbdominalPain: 'Yes',
-    whiteDischarge: 'Present',
-    postcoitalBleeding: 'No',
-    urinarySymptoms: 'No',
-    dyspareunia: 'No',
     menopauseStatus: 'Pre-menopausal',
-    irregularPeriods: 'Yes',
-    heavyBleeding: 'No',
-    gynaeItching: 'No',
-    gynaeBloating: 'No',
-    redFlagHeavyBleeding: 'No',
-    redFlagPostmenopausalBleeding: 'No',
-    redFlagSeverePelvicPain: 'No',
-    redFlagFeverFoulDischarge: 'No',
-    redFlagPregnancySuspected: 'No',
-    redFlagWeightLoss: 'No',
     pelvicFindings:
       'Per speculum: Cervix healthy. Per vaginum: Uterus anteverted, normal size. No adnexal mass or tenderness.',
     provisionalDiagnosis: 'Ovulatory dysfunction (AUB-O).',
     treatmentPlan: 'Tab. Tranexamic Acid 500 mg TDS for 5 days during menses. Tab. Mefenamic Acid 500 mg BD PRN pain.',
     gynecologyNotes:
       'Counselled regarding cycle tracking and follow-up. Diet, exercise and stress management advised.',
-    chaperonePresent: 'Yes',
-    patientConsentTaken: 'Yes',
     pelvicExamDone: 'Done',
   },
   postnatal: {
@@ -663,8 +633,6 @@ const GYNAE_EDIT_SAMPLE_BY_MODE: Record<GynaeConsultMode, Record<string, string>
     bleedingStatus: 'Scanty (Normal)',
     stitchesStatus: 'Healing Well',
     postpartumPain: 'Mild',
-    postpartumFever: 'No',
-    urinaryComplaints: 'No',
     bowelStatus: 'Normal',
     uterineInvolution: 'Uterus well contracted',
     postpartumBp: '112/72 mmHg',
@@ -676,13 +644,6 @@ const GYNAE_EDIT_SAMPLE_BY_MODE: Record<GynaeConsultMode, Record<string, string>
     adviceToMother: 'Rest, adequate fluids, nutritious diet, wound care and perineal hygiene.',
     familyPlanningCounseling: 'Counselled on spacing and contraception options after 6 weeks.',
     postnatalFollowUpPlan: 'Review after 2 weeks or earlier if danger signs.',
-    dangerHeavyBleedingCounselled: 'Yes',
-    dangerFeverCounselled: 'Yes',
-    dangerBreastPainCounselled: 'Yes',
-    dangerSevereHeadacheCounselled: 'Yes',
-    dangerWoundInfectionCounselled: 'Yes',
-    dangerFoulLochiaCounselled: 'Yes',
-    dangerDepressionCounselled: 'Yes',
     newbornPediatricVisit: '10 Jul 2026',
     newbornBcgOpv: 'Due at 6 weeks',
     newbornVitaminD: 'Daily',
@@ -691,8 +652,6 @@ const GYNAE_EDIT_SAMPLE_BY_MODE: Record<GynaeConsultMode, Record<string, string>
     postnatalCounsellingNotes: POSTNATAL_DEFAULT_COUNSELLING,
     gynaeNoteToPatient:
       'Take medicines as advised. Follow up after 2 weeks. Visit emergency if heavy bleeding, fever, severe pain or depression symptoms.',
-    chaperonePresent: 'Yes',
-    patientConsentTaken: 'Yes',
   },
 };
 
@@ -704,12 +663,54 @@ export function buildGynaeEditSamplePatch(
   const patch: Record<string, string> = {};
 
   Object.entries(samples).forEach(([key, value]) => {
+    // Never auto-check symptoms / danger signs / red flags / complaint chips.
+    if (isGynaeClinicianToggleKey(key)) {
+      return;
+    }
+    // Doctor must enter dating fields — never sample-fill.
+    if (isGynaeDoctorDatingKey(key)) {
+      return;
+    }
     if (!String(current[key] || '').trim()) {
       patch[key] = value;
     }
   });
 
   return patch;
+}
+
+/** LMP / EDD / GA — doctor entered only (or calculated after doctor enters LMP). */
+export function isGynaeDoctorDatingKey(key: string): boolean {
+  return ['lmp', 'edd', 'gestationalAge'].includes(key);
+}
+
+/** Legacy demo dating values that must be cleared if still present on a consult. */
+export const GYNAE_DEMO_DATING_VALUES: Record<string, string> = {
+  lmp: '2026-01-20',
+  edd: '2026-10-27',
+  gestationalAge: '22 weeks 3 days',
+};
+
+/** Checkbox / chip fields that must stay blank until the doctor selects them. */
+function isGynaeClinicianToggleKey(key: string): boolean {
+  return (
+    /Counselled$/i.test(key) ||
+    /^redFlag/i.test(key) ||
+    GYNAE_PROBLEM_COMPLAINTS.some((item) => item.key === key) ||
+    [
+      'dysmenorrhea',
+      'postcoitalBleeding',
+      'urinarySymptoms',
+      'dyspareunia',
+      'postpartumFever',
+      'urinaryComplaints',
+      'previousCSection',
+      'pvBleeding',
+      'painAbdomen',
+      'chaperonePresent',
+      'patientConsentTaken',
+    ].includes(key)
+  );
 }
 
 export function visibleGynaeFieldKeys(mode: GynaeConsultMode): Set<string> {
@@ -754,6 +755,10 @@ const GYNAE_BASE_FIELD_LABELS: Record<string, string> = {
 
 const GYNAE_PRINT_SKIP_KEYS = new Set([
   'gynaeMode',
+  'pregnancyEpisodeNumber',
+  'visitGestationalAge',
+  'pregnancyEddDisplay',
+  'pregnancyEddLabel',
   'dangerHeavyBleedingCounselled',
   'dangerFeverCounselled',
   'dangerBreastPainCounselled',
@@ -950,6 +955,15 @@ export function resolveGynaePrintRows(data: Record<string, unknown>): Array<{ la
 
   const mode = normalizeGynaeConsultMode(data['gynaeMode']);
   push('Consult Mode', formatGynaePrintValue('gynaeMode', mode));
+
+  // Compact pregnancy episode summary (populated when linked) — skip empty/internal keys.
+  push('Pregnancy #', String(data['pregnancyEpisodeNumber'] || '').trim());
+  push('GA at Visit', String(data['visitGestationalAge'] || '').trim());
+  const eddDisplay = String(data['pregnancyEddDisplay'] || '').trim();
+  const eddLabel = String(data['pregnancyEddLabel'] || 'EDD').trim();
+  if (eddDisplay) {
+    push(eddLabel, eddDisplay);
+  }
 
   const fieldKeys = visibleGynaeFieldKeys(mode);
   fieldKeys.forEach((key) => {

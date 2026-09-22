@@ -90,7 +90,7 @@
           <span class="recommendation-item__icon"><i class="fa fa-money"></i></span>
           <div>
             <small>Standard Package Rate</small>
-            <strong>Rs. {{ packageRateFromRecommendation(rec) | number:'1.0-0' }}</strong>
+            <strong>{{ (packageRateFromRecommendation(rec)) | hmsCurrency }}</strong>
           </div>
         </article>
         <article class="recommendation-item">
@@ -208,7 +208,7 @@
                   <i class="fa fa-circle"></i> {{ roomStatusLabel(selectedRoom.status) }}
                 </span>
               </div>
-              <div><span>Charges / Day</span><strong>Rs. {{ selectedRoom.chargesPerDay | number:'1.0-0' }}</strong></div>
+              <div><span>Charges / Day</span><strong>{{ (selectedRoom.chargesPerDay) | hmsCurrency }}</strong></div>
               <div *ngIf="allotmentForm.get('bedLabel')?.value"><span>Bed Label</span><strong>{{ allotmentForm.get('bedLabel')?.value }}</strong></div>
             </div>
           </div>
@@ -260,7 +260,7 @@
                 <select id="treatmentCatalogId" class="allotment-input allotment-select" formControlName="treatmentCatalogId">
                   <option value="">Select package</option>
                   <option *ngFor="let item of treatmentCatalog" [value]="item._id">
-                    {{ item.code }} — {{ item.name }} (PKR {{ item.baseRate | number:'1.0-0' }})
+                    {{ item.code }} — {{ item.name }} ({{ item.baseRate | hmsCurrency }})
                   </option>
                 </select>
                 <span class="field-trailing-icon"><i class="fa fa-chevron-down" aria-hidden="true"></i></span>
@@ -300,7 +300,7 @@
 
           <div class="allotment-grid-2">
             <div class="allotment-field">
-              <label for="advanceAmount">Admission Advance (Rs.)</label>
+              <label for="advanceAmount">Admission Advance</label>
               <div class="input-with-icon">
                 <span class="field-leading-icon"><i class="fa fa-money" aria-hidden="true"></i></span>
                 <input
@@ -329,7 +329,7 @@
             </div>
 
             <div class="allotment-field">
-              <label for="securityAmount">Security / Deposit (Rs.)</label>
+              <label for="securityAmount">Security / Deposit</label>
               <div class="input-with-icon">
                 <span class="field-leading-icon"><i class="fa fa-money" aria-hidden="true"></i></span>
                 <input
@@ -386,14 +386,14 @@
 
           <div class="mobile-billing-card">
             <h3>Admission Pricing Summary</h3>
-            <div class="billing-row"><span>Room Effective / Day</span><strong>Rs. {{ effectiveRoomRate | number:'1.0-0' }}</strong></div>
-            <div class="billing-row"><span>Package Effective</span><strong>Rs. {{ effectivePackageRate | number:'1.0-0' }}</strong></div>
-            <div class="billing-row"><span>Estimated Charges</span><strong>Rs. {{ estimatedChargesTotal | number:'1.0-0' }}</strong></div>
-            <div class="billing-row"><span>Advance (Collected)</span><strong>Rs. {{ advanceCharge | number:'1.0-0' }}</strong></div>
-            <div class="billing-row"><span>Security Deposit</span><strong>Rs. {{ securityCharge | number:'1.0-0' }}</strong></div>
+            <div class="billing-row"><span>Room Effective / Day</span><strong>{{ (effectiveRoomRate) | hmsCurrency }}</strong></div>
+            <div class="billing-row"><span>Package Effective</span><strong>{{ (effectivePackageRate) | hmsCurrency }}</strong></div>
+            <div class="billing-row"><span>Estimated Charges</span><strong>{{ (estimatedChargesTotal) | hmsCurrency }}</strong></div>
+            <div class="billing-row"><span>Advance (Collected)</span><strong>{{ (advanceCharge) | hmsCurrency }}</strong></div>
+            <div class="billing-row"><span>Security Deposit</span><strong>{{ (securityCharge) | hmsCurrency }}</strong></div>
             <div class="billing-total">
               <span>Money Collected Today</span>
-              <strong>Rs. {{ totalPayableToday | number:'1.0-0' }}</strong>
+              <strong>{{ (totalPayableToday) | hmsCurrency }}</strong>
             </div>
           </div>
 
@@ -509,18 +509,18 @@
             </div>
           </div>
           <div class="allotment-card__body billing-body">
-            <div class="billing-row"><span>Room Standard/day</span><strong>Rs. {{ roomCharge | number:'1.0-0' }}</strong></div>
+            <div class="billing-row"><span>Room Standard/day</span><strong>{{ (roomCharge) | hmsCurrency }}</strong></div>
             <div class="billing-row"><span>Room Recommended Discount</span><strong>{{ recommendedRoomDiscountLabel }}</strong></div>
-            <div class="billing-row"><span>Room Effective/day</span><strong>Rs. {{ effectiveRoomRate | number:'1.0-0' }}</strong></div>
-            <div class="billing-row"><span>Package Standard</span><strong>Rs. {{ packageRate | number:'1.0-0' }}</strong></div>
+            <div class="billing-row"><span>Room Effective/day</span><strong>{{ (effectiveRoomRate) | hmsCurrency }}</strong></div>
+            <div class="billing-row"><span>Package Standard</span><strong>{{ (packageRate) | hmsCurrency }}</strong></div>
             <div class="billing-row"><span>Operation Recommended Discount</span><strong>{{ recommendedProcedureDiscountLabel }}</strong></div>
-            <div class="billing-row"><span>Package Effective</span><strong>Rs. {{ effectivePackageRate | number:'1.0-0' }}</strong></div>
-            <div class="billing-row"><span>Estimated Charges</span><strong>Rs. {{ estimatedChargesTotal | number:'1.0-0' }}</strong></div>
-            <div class="billing-row"><span>Advance (Collected)</span><strong>Rs. {{ advanceCharge | number:'1.0-0' }}</strong></div>
-            <div class="billing-row"><span>Security Deposit</span><strong>Rs. {{ securityCharge | number:'1.0-0' }}</strong></div>
+            <div class="billing-row"><span>Package Effective</span><strong>{{ (effectivePackageRate) | hmsCurrency }}</strong></div>
+            <div class="billing-row"><span>Estimated Charges</span><strong>{{ (estimatedChargesTotal) | hmsCurrency }}</strong></div>
+            <div class="billing-row"><span>Advance (Collected)</span><strong>{{ (advanceCharge) | hmsCurrency }}</strong></div>
+            <div class="billing-row"><span>Security Deposit</span><strong>{{ (securityCharge) | hmsCurrency }}</strong></div>
             <div class="billing-total">
               <span>Money Collected Today</span>
-              <strong>Rs. {{ totalPayableToday | number:'1.0-0' }}</strong>
+              <strong>{{ (totalPayableToday) | hmsCurrency }}</strong>
             </div>
             <div class="billing-note">
               <i class="fa fa-info-circle" aria-hidden="true"></i>

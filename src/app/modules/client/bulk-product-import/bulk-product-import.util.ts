@@ -188,7 +188,7 @@ export const downloadBulkMedicineTemplate = (sampleStoreName = ''): void => {
         {
           topic: 'Required columns',
           guidance:
-            'Medicine Name, Type, Strength, Strength Unit, Store, Cost Price. Opening Stock must be a whole number ≥ 1.',
+            'Medicine Name, Type, Strength, Strength Unit, Store, Cost Price, Selling Price. Opening Stock must be a whole number ≥ 1.',
         },
         {
           topic: 'Type values',
@@ -209,16 +209,21 @@ export const downloadBulkMedicineTemplate = (sampleStoreName = ''): void => {
         {
           topic: 'Store / Category',
           guidance:
-            'Use exact store and category names from your hospital. Do not paste Mongo IDs. Unknown category can be created if you have categories.create.',
+            'Use exact store and category names from your hospital. Do not paste Mongo IDs. Unknown category can be created if you have categories.create. On upload, the store selected on the Bulk page overrides the Excel Store column.',
+        },
+        {
+          topic: 'How to import',
+          guidance:
+            '1) Download this template. 2) Replace the SAMPLE row with your medicines (or keep columns and add more rows). 3) Save the .xlsx. 4) Open Bulk Medicine Upload and choose the file. 5) Fix any Errors, then Save All Medicines.',
         },
         {
           topic: 'Discount Eligible',
-          guidance: 'Yes / No (or true / false).',
+          guidance: 'Yes / No (or true / false). If Yes, also set Max Discount Type and Max Discount Value.',
         },
         {
           topic: 'Blank vs sample file',
           guidance:
-            'This blank template has only 1 SAMPLE row (blocked on save). For load testing, use Download 500 Sample Medicines.',
+            'This blank template has only 1 SAMPLE row (blocked on save — rename or delete it). For load testing, use Download 500 Sample Medicines.',
         },
         {
           topic: 'Limits',

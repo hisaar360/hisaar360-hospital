@@ -11,17 +11,25 @@
     <header class="doc-schedule-header">
       <div>
         <h1>Doctor &amp; Operation Schedule</h1>
-        <p>View OPD appointments, assigned operations, leave, and working hours in one calendar.</p>
+        <p>Manage working hours, mark leave days, book appointments, and track operations.</p>
       </div>
       <div class="doc-schedule-header__actions" *ngIf="canEditSelected">
         <button type="button" class="ds-btn ds-btn--outline" (click)="openHoursPanel()">
           <i class="fa fa-clock-o" aria-hidden="true"></i> Set Working Hours
         </button>
         <button type="button" class="ds-btn ds-btn--outline" (click)="openLeavePanel()">
-          <i class="fa fa-calendar-times-o" aria-hidden="true"></i> Apply Leave
+          <i class="fa fa-plane" aria-hidden="true"></i> Mark Leave
         </button>
-        <a class="ds-btn ds-btn--primary" routerLink="/appointments">
-          <i class="fa fa-plus" aria-hidden="true"></i> Book Appointment
+        <a class="ds-btn ds-btn--outline" [routerLink]="['/appointments']" [queryParams]="appointmentQueryParams">
+          <i class="fa fa-calendar-plus-o" aria-hidden="true"></i> Book Appointment
+        </a>
+        <a
+          class="ds-btn ds-btn--primary"
+          *ngIf="canReadOperations"
+          [routerLink]="['/operations']"
+          [queryParams]="operationQueryParams"
+        >
+          <i class="fa fa-medkit" aria-hidden="true"></i> Schedule Operation
         </a>
       </div>
     </header>
@@ -33,8 +41,8 @@
         <button type="button" role="tab" [class.is-active]="activeTab === 'schedule'" (click)="setTab('schedule')">My Schedule</button>
         <button type="button" role="tab" [class.is-active]="activeTab === 'appointments'" (click)="setTab('appointments')">Appointments</button>
         <button type="button" role="tab" [class.is-active]="activeTab === 'operations'" (click)="setTab('operations')">Operations</button>
-        <button type="button" role="tab" [class.is-active]="activeTab === 'leave'" (click)="setTab('leave')">Leave</button>
-        <button type="button" role="tab" [class.is-active]="activeTab === 'availability'" (click)="setTab('availability')">Availability</button>
+        <button type="button" role="tab" [class.is-active]="activeTab === 'availability'" (click)="setTab('availability')">Working Hours</button>
+        <button type="button" role="tab" *ngIf="canEditSelected" [class.is-active]="activeTab === 'leave'" (click)="setTab('leave')">Leave</button>
       </div>
 
       <section class="doc-kpi-grid" aria-label="Schedule summary">
@@ -60,10 +68,10 @@
           </div>
         </article>
         <article class="doc-kpi">
-          <span class="doc-kpi__icon is-orange"><i class="fa fa-plane" aria-hidden="true"></i></span>
+          <span class="doc-kpi__icon is-orange"><i class="fa fa-clock-o" aria-hidden="true"></i></span>
           <div>
-            <small>Leave Days</small>
-            <strong>{{ kpis.leaveDays }}</strong>
+            <small>Working Days</small>
+            <strong>{{ workingDaysCount }}</strong>
           </div>
         </article>
       </section>
@@ -96,62 +104,10 @@
               <span class="doc-legend__item is-opd"><i></i> OPD</span>
               <span class="doc-legend__item is-followup"><i></i> Follow-up</span>
               <span class="doc-legend__item is-operation"><i></i> Operations</span>
-              <span class="doc-legend__item is-completed"><i></i> Completed / Checked</span>
               <span class="doc-legend__item is-leave"><i></i> Leave</span>
+              <span class="doc-legend__item is-completed"><i></i> Completed / Checked</span>
             </div>
           </div>
-
-          <section class="doc-panel" *ngIf="showHoursPanel && canEditSelected">
-            <div class="doc-panel__head">
-              <h3>Set Working Hours</h3>
-              <button type="button" class="ds-btn ds-btn--ghost" (click)="showHoursPanel = false">Close</button>
-            </div>
-            <label class="doc-field">
-              <span>Minutes per patient</span>
-              <select [(ngModel)]="slotDurationMinutes" name="slotDurationMinutes">
-                <option *ngFor="let minutes of slotDurationOptions" [ngValue]="minutes">{{ minutes }} minutes</option>
-              </select>
-            </label>
-            <div class="day-hours-row" *ngFor="let day of weekDays">
-              <label class="day-hours-day">
-                <input type="checkbox" [(ngModel)]="dayHours[day].enabled" [name]="'day-' + day" />
-                <span class="text-capitalize">{{ day }}</span>
-              </label>
-              <div class="day-hours-times">
-                <input type="time" [(ngModel)]="dayHours[day].startTime" [name]="'start-' + day" [disabled]="!dayHours[day].enabled" />
-                <span>to</span>
-                <input type="time" [(ngModel)]="dayHours[day].endTime" [name]="'end-' + day" [disabled]="!dayHours[day].enabled" />
-              </div>
-            </div>
-            <div class="doc-panel__foot">
-              <button type="button" class="ds-btn ds-btn--primary" (click)="saveSchedule()" [disabled]="saving">
-                {{ saving ? 'Saving…' : 'Save Working Hours' }}
-              </button>
-            </div>
-          </section>
-
-          <section class="doc-panel" *ngIf="showLeavePanel && canEditSelected">
-            <div class="doc-panel__head">
-              <h3>Apply Leave</h3>
-              <button type="button" class="ds-btn ds-btn--ghost" (click)="showLeavePanel = false">Close</button>
-            </div>
-            <p class="doc-hint">Patients cannot book appointments on these dates. Save schedule to persist leave.</p>
-            <div class="leave-row">
-              <input type="date" [(ngModel)]="leaveDate" name="leaveDate" />
-              <button type="button" class="ds-btn ds-btn--outline" (click)="addLeaveDate()">Add date</button>
-            </div>
-            <div class="leave-chips" *ngIf="unavailableDates.length">
-              <span class="leave-chip" *ngFor="let ymd of unavailableDates">
-                {{ ymd }}
-                <button type="button" (click)="removeLeaveDate(ymd)" aria-label="Remove date">&times;</button>
-              </span>
-            </div>
-            <div class="doc-panel__foot">
-              <button type="button" class="ds-btn ds-btn--primary" (click)="saveSchedule()" [disabled]="saving">
-                {{ saving ? 'Saving…' : 'Save Leave Dates' }}
-              </button>
-            </div>
-          </section>
         </section>
 
         <aside class="doc-schedule-sidebar">
@@ -171,15 +127,41 @@
 
           <section class="doc-side-card">
             <h3>Quick Actions</h3>
-            <a class="doc-quick" routerLink="/appointments"><i class="fa fa-calendar-plus-o"></i> Book Appointment</a>
-            <a class="doc-quick" routerLink="/operations" *ngIf="canReadOperations"><i class="fa fa-medkit"></i> Schedule Operation</a>
-            <button type="button" class="doc-quick" *ngIf="canEditSelected" (click)="openLeavePanel()">
-              <i class="fa fa-plane"></i> Apply for Leave
-            </button>
+            <a class="doc-quick" [routerLink]="['/appointments']" [queryParams]="appointmentQueryParams">
+              <i class="fa fa-calendar-plus-o"></i> Book Appointment
+            </a>
+            <a
+              class="doc-quick"
+              *ngIf="canReadOperations"
+              [routerLink]="['/operations']"
+              [queryParams]="operationQueryParams"
+            >
+              <i class="fa fa-medkit"></i> Schedule Operation
+            </a>
             <button type="button" class="doc-quick" *ngIf="canEditSelected" (click)="openHoursPanel()">
               <i class="fa fa-clock-o"></i> Set Working Hours
             </button>
+            <button type="button" class="doc-quick" *ngIf="canEditSelected" (click)="openLeavePanel()">
+              <i class="fa fa-plane"></i> Mark Leave
+            </button>
             <a class="doc-quick" routerLink="/all-doctors" *ngIf="canReadDirectory"><i class="fa fa-user-md"></i> All Doctors</a>
+          </section>
+
+          <section class="doc-side-card" *ngIf="upcomingLeaveDates.length">
+            <h3>Upcoming Leave</h3>
+            <ul class="doc-leave-list">
+              <li *ngFor="let day of upcomingLeaveDates">
+                <span>{{ day }}</span>
+                <button
+                  type="button"
+                  class="doc-leave-list__cancel"
+                  *ngIf="canEditSelected"
+                  (click)="cancelLeaveDate(day)"
+                >
+                  Cancel
+                </button>
+              </li>
+            </ul>
           </section>
 
           <section class="doc-side-card" *ngIf="filters.operations && operations.length">
@@ -199,6 +181,100 @@
 
     <div class="doc-schedule-empty" *ngIf="!loading && !selectedDoctor">
       No doctor profile found for schedule.
+    </div>
+  </div>
+
+  <div
+    class="doc-modal-backdrop"
+    *ngIf="showHoursPanel && canEditSelected"
+    (mousedown)="$event.target === $event.currentTarget && closeHoursPanel()"
+  >
+    <div
+      class="doc-modal"
+      id="doc-hours-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="doc-hours-title"
+      (mousedown)="$event.stopPropagation()"
+    >
+      <div class="doc-modal__head">
+        <div>
+          <h3 id="doc-hours-title">Set Working Hours</h3>
+          <p class="doc-hint">Enable days and set clinic hours. Patients can book only within these slots.</p>
+        </div>
+        <button type="button" class="doc-modal__close" (click)="closeHoursPanel()" aria-label="Close">&times;</button>
+      </div>
+      <div class="doc-modal__body">
+        <label class="doc-field">
+          <span>Minutes per patient</span>
+          <select [(ngModel)]="slotDurationMinutes" name="slotDurationMinutes">
+            <option *ngFor="let minutes of slotDurationOptions" [ngValue]="minutes">{{ minutes }} minutes</option>
+          </select>
+        </label>
+        <div class="day-hours-row" *ngFor="let day of weekDays">
+          <label class="day-hours-day">
+            <input type="checkbox" [(ngModel)]="dayHours[day].enabled" [name]="'day-' + day" />
+            <span class="text-capitalize">{{ day }}</span>
+          </label>
+          <div class="day-hours-times">
+            <input type="time" [(ngModel)]="dayHours[day].startTime" [name]="'start-' + day" [disabled]="!dayHours[day].enabled" />
+            <span>to</span>
+            <input type="time" [(ngModel)]="dayHours[day].endTime" [name]="'end-' + day" [disabled]="!dayHours[day].enabled" />
+          </div>
+        </div>
+      </div>
+      <div class="doc-modal__foot">
+        <button type="button" class="ds-btn ds-btn--ghost" (click)="closeHoursPanel()">Cancel</button>
+        <button type="button" class="ds-btn ds-btn--primary" (click)="saveSchedule()" [disabled]="saving">
+          {{ saving ? 'Saving…' : 'Save Working Hours' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    class="doc-modal-backdrop"
+    *ngIf="showLeavePanel && canEditSelected"
+    (mousedown)="$event.target === $event.currentTarget && closeLeavePanel()"
+  >
+    <div
+      class="doc-modal doc-modal--sm"
+      id="doc-leave-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="doc-leave-title"
+      (mousedown)="$event.stopPropagation()"
+    >
+      <div class="doc-modal__head">
+        <div>
+          <h3 id="doc-leave-title">Mark Leave</h3>
+          <p class="doc-hint">
+            Regular working days stay enabled. Add a leave date and it saves automatically — that day shows on your
+            calendar and appointments will say doctor not available. Click a leave on the calendar or Cancel to remove it.
+          </p>
+        </div>
+        <button type="button" class="doc-modal__close" (click)="closeLeavePanel()" aria-label="Close">&times;</button>
+      </div>
+      <div class="doc-modal__body">
+        <div class="leave-row">
+          <input type="date" [(ngModel)]="leaveDate" name="leaveDate" />
+          <button type="button" class="ds-btn ds-btn--outline" (click)="addLeaveDate()" [disabled]="saving">
+            {{ saving ? 'Saving…' : 'Add Leave Date' }}
+          </button>
+        </div>
+        <div class="leave-chips" *ngIf="unavailableDates.length; else noLeaveDates">
+          <span class="leave-chip" *ngFor="let day of unavailableDates">
+            {{ day }}
+            <button type="button" (click)="cancelLeaveDate(day)" aria-label="Cancel leave date">&times;</button>
+          </span>
+        </div>
+        <ng-template #noLeaveDates>
+          <p class="doc-hint">No leave dates marked yet.</p>
+        </ng-template>
+      </div>
+      <div class="doc-modal__foot">
+        <button type="button" class="ds-btn ds-btn--primary" (click)="closeLeavePanel()">Done</button>
+      </div>
     </div>
   </div>
 </div>

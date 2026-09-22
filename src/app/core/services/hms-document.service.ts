@@ -2,7 +2,10 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import { printHtmlJob, PrintJobOptions, HmsPrintJobType } from '../keyboard/print-job.util';
 import { HmsDocumentOrientation, HmsDocumentSession } from './hms-document.types';
+
+export type { HmsPrintJobType, PrintJobOptions };
 
 @Injectable({ providedIn: 'root' })
 export class HmsDocumentService {
@@ -21,42 +24,30 @@ export class HmsDocumentService {
     this.sessionSubject.next(null);
   }
 
-  printHtml(html: string, title = 'Document'): void {
-    const iframe = document.createElement('iframe');
-    iframe.setAttribute('title', title);
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
+  /**
+   * Print HTML with paper preset. Prefer jobType so dual-printer setups
+   * (Invoice thermal vs A4) get the right @page CSS in the browser dialog.
+   */
+  printHtml(
+    html: string,
+    titleOrOptions: string | PrintJobOptions = 'Document'
+  ): void {
+    const options: PrintJobOptions =
+      typeof titleOrOptions === 'string'
+        ? { jobType: 'a4', title: titleOrOptions }
+        : {
+            jobType: titleOrOptions.jobType || 'a4',
+            title: titleOrOptions.title || 'Document',
+          };
+    printHtmlJob(html, options);
+  }
 
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!doc) {
-      document.body.removeChild(iframe);
-      return;
-    }
+  printInvoice(html: string, title = 'Invoice — select Invoice printer'): void {
+    this.printHtml(html, { jobType: 'invoice', title });
+  }
 
-    doc.open();
-    doc.write(html);
-    doc.close();
-
-    const triggerPrint = (): void => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-      window.setTimeout(() => {
-        if (iframe.parentNode) {
-          iframe.parentNode.removeChild(iframe);
-        }
-      }, 1000);
-    };
-
-    if (iframe.contentWindow?.document.readyState === 'complete') {
-      window.setTimeout(triggerPrint, 250);
-    } else {
-      iframe.onload = () => window.setTimeout(triggerPrint, 250);
-    }
+  printA4(html: string, title = 'A4 Document — select A4 printer'): void {
+    this.printHtml(html, { jobType: 'a4', title });
   }
 
   async downloadPdf(
@@ -111,7 +102,10 @@ export class HmsDocumentService {
   }
 
   previewPrint(session: HmsDocumentSession): void {
-    this.printHtml(session.html, session.title);
+    this.printHtml(session.html, {
+      jobType: session.jobType || 'a4',
+      title: session.title,
+    });
   }
 
   previewDownload(session: HmsDocumentSession): Promise<void> {

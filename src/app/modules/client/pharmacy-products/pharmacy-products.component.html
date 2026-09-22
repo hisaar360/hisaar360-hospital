@@ -11,7 +11,9 @@
       <div class="pharmacy-hero-actions">
         <a class="btn product-btn product-btn--light product-queue-btn" [routerLink]="['/pharmacy']"><i class="fa fa-arrow-left"></i> Pharmacy Queue</a>
         <a class="btn product-btn product-btn--pos" [routerLink]="['/pharmacy/pos']"><i class="fa fa-shopping-cart"></i> Open POS</a>
-        <a class="btn product-btn product-btn--teal-outline" *ngIf="canCreateProducts" routerLink="/pharmacy/products/bulk" [queryParams]="currentStoreId() ? { storeId: currentStoreId() } : null" data-tour="bulk-add-medicines"><i class="fa fa-table"></i> Bulk Add Medicines</a>
+        <a class="btn product-btn product-btn--teal-outline" *ngIf="canCreateProducts" routerLink="/pharmacy/products/bulk" [queryParams]="currentStoreId() ? { storeId: currentStoreId() } : null" data-tour="bulk-add-medicines"><i class="fa fa-table"></i> Bulk Medicine Upload</a>
+        <button type="button" class="btn product-btn product-btn--light" *ngIf="canCreateProducts" (click)="downloadMedicineTemplate()" title="Download Excel template to fill and upload"><i class="fa fa-download"></i> Download Template</button>
+        <a class="btn product-btn product-btn--light" *ngIf="canCreateCustomers" routerLink="/pharmacy/customers" [queryParams]="{ create: '1' }"><i class="fa fa-user-plus"></i> Create Customer</a>
         <button type="button" class="btn product-btn product-btn--primary" *ngIf="canCreateProducts" (click)="openProductModal()"><i class="fa fa-plus"></i> Add Medicine</button>
       </div>
     </header>
@@ -19,7 +21,7 @@
     <aside class="product-bulk-tip" *ngIf="showBulkTip && canCreateProducts" data-tour="bulk-add-tip">
       <div class="product-bulk-tip__body">
         <strong>Need to add many medicines?</strong>
-        <p>Use <b>Bulk Add Medicines</b> to import Excel/CSV or add rows manually, then save everything in one request.</p>
+        <p>Use <b>Bulk Medicine Upload</b> or <b>Download Template</b>, fill the Excel file, then upload and Save All. Need walk-in billing names? Use <b>Create Customer</b> (credit stays off until you set a limit).</p>
       </div>
       <div class="product-bulk-tip__actions">
         <a class="btn product-btn product-btn--teal-outline" routerLink="/pharmacy/products/bulk" [queryParams]="currentStoreId() ? { storeId: currentStoreId() } : null">Open Bulk Add Medicines</a>
@@ -51,10 +53,22 @@
     </section>
 
     <section class="product-summary-grid" aria-label="Product overview">
-      <article class="product-summary-card is-blue"><span class="product-summary-icon"><i class="fa fa-cube"></i></span><div><span>Total Products</span><strong>{{ productsTotal }}</strong><small>All medicines in this store</small></div></article>
-      <article class="product-summary-card is-green"><span class="product-summary-icon"><i class="fa fa-check-circle"></i></span><div><span>Active Products</span><strong>{{ productsTotal }}</strong><small>Available for dispensing</small></div></article>
-      <article class="product-summary-card is-purple"><span class="product-summary-icon"><i class="fa fa-eye"></i></span><div><span>This Page</span><strong>{{ products.length }}</strong><small>{{ pageSizeChoice === 'all' ? 'All loaded' : 'Per page: ' + pageSizeChoice }}</small></div></article>
-      <article class="product-summary-card is-navy"><span class="product-summary-icon"><i class="fa fa-cog"></i></span><div><span>System Status</span><strong>{{ canViewProducts ? 'Ready' : 'No Access' }}</strong><small>{{ canViewProducts ? 'All systems operational' : 'Permission required' }}</small></div></article>
+      <article class="product-summary-card is-blue">
+        <span class="product-summary-icon" aria-hidden="true"><i class="fa fa-medkit"></i></span>
+        <div><span>Total Products</span><strong>{{ productsTotal }}</strong><small>All medicines in this store</small></div>
+      </article>
+      <article class="product-summary-card is-green">
+        <span class="product-summary-icon" aria-hidden="true"><i class="fa fa-check"></i></span>
+        <div><span>Active Products</span><strong>{{ productsTotal }}</strong><small>Available for dispensing</small></div>
+      </article>
+      <article class="product-summary-card is-purple">
+        <span class="product-summary-icon" aria-hidden="true"><i class="fa fa-list"></i></span>
+        <div><span>This Page</span><strong>{{ products.length }}</strong><small>{{ pageSizeChoice === 'all' ? 'All loaded' : 'Per page: ' + pageSizeChoice }}</small></div>
+      </article>
+      <article class="product-summary-card is-navy">
+        <span class="product-summary-icon" aria-hidden="true"><i class="fa fa-circle"></i></span>
+        <div><span>System Status</span><strong>{{ canViewProducts ? 'Ready' : 'No Access' }}</strong><small>{{ canViewProducts ? 'All systems operational' : 'Permission required' }}</small></div>
+      </article>
     </section>
 
     <section class="product-card">
@@ -118,7 +132,7 @@
         </section>
         <section class="product-form-section" [class.is-open]="productSections.pricing"><button type="button" class="product-form-section__head" (click)="toggleProductSection('pricing')"><span><i>2</i><b>Pricing &amp; Stock</b></span><i class="fa fa-angle-up"></i></button><div class="product-form-section__body product-form-section__body--four"><label class="field"><span>Cost Price <em>*</em></span><input type="number" min="0" [(ngModel)]="productForm.costPrice" /></label><label class="field"><span>Selling Price <em>*</em></span><input type="number" min="0" [(ngModel)]="productForm.sellingPrice" /></label><label class="field"><span>{{ editingProductId ? 'Stock Quantity' : 'Opening Stock' }} <em>*</em></span><input type="number" min="0" step="1" [(ngModel)]="productForm.openingStock" /><small *ngIf="editingProductId && !canAdjustInventory">Needs inventory.adjust permission</small></label><label class="field"><span>Barcode</span><input type="text" [(ngModel)]="productForm.barcode" placeholder="Optional" /></label></div></section>
         <section class="product-form-section" [class.is-open]="productSections.batch"><button type="button" class="product-form-section__head" (click)="toggleProductSection('batch')"><span><i>3</i><b>Batch &amp; Dates</b></span><i class="fa fa-angle-up"></i></button><div class="product-form-section__body product-form-section__body--three"><label class="field"><span>Batch Number</span><input type="text" [(ngModel)]="productForm.batchNumber" placeholder="Optional" /></label><label class="field"><span>MFD</span><input type="date" [(ngModel)]="productForm.mfdDate" /></label><label class="field"><span>Expiry Date</span><input type="date" [(ngModel)]="productForm.expiryDate" /></label></div></section>
-        <section class="product-form-section" [class.is-open]="productSections.optional"><button type="button" class="product-form-section__head" (click)="toggleProductSection('optional')"><span><i>4</i><b>Optional Details</b></span><i class="fa fa-angle-up"></i></button><div class="product-form-section__body product-form-section__body--optional"><label class="field"><span>Brand</span><input type="text" [(ngModel)]="productForm.brand" placeholder="Optional" /></label><label class="discount-toggle"><input type="checkbox" [(ngModel)]="productForm.discountEligible" /><span class="discount-toggle__switch"></span><b>Discount Eligible</b><small>Allow POS discounting for this medicine with a maximum cap.</small></label><label class="field" *ngIf="discountEnabled"><span>Max Discount Type</span><select [(ngModel)]="productForm.maxDiscountType"><option value="amount">Amount</option><option value="percentage">Percentage</option></select></label><label class="field" *ngIf="discountEnabled"><span>Maximum Discount {{ productForm.maxDiscountType === 'percentage' ? '(%)' : '(PKR)' }}</span><input type="number" min="0" step="0.5" [(ngModel)]="productForm.maxDiscountValue" /><small>Use 0.5 steps only; percentage cannot exceed 100.</small></label></div></section>
+        <section class="product-form-section" [class.is-open]="productSections.optional"><button type="button" class="product-form-section__head" (click)="toggleProductSection('optional')"><span><i>4</i><b>Optional Details</b></span><i class="fa fa-angle-up"></i></button><div class="product-form-section__body product-form-section__body--optional"><label class="field"><span>Brand</span><input type="text" [(ngModel)]="productForm.brand" placeholder="Optional" /></label><label class="discount-toggle"><input type="checkbox" [(ngModel)]="productForm.discountEligible" /><span class="discount-toggle__switch"></span><b>Discount Eligible</b><small>Allow POS discounting for this medicine with a maximum cap.</small></label><label class="field" *ngIf="discountEnabled"><span>Max Discount Type</span><select [(ngModel)]="productForm.maxDiscountType"><option value="amount">Amount</option><option value="percentage">Percentage</option></select></label><label class="field" *ngIf="discountEnabled"><span>Maximum Discount {{ productForm.maxDiscountType === 'percentage' ? '(%)' : '({{ currencyLabel }})' }}</span><input type="number" min="0" step="0.5" [(ngModel)]="productForm.maxDiscountValue" /><small>Use 0.5 steps only; percentage cannot exceed 100.</small></label></div></section>
       </div>
       <footer class="product-modal-footer"><button type="button" class="btn product-btn product-btn--light" (click)="closeProductModal()" [disabled]="savingProduct">Cancel</button><button type="button" class="btn product-btn product-btn--primary" (click)="saveProduct()" [disabled]="savingProduct"><i class="fa fa-spinner fa-spin" *ngIf="savingProduct"></i><i class="fa fa-floppy-o" *ngIf="!savingProduct"></i> {{ editingProductId ? 'Save Changes' : 'Save Medicine/Product' }}</button></footer>
     </div>

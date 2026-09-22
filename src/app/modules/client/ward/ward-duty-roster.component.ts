@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { Subject, of } from 'rxjs';
 import { catchError, finalize, switchMap } from 'rxjs/operators';
@@ -90,6 +91,8 @@ export class WardDutyRosterComponent implements OnInit, OnDestroy {
   private readonly toastr = inject(ToastrService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly load$ = new Subject<void>();
   private previousBodyOverflow = '';
   private rankedStaff: RankedStaff[] = [];
@@ -230,7 +233,17 @@ export class WardDutyRosterComponent implements OnInit, OnDestroy {
       takeUntilDestroyed(this.destroyRef)
     ).subscribe((data) => this.applyBootstrap(data));
     this.load();
-    if (this.canCreate && !localStorage.getItem(TUTORIAL_STORAGE)) {
+    const tutorialRequested = this.route.snapshot.queryParamMap.get('tutorial') === '1';
+    if (tutorialRequested) {
+      this.tutorialOffer = false;
+      setTimeout(() => this.startTutorial(), 350);
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { tutorial: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    } else if (this.canCreate && !localStorage.getItem(TUTORIAL_STORAGE)) {
       this.tutorialOffer = true;
     }
   }

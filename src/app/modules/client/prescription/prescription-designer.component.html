@@ -1,0 +1,405 @@
+<div class="rx-designer" *ngIf="!loading; else loadingState">
+  <header class="rx-designer__top">
+    <div>
+      <p class="eyebrow">Doctor prescription studio</p>
+      <h1>My Prescription Design</h1>
+      <p class="sub">
+        Adjust headings, logo, spacing and layout. Saved against
+        <strong>{{ doctor?.user?.name || 'your doctor profile' }}</strong>
+        (ID: {{ doctor?._id || '-' }}). Other doctors keep defaults until they save their own.
+      </p>
+    </div>
+    <div class="rx-designer__actions">
+      <a routerLink="/prescriptions" class="btn ghost">Back to Consultation</a>
+      <button type="button" class="btn ghost" (click)="resetToDefaults()">Reset defaults</button>
+      <button type="button" class="btn primary" [disabled]="saving || !!errorMessage" (click)="save()">
+        {{ saving ? 'Saving…' : 'Save my design' }}
+      </button>
+    </div>
+  </header>
+
+  <div class="rx-designer__error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+  <div class="rx-designer__grid" *ngIf="!errorMessage">
+    <aside class="rx-designer__panel">
+      <section class="panel-card">
+        <h2>1. Layout theme</h2>
+        <div class="theme-grid">
+          <button
+            type="button"
+            class="theme-card"
+            *ngFor="let template of templates"
+            [class.active]="selectedTemplate === template.id"
+            (click)="selectedTemplate = template.id">
+            <strong>{{ template.name }}</strong>
+            <small>{{ template.description }}</small>
+          </button>
+        </div>
+        <p class="hint">Detected specialty pack: <strong>{{ specialtyLabel }}</strong> — preview uses matching sample data.</p>
+      </section>
+
+      <section class="panel-card">
+        <h2>1b. Theme colors</h2>
+        <div class="theme-presets">
+          <button
+            type="button"
+            class="preset-chip"
+            *ngFor="let preset of themePresets"
+            [style.borderColor]="preset.accentColor"
+            (click)="applyThemePreset(preset.id)">
+            <i [style.background]="preset.accentColor"></i>
+            {{ preset.name }}
+          </button>
+        </div>
+        <div class="color-grid">
+          <label>Accent
+            <input type="color" [(ngModel)]="style.accentColor" />
+          </label>
+          <label>Table header
+            <input type="color" [(ngModel)]="style.tableHeaderBg" />
+          </label>
+          <label>Table border
+            <input type="color" [(ngModel)]="style.tableBorderColor" />
+          </label>
+          <label>Date bar bg
+            <input type="color" [(ngModel)]="style.metaBarBg" />
+          </label>
+          <label>Date bar text
+            <input type="color" [(ngModel)]="style.metaBarText" />
+          </label>
+          <label>Section titles
+            <input type="color" [(ngModel)]="style.sectionTitleColor" />
+          </label>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <h2>2. English heading</h2>
+        <label>Font size ({{ style.englishHeadingFontSize }}px)
+          <input type="range" min="10" max="28" [(ngModel)]="style.englishHeadingFontSize" />
+        </label>
+        <label>Line height ({{ style.englishHeadingLineHeight }})
+          <input type="range" min="1" max="2.4" step="0.05" [(ngModel)]="style.englishHeadingLineHeight" />
+        </label>
+        <label>Margin left ({{ style.englishHeadingMarginLeft }}mm) — or drag blue handles on preview
+          <input type="range" min="-40" max="80" step="0.5" [(ngModel)]="style.englishHeadingMarginLeft" />
+        </label>
+        <label>Margin right ({{ style.englishHeadingMarginRight }}mm)
+          <input type="range" min="-40" max="80" step="0.5" [(ngModel)]="style.englishHeadingMarginRight" />
+        </label>
+        <div class="color-grid">
+          <label>Name color<input type="color" [(ngModel)]="style.enNameColor" /></label>
+          <label>Qualification<input type="color" [(ngModel)]="style.enQualificationColor" /></label>
+          <label>Specialty<input type="color" [(ngModel)]="style.enSpecialtyColor" /></label>
+          <label>Hospital<input type="color" [(ngModel)]="style.enHospitalColor" /></label>
+          <label>Address<input type="color" [(ngModel)]="style.enAddressColor" /></label>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <h2>3. Urdu heading</h2>
+        <label>Font size ({{ style.urduHeadingFontSize }}px)
+          <input type="range" min="10" max="28" [(ngModel)]="style.urduHeadingFontSize" />
+        </label>
+        <label>Line height ({{ style.urduHeadingLineHeight }})
+          <input type="range" min="1" max="2.6" step="0.05" [(ngModel)]="style.urduHeadingLineHeight" />
+        </label>
+        <label>Margin left ({{ style.urduHeadingMarginLeft }}mm) — drag green handles
+          <input type="range" min="-40" max="80" step="0.5" [(ngModel)]="style.urduHeadingMarginLeft" />
+        </label>
+        <label>Margin right ({{ style.urduHeadingMarginRight }}mm)
+          <input type="range" min="-40" max="80" step="0.5" [(ngModel)]="style.urduHeadingMarginRight" />
+        </label>
+        <div class="color-grid">
+          <label>نام<input type="color" [(ngModel)]="style.urNameColor" /></label>
+          <label>قابلیت<input type="color" [(ngModel)]="style.urQualificationColor" /></label>
+          <label>تخصص<input type="color" [(ngModel)]="style.urSpecialtyColor" /></label>
+          <label>ہسپتال<input type="color" [(ngModel)]="style.urHospitalColor" /></label>
+          <label>پتہ<input type="color" [(ngModel)]="style.urAddressColor" /></label>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <h2>4. Hospital logo</h2>
+        <div class="logo-pos">
+          <button
+            type="button"
+            *ngFor="let pos of logoPositions"
+            [class.active]="style.logoPosition === pos"
+            (click)="style.logoPosition = pos">
+            {{ pos | titlecase }}
+          </button>
+        </div>
+        <label>Scale ({{ style.logoScale }}%)
+          <input type="range" min="50" max="200" [(ngModel)]="style.logoScale" />
+        </label>
+        <label>Offset X ({{ style.logoOffsetX }}mm) — drag logo handle
+          <input type="range" min="-60" max="60" step="0.5" [(ngModel)]="style.logoOffsetX" />
+        </label>
+        <label>Offset Y ({{ style.logoOffsetY }}mm)
+          <input type="range" min="-40" max="40" step="0.5" [(ngModel)]="style.logoOffsetY" />
+        </label>
+      </section>
+
+      <section class="panel-card">
+        <h2>5. Spacing & page</h2>
+        <label>Line gap ({{ style.lineGap }}mm)
+          <input type="range" min="0" max="12" step="0.5" [(ngModel)]="style.lineGap" />
+        </label>
+        <label>Section gap ({{ style.sectionGap }}mm)
+          <input type="range" min="0" max="16" step="0.5" [(ngModel)]="style.sectionGap" />
+        </label>
+        <label>Page padding top ({{ style.pagePaddingTop }}mm)
+          <input type="range" min="2" max="20" step="0.5" [(ngModel)]="style.pagePaddingTop" />
+        </label>
+        <label>Page padding right ({{ style.pagePaddingRight }}mm)
+          <input type="range" min="2" max="20" step="0.5" [(ngModel)]="style.pagePaddingRight" />
+        </label>
+        <label>Page padding bottom ({{ style.pagePaddingBottom }}mm)
+          <input type="range" min="2" max="20" step="0.5" [(ngModel)]="style.pagePaddingBottom" />
+        </label>
+        <label>Page padding left ({{ style.pagePaddingLeft }}mm)
+          <input type="range" min="2" max="20" step="0.5" [(ngModel)]="style.pagePaddingLeft" />
+        </label>
+        <label>Medicine font ({{ style.medicineFontSize }}px)
+          <input type="range" min="7" max="14" [(ngModel)]="style.medicineFontSize" />
+        </label>
+        <label>Medicine row gap ({{ style.medicineRowGap }}mm)
+          <input type="range" min="0" max="8" step="0.5" [(ngModel)]="style.medicineRowGap" />
+        </label>
+      </section>
+
+      <section class="panel-card">
+        <h2>6. Show / hide blocks</h2>
+        <label class="check"><input type="checkbox" [(ngModel)]="style.showHospitalAddress" /> Hospital address</label>
+        <label class="check"><input type="checkbox" [(ngModel)]="style.showUrduAdvice" /> Urdu advice strip</label>
+        <label class="check"><input type="checkbox" [(ngModel)]="style.showRightNote" /> Right Urdu note</label>
+        <label class="check"><input type="checkbox" [(ngModel)]="style.patientTableCompact" /> Compact patient table</label>
+      </section>
+
+      <section class="panel-card">
+        <h2>7. Section layout order</h2>
+        <p class="hint">Toggle visibility and column for print blocks. Order is saved with your profile.</p>
+        <div class="layout-row" *ngFor="let item of layout; let i = index; trackBy: trackLayout">
+          <label class="check">
+            <input type="checkbox" [(ngModel)]="item.visible" />
+            {{ layoutLabels[item.key] }}
+          </label>
+          <select [(ngModel)]="item.column">
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+            <option value="full">Full</option>
+          </select>
+          <div class="order-btns">
+            <button type="button" (click)="moveLayout(i, -1)" [disabled]="i === 0">↑</button>
+            <button type="button" (click)="moveLayout(i, 1)" [disabled]="i === layout.length - 1">↓</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <main class="rx-designer__preview-wrap">
+      <div class="preview-toolbar">
+        <strong>Live Classic print preview · {{ specialtyLabel }}</strong>
+        <span>Same sheet layout as consultation Print Preview. Scroll inside this panel to see the full page.</span>
+      </div>
+
+      <div class="preview-match-banner">
+        Same Classic print blocks as consultation Prescription View (Gynae sidebar + OBS Details + Note to Patient).
+        Preview panel ke andar niche scroll karke poori page check karein.
+      </div>
+
+      <div class="a4-sheet prescription-print-sheet prescription-template-classic rx-style-host"
+        [ngStyle]="cssVars"
+        [attr.data-logo-pos]="style.logoPosition"
+        [class.rx-hide-urdu-advice]="!style.showUrduAdvice"
+        [class.rx-hide-right-note]="!style.showRightNote"
+        [class.rx-hide-hospital-address]="!style.showHospitalAddress"
+        [class.rx-compact-patient]="style.patientTableCompact">
+        <header class="print-header designer-header" *ngIf="sectionVisible('header')">
+          <div class="doctor-print-left rx-en-heading"
+            [style.marginLeft.mm]="style.englishHeadingMarginLeft"
+            [style.marginRight.mm]="style.englishHeadingMarginRight"
+            [style.fontSize.px]="style.englishHeadingFontSize"
+            [style.lineHeight]="style.englishHeadingLineHeight"
+            [style.gap.mm]="style.lineGap">
+            <span class="drag-handle left" (pointerdown)="startMarginDrag('english-left', $event)" title="English left margin"></span>
+            <span class="drag-handle right" (pointerdown)="startMarginDrag('english-right', $event)" title="English right margin"></span>
+            <h1 [style.color]="style.enNameColor">{{ doctorNameEn }}</h1>
+            <strong [style.color]="style.enQualificationColor">{{ qualificationEn }}</strong>
+            <span [style.color]="style.enSpecialtyColor">{{ specialtyEn }}</span>
+            <span [style.color]="style.enHospitalColor">{{ hospitalNameEn }}</span>
+            <small class="print-address-line print-address-english" *ngIf="style.showHospitalAddress" [style.color]="style.enAddressColor">{{ hospitalAddressEn }}</small>
+          </div>
+
+          <div class="print-logo-mark rx-logo"
+            [class.has-logo]="!!hospital?.logoUrl"
+            [style.transform]="
+              'translate(' + style.logoOffsetX + 'mm,' + style.logoOffsetY + 'mm) scale(' + previewLogoScale + ')'
+            ">
+            <span class="drag-handle logo" (pointerdown)="startMarginDrag('logo-x', $event)" title="Move logo"></span>
+            <img *ngIf="hospital?.logoUrl" [src]="hospital?.logoUrl" alt="Logo" />
+            <span *ngIf="!hospital?.logoUrl">Rx</span>
+          </div>
+
+          <div class="doctor-print-right print-urdu-block rx-ur-heading"
+            dir="rtl"
+            [style.marginLeft.mm]="style.urduHeadingMarginLeft"
+            [style.marginRight.mm]="style.urduHeadingMarginRight"
+            [style.fontSize.px]="style.urduHeadingFontSize"
+            [style.lineHeight]="style.urduHeadingLineHeight"
+            [style.gap.mm]="style.lineGap">
+            <span class="drag-handle left green" (pointerdown)="startMarginDrag('urdu-left', $event)" title="Urdu left margin"></span>
+            <span class="drag-handle right green" (pointerdown)="startMarginDrag('urdu-right', $event)" title="Urdu right margin"></span>
+            <h2 [style.color]="style.urNameColor">{{ doctorNameUr }}</h2>
+            <strong [style.color]="style.urQualificationColor">{{ qualificationUr }}</strong>
+            <span [style.color]="style.urSpecialtyColor">{{ specialtyUr }}</span>
+            <span [style.color]="style.urHospitalColor">{{ hospitalNameUr }}</span>
+            <small class="print-address-line print-address-urdu" *ngIf="style.showHospitalAddress && hospitalAddressUr" [style.color]="style.urAddressColor">{{ hospitalAddressUr }}</small>
+          </div>
+        </header>
+
+        <div class="print-date-box" *ngIf="sectionVisible('meta')">
+          <strong>DATE: {{ today }}</strong>
+          <span>NOT VALID FOR COURT OF LAW.</span>
+        </div>
+
+        <table class="print-patient-table" *ngIf="sectionVisible('patient')">
+          <tr>
+            <th>Patient Name</th>
+            <td>{{ samplePatient.name }}</td>
+            <th>Age</th>
+            <td>{{ samplePatient.age }}</td>
+            <th>Sex</th>
+            <td>{{ samplePatient.sex }}</td>
+            <th>F.No.</th>
+            <td>{{ samplePatient.fileNo }}</td>
+          </tr>
+          <tr>
+            <th>Address</th>
+            <td colspan="3">{{ samplePatient.address }}</td>
+            <th colspan="2">CELL NO</th>
+            <td colspan="2">{{ samplePatient.phone }}</td>
+          </tr>
+          <tr>
+            <th>Disease</th>
+            <td colspan="7">{{ samplePatient.disease }}</td>
+          </tr>
+          <tr *ngFor="let row of sampleConsultationRows">
+            <th>{{ row.label }}</th>
+            <td colspan="7">{{ row.value }}</td>
+          </tr>
+          <tr *ngIf="specialtyKey === 'gynae' && samplePatient.bloodGroup">
+            <th>Blood Group</th>
+            <td colspan="7">{{ samplePatient.bloodGroup }}</td>
+          </tr>
+        </table>
+
+        <section class="print-gynae-metrics" *ngIf="sampleGynaeMetrics.length">
+          <div *ngFor="let row of sampleGynaeMetrics">
+            <strong>{{ row.label }}</strong>
+            <span>{{ row.value }}</span>
+          </div>
+        </section>
+
+        <div class="print-body-grid">
+          <aside class="print-side-panel">
+            <ng-container *ngIf="sectionVisible('vitals')">
+              <div class="print-mini-title">O/E</div>
+              <table>
+                <tr><th>BP</th><td>110/70</td></tr>
+                <tr><th>Weight</th><td>62 Kg</td></tr>
+                <tr><th>Pulse</th><td>78</td></tr>
+              </table>
+            </ng-container>
+            <ng-container *ngIf="sectionVisible('labs')">
+              <div class="print-mini-title labs-title">LAB's</div>
+              <table><tr><th>CBC</th><td>✓</td></tr></table>
+            </ng-container>
+            <ng-container *ngIf="sectionVisible('specialty') && sampleSpecialtySidebar.length">
+              <div class="print-mini-title specialty-title">{{ specialtyLabel }}</div>
+              <table class="print-specialty-table">
+                <tr *ngFor="let row of sampleSpecialtySidebar">
+                  <th>{{ row.label }}</th>
+                  <td>{{ row.value }}</td>
+                </tr>
+              </table>
+            </ng-container>
+            <div class="follow-up-print" *ngIf="sectionVisible('followUp')">
+              <strong>FOLLOW UP:</strong>
+              <span>{{ sampleFollowUpDate }}</span>
+            </div>
+          </aside>
+
+          <main class="print-medicine-area" *ngIf="sectionVisible('medicines')">
+            <table class="print-medicine-table">
+              <thead>
+                <tr>
+                  <th class="print-medicine-title" rowspan="2">Medicines<br /><span class="print-urdu-inline">(دوائیاں)</span></th>
+                  <th class="print-urdu-cell" rowspan="2">مدت</th>
+                  <th class="print-urdu-cell" rowspan="2">غذا کے بعد</th>
+                  <th class="print-urdu-cell" rowspan="2">غذا سے پہلے</th>
+                  <th class="print-urdu-cell" colspan="4">وقت</th>
+                </tr>
+                <tr>
+                  <th class="print-urdu-cell">صبح</th>
+                  <th class="print-urdu-cell">دوپہر</th>
+                  <th class="print-urdu-cell">شام</th>
+                  <th class="print-urdu-cell">رات</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let med of sampleMedicinesForSpecialty">
+                  <td class="print-med-name">
+                    <strong>{{ med.name }}</strong>
+                  </td>
+                  <td>{{ med.duration }}</td>
+                  <td>{{ med.after ? '√' : '' }}</td>
+                  <td>{{ med.before ? '√' : '' }}</td>
+                  <td>{{ med.morning || '' }}</td>
+                  <td></td>
+                  <td>{{ med.evening || '' }}</td>
+                  <td>{{ med.night || '' }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="print-urdu-note print-urdu-block" *ngIf="style.showUrduAdvice && sectionVisible('instructions')">
+              <p>بلڈ پریشر کے لئے نمک کم استعمال کریں۔ چکنائی کم کریں۔ روزانہ 30 منٹ پیدل چلیں۔</p>
+              <p>دوائی جاری رکھیں اور ڈاکٹر کے مشورے کے بغیر دوا بند نہ کریں۔</p>
+            </div>
+          </main>
+
+          <aside class="print-right-note print-urdu-block" *ngIf="style.showRightNote">
+            <strong>نوٹ :</strong>
+            <p>جس دوائی کے سامنے جاری رکھیں لکھا ہو اس دوائی کو جب تک ڈاکٹر سے مشورہ نہ لیں جاری رکھیں۔</p>
+          </aside>
+        </div>
+
+        <section class="print-gynae-extended" *ngIf="sampleGynaeExtended.length">
+          <h4>Gynae / OBS Details</h4>
+          <div class="print-gynae-extended-grid">
+            <article *ngFor="let row of sampleGynaeExtended" [class.wide]="row.wide">
+              <strong>{{ row.label }}</strong>
+              <span>{{ row.value }}</span>
+            </article>
+          </div>
+        </section>
+
+        <div class="print-clinical-notes" *ngIf="sectionVisible('instructions')">
+          <div class="print-patient-note">
+            <strong>Note to Patient</strong>
+            <p>{{ samplePatientNote }}</p>
+          </div>
+        </div>
+
+        <footer class="print-footer" *ngIf="sectionVisible('footer')">
+          <p>Sample preview · saved design applies to this doctor only ({{ specialtyLabel }}).</p>
+        </footer>
+      </div>
+    </main>
+  </div>
+</div>
+
+<ng-template #loadingState>
+  <div class="rx-designer__loading">Loading prescription designer…</div>
+</ng-template>

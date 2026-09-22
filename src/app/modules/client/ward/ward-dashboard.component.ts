@@ -75,8 +75,8 @@ export class WardDashboardComponent implements OnInit {
     { key: 'beds', label: 'Beds', route: '/ward/bed-management', icon: 'fa-bed' },
     { key: 'admissions', label: 'Admissions', route: '/ward/admissions', icon: 'fa-hospital-o' },
     { key: 'vitals', label: 'Vitals', route: '/ward/vitals', icon: 'fa-heartbeat' },
-    { key: 'mar', label: 'MAR', route: '/ward/mar', icon: 'fa-medkit' },
-    { key: 'drips', label: 'Drips / IV', route: '/ward/drips-iv', icon: 'fa-tint' },
+    { key: 'mar', label: 'MAR', route: '/ward/patient-list', icon: 'fa-medkit' },
+    { key: 'drips', label: 'Drips / IV', route: '/ward/patient-list', icon: 'fa-tint' },
     { key: 'notes', label: 'Notes', route: '/ward/nursing-care', icon: 'fa-sticky-note' },
     { key: 'discharge', label: 'Discharge', route: '/ward/admissions', icon: 'fa-sign-out' },
   ];
@@ -243,7 +243,7 @@ export class WardDashboardComponent implements OnInit {
           { key: 'ready-discharge', label: 'Ready for Discharge', value: Number(summary['readyForDischarge'] || 0), icon: 'fa-sign-out', tone: 'teal', route: '/ward/admissions' },
           { key: 'available-beds', label: 'Available Beds', value: Number(summary['availableBeds'] || 0), icon: 'fa-check', tone: 'green', route: '/ward/bed-management' },
           { key: 'occupied-beds', label: 'Occupied Beds', value: Number(summary['occupiedBeds'] || 0), icon: 'fa-bed', tone: 'purple', route: '/ward/bed-management' },
-          { key: 'medicines-due', label: 'Medicines Due', value: Number(summary['medicinesDue'] || summary['medicationOverdue'] || 0), icon: 'fa-medkit', tone: 'red', route: '/ward/mar' },
+          { key: 'medicines-due', label: 'Medicines Due', value: Number(summary['medicinesDue'] || summary['medicationOverdue'] || 0), icon: 'fa-medkit', tone: 'red', route: '/ward/patient-list' },
         ];
 
         if (isLaboratoryModuleEnabled()) {
@@ -487,22 +487,22 @@ export class WardDashboardComponent implements OnInit {
         return;
       case 'add_vitals':
       case 'vitals':
-        void this.router.navigate(['/ward/vitals'], { queryParams: query });
+        this.openPatientChartTab(bed.admissionId, 'vitals', query);
         return;
       case 'add_note':
-        void this.router.navigate(['/ward/nursing-care'], { queryParams: query });
+        this.openPatientChartTab(bed.admissionId, 'nursing', query);
         return;
       case 'mar':
-        void this.router.navigate(['/ward/mar'], { queryParams: query });
+        this.openPatientChartTab(bed.admissionId, 'medicines', query);
         return;
       case 'add_drip':
-        void this.router.navigate(['/ward/drips-iv'], { queryParams: query });
+        this.openPatientChartTab(bed.admissionId, 'drips', query);
         return;
       case 'transfer':
         void this.router.navigate(['/ward/bed-management'], { queryParams: query });
         return;
       case 'discharge':
-        void this.router.navigate(['/ward/admissions'], { queryParams: { ...query, action: 'discharge' } });
+        this.openPatientChartTab(bed.admissionId, 'discharge', query);
         return;
       default:
         return;
@@ -609,6 +609,30 @@ export class WardDashboardComponent implements OnInit {
     }
 
     void this.router.navigate([route]);
+  }
+
+  private openPatientChartTab(
+    admissionId: string | undefined,
+    tab: string,
+    query: Record<string, string | undefined>
+  ): void {
+    if (admissionId) {
+      void this.router.navigate(['/ward/patient-detail', admissionId], {
+        queryParams: { tab },
+      });
+      return;
+    }
+
+    const cleanQuery: Record<string, string> = { pickPatient: '1', nextTab: tab };
+    for (const [key, value] of Object.entries(query)) {
+      if (value) {
+        cleanQuery[key] = value;
+      }
+    }
+
+    void this.router.navigate(['/ward/patient-list'], {
+      queryParams: cleanQuery,
+    });
   }
 
   bedStatusLabel(bed: WardBed): string {

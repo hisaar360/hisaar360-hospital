@@ -1,4 +1,6 @@
 import { Hospital, LabOrder } from '../../../shared/models/hospital.model';
+import { printHtmlJob } from '../../../core/keyboard/print-job.util';
+import { formatActiveCurrency } from '../../../core/services/currency.service';
 import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import { resolveLabPrintDetails } from './lab-print-details';
 
@@ -12,8 +14,7 @@ function escapeHtml(value: string | number | null | undefined): string {
 }
 
 function formatCurrency(value: number | string | null | undefined): string {
-  const amount = Number(value || 0);
-  return `Rs. ${amount.toLocaleString('en-PK', { maximumFractionDigits: 0 })}`;
+  return formatActiveCurrency(value, { fractionDigits: 0 });
 }
 
 function sourceLabel(source: LabOrder['source']): string {
@@ -253,50 +254,8 @@ export function buildLabInvoiceHtml(order: LabOrder, hospital: Hospital | null):
 }
 
 export function printLabInvoice(order: LabOrder, hospital: Hospital | null): boolean {
-  const iframe = document.createElement('iframe');
-  iframe.setAttribute('title', 'Lab invoice print');
-  iframe.setAttribute('aria-hidden', 'true');
-  Object.assign(iframe.style, {
-    border: '0',
-    height: '0',
-    left: '-10000px',
-    opacity: '0',
-    pointerEvents: 'none',
-    position: 'fixed',
-    top: '0',
-    width: '100vw',
+  return printHtmlJob(buildLabInvoiceHtml(order, hospital), {
+    jobType: 'invoice',
+    title: `Lab Invoice — ${order.orderNo || 'select Invoice printer'}`,
   });
-  document.body.appendChild(iframe);
-
-  const printWindow = iframe.contentWindow;
-  const printDocument = iframe.contentDocument || printWindow?.document;
-  if (!printWindow || !printDocument) {
-    iframe.remove();
-    return false;
-  }
-
-  printDocument.open();
-  printDocument.write(buildLabInvoiceHtml(order, hospital));
-  printDocument.close();
-
-  let handled = false;
-  const finish = () => {
-    if (handled) {
-      return;
-    }
-    handled = true;
-    iframe.remove();
-  };
-
-  printWindow.onafterprint = finish;
-  window.setTimeout(() => {
-    try {
-      printWindow.focus();
-      printWindow.print();
-    } catch {
-      finish();
-    }
-  }, 200);
-  window.setTimeout(finish, 30000);
-  return true;
 }

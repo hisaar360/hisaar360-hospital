@@ -37,6 +37,7 @@ import { CareRecordsComponent } from './care-records/care-records.component';
 import { PrescriptionComponent } from './prescription/prescription.component';
 import { PhysiotherapyTreatmentPlanComponent } from './prescription/physiotherapy-treatment-plan.component';
 import { CreatedPrescriptionsComponent } from './prescription/created-prescriptions.component';
+import { PrescriptionDesignerComponent } from './prescription/prescription-designer.component';
 import { AuditLogsComponent } from './audit-logs/audit-logs.component';
 import { AccountsPageComponent } from './accounts/accounts-page.component';
 import { DoctorPerformancePageComponent } from './accounts/doctor-performance-page.component';
@@ -508,8 +509,34 @@ export const clientRoutes: Routes = [
       },
       {
         path: 'ward',
-        redirectTo: 'ward/dashboard',
+        redirectTo: 'ward/home',
         pathMatch: 'full',
+      },
+      {
+        path: 'ward/home',
+        loadComponent: () =>
+          import('./ward/ward-home.component').then((m) => m.WardHomeComponent),
+        data: { title: 'Hisaar360 Hospital Management System | Ward Home' },
+        canActivate: [roleGuard(WARD_ADMIN_ACCESS)],
+      },
+      {
+        path: 'ward/my-work',
+        loadComponent: () =>
+          import('./ward/ward-my-work.component').then((m) => m.WardMyWorkComponent),
+        data: { title: 'Hisaar360 Hospital Management System | My Work' },
+        canActivate: [roleGuard(WARD_ADMIN_ACCESS)],
+      },
+      {
+        path: 'ward/tasks',
+        loadComponent: () =>
+          import('./ward/ward-attendant-tasks.component').then((m) => m.WardAttendantTasksComponent),
+        data: { title: 'Hisaar360 Hospital Management System | My Tasks' },
+        canActivate: [roleGuard({ any: ['ward.read', 'ward.update'] })],
+      },
+      {
+        // Legacy-friendly alias; query params are preserved by the router redirect.
+        path: 'ward/patients/:admissionId',
+        redirectTo: 'ward/patient-detail/:admissionId',
       },
       {
         path: 'ward/dashboard',
@@ -595,6 +622,12 @@ export const clientRoutes: Routes = [
         canActivate: [roleGuard(WARD_ADMIN_ACCESS)],
       },
       {
+        path: 'prescriptions/designer',
+        component: PrescriptionDesignerComponent,
+        data: { title: 'Hisaar360 Hospital Management System | Prescription Design' },
+        canActivate: [roleGuard(PRESCRIPTION_ACCESS)],
+      },
+      {
         path: 'prescriptions/physiotherapy',
         component: PhysiotherapyTreatmentPlanComponent,
         data: { title: 'Hisaar360 Hospital Management System | Physiotherapy Treatment Plan' },
@@ -603,14 +636,24 @@ export const clientRoutes: Routes = [
       {
         path: 'prescriptions/created',
         component: CreatedPrescriptionsComponent,
-        data: { title: 'Hisaar360 Hospital Management System | Created Prescriptions' },
+        data: { title: 'Hisaar360 Hospital Management System | Previous Consultations' },
         canActivate: [roleGuard(PRESCRIPTION_READ_ACCESS)],
       },
       {
         path: 'prescriptions',
         component: PrescriptionComponent,
-        data: { title: 'Hisaar360 Hospital Management System | Prescriptions' },
+        data: { title: 'Hisaar360 Hospital Management System | Consultation' },
         canActivate: [roleGuard(PRESCRIPTION_ACCESS)],
+      },
+      {
+        path: 'clinical/consultation',
+        redirectTo: 'prescriptions',
+        pathMatch: 'full',
+      },
+      {
+        path: 'clinical/consultations',
+        redirectTo: 'prescriptions/created',
+        pathMatch: 'full',
       },
       {
         path: 'pharmacy/products',

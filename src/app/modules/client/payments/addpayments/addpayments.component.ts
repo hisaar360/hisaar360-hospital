@@ -12,10 +12,11 @@ import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../../core/services/backend.service';
 import { Appointment, Patient } from '../../../../shared/models/hospital.model';
+import { HmsCurrencyPipe } from '../../../../shared/pipes/hms-currency.pipe';
 
 @Component({
   selector: 'app-addpayments',
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, HmsCurrencyPipe],
   templateUrl: './addpayments.component.html',
   styleUrl: './addpayments.component.scss',
 })

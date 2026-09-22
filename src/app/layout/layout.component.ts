@@ -10,6 +10,7 @@ import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { Subscription, filter, map, shareReplay, startWith } from 'rxjs';
 import { LeftmenuComponent } from '../modules/client/leftmenu/leftmenu.component';
 import { HeaderComponent } from '../modules/client/header/header.component';
+import { MedicineCatalogCacheService } from '../core/services/medicine-catalog-cache.service';
 
 const PRODUCT_HELP_OFFER_STORAGE = 'hms-product-help-offer-seen';
 const PRODUCT_TOUR_STORAGE = 'hms-product-shell-tutorial-seen';
@@ -92,6 +93,7 @@ const PRODUCT_TOUR_STEPS: ProductTourStep[] = [
 })
 export class LayoutComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
+  private readonly medicineCatalog = inject(MedicineCatalogCacheService);
   private readonly routerSubscription: Subscription;
 
   showProductHelpOffer = false;
@@ -134,6 +136,10 @@ export class LayoutComponent implements OnInit, OnDestroy {
       this.showProductHelpOffer = true;
     }
     this.maybeStartTourFromQuery(this.router.url);
+    // Fresh medicine catalog once per login session (IndexedDB + memory).
+    if (hasUser) {
+      void this.medicineCatalog.ensureLoaded();
+    }
   }
 
   ngOnDestroy(): void {
@@ -213,13 +219,27 @@ export class LayoutComponent implements OnInit, OnDestroy {
   }
 
   private maybeStartTourFromQuery(url: string): void {
-    if (this.tutorialActive || url.startsWith('/pharmacy/pos')) {
+    if (this.tutorialActive) {
       return;
     }
-    const tutorialParam = this.router.parseUrl(url).queryParamMap.get('tutorial');
-    if (tutorialParam !== '1') {
+
+    const parsed = this.router.parseUrl(url);
+    if (parsed.queryParamMap.get('tutorial') !== '1') {
       return;
     }
+
+    const pathOnly = url.split('?')[0] || '';
+    // Pages that own their interactive tour — do not steal ?tutorial=1 for the shell tour.
+    const ownedTourRoutes = ['/pharmacy/pos', '/pharmacy/products/bulk', '/ward/duty-roster'];
+    if (ownedTourRoutes.some((route) => pathOnly.startsWith(route))) {
+      return;
+    }
+
+    // Shell sidebar/top-bar tour only when launched from Help Center.
+    if (!pathOnly.startsWith('/help')) {
+      return;
+    }
+
     // Clear flag so refresh / back doesn't restart forever.
     void this.router.navigate([], {
       queryParams: { tutorial: null },

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { finalize } from 'rxjs/operators';
 import { BackendService } from '../../../core/services/backend.service';
+import { formatActiveCurrency } from '../../../core/services/currency.service';
 import { buildAccountsReportDocumentHtml } from '../../../core/documents/accounts-report-document.builder';
 import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../core/utils/hms-document-context.util';
 import { formatHmsMoney } from '../../../core/utils/hms-document-template.util';
@@ -212,8 +213,7 @@ export class DoctorPerformancePageComponent implements OnInit {
   }
 
   money(value: unknown): string {
-    const parsed = Number(value ?? 0);
-    return Number.isFinite(parsed) ? parsed.toLocaleString('en-PK') : '0';
+    return formatActiveCurrency(value, { fractionDigits: 0 });
   }
 
   buildDoctorPerformanceDocumentHtml = (): string =>

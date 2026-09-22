@@ -17,18 +17,53 @@
   <ng-container [ngSwitch]="mode">
     <div *ngSwitchCase="'billing'">
       <div class="ward-billing-form">
-        <h4>Add Ward Charge</h4>
+        <h4>Add treatment / ward charge</h4>
+        <p class="ward-billing-hint">Tap a common treatment (ward boy / receptionist), or enter a custom charge. Medicines come from Pharmacy and show separately.</p>
+        <div class="ward-quick-charges">
+          <button
+            type="button"
+            class="ward-quick-charge"
+            *ngFor="let preset of quickChargePresets"
+            (click)="applyQuickCharge(preset)"
+          >
+            {{ preset.title }}
+            <small>{{ money(preset.rate) }}</small>
+          </button>
+        </div>
         <div class="ward-billing-form__row">
           <input [(ngModel)]="chargeForm.title" placeholder="Charge description" />
           <input type="number" [(ngModel)]="chargeForm.rate" placeholder="Rate" />
           <button type="button" class="btn btn-primary btn-sm" (click)="addCharge()">Add Charge</button>
         </div>
       </div>
+
+      <div class="ward-bill-split" *ngIf="pharmacyChargeItems.length">
+        <h5>Pharmacy medicines (pay at Pharmacy)</h5>
+        <p class="ward-billing-hint">
+          Unpaid pharmacy: <strong>{{ money(pharmacyUnpaidAmount) }}</strong>.
+          Patient clears this at <strong>Pharmacy → Ward Settlements → Receive Payment</strong> before discharge.
+        </p>
+        <div class="table-responsive">
+          <table class="table table-sm ward-table">
+            <thead><tr><th>Date</th><th>Medicine / Sale</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let item of pharmacyChargeItems">
+                <td>{{ asDate(item['createdAt']) | date:'short' }}</td>
+                <td>{{ item['title'] }}</td>
+                <td>{{ money(item['netAmount'] || item['amount']) }}</td>
+                <td>{{ item['status'] }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <h5>Ward / room / treatment charges</h5>
       <div class="table-responsive">
         <table class="table table-sm ward-table">
           <thead><tr><th>Date</th><th>Item</th><th>Category</th><th>Qty</th><th>Rate</th><th>Amount</th><th>Status</th></tr></thead>
           <tbody>
-            <tr *ngFor="let item of ledgerItems">
+            <tr *ngFor="let item of wardChargeItems">
               <td>{{ asDate(item['createdAt']) | date:'short' }}</td>
               <td>{{ item['title'] }}</td>
               <td>{{ item['category'] || item['sourceType'] }}</td>
@@ -37,7 +72,7 @@
               <td>{{ money(item['netAmount'] || item['amount']) }}</td>
               <td>{{ item['status'] }}</td>
             </tr>
-            <tr *ngIf="ledgerItems.length === 0"><td colspan="7" class="text-muted">No charges yet.</td></tr>
+            <tr *ngIf="wardChargeItems.length === 0"><td colspan="7" class="text-muted">No ward charges yet. Use quick treatments above.</td></tr>
           </tbody>
         </table>
       </div>
@@ -59,42 +94,42 @@
               <div class="ward-pay-kpi__icon"><i class="fa fa-file-text-o" aria-hidden="true"></i></div>
               <div>
                 <span>Total Charges</span>
-                <strong>{{ money(summary['netPayable']) }} <em>PKR</em></strong>
+                <strong>{{ money(summary['netPayable']) }}</strong>
               </div>
             </article>
             <article class="ward-pay-kpi ward-pay-kpi--paid">
               <div class="ward-pay-kpi__icon"><i class="fa fa-check-circle" aria-hidden="true"></i></div>
               <div>
                 <span>Paid</span>
-                <strong>{{ money(summary['totalPaid']) }} <em>PKR</em></strong>
+                <strong>{{ money(summary['totalPaid']) }}</strong>
               </div>
             </article>
             <article class="ward-pay-kpi ward-pay-kpi--due">
               <div class="ward-pay-kpi__icon"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i></div>
               <div>
                 <span>Outstanding</span>
-                <strong>{{ money(summary['outstandingBalance'] ?? summary['balance']) }} <em>PKR</em></strong>
+                <strong>{{ money(summary['outstandingBalance'] ?? summary['balance']) }}</strong>
               </div>
             </article>
             <article class="ward-pay-kpi ward-pay-kpi--security">
               <div class="ward-pay-kpi__icon"><i class="fa fa-shield" aria-hidden="true"></i></div>
               <div>
                 <span>Security Held</span>
-                <strong>{{ money(summary['securityDepositHeld']) }} <em>PKR</em></strong>
+                <strong>{{ money(summary['securityDepositHeld']) }}</strong>
               </div>
             </article>
             <article class="ward-pay-kpi ward-pay-kpi--advance">
               <div class="ward-pay-kpi__icon"><i class="fa fa-credit-card" aria-hidden="true"></i></div>
               <div>
                 <span>Advance Credit</span>
-                <strong>{{ money(summary['advanceCreditBalance']) }} <em>PKR</em></strong>
+                <strong>{{ money(summary['advanceCreditBalance']) }}</strong>
               </div>
             </article>
             <article class="ward-pay-kpi ward-pay-kpi--pharmacy">
               <div class="ward-pay-kpi__icon"><i class="fa fa-medkit" aria-hidden="true"></i></div>
               <div>
                 <span>Pending Pharmacy Settlement</span>
-                <strong>{{ money(summary['pendingPharmacySettlement']) }} <em>PKR</em></strong>
+                <strong>{{ money(summary['pendingPharmacySettlement']) }}</strong>
               </div>
             </article>
           </div>
@@ -106,7 +141,7 @@
             </header>
             <div class="ward-pay-row__fields">
               <label>
-                <span>Amount (PKR)</span>
+                <span>Amount ({{ currencyLabel }})</span>
                 <input type="number" min="0" [(ngModel)]="paymentForm.amount" placeholder="0" />
               </label>
               <label>
@@ -144,7 +179,7 @@
             </header>
             <div class="ward-pay-row__fields ward-pay-row__fields--security">
               <label>
-                <span>Amount (PKR)</span>
+                <span>Amount ({{ currencyLabel }})</span>
                 <input type="number" min="0" [(ngModel)]="securityForm.amount" placeholder="0" />
               </label>
               <label>
@@ -172,9 +207,9 @@
             <dl class="ward-pay-invoice">
               <div><dt>Invoice No</dt><dd>{{ latestInvoice['invoiceNo'] || '—' }}</dd></div>
               <div><dt>Date</dt><dd>{{ asDate(latestInvoice['date']) | date:'mediumDate' }}</dd></div>
-              <div><dt>Amount</dt><dd>{{ money(latestInvoice['amount'] ?? summary['netPayable']) }} PKR</dd></div>
-              <div><dt>Paid</dt><dd>{{ money(latestInvoice['paid'] ?? summary['totalPaid']) }} PKR</dd></div>
-              <div><dt>Due Amount</dt><dd class="is-due">{{ money(latestInvoice['due'] ?? summary['outstandingBalance'] ?? summary['balance']) }} PKR</dd></div>
+              <div><dt>Amount</dt><dd>{{ money(latestInvoice['amount'] ?? summary['netPayable']) }}</dd></div>
+              <div><dt>Paid</dt><dd>{{ money(latestInvoice['paid'] ?? summary['totalPaid']) }}</dd></div>
+              <div><dt>Due Amount</dt><dd class="is-due">{{ money(latestInvoice['due'] ?? summary['outstandingBalance'] ?? summary['balance']) }}</dd></div>
             </dl>
             <button type="button" class="ward-pay-btn ward-pay-btn--ghost" (click)="viewInvoice()">
               <i class="fa fa-eye" aria-hidden="true"></i> View Invoice
@@ -211,7 +246,7 @@
                 <th>Date &amp; Time</th>
                 <th>Type</th>
                 <th>Method</th>
-                <th>Amount (PKR)</th>
+                <th>Amount ({{ currencyLabel }})</th>
                 <th>Status</th>
                 <th>Collected By</th>
                 <th>Note</th>
@@ -256,7 +291,7 @@
                 <span [ngClass]="paymentTypeClass(payment['type'])">{{ paymentTypeLabel(payment['type']) }}</span>
                 · Collected by {{ collectedByName(payment) }}
               </p>
-              <strong class="ward-pay-amount">{{ money(payment['amount']) }} PKR</strong>
+              <strong class="ward-pay-amount">{{ money(payment['amount']) }}</strong>
               <p *ngIf="payment['note']">{{ payment['note'] }}</p>
             </div>
           </article>
@@ -375,7 +410,7 @@
             <input type="number" min="1" [(ngModel)]="procedureForm.qty" />
           </label>
           <label class="wcs-field">
-            <span>Rate (PKR)</span>
+            <span>Rate ({{ currencyLabel }})</span>
             <input type="number" min="0" [(ngModel)]="procedureForm.rate" />
           </label>
           <button type="button" class="wcs-btn wcs-btn--primary" (click)="createProcedure()">
@@ -398,7 +433,7 @@
                 <th>Procedure Name</th>
                 <th>Type</th>
                 <th>Qty</th>
-                <th>Rate (PKR)</th>
+                <th>Rate ({{ currencyLabel }})</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -454,6 +489,53 @@
     </div>
 
     <div *ngSwitchCase="'discharge'" class="ward-discharge">
+      <section class="ward-discharge-checklist" aria-label="Discharge checklist">
+        <div class="ward-discharge-checklist__head">
+          <h3>Discharge checklist</h3>
+          <p>Clear each item on this chart. Do not leave to Admissions.</p>
+        </div>
+        <ul class="ward-discharge-checklist__list">
+          <li [class.is-done]="dischargeWardBalanceClear">
+            <i class="fa" [ngClass]="dischargeWardBalanceClear ? 'fa-check-circle' : 'fa-circle-o'" aria-hidden="true"></i>
+            <div>
+              <strong>Ward balance paid</strong>
+              <span *ngIf="!dischargeWardBalanceClear">Outstanding {{ money(outstandingAmount) }} — collect under Payment.</span>
+              <span *ngIf="dischargeWardBalanceClear">Ward dues are clear.</span>
+            </div>
+            <button *ngIf="!dischargeWardBalanceClear" type="button" class="btn btn-sm btn-outline-primary" (click)="goToPaymentsFromDischarge()">Pay ward bill</button>
+          </li>
+          <li [class.is-done]="dischargePharmacyClear">
+            <i class="fa" [ngClass]="dischargePharmacyClear ? 'fa-check-circle' : 'fa-circle-o'" aria-hidden="true"></i>
+            <div>
+              <strong>Pharmacy medicines paid</strong>
+              <span *ngIf="!dischargePharmacyClear">Unpaid {{ money(pharmacyUnpaidAmount) }} — patient pays at Pharmacy → Ward Settlements.</span>
+              <span *ngIf="dischargePharmacyClear">Pharmacy settlement is clear.</span>
+            </div>
+            <a *ngIf="!dischargePharmacyClear" class="btn btn-sm btn-outline-primary" routerLink="/pharmacy/ward-settlements">Open pharmacy</a>
+          </li>
+          <li [class.is-done]="dischargeOperationsClear">
+            <i class="fa" [ngClass]="dischargeOperationsClear ? 'fa-check-circle' : 'fa-circle-o'" aria-hidden="true"></i>
+            <div>
+              <strong>Scheduled operations completed</strong>
+              <span *ngIf="!dischargeOperationsClear">{{ scheduledOperationsCount }} operation(s) still scheduled.</span>
+              <span *ngIf="dischargeOperationsClear">No open scheduled operations.</span>
+            </div>
+          </li>
+        </ul>
+        <div class="ward-discharge-checklist__actions">
+          <p class="ward-discharge-checklist__status" [class.is-ready]="canConfirmDischarge">{{ billingInsight }}</p>
+          <button
+            type="button"
+            class="btn btn-primary"
+            data-testid="confirm-discharge-button"
+            [disabled]="!canConfirmDischarge || discharging"
+            (click)="confirmDischarge()"
+          >
+            {{ discharging ? 'Discharging...' : 'Confirm Discharge' }}
+          </button>
+        </div>
+      </section>
+
       <header class="ward-discharge__head">
         <div>
           <h3>Final Discharge Statement</h3>
@@ -513,7 +595,7 @@
               <tr>
                 <th>#</th>
                 <th>Description</th>
-                <th class="text-right">Amount (PKR)</th>
+                <th class="text-right">Amount ({{ currencyLabel }})</th>
               </tr>
             </thead>
             <tbody>

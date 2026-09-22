@@ -25,7 +25,7 @@
               <div class="text">{{ card.label }}</div>
               <h5 class="number" *ngIf="!card.isCurrency">{{ loading ? '...' : card.value }}</h5>
               <h5 class="number" *ngIf="card.isCurrency">
-                {{ loading ? '...' : (card.value | currency:'PKR':'symbol-narrow':'1.0-0') }}
+                {{ loading ? '...' : (card.value | hmsCurrency) }}
               </h5>
             </div>
           </div>
@@ -68,7 +68,7 @@
                         {{ appointment.paymentStatus || 'unpaid' }}
                       </span>
                     </td>
-                    <td>{{ appointment.consultationFee || 0 | currency:'PKR':'symbol-narrow':'1.0-0' }}</td>
+                    <td>{{ (appointment.consultationFee || 0) | hmsCurrency }}</td>
                   </tr>
                 </tbody>
                 <tbody *ngIf="loading">

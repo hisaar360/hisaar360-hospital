@@ -74,36 +74,27 @@ type GynaeExtendedChunk = {
 };
 
 function firstPageMedicineCapacity(input: ClinicalRxPrintLayoutInput): number {
+  // Keep typical OPD Rx on page 1; only paginate when content is genuinely long.
   const isGynae = input.specialtySection === 'gynae';
-  let capacity = isGynae ? 5 : 7;
+  let capacity = isGynae ? 8 : 10;
 
-  if (input.gynaeConsultationRows.length > 0) {
-    capacity -= 1;
-  }
-
-  if (input.gynaeSidebarRows.length > 10) {
-    capacity -= 2;
-  } else if (input.gynaeSidebarRows.length > 5) {
-    capacity -= 1;
-  }
-
-  if (input.gynaeExtendedRows.length > 4) {
-    capacity -= 1;
-  }
-
-  if (input.labTests.length > 6) {
-    capacity -= 1;
-  }
-
-  if (input.ivFluids.length > 0) {
+  if (isGynae && input.gynaeExtendedRows.length > 10) {
     capacity -= 2;
   }
 
-  if ((input.patientNote || '').length > 120) {
+  if (input.labTests.length > 8) {
     capacity -= 1;
   }
 
-  return Math.max(3, capacity);
+  if (input.ivFluids.length > 3) {
+    capacity -= 1;
+  }
+
+  if ((input.patientNote || '').length > 220) {
+    capacity -= 1;
+  }
+
+  return Math.max(5, capacity);
 }
 
 function lastPageMedicineCapacity(extendedRowCount: number): number {
@@ -346,37 +337,34 @@ function appendExtendedPages(
   extendedRows: Array<{ label: string; value: string; wide?: boolean }>,
   medicineCount: number
 ): ClinicalRxPrintPage[] {
-  const extendedChunks = chunkGynaeExtendedRows(extendedRows);
-
-  if (!extendedChunks.length) {
-    pages.push({
-      isFirstPage: false,
-      isLastPage: true,
-      pageNumber: pages.length + 1,
-      totalPages: 0,
-      medicines: [],
-      medicineOffset: medicineCount,
-      gynaeExtendedRows: [],
-      showGynaeExtendedTitle: false,
-    });
-
+  if (!extendedRows.length) {
     return pages;
   }
 
-  extendedChunks.forEach((chunk) => {
-    pages.push({
-      isFirstPage: false,
-      isLastPage: false,
-      pageNumber: pages.length + 1,
-      totalPages: 0,
-      medicines: [],
-      medicineOffset: medicineCount,
-      gynaeExtendedRows: chunk.rows,
-      showGynaeExtendedTitle: chunk.showTitle,
-    });
+  // Keep all OBS/specialty details on one structured continuation page (avoid empty sheets).
+  pages.push({
+    isFirstPage: false,
+    isLastPage: false,
+    pageNumber: pages.length + 1,
+    totalPages: 0,
+    medicines: [],
+    medicineOffset: medicineCount,
+    gynaeExtendedRows: extendedRows,
+    showGynaeExtendedTitle: true,
   });
 
   return pages;
+}
+
+function pruneEmptyPrintPages(pages: ClinicalRxPrintPage[]): ClinicalRxPrintPage[] {
+  const pruned = pages.filter(
+    (page, index) =>
+      page.medicines.length > 0 ||
+      page.gynaeExtendedRows.length > 0 ||
+      (index === 0 && pages.length === 1)
+  );
+
+  return pruned.length ? pruned : pages.slice(0, 1);
 }
 
 function buildGynaeCompactPreviewPrintPages(
@@ -419,7 +407,36 @@ function buildGynaeWomensHealthPrintPages(
   medicines: Array<Record<string, unknown>>,
   extendedRows: Array<{ label: string; value: string; wide?: boolean }>
 ): ClinicalRxPrintPage[] {
-  return buildGynaeCompactPreviewPrintPages(medicines, extendedRows);
+  const medicineCap = 10;
+
+  if (medicines.length <= medicineCap) {
+    return finalizePages([
+      {
+        isFirstPage: true,
+        isLastPage: true,
+        pageNumber: 1,
+        totalPages: 1,
+        medicines,
+        medicineOffset: 0,
+        gynaeExtendedRows: extendedRows,
+        showGynaeExtendedTitle: extendedRows.length > 0,
+      },
+    ]);
+  }
+
+  const medicineChunks = chunkMedicines(medicines, medicineCap, 10, 12);
+  const pages: ClinicalRxPrintPage[] = medicineChunks.map((chunk, index) => ({
+    isFirstPage: index === 0,
+    isLastPage: false,
+    pageNumber: index + 1,
+    totalPages: 0,
+    medicines: chunk,
+    medicineOffset: medicineOffsetForChunk(medicineChunks, index),
+    gynaeExtendedRows: index === 0 ? extendedRows : [],
+    showGynaeExtendedTitle: index === 0 && extendedRows.length > 0,
+  }));
+
+  return finalizePages(pages);
 }
 
 function buildGynaeClinicalPrintPages(
@@ -488,38 +505,24 @@ function buildGynaePrintPages(
 export function buildClinicalRxPrintPages(input: ClinicalRxPrintLayoutInput): ClinicalRxPrintPage[] {
   const medicines = input.medicines || [];
   const extendedRows = input.gynaeExtendedRows || [];
-  const isGynae = input.specialtySection === 'gynae';
 
-  if (isGynae) {
-    if (usesGynaeWomensHealthPagination(input.specialtySection, input.prescriptionTemplate)) {
-      return buildGynaeWomensHealthPrintPages(medicines, extendedRows);
-    }
-
-    if (usesGynaeClinicalPagination(input.specialtySection, input.prescriptionTemplate)) {
-      return buildGynaeClinicalPrintPages(medicines, extendedRows);
-    }
-
-    if (usesGynaeModernPagination(input.specialtySection, input.prescriptionTemplate)) {
-      return buildGynaeModernPrintPages(medicines, extendedRows);
-    }
-
-    return buildGynaePrintPages(medicines, extendedRows);
-  }
-
+  // Prefer 1 page; use page 2 only when medicines overflow OR OBS block is large.
+  // Never emit empty sheets.
   const firstCap = firstPageMedicineCapacity(input);
-  const continuationCap = 10;
-  const lastCap = lastPageMedicineCapacity(extendedRows.length);
-  const medicineChunks = chunkMedicines(medicines, firstCap, continuationCap, lastCap);
+  const continuationCap = 12;
+  // Keep room for OBS on last medicine page when packing together.
+  const lastCap = Math.max(6, lastPageMedicineCapacity(extendedRows.length));
 
-  const extendedOverflow = extendedRows.length > 6;
+  const needsDedicatedObsPage =
+    input.specialtySection === 'gynae' && extendedRows.length > 8;
+
   const fitsSinglePage =
-    medicineChunks.length === 1 &&
-    !extendedOverflow &&
     medicines.length <= firstCap &&
-    extendedRows.length === 0;
+    !needsDedicatedObsPage &&
+    extendedRows.length <= 8;
 
   if (fitsSinglePage) {
-    return [
+    return finalizePages([
       {
         isFirstPage: true,
         isLastPage: true,
@@ -530,10 +533,18 @@ export function buildClinicalRxPrintPages(input: ClinicalRxPrintLayoutInput): Cl
         gynaeExtendedRows: extendedRows,
         showGynaeExtendedTitle: extendedRows.length > 0,
       },
-    ];
+    ]);
   }
 
-  const pages: ClinicalRxPrintPage[] = medicineChunks.map((chunk, index) => ({
+  // Medicines across page(s); OBS either on last medicine page or one dedicated page.
+  const medicineChunks = chunkMedicines(
+    medicines,
+    needsDedicatedObsPage ? firstCap : Math.min(firstCap, lastCap),
+    continuationCap,
+    needsDedicatedObsPage ? continuationCap : lastCap
+  );
+
+  let pages: ClinicalRxPrintPage[] = medicineChunks.map((chunk, index) => ({
     isFirstPage: index === 0,
     isLastPage: false,
     pageNumber: index + 1,
@@ -544,23 +555,29 @@ export function buildClinicalRxPrintPages(input: ClinicalRxPrintLayoutInput): Cl
     showGynaeExtendedTitle: false,
   }));
 
-  if (extendedOverflow) {
-    appendExtendedPages(pages, extendedRows, medicines.length);
-  } else if (pages.length > 0) {
-    pages[pages.length - 1].gynaeExtendedRows = extendedRows;
-    pages[pages.length - 1].showGynaeExtendedTitle = extendedRows.length > 0;
-  } else {
-    pages.push({
-      isFirstPage: true,
-      isLastPage: true,
-      pageNumber: 1,
-      totalPages: 1,
-      medicines: [],
-      medicineOffset: 0,
-      gynaeExtendedRows: extendedRows,
-      showGynaeExtendedTitle: extendedRows.length > 0,
-    });
+  if (!pages.length) {
+    pages = [
+      {
+        isFirstPage: true,
+        isLastPage: false,
+        pageNumber: 1,
+        totalPages: 0,
+        medicines: [],
+        medicineOffset: 0,
+        gynaeExtendedRows: [],
+        showGynaeExtendedTitle: false,
+      },
+    ];
   }
 
-  return finalizePages(pages);
+  if (extendedRows.length > 0) {
+    if (needsDedicatedObsPage) {
+      appendExtendedPages(pages, extendedRows, medicines.length);
+    } else {
+      pages[pages.length - 1].gynaeExtendedRows = extendedRows;
+      pages[pages.length - 1].showGynaeExtendedTitle = true;
+    }
+  }
+
+  return finalizePages(pruneEmptyPrintPages(pages));
 }

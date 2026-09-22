@@ -55,6 +55,11 @@ export class CareRecordsComponent implements OnInit, OnDestroy {
   routePatientId = '';
   routeDoctorId = '';
   routeAppointmentId = '';
+  /** Ward Admin Notes: page search + admitted-patients filter */
+  wardSearch = '';
+  admittedSearch = '';
+  recordsDateFilter: 'all' | 'today' | '7d' = 'all';
+  showAllAdmitted = false;
 
   private readonly destroy$ = new Subject<void>();
 
@@ -162,6 +167,92 @@ export class CareRecordsComponent implements OnInit, OnDestroy {
       return 'Treatment Notes';
     }
     return 'Clinical Notes';
+  }
+
+  get isWardNotes(): boolean {
+    return this.recordType === 'ward';
+  }
+
+  get currentPatientsCount(): number {
+    return this.activeAllotments.length;
+  }
+
+  get openAllotmentsCount(): number {
+    // Vacant-room count is not on this bootstrap payload; surface active allotments
+    // and deep-link to Room Allotment for availability.
+    return this.activeAllotments.length;
+  }
+
+  get notesTodayCount(): number {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    return this.records.filter((record) => {
+      const created = record.createdAt ? new Date(record.createdAt) : null;
+      return created && !Number.isNaN(created.getTime()) && created >= start;
+    }).length;
+  }
+
+  get watchCasesCount(): number {
+    return this.activeAllotments.length;
+  }
+
+  get filteredAdmittedPatients(): RoomAllotment[] {
+    const query = this.admittedSearch.trim().toLowerCase() || this.wardSearch.trim().toLowerCase();
+    let list = this.activeAllotments;
+    if (query) {
+      list = list.filter((allotment) => {
+        const name = this.patientName(allotment.patient).toLowerCase();
+        const room = String(allotment.room?.roomNo || '').toLowerCase();
+        return name.includes(query) || room.includes(query);
+      });
+    }
+    if (!this.showAllAdmitted && list.length > 5) {
+      return list.slice(0, 5);
+    }
+    return list;
+  }
+
+  get filteredRecords(): PatientHistory[] {
+    let list = this.records;
+    const query = this.wardSearch.trim().toLowerCase();
+    if (query) {
+      list = list.filter((record) => {
+        const patient = this.patientName(record.patient).toLowerCase();
+        const doctor = this.doctorName(record.doctorId, record.doctor).toLowerCase();
+        const title = String(record.title || '').toLowerCase();
+        const diagnosis = String(record.diagnosis || '').toLowerCase();
+        return (
+          patient.includes(query) ||
+          doctor.includes(query) ||
+          title.includes(query) ||
+          diagnosis.includes(query)
+        );
+      });
+    }
+    if (this.recordsDateFilter === 'today') {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      list = list.filter((record) => {
+        const created = record.createdAt ? new Date(record.createdAt) : null;
+        return created && created >= start;
+      });
+    } else if (this.recordsDateFilter === '7d') {
+      const start = new Date();
+      start.setDate(start.getDate() - 7);
+      list = list.filter((record) => {
+        const created = record.createdAt ? new Date(record.createdAt) : null;
+        return created && created >= start;
+      });
+    }
+    return list;
+  }
+
+  toggleShowAllAdmitted(): void {
+    this.showAllAdmitted = !this.showAllAdmitted;
+  }
+
+  refreshAdmitted(): void {
+    this.loadPageBootstrap();
   }
 
   /** Initial page load + filter changes that need full form lookups. */

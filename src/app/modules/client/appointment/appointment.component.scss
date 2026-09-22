@@ -744,13 +744,15 @@
 }
 
 .consultation-fee-card {
-  align-items: center;
+  align-items: flex-start;
   background: linear-gradient(135deg, #e8f7f7, #f7fbff);
   border: 1px solid #b9e8e8;
   border-radius: 8px;
   display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
   grid-column: 1 / -1;
-  justify-content: space-between;
+  justify-content: flex-start;
   min-height: 48px;
   padding: 12px 14px;
 }
@@ -759,6 +761,39 @@
   color: #374151;
   font-size: 12px;
   font-weight: 700;
+}
+
+.consultation-fee-card .fee-input {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 800;
+  max-width: 180px;
+  min-height: 40px;
+  padding: 0 12px;
+  width: 100%;
+}
+
+.consultation-fee-card .fee-hint {
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.consultation-fee-card .fee-hint.is-follow-up {
+  color: #b45309;
+}
+
+.consultation-fee-card .fee-reset {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #334155;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
 }
 
 .consultation-fee-card strong {
@@ -985,10 +1020,54 @@
 }
 
 .filters-row {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  align-items: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   margin: 10px 0 18px;
+  min-width: 0;
+  width: 100%;
+}
+
+.filters-row > select,
+.filters-row > input {
+  flex: 1 1 140px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.filters-row > button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.doctor-group-row td {
+  background: #f0fdfa;
+  border-bottom: 1px solid #99f6e4;
+  padding: 10px 12px;
+}
+
+.doctor-group-label {
+  align-items: center;
+  color: #0f766e;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.doctor-group-label strong {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.doctor-group-label strong .fa {
+  margin-right: 6px;
+}
+
+.doctor-group-label small {
+  color: #64748b;
+  font-weight: 600;
 }
 
 .date-filter,
@@ -1159,7 +1238,7 @@
   position: fixed;
   right: 0;
   top: 0;
-  z-index: 1050;
+  z-index: 2000;
 }
 
 .patient-modal {
@@ -1173,7 +1252,9 @@
   max-height: min(92dvh, 820px);
   max-width: 720px;
   overflow: hidden;
+  position: relative;
   width: 100%;
+  z-index: 2001;
 }
 
 .patient-modal-header {
@@ -1279,6 +1360,32 @@
   resize: vertical;
 }
 
+/* Clear keyboard focus — outline:none above removes browser default. */
+.patient-modal .modal-grid input:focus,
+.patient-modal .modal-grid select:focus,
+.patient-modal .modal-grid textarea:focus,
+.patient-modal .dob-age-row input:focus,
+.patient-modal .patient-modal-actions .btn-confirm:focus,
+.patient-modal .patient-modal-actions .btn-light:focus,
+.patient-modal .patient-modal-header button:focus,
+.form-grid input:focus,
+.form-grid select:focus,
+.form-grid textarea:focus,
+.phone-search input:focus,
+.fee-input:focus {
+  background-color: #fff;
+  border-color: #0d9488 !important;
+  box-shadow: 0 0 0 3px rgb(13 148 136 / 0.28);
+  outline: 2px solid #0d9488;
+  outline-offset: 1px;
+}
+
+.patient-modal .modal-grid select:focus,
+.form-grid select:focus {
+  /* Native selects often clip outline — ring via box-shadow is the reliable cue. */
+  outline-offset: 0;
+}
+
 .patient-modal-actions {
   background: #fff;
   border-top: 1px solid var(--line);
@@ -1294,7 +1401,16 @@
   }
 
   .filters-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex-wrap: wrap;
+  }
+
+  .filters-row > select,
+  .filters-row > input {
+    flex: 1 1 calc(50% - 10px);
+  }
+
+  .filters-row > button {
+    flex: 1 1 100%;
   }
 }
 
@@ -1359,7 +1475,14 @@
   }
 
   .filters-row {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .filters-row > select,
+  .filters-row > input,
+  .filters-row > button {
+    flex: 1 1 auto;
+    width: 100%;
   }
 
   .selected-patient {
@@ -1871,4 +1994,47 @@
 
 th, td{
   text-align: center !important;
+}
+
+.kb-hint-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+}
+
+.kb-hint-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.kb-hint-panel ul {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.kb-hint-panel li {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.kb-hint-panel kbd {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 11px;
+  min-width: 140px;
+  padding: 2px 6px;
+}
+
+.patient-result-card.is-keyboard-focus {
+  box-shadow: 0 0 0 2px #0d9488;
 }
