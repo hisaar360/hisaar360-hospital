@@ -179,10 +179,40 @@ export class BirthRecordsDashboardComponent implements OnInit, OnDestroy {
     if (patient) {
       const motherName = `${patient.firstName || ''} ${patient.lastName || ''}`.trim();
       this.recordForm.provisionalName = motherName ? `Baby of ${motherName}` : '';
+      this.prefillIdentityFromMother(patient);
     } else {
       this.recordForm.provisionalName = '';
     }
     this.clearRecordError('motherPatientId');
+  }
+
+  /** Prefill CNIC / father fields from Patient master captured at admission. */
+  private prefillIdentityFromMother(patient: Patient): void {
+    const motherCnic = this.formatIdentityDisplay(patient.identityNumber);
+    if (motherCnic && !this.hasProvidedValue(this.recordForm.motherCNICSnapshot)) {
+      this.recordForm.motherCNICSnapshot = motherCnic;
+    }
+    const fatherName = String(patient.emergencyContactName || '').trim();
+    const relationship = String(patient.guardianRelationship || '').toLowerCase();
+    if (
+      fatherName &&
+      !String(this.recordForm.fatherName || '').trim() &&
+      (relationship === 'husband' || relationship === 'father' || !relationship)
+    ) {
+      this.recordForm.fatherName = fatherName;
+    }
+    const fatherCnic = this.formatIdentityDisplay(patient.guardianIdentityNumber);
+    if (fatherCnic && !this.hasProvidedValue(this.recordForm.fatherCNIC)) {
+      this.recordForm.fatherCNIC = fatherCnic;
+    }
+  }
+
+  private formatIdentityDisplay(value: string | null | undefined): string {
+    const digits = String(value || '').replace(/\D/g, '');
+    if (digits.length === 13) {
+      return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
+    }
+    return String(value || '').trim();
   }
 
   onMotherContext(context: BirthRecordMotherContext | null): void {
@@ -282,6 +312,19 @@ export class BirthRecordsDashboardComponent implements OnInit, OnDestroy {
   openCertifyDetails(record: BirthRecordItem): void {
     this.certifyRecord = record;
     this.certifyErrors = {};
+    const mother = record.motherPatient as
+      | (Record<string, unknown> & {
+          identityNumber?: string;
+          guardianIdentityNumber?: string;
+          emergencyContactName?: string;
+        })
+      | undefined;
+    const motherFromPatient = this.formatIdentityDisplay(
+      mother?.identityNumber ? String(mother.identityNumber) : ''
+    );
+    const fatherFromPatient = this.formatIdentityDisplay(
+      mother?.guardianIdentityNumber ? String(mother.guardianIdentityNumber) : ''
+    );
     this.certifyForm = {
       sexAtBirth: String(record.sexAtBirth || 'female'),
       birthWeightGrams:
@@ -289,9 +332,11 @@ export class BirthRecordsDashboardComponent implements OnInit, OnDestroy {
           ? String(record.birthWeightGrams)
           : '',
       motherCNICSnapshot: this.hasProvidedValue(record.motherCNICSnapshot)
-        ? String(record.motherCNICSnapshot)
-        : '',
-      fatherCNIC: this.hasProvidedValue(record.fatherCNIC) ? String(record.fatherCNIC) : '',
+        ? this.formatIdentityDisplay(String(record.motherCNICSnapshot))
+        : motherFromPatient,
+      fatherCNIC: this.hasProvidedValue(record.fatherCNIC)
+        ? this.formatIdentityDisplay(String(record.fatherCNIC))
+        : fatherFromPatient,
     };
     this.certifyOpen = true;
   }

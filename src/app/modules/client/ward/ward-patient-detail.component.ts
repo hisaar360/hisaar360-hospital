@@ -600,6 +600,14 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
           },
         });
         return;
+      case 'birth-records':
+        void this.router.navigate(['/ward/nursery/birth-records'], {
+          queryParams: {
+            motherPatientId: this.patient?.patientId || undefined,
+            motherName: this.patient?.patientName || undefined,
+          },
+        });
+        return;
       case 'round-note':
         this.noteKind = 'round';
         this.setTab('notes');
@@ -702,7 +710,14 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
 
   /** Overview sidebar actions matching the design card (subset of quickActions). */
   get overviewActionList(): WardQuickAction[] {
-    const preferred = ['add-nursing-note', 'transfer-bed', 'new-order', 'discharge-recommendation', 'round-note'];
+    const preferred = [
+      'add-nursing-note',
+      'transfer-bed',
+      'birth-records',
+      'new-order',
+      'discharge-recommendation',
+      'round-note',
+    ];
     const byId = new Map(this.quickActions.map((action) => [action.id, action]));
     const ordered = preferred.map((id) => byId.get(id as WardQuickAction['id'])).filter(Boolean) as WardQuickAction[];
     if (ordered.length) {

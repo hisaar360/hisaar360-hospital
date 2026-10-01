@@ -552,7 +552,8 @@ export type WardQuickActionIntent =
   | 'new-order'
   | 'medicine-lab'
   | 'discharge-recommendation'
-  | 'transfer-bed';
+  | 'transfer-bed'
+  | 'birth-records';
 
 export interface WardQuickAction {
   id: WardQuickActionIntent;
@@ -563,6 +564,8 @@ export interface WardQuickAction {
   tab?: WardWorkspaceTabKey;
   /** IV / I-O sub-tab to preselect. */
   subTab?: WardIvSubTab;
+  /** Absolute in-app route for non-tab actions. */
+  route?: string;
   /** High-impact actions confirm before running. */
   confirm?: boolean;
 }
@@ -674,6 +677,22 @@ export function buildWardQuickActions(context: WardQuickActionContext): WardQuic
       icon: 'fa-random',
       role: 'ward-admin',
       confirm: true,
+    });
+  }
+
+  if (
+    grantsAny(permissions, [
+      'ward.nursery.birth_records.read',
+      'ward.nursery.birth_records.create',
+      'ward.nursery.read',
+    ])
+  ) {
+    actions.push({
+      id: 'birth-records',
+      label: 'Newborn / Birth Records',
+      icon: 'fa-certificate',
+      role: 'ward-admin',
+      route: '/ward/nursery/birth-records',
     });
   }
 

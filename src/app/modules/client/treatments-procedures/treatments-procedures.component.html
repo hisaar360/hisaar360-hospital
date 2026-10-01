@@ -322,6 +322,28 @@
             </div>
             <input class="tp-switch" type="checkbox" formControlName="isActive" />
           </label>
+          <label class="tp-toggle-card is-ot">
+            <div class="tp-toggle-card__icon"><i class="fa fa-female" aria-hidden="true"></i></div>
+            <div class="tp-toggle-card__text">
+              <strong>Obstetric / Delivery Procedure</strong>
+              <small>Enables Delivery Outcome on Complete Operation and birth-record linkage.</small>
+            </div>
+            <input class="tp-switch" type="checkbox" formControlName="isObstetricDelivery" />
+          </label>
+        </div>
+
+        <div class="tp-grid-2" *ngIf="form.get('isObstetricDelivery')?.value">
+          <label>
+            <span>Delivery mode</span>
+            <select formControlName="deliveryMode">
+              <option value="">Select mode</option>
+              <option value="c_section">C-section</option>
+              <option value="vaginal">Vaginal</option>
+              <option value="assisted">Assisted</option>
+              <option value="other">Other</option>
+            </select>
+            <small class="tp-hint">Structured flag used for OT Delivery Outcome (not name matching).</small>
+          </label>
         </div>
       </section>
 

@@ -317,6 +317,11 @@ describe('ward-workspace.util quick-action gating', () => {
     expect(idsFor(['ward.admissions.create'])).toEqual(['transfer-bed']);
   });
 
+  it('gives nursery birth-record readers a Birth Records action', () => {
+    expect(idsFor(['ward.nursery.birth_records.read'])).toEqual(['birth-records']);
+    expect(idsFor(['ward.nursery.read'])).toContain('birth-records');
+  });
+
   it('confirms high-impact actions only', () => {
     const actions = buildWardQuickActions({ permissions: ['*'] });
     const confirming = actions.filter((action) => action.confirm).map((action) => action.id);
@@ -337,5 +342,6 @@ describe('ward-workspace.util quick-action gating', () => {
   it('treats a wildcard permission as full access', () => {
     expect(idsFor(['*'])).toContain('record-vitals');
     expect(idsFor(['*'])).toContain('transfer-bed');
+    expect(idsFor(['*'])).toContain('birth-records');
   });
 });
