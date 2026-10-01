@@ -12,6 +12,7 @@ import {
 } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import {
+  canViewDutyRoster,
   canViewWardAdminMenu,
   canViewWardManagementMenu,
   hasPermission,
@@ -728,7 +729,7 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
       canViewManagement:
         this.canViewAllRoutes || canViewWardManagementMenu(this.role, this.permissions),
       canViewAdmissions: this.canViewWardAdmissionsNav,
-      canViewRoster: this.hasNavAccess('ward.roster.read'),
+      canViewRoster: canViewDutyRoster(this.role, this.permissions),
       canViewOperations: this.canViewOperations,
       canViewMaternity: this.canViewWardMaternityNav,
     });

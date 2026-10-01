@@ -25,7 +25,7 @@ import { AddDoctorsComponent } from './doctors/add-doctors/add-doctors.component
 import { DoctorsProfileComponent } from './doctors/doctors-profile/doctors-profile.component';
 import { DoctorsScheduleComponent } from './doctors/doctors-schedule/doctors-schedule.component';
 import { authGuard } from '../auth/auth.guard';
-import { doctorOrPermissionGuard, doctorRoleGuard, hospitalPlatformListGuard, hospitalPlatformManageGuard, roleGuard } from '../auth/role.guard';
+import { doctorOrPermissionGuard, doctorRoleGuard, dutyRosterGuard, hospitalPlatformListGuard, hospitalPlatformManageGuard, roleGuard } from '../auth/role.guard';
 import type { AccessRequirement } from '../auth/access-control';
 import { HOSPITAL_SETUP_ACCESS } from '../auth/hospital-scope';
 import { UsersComponent } from './User/users/users.component';
@@ -587,7 +587,7 @@ export const clientRoutes: Routes = [
         loadComponent: () =>
           import('./ward/ward-duty-roster.component').then((m) => m.WardDutyRosterComponent),
         data: { title: 'Hisaar360 Hospital Management System | Ward Duty Roster' },
-        canActivate: [roleGuard(['ward.roster.read'])],
+        canActivate: [dutyRosterGuard],
       },
       {
         path: 'ward/nursery',

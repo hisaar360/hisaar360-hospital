@@ -291,6 +291,23 @@ export const canViewWardAdminMenu = (
   );
 };
 
+/** Duty roster page + Management nav link. Ward Admin always; others need roster.read. */
+export const canViewDutyRoster = (
+  role = readStoredRole(),
+  permissions: string[] = readStoredPermissions()
+): boolean => {
+  if (permissions.includes('*')) {
+    return true;
+  }
+  if (isWardAdminRole(role)) {
+    return true;
+  }
+  if (isWardCareRole(role)) {
+    return false;
+  }
+  return hasPermission('ward.roster.read', permissions) || hasPermission('ward.management.read', permissions);
+};
+
 /**
  * Ward sidebar "Management" collapsible (dashboard, beds, inventory, reports, etc.).
  * Menu visibility only — clinical/bed paths stay reachable via other nav when needed.

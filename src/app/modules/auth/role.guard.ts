@@ -5,6 +5,7 @@ import {
 import { inject } from '@angular/core';
 
 import {
+  canViewDutyRoster,
   hasRouteAccess,
   isDoctorRole,
   isWardDeniedShellPath,
@@ -58,6 +59,28 @@ export const roleGuard = (accessRequirement: AccessRequirement): CanActivateFn =
 
     return router.parseUrl('/login/access');
   };
+};
+
+/** Duty roster: Ward Admin by role, or anyone with ward.roster.read / ward.management.read. */
+export const dutyRosterGuard: CanActivateFn = (_route, state) => {
+  const router = inject(Router);
+  const permissions = readStoredPermissions();
+  const role = readStoredRole();
+  const currentPath = state.url.split('?')[0];
+
+  if (!isHospitalModuleRouteAllowed(currentPath)) {
+    return router.parseUrl(resolveDefaultRoute(permissions, role));
+  }
+
+  if (canViewDutyRoster(role, permissions)) {
+    return true;
+  }
+
+  const fallbackRoute = resolveDefaultRoute(permissions, role);
+  if (fallbackRoute !== currentPath) {
+    return router.parseUrl(fallbackRoute);
+  }
+  return router.parseUrl('/login/access');
 };
 
 export const doctorRoleGuard: CanActivateFn = (_route, state) => {
