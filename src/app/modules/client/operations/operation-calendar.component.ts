@@ -1270,6 +1270,7 @@ export class OperationCalendarComponent implements OnInit {
       modeOfDelivery: 'c_section',
       fatherName: this.deliveryIdentity.guardianName || undefined,
       fatherCNIC: this.deliveryIdentity.guardianCnic || undefined,
+      motherCNICSnapshot: this.deliveryIdentity.motherCnic || undefined,
       babies,
     };
   }
@@ -1298,7 +1299,18 @@ export class OperationCalendarComponent implements OnInit {
         },
         error: (err) => {
           this.deliverySaving = false;
-          this.toastr.error(err?.error?.message || 'Unable to complete operation.');
+          const msg =
+            err?.error?.message ||
+            err?.message ||
+            'Unable to complete operation.';
+          const code = err?.error?.code || err?.error?.errorCode || '';
+          if (err?.status === 403 || String(code).includes('PERMISSION') || /permission/i.test(msg)) {
+            this.toastr.error(
+              'Doctor role needs operations.complete (or update) permission. Ask Hospital Admin to sync Doctor role permissions, then logout/login.'
+            );
+            return;
+          }
+          this.toastr.error(msg);
         },
       });
   }
@@ -1318,7 +1330,14 @@ export class OperationCalendarComponent implements OnInit {
         },
         error: (err) => {
           this.deliverySaving = false;
-          this.toastr.error(err?.error?.message || 'Unable to complete operation.');
+          const msg = err?.error?.message || err?.message || 'Unable to complete operation.';
+          if (err?.status === 403 || /permission/i.test(msg)) {
+            this.toastr.error(
+              'Doctor role needs operations.complete (or update). Ask Admin to sync roles, then logout/login.'
+            );
+            return;
+          }
+          this.toastr.error(msg);
         },
       });
   }
