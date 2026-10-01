@@ -10,8 +10,9 @@
   <div class="container-fluid hms-page-container ward-page-container">
     <header class="hms-page-header ward-page-header ward-page-header--compact ward-chart-sticky-head">
       <div class="hms-page-header__copy ward-page-header__copy">
-        <button type="button" class="hms-back-link ward-back-link" (click)="leaveWorkspace()">
-          <i class="fa fa-arrow-left"></i> Back to My Patients
+        <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary ward-chart-back" (click)="leaveWorkspace()">
+          <i class="fa fa-arrow-left" aria-hidden="true"></i>
+          Back to My Patients
         </button>
         <ng-container *ngIf="patient as p">
           <div class="ward-chart-hero">
