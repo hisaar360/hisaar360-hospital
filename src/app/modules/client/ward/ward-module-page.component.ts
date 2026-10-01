@@ -821,6 +821,15 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
     return this.activeTab === countTab;
   }
 
+  canReviewAdmission(row: WardModuleRow): boolean {
+    return Boolean(
+      row.meta?.recommendationId &&
+        (row.cells['_tab'] === 'pending' ||
+          row.cells['status'] === 'Acknowledged' ||
+          row.cells['status'] === 'Pending Order')
+    );
+  }
+
   isRowSelected(row: WardModuleRow): boolean {
     return this.selectedRowIds.has(row.id);
   }

@@ -307,10 +307,10 @@
                 <button
                   type="button"
                   class="hms-btn hms-btn-sm hms-btn-primary"
-                  *ngIf="isAdmissionsPage && row.meta?.recommendationId && (row.cells['_tab'] === 'pending' || row.cells['status'] === 'Acknowledged' || row.cells['status'] === 'Pending Order')"
+                  *ngIf="isAdmissionsPage && canReviewAdmission(row)"
                   (click)="reviewAdmissionRecommendation(row)"
                 >
-                  Review &amp; Admit
+                  <i class="fa fa-check" aria-hidden="true"></i> Review &amp; Admit
                 </button>
                 <button type="button" class="hms-btn hms-btn-sm hms-btn-primary" (click)="openRow(row)" *ngIf="!isAdmissionsPage || row.linkRoute">View</button>
                 <app-hms-action-menu [items]="overlayMenuItems(row)" (itemSelect)="onOverlayMenuSelect(row, $event)">
@@ -386,13 +386,27 @@
                       </ng-container>
                     </ng-container>
                   </td>
-                  <td>
-                    <div class="table-actions" [class.table-actions--wide]="!isAdmissionsPage">
+                  <td [class.text-right]="isAdmissionsPage">
+                    <div
+                      class="table-actions"
+                      [class.table-actions--wide]="!isAdmissionsPage"
+                      [class.adm-row-actions]="isAdmissionsPage"
+                    >
+                      <button
+                        type="button"
+                        class="adm-review-btn"
+                        title="Review and Admit"
+                        *ngIf="isAdmissionsPage && canReviewAdmission(row)"
+                        (click)="reviewAdmissionRecommendation(row)"
+                      >
+                        <i class="fa fa-check" aria-hidden="true"></i>
+                        <span>Review &amp; Admit</span>
+                      </button>
                       <button
                         type="button"
                         class="table-actions__label-btn table-actions__label-btn--start"
                         title="Review and Admit"
-                        *ngIf="config.key === 'admissions' && row.meta?.recommendationId && (row.cells['_tab'] === 'pending' || row.cells['status'] === 'Acknowledged' || row.cells['status'] === 'Pending Order')"
+                        *ngIf="!isAdmissionsPage && config.key === 'admissions' && canReviewAdmission(row)"
                         (click)="reviewAdmissionRecommendation(row)"
                       >
                         <i class="fa fa-check"></i> Review &amp; Admit
@@ -425,7 +439,11 @@
                       >
                         <i class="fa fa-check"></i> Complete
                       </button>
-                      <app-hms-action-menu [items]="overlayMenuItems(row)" (itemSelect)="onOverlayMenuSelect(row, $event)">
+                      <app-hms-action-menu
+                        class="adm-more-menu"
+                        [items]="overlayMenuItems(row)"
+                        (itemSelect)="onOverlayMenuSelect(row, $event)"
+                      >
                         <i class="fa fa-ellipsis-v"></i>
                       </app-hms-action-menu>
                     </div>
