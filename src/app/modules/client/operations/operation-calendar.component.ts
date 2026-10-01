@@ -562,6 +562,14 @@ export class OperationCalendarComponent implements OnInit {
     return this.canMutateOperation(item) && ['scheduled', 'confirmed', 'in_progress'].includes(item.status);
   }
 
+  /** Doctor/OT staff with update/assign can complete; complete permission alone also works. */
+  canCompleteAction(item: OperationSchedule): boolean {
+    return (
+      this.canComplete(item) &&
+      (this.can('operations.complete') || this.canScheduleOps() || this.can('*'))
+    );
+  }
+
   canCancel(item: OperationSchedule): boolean {
     return this.canMutateOperation(item) && this.can('operations.cancel');
   }

@@ -1099,6 +1099,16 @@
   z-index: 2;
 }
 
+.ops-detail__complete-hint {
+  background: #f0fdfa;
+  border-top: 1px solid #99f6e4;
+  color: #0f766e;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  padding: 10px 16px 14px;
+}
+
 .ops-detail__footer-left,
 .ops-detail__footer-right {
   align-items: center;

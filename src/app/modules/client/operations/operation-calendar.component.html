@@ -758,15 +758,20 @@
             Confirm
           </button>
           <button
-            *ngIf="can('operations.complete') && canComplete(item)"
+            *ngIf="canCompleteAction(item)"
             type="button"
             class="ops-btn ops-btn--primary"
+            data-testid="ops-complete-btn"
             (click)="complete(item)"
           >
+            <i class="fa fa-check-circle" aria-hidden="true"></i>
             Complete
           </button>
         </div>
       </footer>
+      <p class="ops-detail__complete-hint" *ngIf="drawerPanel === 'details' && item.status === 'in_progress' && canCompleteAction(item)">
+        Surgery finished? Click <strong>Complete</strong>. For C-section / delivery, baby + mother/father details open next (or later via Complete Birth Details / Nursery → Birth Records).
+      </p>
       <p class="ops-drawer__done" *ngIf="drawerPanel === 'details' && !canMutateOperation(item)">
         This operation is {{ statusLabel(item.status).toLowerCase() }}. No further actions available.
       </p>
