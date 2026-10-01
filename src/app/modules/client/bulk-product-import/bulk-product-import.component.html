@@ -115,9 +115,15 @@
       </article>
 
       <div class="bulk-template-col">
-        <button type="button" class="bulk-template-btn" data-tour="bulk-template" (click)="downloadTemplate()">
+        <button type="button" class="bulk-template-btn is-preferred" data-tour="bulk-template" (click)="downloadQuickTemplate()">
+          <i class="fa fa-bolt"></i>
+          <span>Download Quick Template</span>
+          <small>Name · Strength · Price · Expiry</small>
+        </button>
+        <button type="button" class="bulk-template-btn" (click)="downloadTemplate()">
           <i class="fa fa-download"></i>
-          <span>Download Blank Template</span>
+          <span>Download Full Template</span>
+          <small>All columns (Type, Cost, Stock, Batch…)</small>
         </button>
         <button type="button" class="bulk-template-btn" (click)="downloadSample500()" [disabled]="saving">
           <i class="fa fa-flask"></i>
@@ -128,15 +134,15 @@
       <aside class="bulk-tips" [class.is-open]="tipsOpen">
         <button type="button" class="bulk-tips__toggle" (click)="tipsOpen = !tipsOpen" [attr.aria-expanded]="tipsOpen">
           <span><i class="fa fa-lightbulb-o"></i> Quick Tips</span>
-          <small class="bulk-tips__hint">(5 helpful tips for a successful import)</small>
+          <small class="bulk-tips__hint">(helpful tips for a successful import)</small>
           <i class="fa" [ngClass]="tipsOpen ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
         </button>
         <ul>
-          <li><strong>Blank template</strong> = format only (1 SAMPLE row that must be deleted/renamed).</li>
-          <li><strong>500 Sample</strong> = ready-to-import test medicines (uses your current store name).</li>
-          <li><strong>Import into store</strong> chooses which pharmacy gets all medicines — Excel Store column is ignored.</li>
-          <li>New categories are OK — they are created automatically on Save All if you have permission.</li>
-          <li>You can add up to {{ maxRows }} medicines at once.</li>
+          <li><strong>Quick Template</strong> = Name, Strength, Selling Price, Expiry (+ optional Cost). Fastest for new catalogs.</li>
+          <li><strong>Cost Price</strong> is optional on Quick Import, but required later for accurate pharmacy profit/loss. Update via Edit Medicine.</li>
+          <li><strong>Full Template</strong> = Type, Store, Cost, Stock, Batch, and all other columns in one file.</li>
+          <li><strong>Import into store</strong> chooses which pharmacy gets all medicines — Excel Store column is ignored when a store is selected here.</li>
+          <li>You can add up to {{ maxRows }} medicines at once. Nothing saves until <b>Save All Medicines</b>.</li>
         </ul>
       </aside>
     </section>

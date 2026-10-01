@@ -31,6 +31,7 @@ import {
   buildBulkCreatePayload,
   createEmptyBulkRow,
   downloadBulkMedicineSample,
+  downloadBulkMedicineQuickTemplate,
   downloadBulkMedicineTemplate,
   parseBulkMedicineFile,
   summarizeBulkRows,
@@ -41,7 +42,7 @@ type BulkStep = 1 | 2 | 3;
 type PreviewMode = 'sheet' | 'manual';
 type RowFilter = 'all' | 'valid' | 'errors' | 'warnings';
 
-const TUTORIAL_STORAGE = 'hms-bulk-medicines-tutorial-seen';
+const TUTORIAL_STORAGE = 'hms-bulk-medicines-tutorial-seen-v2';
 const TUTORIAL_STEPS: Array<{
   target: string;
   title: string;
@@ -53,31 +54,31 @@ const TUTORIAL_STEPS: Array<{
   {
     target: 'bulk-page-title',
     title: 'Add Bulk Medicines',
-    text: 'Add many medicines in one import. Nothing is saved until the final confirmation.',
+    text: 'Import many medicines at once. Prefer Quick Template for Name, Strength, Price, and Expiry. Nothing is saved until Save All Medicines.',
     place: 'below',
   },
   {
     target: 'bulk-upload',
     title: 'Upload File',
-    text: 'Upload an Excel or CSV file using the provided template.',
+    text: 'Upload an Excel or CSV file. Quick Template and Full Template are both supported.',
     place: 'below',
   },
   {
     target: 'bulk-template',
-    title: 'Download Template',
-    text: 'Download the correct column format before preparing your data.',
+    title: 'Download Templates',
+    text: 'Quick Template = Name, Strength, Price, Expiry (+ optional Cost). Full Template = all columns including Type, Store, Stock, and Batch.',
     place: 'below',
   },
   {
     target: 'bulk-preview-tabs',
     title: 'Spreadsheet Preview / Add Manually',
-    text: 'Review uploaded medicines or add rows manually.',
+    text: 'Review uploaded medicines or add rows manually. Missing cost shows as a warning — update Cost later in Edit Medicine for accurate profit.',
     place: 'below',
   },
   {
     target: 'bulk-preview',
     title: 'Review medicines',
-    text: 'Every medicine is validated before submission. Error rows must be fixed first.',
+    text: 'Fix every Error row before saving. Warnings (such as Cost = 0) do not block save.',
     requiresRows: true,
     place: 'below',
     maxSpotHeight: 220,
@@ -85,21 +86,21 @@ const TUTORIAL_STEPS: Array<{
   {
     target: 'bulk-row-actions',
     title: 'Edit or remove',
-    text: 'Edit or remove a medicine before saving.',
+    text: 'Edit a row here, or after save open Medicine Catalog → Edit to add Cost, Batch, Brand, or Stock.',
     requiresRows: true,
     place: 'above',
   },
   {
     target: 'bulk-validation',
     title: 'Validation summary',
-    text: 'Check how many medicines are valid and how many still have errors.',
+    text: 'Check Valid / Warning / Error counts. Cost missing is a warning because profit reports need Cost Price.',
     requiresRows: true,
     place: 'below',
   },
   {
     target: 'bulk-save-btn',
     title: 'Save All Medicines',
-    text: 'All valid medicines are submitted together in one request.',
+    text: 'All valid medicines (including warning rows) are submitted together.',
     place: 'above',
   },
 ];
@@ -346,6 +347,14 @@ export class BulkProductImportComponent implements OnInit, OnDestroy {
 
   downloadTemplate(): void {
     downloadBulkMedicineTemplate(this.defaultStoreName);
+    this.toastr.info('Full template downloaded. For a faster start, use Download Quick Template.');
+  }
+
+  downloadQuickTemplate(): void {
+    downloadBulkMedicineQuickTemplate(this.defaultStoreName);
+    this.toastr.success(
+      'Quick template downloaded. Fill Name, Strength, Price, and Expiry. Add Cost later for accurate profit.'
+    );
   }
 
   downloadSample500(): void {

@@ -3491,9 +3491,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.backend.getCustomers({ limit: 500, isActive: true }).subscribe({
-      next: (result) => {
-        this.customers = result.items;
+    this.backend.getAllCustomers({ isActive: true }).subscribe({
+      next: (items) => {
+        this.customers = items;
         if (this.selectedCustomerId) {
           this.refreshSelectedCustomerCredit();
         }

@@ -100,14 +100,13 @@ export class PharmacyCustomersComponent implements OnInit {
   loadCustomers(): void {
     this.loading = true;
     this.backend
-      .getCustomers({
-        limit: 500,
+      .getAllCustomers({
         search: this.search.trim() || undefined,
         isActive: this.statusFilter === '' ? undefined : this.statusFilter,
       })
       .pipe(finalize(() => (this.loading = false)))
       .subscribe({
-        next: (result) => (this.customers = result.items),
+        next: (items) => (this.customers = items),
         error: (err) => {
           this.customers = [];
           this.toastr.error(err?.error?.message || 'Unable to load customers.');

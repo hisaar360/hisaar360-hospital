@@ -12,7 +12,8 @@
         <a class="btn product-btn product-btn--light product-queue-btn" [routerLink]="['/pharmacy']"><i class="fa fa-arrow-left"></i> Pharmacy Queue</a>
         <a class="btn product-btn product-btn--pos" [routerLink]="['/pharmacy/pos']"><i class="fa fa-shopping-cart"></i> Open POS</a>
         <a class="btn product-btn product-btn--teal-outline" *ngIf="canCreateProducts" routerLink="/pharmacy/products/bulk" [queryParams]="currentStoreId() ? { storeId: currentStoreId() } : null" data-tour="bulk-add-medicines"><i class="fa fa-table"></i> Bulk Medicine Upload</a>
-        <button type="button" class="btn product-btn product-btn--light" *ngIf="canCreateProducts" (click)="downloadMedicineTemplate()" title="Download Excel template to fill and upload"><i class="fa fa-download"></i> Download Template</button>
+        <button type="button" class="btn product-btn product-btn--light" *ngIf="canCreateProducts" (click)="downloadMedicineTemplate()" title="Quick Excel: Name, Strength, Price, Expiry"><i class="fa fa-bolt"></i> Quick Template</button>
+        <button type="button" class="btn product-btn product-btn--light" *ngIf="canCreateProducts" (click)="downloadFullMedicineTemplate()" title="Full Excel with all columns"><i class="fa fa-download"></i> Full Template</button>
         <a class="btn product-btn product-btn--light" *ngIf="canCreateCustomers" routerLink="/pharmacy/customers" [queryParams]="{ create: '1' }"><i class="fa fa-user-plus"></i> Create Customer</a>
         <button type="button" class="btn product-btn product-btn--primary" *ngIf="canCreateProducts" (click)="openProductModal()"><i class="fa fa-plus"></i> Add Medicine</button>
       </div>
@@ -21,7 +22,7 @@
     <aside class="product-bulk-tip" *ngIf="showBulkTip && canCreateProducts" data-tour="bulk-add-tip">
       <div class="product-bulk-tip__body">
         <strong>Need to add many medicines?</strong>
-        <p>Use <b>Bulk Medicine Upload</b> or <b>Download Template</b>, fill the Excel file, then upload and Save All. Need walk-in billing names? Use <b>Create Customer</b> (credit stays off until you set a limit).</p>
+        <p>Use <b>Quick Template</b> for Name, Strength, Price, and Expiry — then Bulk Upload. Add Cost later via Edit for accurate profit. Prefer <b>Full Template</b> when you need Type, Stock, Batch, and Cost in one file.</p>
       </div>
       <div class="product-bulk-tip__actions">
         <a class="btn product-btn product-btn--teal-outline" routerLink="/pharmacy/products/bulk" [queryParams]="currentStoreId() ? { storeId: currentStoreId() } : null">Open Bulk Add Medicines</a>

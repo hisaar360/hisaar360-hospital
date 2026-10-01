@@ -352,7 +352,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   min-height: 100px;
   padding: 16px 12px;
   border: 1px solid var(--bulk-line);
@@ -364,6 +364,19 @@
   cursor: pointer;
   text-align: center;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bulk-template-btn small {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.bulk-template-btn.is-preferred {
+  border-color: #0f766e;
+  background: #f0fdfa;
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.12);
 }
 
 .bulk-template-btn i {

@@ -149,3 +149,13 @@ export const BULK_TEMPLATE_COLUMNS = [
   { header: 'Max Discount Type', key: 'maxDiscountType' },
   { header: 'Max Discount Value', key: 'maxDiscountValue' },
 ] as const;
+
+/** Minimal catalog import — remaining fields are filled with safe defaults on upload. */
+export const BULK_QUICK_TEMPLATE_COLUMNS = [
+  { header: 'Medicine Name *', key: 'name' },
+  { header: 'Strength *', key: 'strengthValue' },
+  { header: 'Strength Unit', key: 'strengthUnit' },
+  { header: 'Selling Price *', key: 'sellingPrice' },
+  { header: 'Expiry Date', key: 'expiryDate' },
+  { header: 'Cost Price (optional)', key: 'costPrice' },
+] as const;

@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { catchError, map, Observable, of, shareReplay, tap } from 'rxjs';
+import { catchError, map, Observable, of, shareReplay, switchMap, tap } from 'rxjs';
 import { CONFIG } from '../../../../config';
 import { AuthService } from './auth.service';
 import { normalizeEmail } from '../utils/email.util';
@@ -1051,6 +1051,24 @@ export class BackendService {
     return this.get<PaginatedResponse<Customer>>(CONFIG.customers, params).pipe(
       map((response) => this.unwrapListResult(response))
     );
+  }
+
+  /** Pages through customers with API max limit (100) until all matching rows are loaded. */
+  getAllCustomers(params?: Record<string, unknown>): Observable<Customer[]> {
+    const limit = 100;
+    const loadPage = (page: number, acc: Customer[]): Observable<Customer[]> =>
+      this.getCustomers({ ...(params || {}), page, limit }).pipe(
+        switchMap((result) => {
+          const next = acc.concat(result.items || []);
+          const totalPages = Math.max(1, Number(result.pagination?.totalPages || 1));
+          if (page >= totalPages) {
+            return of(next);
+          }
+          return loadPage(page + 1, next);
+        })
+      );
+
+    return loadPage(1, []);
   }
 
   getCustomerById(id: string): Observable<Customer> {

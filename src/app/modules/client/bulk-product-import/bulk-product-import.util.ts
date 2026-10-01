@@ -4,6 +4,7 @@ import {
   BULK_MAX_FILE_BYTES,
   BULK_MAX_ROWS,
   BULK_PRODUCT_UNITS,
+  BULK_QUICK_TEMPLATE_COLUMNS,
   BULK_STRENGTH_UNITS,
   BULK_TEMPLATE_COLUMNS,
   BulkCreateItemPayload,
@@ -27,9 +28,12 @@ const COLUMN_ALIASES: Record<string, keyof BulkMedicineDraft | 'ignore'> = {
   strength: 'strengthValue',
   strengthvalue: 'strengthValue',
   strength_value: 'strengthValue',
+  mg: 'strengthValue',
+  dosage: 'strengthValue',
   'strength unit': 'strengthUnit',
   strengthunit: 'strengthUnit',
   strength_unit: 'strengthUnit',
+  'strength uni': 'strengthUnit',
   category: 'categoryName',
   categoryname: 'categoryName',
   category_name: 'categoryName',
@@ -40,6 +44,7 @@ const COLUMN_ALIASES: Record<string, keyof BulkMedicineDraft | 'ignore'> = {
   costprice: 'costPrice',
   cost_price: 'costPrice',
   cost: 'costPrice',
+  'cost price (optional)': 'costPrice',
   'selling price': 'sellingPrice',
   sellingprice: 'sellingPrice',
   selling_price: 'sellingPrice',
@@ -93,7 +98,7 @@ export const createEmptyBulkRow = (
     storeName: '',
     costPrice: '0',
     sellingPrice: '0',
-    openingStock: '1',
+    openingStock: '0',
     barcode: '',
     batchNumber: '',
     mfdDate: '',
@@ -188,7 +193,12 @@ export const downloadBulkMedicineTemplate = (sampleStoreName = ''): void => {
         {
           topic: 'Required columns',
           guidance:
-            'Medicine Name, Type, Strength, Strength Unit, Store, Cost Price, Selling Price. Opening Stock must be a whole number ≥ 1.',
+            'Medicine Name, Type, Strength, Strength Unit, Store, Cost Price, Selling Price. Opening Stock must be a whole number ≥ 0 (0 = create without stock).',
+        },
+        {
+          topic: 'Quick template',
+          guidance:
+            'Prefer Download Quick Template for Name, Strength, Price, and Expiry only. Cost can be added later in Edit Medicine for accurate profit reports.',
         },
         {
           topic: 'Type values',
@@ -228,6 +238,67 @@ export const downloadBulkMedicineTemplate = (sampleStoreName = ''): void => {
         {
           topic: 'Limits',
           guidance: `Max ${BULK_MAX_ROWS} rows per import. Max file size 5 MB. Nothing is saved until Save All Medicines.`,
+        },
+      ],
+    },
+  ]);
+};
+
+/** Fast catalog import: Name, Strength, Price, Expiry (+ optional Cost). */
+export const downloadBulkMedicineQuickTemplate = (sampleStoreName = ''): void => {
+  downloadExcelWorkbook('hisaar360-bulk-medicines-quick-template.xlsx', [
+    {
+      name: 'Medicines',
+      columns: BULK_QUICK_TEMPLATE_COLUMNS.map((column) => ({
+        header: column.header,
+        key: column.key,
+      })),
+      rows: [
+        {
+          name: 'Paracetamol (SAMPLE — delete this row)',
+          strengthValue: '500',
+          strengthUnit: 'mg',
+          sellingPrice: 20,
+          expiryDate: '2028-08-10',
+          costPrice: '',
+        },
+      ],
+    },
+    {
+      name: 'Instructions',
+      columns: [
+        { header: 'Topic', key: 'topic' },
+        { header: 'Guidance', key: 'guidance' },
+      ],
+      rows: [
+        {
+          topic: 'Required columns',
+          guidance: 'Medicine Name, Strength, Selling Price. Strength Unit defaults to mg if blank. Expiry and Cost are optional.',
+        },
+        {
+          topic: 'Profit / loss',
+          guidance:
+            'Cost Price is optional on Quick Import, but pharmacy profit reports need Cost. Add Cost later via Edit Medicine if left blank (treated as 0).',
+        },
+        {
+          topic: 'Auto-filled on upload',
+          guidance: `Type=tablet, Strength Unit=mg (if empty), Store=${
+            sampleStoreName || 'selected store on Bulk page'
+          }, Category=General, Opening Stock=0, SKU=auto.`,
+        },
+        {
+          topic: 'Later updates',
+          guidance:
+            'After import, open Medicine Catalog → Edit to add Cost, Batch, Brand, Discount, or Opening Stock. Use Full Template when you need all columns in one file.',
+        },
+        {
+          topic: 'How to import',
+          guidance:
+            '1) Download Quick Template. 2) Replace SAMPLE row. 3) Upload on Bulk Medicine Upload. 4) Fix Errors. 5) Save All Medicines.',
+        },
+        {
+          topic: 'Limits',
+          guidance: `Max ${BULK_MAX_ROWS} rows per import. Max file size 5 MB.`,
         },
       ],
     },
@@ -398,25 +469,20 @@ export const parseBulkMedicineFile = async (
     }
   });
 
-  const requiredHeaders = ['name', 'unit', 'strengthValue', 'strengthUnit', 'storeName', 'costPrice'];
+  const requiredHeaders = ['name', 'strengthValue', 'sellingPrice'];
   const mappedFields = new Set(mappedIndexes.map((item) => item.field));
-  // storeName can also come from defaults.storeId on the page
-  const missingRequired = requiredHeaders.filter((field) => {
-    if (field === 'storeName' && defaults?.storeId) return false;
-    return !mappedFields.has(field as keyof BulkMedicineDraft);
-  });
+  const missingRequired = requiredHeaders.filter(
+    (field) => !mappedFields.has(field as keyof BulkMedicineDraft)
+  );
 
   if (missingRequired.length) {
     const labels: Record<string, string> = {
       name: 'Medicine Name',
-      unit: 'Type',
       strengthValue: 'Strength',
-      strengthUnit: 'Strength Unit',
-      storeName: 'Store',
-      costPrice: 'Cost Price',
+      sellingPrice: 'Selling Price',
     };
     throw new Error(
-      `Column '${labels[missingRequired[0]] || missingRequired[0]}' is missing.`
+      `Column '${labels[missingRequired[0]] || missingRequired[0]}' is missing. Use Quick Template (Name, Strength, Price, Expiry) or Full Template.`
     );
   }
 
@@ -431,7 +497,14 @@ export const parseBulkMedicineFile = async (
   const rows = dataRows.map((row) => {
     // Do not stamp default storeId onto every row first — Excel Store column must win.
     // Otherwise a leftover default storeId is sent while the sheet still shows another name.
-    const draft = createEmptyBulkRow();
+    const draft = createEmptyBulkRow({
+      unit: 'tablet',
+      strengthUnit: 'mg',
+      categoryName: 'General',
+      costPrice: '0',
+      openingStock: '0',
+      sellingPrice: '0',
+    });
     mappedIndexes.forEach(({ index, field }) => {
       const raw = cellToString(row[index]);
       if (field === 'discountEligible') {
@@ -449,6 +522,13 @@ export const parseBulkMedicineFile = async (
       }
       (draft as Record<string, unknown>)[field] = raw;
     });
+
+    // Quick-import defaults when columns are omitted or left blank.
+    if (!draft.unit.trim()) draft.unit = 'tablet';
+    if (!draft.strengthUnit.trim()) draft.strengthUnit = 'mg';
+    if (!draft.categoryName.trim() && !draft.categoryId) draft.categoryName = 'General';
+    if (!String(draft.costPrice ?? '').trim()) draft.costPrice = '0';
+    if (!String(draft.openingStock ?? '').trim()) draft.openingStock = '0';
     if (!draft.storeName.trim() && defaults?.storeId) {
       draft.storeId = defaults.storeId;
       draft.storeName = defaults.storeName || '';
@@ -553,12 +633,28 @@ export const validateBulkRows = (
     }
 
     const costRaw = String(row.costPrice ?? '').trim();
-    const cost = costRaw === '' ? NaN : Number(costRaw);
+    const cost = costRaw === '' ? 0 : Number(costRaw);
     if (costRaw === '') {
-      issues.push(issue('costPrice', 'Cost Price', 'error', 'Required — enter a number (0 or more).'));
+      issues.push(
+        issue(
+          'costPrice',
+          'Cost Price',
+          'warning',
+          'Missing — saved as 0. Update Cost later in Edit Medicine so pharmacy profit/loss stays accurate.'
+        )
+      );
     } else if (!Number.isFinite(cost) || cost < 0) {
       issues.push(
         issue('costPrice', 'Cost Price', 'error', `"${costRaw}" is invalid. Enter a non-negative number.`)
+      );
+    } else if (cost === 0) {
+      issues.push(
+        issue(
+          'costPrice',
+          'Cost Price',
+          'warning',
+          'Cost is 0 — profit reports will overstate margin until you set the real cost.'
+        )
       );
     }
 
@@ -589,16 +685,23 @@ export const validateBulkRows = (
     }
 
     const stockRaw = String(row.openingStock ?? '').trim();
-    const opening = stockRaw === '' ? NaN : Number(stockRaw);
+    const opening = stockRaw === '' ? 0 : Number(stockRaw);
     if (stockRaw === '') {
-      issues.push(issue('openingStock', 'Opening Stock', 'error', 'Required — enter a whole number of at least 1.'));
-    } else if (!Number.isInteger(opening) || opening < 1) {
+      issues.push(
+        issue(
+          'openingStock',
+          'Opening Stock',
+          'warning',
+          'Blank — saved as 0. Add stock later via inventory adjust or Edit Medicine.'
+        )
+      );
+    } else if (!Number.isInteger(opening) || opening < 0) {
       issues.push(
         issue(
           'openingStock',
           'Opening Stock',
           'error',
-          `"${stockRaw}" is invalid. Enter a whole number of at least 1.`
+          `"${stockRaw}" is invalid. Enter a whole number of 0 or more.`
         )
       );
     }
@@ -709,12 +812,13 @@ export const buildBulkCreatePayload = (
   rows: BulkMedicineDraft[]
 ): { items: BulkCreateItemPayload[] } => ({
   items: rows.map((row) => {
+    const openingStock = Math.floor(Number(row.openingStock));
     const item: BulkCreateItemPayload = {
       name: row.name.trim(),
-      unit: row.unit.trim().toLowerCase(),
-      costPrice: row.costPrice || '0',
-      sellingPrice: row.sellingPrice || '0',
-      openingStock: Math.floor(Number(row.openingStock)),
+      unit: (row.unit.trim().toLowerCase() || 'tablet'),
+      costPrice: String(row.costPrice ?? '').trim() || '0',
+      sellingPrice: String(row.sellingPrice ?? '').trim() || '0',
+      openingStock: Number.isFinite(openingStock) && openingStock >= 0 ? openingStock : 0,
       isActive: true,
       discountEligible: Boolean(row.discountEligible),
     };
@@ -724,10 +828,11 @@ export const buildBulkCreatePayload = (
     if (row.brand.trim()) item.brand = row.brand.trim();
     if (row.strengthValue.trim()) item.strengthValue = row.strengthValue.trim();
     if (row.strengthUnit.trim()) item.strengthUnit = row.strengthUnit.trim();
+    else item.strengthUnit = 'mg';
     if (row.mfdDate) item.mfdDate = row.mfdDate;
     if (row.expiryDate) item.expiryDate = row.expiryDate;
     if (row.categoryId) item.categoryId = row.categoryId;
-    else if (row.categoryName.trim()) item.categoryName = row.categoryName.trim();
+    else item.categoryName = row.categoryName.trim() || 'General';
     if (row.storeId) item.storeId = row.storeId;
     else if (row.storeName.trim()) item.storeName = row.storeName.trim();
     if (row.discountEligible) {

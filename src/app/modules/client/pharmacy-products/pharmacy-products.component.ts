@@ -15,7 +15,7 @@ import {
   Store,
   User,
 } from '../../../shared/models/hospital.model';
-import { downloadBulkMedicineTemplate } from '../bulk-product-import/bulk-product-import.util';
+import { downloadBulkMedicineQuickTemplate, downloadBulkMedicineTemplate } from '../bulk-product-import/bulk-product-import.util';
 
 interface ProductForm {
   name: string;
@@ -145,8 +145,15 @@ export class PharmacyProductsComponent implements OnInit {
   }
 
   downloadMedicineTemplate(): void {
+    downloadBulkMedicineQuickTemplate(this.selectedStoreLabel || '');
+    this.toastr.success(
+      'Quick template downloaded (Name, Strength, Price, Expiry). Add Cost later via Edit for accurate profit. Full template is on Bulk Upload.'
+    );
+  }
+
+  downloadFullMedicineTemplate(): void {
     downloadBulkMedicineTemplate(this.selectedStoreLabel || '');
-    this.toastr.success('Template downloaded. Fill rows, delete the SAMPLE row, then upload via Bulk Medicine Upload.');
+    this.toastr.success('Full template downloaded. Fill rows, delete the SAMPLE row, then upload via Bulk Medicine Upload.');
   }
 
   get canViewProducts(): boolean {
