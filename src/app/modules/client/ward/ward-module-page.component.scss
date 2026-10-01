@@ -289,14 +289,14 @@
 
 .adm-row-actions > .adm-review-btn {
   align-items: center;
-  background: transparent;
+  background: #ecfdf5;
   border: 0;
   border-radius: 8px;
-  color: #475569;
+  color: #047857;
   display: inline-flex;
   flex: 0 0 auto;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   gap: 6px;
   height: 30px;
   justify-content: flex-start;
@@ -307,15 +307,21 @@
 }
 
 .adm-row-actions > .adm-review-btn .fa {
-  color: #64748b;
+  color: #059669;
   font-size: 11px;
 }
 
 .adm-row-actions > .adm-review-btn:hover,
 .adm-row-actions > .adm-review-btn:focus-visible,
 .adm-row-actions:hover > .adm-review-btn {
-  background: #f1f5f9;
-  color: #334155;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.adm-row-actions > .adm-review-btn:hover .fa,
+.adm-row-actions > .adm-review-btn:focus-visible .fa,
+.adm-row-actions:hover > .adm-review-btn .fa {
+  color: #047857;
 }
 
 .adm-row-actions .adm-more-menu {
@@ -341,7 +347,7 @@
 }
 
 .ward-data-table--admissions tbody tr:hover .adm-row-actions > .adm-review-btn {
-  background: #f1f5f9;
+  background: #d1fae5;
 }
 
 .ward-person-cell {
