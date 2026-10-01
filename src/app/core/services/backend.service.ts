@@ -623,8 +623,18 @@ export class BackendService {
     });
   }
 
-  completeOperationSchedule(id: string): Observable<ApiResponse<OperationSchedule>> {
-    return this.post<OperationSchedule>(`${CONFIG.operationSchedules}/${id}/complete`, {});
+  completeOperationSchedule(
+    id: string,
+    payload: Record<string, unknown> = {}
+  ): Observable<ApiResponse<OperationSchedule>> {
+    return this.post<OperationSchedule>(`${CONFIG.operationSchedules}/${id}/complete`, payload || {});
+  }
+
+  completeOperationBirthDetails(
+    id: string,
+    payload: Record<string, unknown>
+  ): Observable<ApiResponse<OperationSchedule>> {
+    return this.post<OperationSchedule>(`${CONFIG.operationSchedules}/${id}/birth-details`, payload || {});
   }
 
   updateOperationSafetyCheck(

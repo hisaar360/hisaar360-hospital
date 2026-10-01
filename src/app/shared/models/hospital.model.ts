@@ -287,6 +287,8 @@ export interface TreatmentCatalogItem {
   description?: string;
   defaultDurationMinutes?: number;
   requiresOperationSchedule?: boolean;
+  isObstetricDelivery?: boolean;
+  deliveryMode?: 'vaginal' | 'c_section' | 'assisted' | 'other' | '' | null;
   isActive?: boolean;
   includedItems?: string[];
   packageNotes?: string;
@@ -363,10 +365,18 @@ export interface OperationSchedule {
     baseRate?: number;
     durationMinutes?: number;
     requiresOperationSchedule?: boolean;
+    isObstetricDelivery?: boolean;
+    deliveryMode?: string;
   } | null;
   procedureDiscountApproved?: DiscountSnapshot | null;
   ledgerItemId?: string | null;
   billingPostedAt?: string | null;
+  deliveryOutcome?: string | null;
+  birthDetailsStatus?: 'not_applicable' | 'pending' | 'recorded' | 'partial' | '' | null;
+  birthRecordIds?: string[];
+  multipleBirthGroupId?: string | null;
+  expectedBabyCount?: number;
+  isObstetricDelivery?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -422,8 +432,15 @@ export interface Patient {
   dateOfBirth?: string | null;
   bloodGroup?: string | null;
   address?: string | null;
+  identityType?: 'CNIC' | 'PASSPORT' | 'OTHER' | '' | null;
+  identityNumber?: string | null;
+  identityUnavailable?: boolean | null;
+  identityUnavailableReason?: string | null;
   emergencyContactName?: string | null;
   emergencyContactPhone?: string | null;
+  guardianRelationship?: string | null;
+  guardianIdentityNumber?: string | null;
+  guardianAddress?: string | null;
   allergies?: string[];
   chronicDiseases?: string[];
   currentMedications?: string[];

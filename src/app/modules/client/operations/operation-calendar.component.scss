@@ -1021,3 +1021,124 @@
   .ops-desktop { display: none; }
   .ops-mobile { display: grid; }
 }
+
+.ops-birth-pending {
+  color: #c2410c;
+  font-weight: 700;
+}
+
+.ops-modal {
+  inset: 0;
+  position: fixed;
+  z-index: 1200;
+}
+
+.ops-modal__scrim {
+  background: rgba(15, 23, 42, 0.45);
+  inset: 0;
+  position: absolute;
+}
+
+.ops-modal__panel {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+  display: flex;
+  flex-direction: column;
+  left: 50%;
+  max-height: min(90vh, 820px);
+  max-width: 720px;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 24px);
+}
+
+.ops-modal__head,
+.ops-modal__footer {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.ops-modal__head {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ops-modal__head h3 {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.ops-modal__head p {
+  color: #64748b;
+  font-size: 12px;
+  margin: 2px 0 0;
+}
+
+.ops-modal__body {
+  overflow: auto;
+  padding: 14px 16px;
+}
+
+.ops-modal__footer {
+  border-top: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.ops-field {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.ops-field span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ops-field input,
+.ops-field select {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+.ops-baby-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  padding: 12px;
+}
+
+.ops-baby-card h4 {
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+
+.ops-baby-card__grid {
+  display: grid;
+  gap: 8px 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .ops-baby-card__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-modal__footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

@@ -970,6 +970,10 @@ export class OperationCalendarComponent implements OnInit {
   }
 
   complete(item: OperationSchedule): void {
+    if (this.isObstetricOperation(item)) {
+      this.openDeliveryCompleteModal(item);
+      return;
+    }
     this.backend.completeOperationSchedule(item._id).subscribe({
       next: () => {
         this.toastr.success('Operation completed and charge posted.');
@@ -977,6 +981,197 @@ export class OperationCalendarComponent implements OnInit {
       },
       error: (err) => this.toastr.error(err?.error?.message || 'Unable to complete operation.'),
     });
+  }
+
+  isObstetricOperation(item: OperationSchedule | null | undefined): boolean {
+    if (!item) {
+      return false;
+    }
+    if (item.isObstetricDelivery) {
+      return true;
+    }
+    const snap = item.treatmentPricingSnapshot;
+    if (snap?.isObstetricDelivery) {
+      return true;
+    }
+    if (snap?.deliveryMode && ['vaginal', 'c_section', 'assisted', 'other'].includes(String(snap.deliveryMode))) {
+      return true;
+    }
+    const name = String(snap?.name || '').toLowerCase();
+    return /c[- ]?section|cesarean|delivery|obstetric/.test(name);
+  }
+
+  deliveryModalOpen = false;
+  deliveryModalItem: OperationSchedule | null = null;
+  deliverySaving = false;
+  deliveryForm = {
+    deliveryOutcome: 'live_birth' as 'live_birth' | 'stillbirth' | 'no_delivery' | 'other',
+    babyCount: 1,
+    babies: [
+      {
+        sex: 'Girl',
+        dateOfBirth: '',
+        timeOfBirth: '',
+        birthWeight: '',
+        weightUnit: 'kg' as 'kg' | 'grams',
+        babyName: '',
+        notes: '',
+      },
+    ],
+  };
+
+  openDeliveryCompleteModal(item: OperationSchedule): void {
+    this.deliveryModalItem = item;
+    const now = new Date();
+    const date = now.toISOString().slice(0, 10);
+    const time = now.toTimeString().slice(0, 5);
+    this.deliveryForm = {
+      deliveryOutcome: 'live_birth',
+      babyCount: 1,
+      babies: [
+        {
+          sex: 'Girl',
+          dateOfBirth: date,
+          timeOfBirth: time,
+          birthWeight: '',
+          weightUnit: 'kg',
+          babyName: '',
+          notes: '',
+        },
+      ],
+    };
+    this.deliveryModalOpen = true;
+  }
+
+  closeDeliveryModal(): void {
+    this.deliveryModalOpen = false;
+    this.deliveryModalItem = null;
+    this.deliverySaving = false;
+  }
+
+  onDeliveryBabyCountChange(count: number): void {
+    const n = Math.max(1, Math.min(6, Number(count) || 1));
+    this.deliveryForm.babyCount = n;
+    const now = new Date();
+    const date = now.toISOString().slice(0, 10);
+    const time = now.toTimeString().slice(0, 5);
+    while (this.deliveryForm.babies.length < n) {
+      this.deliveryForm.babies.push({
+        sex: 'Girl',
+        dateOfBirth: date,
+        timeOfBirth: time,
+        birthWeight: '',
+        weightUnit: 'kg',
+        babyName: '',
+        notes: '',
+      });
+    }
+    this.deliveryForm.babies = this.deliveryForm.babies.slice(0, n);
+  }
+
+  private buildDeliveryPayload(recordBirthNow: boolean): Record<string, unknown> {
+    const outcome = this.deliveryForm.deliveryOutcome;
+    const babies =
+      outcome === 'live_birth' || outcome === 'stillbirth'
+        ? this.deliveryForm.babies.map((baby, index) => ({
+            birthOrder: index + 1,
+            sex: baby.sex,
+            dateOfBirth: baby.dateOfBirth || undefined,
+            timeOfBirth: baby.timeOfBirth || undefined,
+            birthWeight: baby.birthWeight ? Number(baby.birthWeight) : undefined,
+            weightUnit: baby.weightUnit,
+            babyName: baby.babyName || undefined,
+            notes: baby.notes || undefined,
+          }))
+        : [];
+    return {
+      deliveryOutcome: outcome,
+      recordBirthNow,
+      postponeBirthDetails: !recordBirthNow,
+      expectedBabyCount: this.deliveryForm.babyCount,
+      modeOfDelivery: 'c_section',
+      babies,
+    };
+  }
+
+  submitCompleteWithBirth(): void {
+    if (!this.deliveryModalItem) {
+      return;
+    }
+    if (
+      (this.deliveryForm.deliveryOutcome === 'live_birth' ||
+        this.deliveryForm.deliveryOutcome === 'stillbirth') &&
+      this.deliveryForm.babies.some((b) => !b.sex || !b.birthWeight)
+    ) {
+      this.toastr.error('Enter baby sex and birth weight for each baby, or choose Birth Details Later.');
+      return;
+    }
+    this.deliverySaving = true;
+    this.backend
+      .completeOperationSchedule(this.deliveryModalItem._id, this.buildDeliveryPayload(true))
+      .subscribe({
+        next: () => {
+          this.toastr.success('Operation completed and birth recorded.');
+          this.closeDeliveryModal();
+          this.afterMutationRefresh(true);
+        },
+        error: (err) => {
+          this.deliverySaving = false;
+          this.toastr.error(err?.error?.message || 'Unable to complete operation.');
+        },
+      });
+  }
+
+  submitCompleteBirthLater(): void {
+    if (!this.deliveryModalItem) {
+      return;
+    }
+    this.deliverySaving = true;
+    this.backend
+      .completeOperationSchedule(this.deliveryModalItem._id, this.buildDeliveryPayload(false))
+      .subscribe({
+        next: () => {
+          this.toastr.success('Operation completed. Birth details marked pending.');
+          this.closeDeliveryModal();
+          this.afterMutationRefresh(true);
+        },
+        error: (err) => {
+          this.deliverySaving = false;
+          this.toastr.error(err?.error?.message || 'Unable to complete operation.');
+        },
+      });
+  }
+
+  completeBirthDetailsLater(item: OperationSchedule): void {
+    this.openDeliveryCompleteModal(item);
+    // Reuse modal in "later" mode — submitting with birth will call birth-details if already completed
+    if (item.status === 'completed') {
+      this.deliverySaving = false;
+    }
+  }
+
+  confirmDeliveryModalForCompleted(): void {
+    if (!this.deliveryModalItem) {
+      return;
+    }
+    if (this.deliveryModalItem.status === 'completed') {
+      this.deliverySaving = true;
+      this.backend
+        .completeOperationBirthDetails(this.deliveryModalItem._id, this.buildDeliveryPayload(true))
+        .subscribe({
+          next: () => {
+            this.toastr.success('Birth details recorded.');
+            this.closeDeliveryModal();
+            this.afterMutationRefresh(true);
+          },
+          error: (err) => {
+            this.deliverySaving = false;
+            this.toastr.error(err?.error?.message || 'Unable to save birth details.');
+          },
+        });
+      return;
+    }
+    this.submitCompleteWithBirth();
   }
 
   cancel(item: OperationSchedule): void {

@@ -14,6 +14,13 @@ import { BackendService } from '../../../../core/services/backend.service';
 import { formatActiveCurrency } from '../../../../core/services/currency.service';
 import { Patient, Room, Doctor, RoomAllotment, TreatmentCatalogItem } from '../../../../shared/models/hospital.model';
 import { HmsCurrencyPipe } from '../../../../shared/pipes/hms-currency.pipe';
+import {
+  formatCnicDisplay,
+  formatCnicInput,
+  GUARDIAN_RELATIONSHIP_OPTIONS,
+  isValidCnic,
+  normalizeIdentityNumber,
+} from '../../../../core/utils/identity-cnic.util';
 
 interface WardAdmissionSuccess {
   admissionNo: string;
@@ -25,6 +32,21 @@ interface WardAdmissionSuccess {
   bedLabel: string;
   consultantName: string;
   nurseName: string;
+}
+
+interface PatientIdentityForm {
+  identityType: 'CNIC' | 'PASSPORT' | 'OTHER' | '';
+  identityNumber: string;
+  identityUnavailable: boolean;
+  identityUnavailableReason: string;
+  phone: string;
+  address: string;
+  guardianName: string;
+  guardianRelationship: string;
+  guardianIdentityNumber: string;
+  guardianPhone: string;
+  guardianAddress: string;
+  guardianSameAsPatientAddress: boolean;
 }
 
 @Component({
@@ -53,6 +75,9 @@ export class AddAllotmentComponent implements OnInit {
   admissionSuccess: WardAdmissionSuccess | null = null;
   treatmentCatalog: TreatmentCatalogItem[] = [];
   canApproveDiscounts = false;
+  readonly guardianRelationships = GUARDIAN_RELATIONSHIP_OPTIONS;
+  identityForm: PatientIdentityForm = this.emptyIdentityForm();
+  identityErrors: Record<string, string> = {};
 
   constructor(
     private fb: FormBuilder,
@@ -134,6 +159,7 @@ export class AddAllotmentComponent implements OnInit {
           this.selectedPatient = patient;
           this.matchedPatients = [patient];
           this.patientLookupPerformed = true;
+          this.hydrateIdentityFromPatient(patient);
         }
 
         this.allotmentForm.patchValue({
@@ -500,7 +526,134 @@ export class AddAllotmentComponent implements OnInit {
 
   selectPatient(patient: Patient): void {
     this.selectedPatient = patient;
+    this.hydrateIdentityFromPatient(patient);
     (document.activeElement as HTMLElement | null)?.blur();
+  }
+
+  get isMaternityAdmission(): boolean {
+    const treatmentId = String(this.allotmentForm?.get('treatmentCatalogId')?.value || '');
+    const item = this.treatmentCatalog.find((row) => row._id === treatmentId);
+    if (item?.isObstetricDelivery) {
+      return true;
+    }
+    if (item?.deliveryMode && ['vaginal', 'c_section', 'assisted', 'other'].includes(item.deliveryMode)) {
+      return true;
+    }
+    const snap = this.recommendationSummary?.['treatmentSnapshot'] as Record<string, unknown> | undefined;
+    if (snap?.['isObstetricDelivery'] === true) {
+      return true;
+    }
+    const reason = String(
+      this.allotmentForm?.get('admissionReason')?.value || this.recommendationSummary?.['reason'] || ''
+    ).toLowerCase();
+    return /c[- ]?section|cesarean|obstetric|delivery|labour|labor/.test(reason);
+  }
+
+  get identityCardTitle(): string {
+    return this.isMaternityAdmission ? 'Father / Husband Details' : 'Patient & Guardian Details';
+  }
+
+  onPatientCnicInput(value: string): void {
+    this.identityForm.identityNumber =
+      this.identityForm.identityType === 'CNIC' || !this.identityForm.identityType
+        ? formatCnicInput(value)
+        : value;
+  }
+
+  onGuardianCnicInput(value: string): void {
+    this.identityForm.guardianIdentityNumber = formatCnicInput(value);
+  }
+
+  onGuardianSameAddressChange(): void {
+    if (this.identityForm.guardianSameAsPatientAddress) {
+      this.identityForm.guardianAddress = this.identityForm.address;
+    }
+  }
+
+  private emptyIdentityForm(): PatientIdentityForm {
+    return {
+      identityType: 'CNIC',
+      identityNumber: '',
+      identityUnavailable: false,
+      identityUnavailableReason: '',
+      phone: '',
+      address: '',
+      guardianName: '',
+      guardianRelationship: '',
+      guardianIdentityNumber: '',
+      guardianPhone: '',
+      guardianAddress: '',
+      guardianSameAsPatientAddress: false,
+    };
+  }
+
+  private hydrateIdentityFromPatient(patient: Patient): void {
+    this.identityForm = {
+      identityType: (patient.identityType as PatientIdentityForm['identityType']) || 'CNIC',
+      identityNumber: formatCnicDisplay(patient.identityNumber || ''),
+      identityUnavailable: Boolean(patient.identityUnavailable),
+      identityUnavailableReason: patient.identityUnavailableReason || '',
+      phone: patient.phone || '',
+      address: patient.address || '',
+      guardianName: patient.emergencyContactName || '',
+      guardianRelationship: patient.guardianRelationship || (this.isMaternityAdmission ? 'Husband' : ''),
+      guardianIdentityNumber: formatCnicDisplay(patient.guardianIdentityNumber || ''),
+      guardianPhone: patient.emergencyContactPhone || '',
+      guardianAddress: patient.guardianAddress || '',
+      guardianSameAsPatientAddress: false,
+    };
+    this.identityErrors = {};
+  }
+
+  private validateIdentityForm(): boolean {
+    this.identityErrors = {};
+    if (!this.identityForm.identityUnavailable) {
+      if (!this.identityForm.identityNumber.trim()) {
+        this.identityErrors['identityNumber'] = 'Patient identity number is required for planned admission.';
+      } else if (
+        (this.identityForm.identityType || 'CNIC') === 'CNIC' &&
+        !isValidCnic(this.identityForm.identityNumber)
+      ) {
+        this.identityErrors['identityNumber'] = 'CNIC must be 13 digits (XXXXX-XXXXXXX-X).';
+      }
+    } else if (!this.identityForm.identityUnavailableReason.trim()) {
+      this.identityErrors['identityUnavailableReason'] = 'Provide a reason when CNIC is not available.';
+    }
+
+    if (!this.identityForm.phone.trim()) {
+      this.identityErrors['phone'] = 'Mobile number is required.';
+    }
+    if (!this.identityForm.address.trim()) {
+      this.identityErrors['address'] = 'Address is required.';
+    }
+    if (!this.identityForm.guardianName.trim()) {
+      this.identityErrors['guardianName'] = this.isMaternityAdmission
+        ? 'Husband / Father name is required.'
+        : 'Guardian / attendant name is required.';
+    }
+    if (!this.identityForm.guardianRelationship.trim()) {
+      this.identityErrors['guardianRelationship'] = 'Relationship is required.';
+    }
+    if (this.identityForm.guardianIdentityNumber.trim()) {
+      if (!isValidCnic(this.identityForm.guardianIdentityNumber)) {
+        this.identityErrors['guardianIdentityNumber'] = 'Guardian CNIC must be 13 digits.';
+      }
+    } else if (this.isMaternityAdmission) {
+      this.identityErrors['guardianIdentityNumber'] = 'Husband / Father CNIC is required for maternity admissions.';
+    }
+    if (!this.identityForm.guardianPhone.trim()) {
+      this.identityErrors['guardianPhone'] = 'Guardian mobile is required.';
+    }
+    if (!this.identityForm.guardianSameAsPatientAddress && !this.identityForm.guardianAddress.trim()) {
+      this.identityErrors['guardianAddress'] = 'Guardian address is required.';
+    }
+
+    const priority = String(this.recommendationSummary?.['priority'] || '').toLowerCase();
+    if (priority === 'emergency' && this.identityForm.identityUnavailable) {
+      delete this.identityErrors['identityNumber'];
+    }
+
+    return Object.keys(this.identityErrors).length === 0;
   }
 
   clearSelectedPatient(): void {
@@ -547,6 +700,11 @@ export class AddAllotmentComponent implements OnInit {
       return;
     }
 
+    if (!this.validateIdentityForm()) {
+      this.toastr.error('Please complete Patient & Guardian / Father identity details.');
+      return;
+    }
+
     const value = this.allotmentForm.getRawValue();
     const payload: Record<string, unknown> = {
       patientId: this.selectedPatient._id,
@@ -588,6 +746,25 @@ export class AddAllotmentComponent implements OnInit {
         typeof this.recommendationSummary?.['operationScheduleId'] === 'object'
           ? String((this.recommendationSummary?.['operationScheduleId'] as { _id?: string })?._id || '') || undefined
           : String(this.recommendationSummary?.['operationScheduleId'] || '') || undefined,
+      patientIdentity: {
+        identityType: this.identityForm.identityType || 'CNIC',
+        identityNumber: this.identityForm.identityUnavailable
+          ? ''
+          : normalizeIdentityNumber(this.identityForm.identityNumber, this.identityForm.identityType || 'CNIC'),
+        identityUnavailable: this.identityForm.identityUnavailable,
+        identityUnavailableReason: this.identityForm.identityUnavailableReason || undefined,
+        phone: this.identityForm.phone.trim(),
+        address: this.identityForm.address.trim(),
+        guardianName: this.identityForm.guardianName.trim(),
+        guardianRelationship: this.identityForm.guardianRelationship || undefined,
+        guardianIdentityNumber: normalizeIdentityNumber(this.identityForm.guardianIdentityNumber, 'CNIC'),
+        guardianPhone: this.identityForm.guardianPhone.trim(),
+        guardianAddress: this.identityForm.guardianSameAsPatientAddress
+          ? this.identityForm.address.trim()
+          : this.identityForm.guardianAddress.trim(),
+        guardianSameAsPatientAddress: this.identityForm.guardianSameAsPatientAddress,
+        isMaternityAdmission: this.isMaternityAdmission,
+      },
     };
 
     if (this.currentHospitalId) {
