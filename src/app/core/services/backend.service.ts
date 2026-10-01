@@ -1896,7 +1896,7 @@ export class BackendService {
 
   listAdmissionRecommendations(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
     return this.get<PaginatedResponse<Record<string, unknown>>>(`${CONFIG.wardBilling}/admission-recommendations`, params).pipe(
-      map((response) => this.unwrapData(response))
+      map((response) => this.unwrapListResult(response))
     );
   }
 
