@@ -4,12 +4,17 @@
   --ward-teal: #0d9488;
   --ward-teal-soft: #ccfbf1;
   min-height: 100%;
-  overflow-x: hidden;
+  overflow: visible;
 }
 
 .ward-module-page--admissions {
   .ward-page-container {
     padding-top: 10px;
+  }
+
+  .ward-data-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -180,7 +185,7 @@
 }
 
 .ward-panel--admissions {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .ward-panel__head--admissions {
@@ -577,7 +582,7 @@
 
 @media (max-width: 768px) {
   .ward-data-table-wrap {
-    overflow: visible;
+    overflow-x: auto;
   }
 
   .ward-page-header--compact {
