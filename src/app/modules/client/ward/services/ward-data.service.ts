@@ -712,11 +712,16 @@ export class WardDataService {
         ),
       }).pipe(
         map(({ bundle, recommendations }) => {
-          const baseRows = this.rowsFromClinicalBundle(bundle, moduleKey, tab, search, filters);
           const pendingRecommendations = recommendations.filter(
             (item) => !['admitted'].includes(String(item['status'] || ''))
           );
           const recommendationRows = mapAdmissionRecommendationRows(pendingRecommendations, bundle.doctors);
+          let baseRows: WardModuleRow[] = [];
+          try {
+            baseRows = this.rowsFromClinicalBundle(bundle, moduleKey, tab, search, filters);
+          } catch {
+            baseRows = [];
+          }
           // Pending doctor recommendations first — same set Ward Home counts as Pending Admissions.
           return [...recommendationRows, ...baseRows];
         }),

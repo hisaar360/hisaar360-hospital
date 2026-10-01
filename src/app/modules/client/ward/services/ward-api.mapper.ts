@@ -918,9 +918,14 @@ export function mapAdmissionRecommendationRows(
   doctors: Doctor[] = []
 ): WardModuleRow[] {
   return recommendations.map((item) => {
-    const patient = item['patientId'] as Patient | undefined;
-    const doctorRef = item['recommendedByDoctorId'] as Doctor | string | undefined;
-    const doctorId = typeof doctorRef === 'object' ? doctorRef?._id : doctorRef;
+    const patientRaw = item['patientId'];
+    const patient =
+      patientRaw && typeof patientRaw === 'object' ? (patientRaw as Patient) : undefined;
+    const doctorRef = item['recommendedByDoctorId'] as Doctor | string | null | undefined;
+    const doctorId =
+      doctorRef && typeof doctorRef === 'object'
+        ? String((doctorRef as Doctor)._id || '')
+        : String(doctorRef || '');
     const status = String(item['status'] || 'pending');
     const tab =
       status === 'admitted'
@@ -929,10 +934,20 @@ export function mapAdmissionRecommendationRows(
           ? 'discharge'
           : 'pending';
 
+    const roomAllotmentRaw = item['roomAllotmentId'];
     const roomAllotmentId =
-      typeof item['roomAllotmentId'] === 'object'
-        ? String((item['roomAllotmentId'] as { _id?: string })._id || '')
-        : String(item['roomAllotmentId'] || '');
+      roomAllotmentRaw && typeof roomAllotmentRaw === 'object'
+        ? String((roomAllotmentRaw as { _id?: string })._id || '')
+        : String(roomAllotmentRaw || '');
+
+    const clinicalSnapshot =
+      item['clinicalSnapshot'] && typeof item['clinicalSnapshot'] === 'object'
+        ? (item['clinicalSnapshot'] as Record<string, unknown>)
+        : undefined;
+    const admissionDecision =
+      clinicalSnapshot?.['admissionDecision'] && typeof clinicalSnapshot['admissionDecision'] === 'object'
+        ? (clinicalSnapshot['admissionDecision'] as Record<string, unknown>)
+        : undefined;
 
     return withModuleMeta(
       {
@@ -941,7 +956,7 @@ export function mapAdmissionRecommendationRows(
           patient: patientFullName(patient),
           mrn: patient?.patientNo || '—',
           bed: '—',
-          doctor: typeof doctorRef === 'object' ? doctorName(String(doctorRef?._id || ''), doctors) : doctorName(String(doctorId || ''), doctors),
+          doctor: doctorName(doctorId, doctors),
           admittedOn: formatDisplayDate(String(item['recommendedAt'] || item['createdAt'] || '')),
           status:
             status === 'pending'
@@ -957,9 +972,7 @@ export function mapAdmissionRecommendationRows(
           priority: String(item['priority'] || 'routine'),
           reason: String(item['reason'] || '—'),
           diagnosis: String(item['initialDiagnosis'] || '—'),
-          levelOfCare: String((item['clinicalSnapshot'] as Record<string, unknown> | undefined)?.['admissionDecision']
-            ? ((item['clinicalSnapshot'] as Record<string, unknown>)['admissionDecision'] as Record<string, unknown>)['levelOfCare']
-            : '—'),
+          levelOfCare: String(admissionDecision?.['levelOfCare'] || '—'),
           _tab: tab,
           _source: 'admission_recommendation',
         },
@@ -968,7 +981,7 @@ export function mapAdmissionRecommendationRows(
         },
         linkRoute: status === 'admitted' && roomAllotmentId ? `/ward/patient-detail/${roomAllotmentId}` : undefined,
       },
-      patient?._id,
+      patient?._id || (typeof patientRaw === 'string' ? patientRaw : undefined),
       roomAllotmentId,
       {
         recommendationId: String(item['_id']),
