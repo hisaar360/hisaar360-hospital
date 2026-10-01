@@ -1,11 +1,29 @@
-<div id="main-content" class="modern-dashboard hms-page ward-page-shell ward-module-page">
+<div
+  id="main-content"
+  class="modern-dashboard hms-page ward-page-shell ward-module-page"
+  [class.ward-module-page--admissions]="isAdmissionsPage"
+>
   <div class="container-fluid ward-page-container" *ngIf="config">
-    <div class="ward-page-header ward-page-header--compact">
+    <nav class="ward-breadcrumb" *ngIf="isAdmissionsPage" aria-label="Breadcrumb">
+      <a routerLink="/dashboard">Home</a>
+      <span class="ward-breadcrumb__sep" aria-hidden="true">/</span>
+      <a routerLink="/ward/home">Ward &amp; Nursing</a>
+      <span class="ward-breadcrumb__sep" aria-hidden="true">/</span>
+      <span class="ward-breadcrumb__current">Admissions</span>
+    </nav>
+
+    <div class="ward-page-header ward-page-header--compact" [class.ward-page-header--admissions]="isAdmissionsPage">
       <div class="ward-page-header__copy">
-        <h1>{{ config.title }}</h1>
+        <h1>
+          <span class="ward-page-header__title-icon" *ngIf="isAdmissionsPage" aria-hidden="true">
+            <i class="fa fa-bed"></i>
+          </span>
+          {{ config.title }}
+        </h1>
         <p>{{ config.subtitle }}</p>
       </div>
-      <div class="ward-page-header__actions">
+
+      <div class="ward-page-header__actions" *ngIf="!isAdmissionsPage">
         <label class="ward-header-filter">
           <span>Ward</span>
           <select [(ngModel)]="ward" (ngModelChange)="onFilterChange()">
@@ -53,14 +71,73 @@
       </div>
     </div>
 
-    <section class="ward-kpi-grid">
-      <article class="ward-kpi-card" *ngFor="let kpi of displayKpis" [ngClass]="'ward-kpi-card--' + kpi.tone">
-        <span class="ward-kpi-card__icon"><i class="fa" [ngClass]="kpi.icon"></i></span>
-        <span class="ward-kpi-card__copy">
-          <strong>{{ kpi.value }}</strong>
-          <small>{{ kpi.label }}</small>
+    <div class="ward-filter-toolbar ward-admissions-filters" *ngIf="isAdmissionsPage">
+      <label class="ward-header-filter ward-admissions-filters__control">
+        <span>Ward</span>
+        <span class="ward-filter-input-wrap">
+          <i class="fa fa-building-o" aria-hidden="true"></i>
+          <select [(ngModel)]="ward" (ngModelChange)="onFilterChange()">
+            <option value="">All Wards</option>
+            <option *ngFor="let option of wardOptions" [value]="option">{{ option }}</option>
+          </select>
         </span>
-      </article>
+      </label>
+      <label class="ward-header-filter ward-admissions-filters__control">
+        <span>Date</span>
+        <span class="ward-filter-input-wrap">
+          <i class="fa fa-calendar" aria-hidden="true"></i>
+          <input type="date" [(ngModel)]="date" />
+        </span>
+      </label>
+      <label class="ward-header-filter ward-admissions-filters__control">
+        <span>Shift</span>
+        <span class="ward-filter-input-wrap">
+          <i class="fa" [ngClass]="shiftIcon" aria-hidden="true"></i>
+          <select [(ngModel)]="shift">
+            <option *ngFor="let option of shiftOptions" [value]="option">{{ option }}</option>
+          </select>
+        </span>
+      </label>
+      <div class="ward-admissions-filters__actions">
+        <button type="button" class="btn btn-sm ward-btn-outline-teal" (click)="exportData()">
+          <i class="fa fa-download"></i> Export
+        </button>
+        <button type="button" class="btn btn-sm ward-btn-outline-teal" (click)="refresh()">
+          <i class="fa fa-refresh"></i> Refresh
+        </button>
+        <button type="button" class="btn btn-sm ward-btn-teal" (click)="primaryAction()">
+          <i class="fa fa-plus"></i> {{ config.primaryActionLabel }}
+        </button>
+      </div>
+    </div>
+
+    <section class="ward-kpi-grid" [class.ward-kpi-grid--admissions]="isAdmissionsPage" aria-label="Summary">
+      <ng-container *ngIf="isAdmissionsPage; else genericKpis">
+        <button
+          type="button"
+          class="ward-kpi-card"
+          *ngFor="let kpi of displayKpis"
+          [ngClass]="'ward-kpi-card--' + kpi.tone"
+          [class.is-active]="isKpiActive(kpi)"
+          (click)="onKpiClick(kpi)"
+        >
+          <span class="ward-kpi-card__icon"><i class="fa" [ngClass]="kpi.icon"></i></span>
+          <span class="ward-kpi-card__copy">
+            <strong>{{ kpi.value }}</strong>
+            <small>{{ kpi.label }}</small>
+          </span>
+          <i class="fa fa-chevron-right ward-kpi-card__chevron" aria-hidden="true"></i>
+        </button>
+      </ng-container>
+      <ng-template #genericKpis>
+        <article class="ward-kpi-card" *ngFor="let kpi of displayKpis" [ngClass]="'ward-kpi-card--' + kpi.tone">
+          <span class="ward-kpi-card__icon"><i class="fa" [ngClass]="kpi.icon"></i></span>
+          <span class="ward-kpi-card__copy">
+            <strong>{{ kpi.value }}</strong>
+            <small>{{ kpi.label }}</small>
+          </span>
+        </article>
+      </ng-template>
     </section>
 
     <div class="ward-patient-context ward-patient-context--page" *ngIf="hasPatientContext">
@@ -100,13 +177,35 @@
       <span>Open a patient from Ward Dashboard to view vitals graphs and trends here.</span>
     </div>
 
-    <section class="ward-panel" *ngIf="!hideVitalsListTable">
-      <div class="ward-panel__head ward-panel__head--stack">
-        <div>
-          <h2>{{ config.title }} in {{ selectedWardLabel }}</h2>
+    <section class="ward-panel" [class.ward-panel--admissions]="isAdmissionsPage" *ngIf="!hideVitalsListTable">
+      <div class="ward-panel__head" [class.ward-panel__head--stack]="!isAdmissionsPage" [class.ward-panel__head--admissions]="isAdmissionsPage">
+        <div class="ward-panel__title-block">
+          <h2>
+            <i class="fa fa-clipboard" *ngIf="isAdmissionsPage" aria-hidden="true"></i>
+            {{ config.title }} in {{ selectedWardLabel }}
+          </h2>
           <p>{{ config.layout === 'reports' ? reportCards.length : rows.length }} records shown</p>
         </div>
-        <div class="ward-status-tabs" *ngIf="config.tabs.length">
+
+        <div class="ward-panel__head-tools" *ngIf="isAdmissionsPage">
+          <label class="ward-filter ward-filter--compact ward-filter--grow ward-filter--search">
+            <span class="sr-only">Search</span>
+            <span class="ward-filter-input-wrap">
+              <i class="fa fa-search" aria-hidden="true"></i>
+              <input
+                type="search"
+                [(ngModel)]="search"
+                (ngModelChange)="onFilterChange()"
+                [placeholder]="config.searchPlaceholder"
+              />
+            </span>
+          </label>
+          <button type="button" class="btn btn-sm ward-btn-outline-teal" (click)="exportData()" *ngIf="config.layout === 'table'">
+            <i class="fa fa-download"></i> Export
+          </button>
+        </div>
+
+        <div class="ward-status-tabs" *ngIf="config.tabs.length && !isAdmissionsPage">
           <button
             type="button"
             class="ward-status-tab"
@@ -119,7 +218,21 @@
         </div>
       </div>
 
-      <div class="ward-filter-toolbar ward-filter-toolbar--in-panel">
+      <div class="ward-status-tabs ward-status-tabs--admissions" *ngIf="isAdmissionsPage && config.tabs.length" role="tablist">
+        <button
+          type="button"
+          class="ward-status-tab"
+          *ngFor="let tab of config.tabs"
+          role="tab"
+          [attr.aria-selected]="activeTab === tab.key"
+          [class.ward-status-tab--active]="activeTab === tab.key"
+          (click)="setTab(tab.key)"
+        >
+          {{ tab.label }} ({{ tabCount(tab.key) }})
+        </button>
+      </div>
+
+      <div class="ward-filter-toolbar ward-filter-toolbar--in-panel" *ngIf="!isAdmissionsPage">
         <label class="ward-filter ward-filter--compact ward-filter--grow">
           <span>Search</span>
           <input type="search" [(ngModel)]="search" (ngModelChange)="onFilterChange()" [placeholder]="config.searchPlaceholder" />
@@ -160,22 +273,46 @@
           <div class="ward-mobile-card-list" *ngIf="showMobileCards && rows.length; else desktopTable">
             <article class="ward-mobile-card" *ngFor="let row of paginatedRows; trackBy: trackById">
               <div class="ward-mobile-card__head">
-                <strong>{{ row.cells['patient'] || row.cells['item'] }}</strong>
-                <span [ngClass]="badgeClass('status', row)">{{ row.cells['status'] }}</span>
+                <div class="ward-person-cell" *ngIf="isAdmissionsPage; else mobileTitle">
+                  <span class="ward-avatar">{{ row.cells['patientInitials'] || '?' }}</span>
+                  <span class="ward-person-cell__copy">
+                    <button type="button" class="ward-link-btn-inline" (click)="openRow(row)">{{ row.cells['patient'] }}</button>
+                    <small *ngIf="row.cells['patientSub']">{{ row.cells['patientSub'] }}</small>
+                  </span>
+                </div>
+                <ng-template #mobileTitle>
+                  <strong>{{ row.cells['patient'] || row.cells['item'] }}</strong>
+                </ng-template>
+                <span *ngIf="isAdmissionsPage" [ngClass]="badgeClass('priority', row)">
+                  <span class="ward-badge__dot" aria-hidden="true"></span>
+                  {{ row.cells['priority'] }}
+                </span>
+                <span *ngIf="!isAdmissionsPage" [ngClass]="badgeClass('status', row)">{{ row.cells['status'] }}</span>
               </div>
-              <small *ngIf="row.cells['patientSub']">{{ row.cells['patientSub'] }}</small>
+              <small *ngIf="!isAdmissionsPage && row.cells['patientSub']">{{ row.cells['patientSub'] }}</small>
               <p *ngIf="row.cells['order']">{{ row.cells['order'] }}</p>
               <div class="ward-mobile-card__meta">
+                <span *ngIf="row.cells['orderNo']"><strong>Order</strong> {{ row.cells['orderNo'] }}</span>
+                <span *ngIf="row.cells['mrn']"><strong>MRN</strong> {{ row.cells['mrn'] }}</span>
                 <span *ngIf="row.cells['type']" [ngClass]="typeChipClass(row.cells['type'])">{{ row.cells['type'] }}</span>
-                <span *ngIf="row.cells['doctor']">{{ row.cells['doctor'] }}</span>
-                <span *ngIf="row.cells['priority']">{{ row.cells['priority'] }}</span>
+                <span *ngIf="row.cells['doctor']"><i class="fa fa-user-md" aria-hidden="true"></i> {{ row.cells['doctor'] }}</span>
+                <span *ngIf="!isAdmissionsPage && row.cells['priority']">{{ row.cells['priority'] }}</span>
+                <span *ngIf="row.cells['reason']">{{ row.cells['reason'] }}</span>
                 <span *ngIf="row.cells['code']">{{ row.cells['code'] }}</span>
                 <span *ngIf="row.cells['stock']">Stock {{ row.cells['stock'] }}</span>
                 <span *ngIf="row.cells['reorder']">Reorder {{ row.cells['reorder'] }}</span>
                 <span *ngIf="row.cells['location']">{{ row.cells['location'] }}</span>
               </div>
               <div class="ward-mobile-card__actions">
-                <button type="button" class="hms-btn hms-btn-sm hms-btn-primary" (click)="openRow(row)">View</button>
+                <button
+                  type="button"
+                  class="hms-btn hms-btn-sm hms-btn-primary"
+                  *ngIf="isAdmissionsPage && row.meta?.recommendationId && (row.cells['_tab'] === 'pending' || row.cells['status'] === 'Acknowledged' || row.cells['status'] === 'Pending Order')"
+                  (click)="reviewAdmissionRecommendation(row)"
+                >
+                  Review &amp; Admit
+                </button>
+                <button type="button" class="hms-btn hms-btn-sm hms-btn-primary" (click)="openRow(row)" *ngIf="!isAdmissionsPage || row.linkRoute">View</button>
                 <app-hms-action-menu [items]="overlayMenuItems(row)" (itemSelect)="onOverlayMenuSelect(row, $event)">
                   <i class="fa fa-ellipsis-v"></i> More
                 </app-hms-action-menu>
@@ -185,34 +322,72 @@
 
           <ng-template #desktopTable>
           <div class="ward-data-table-wrap" *ngIf="rows.length; else emptyState">
-            <table class="table table-hover table-custom spacing5 mb-0 ward-data-table">
+            <table class="table table-hover table-custom spacing5 mb-0 ward-data-table" [class.ward-data-table--admissions]="isAdmissionsPage">
               <thead>
                 <tr>
+                  <th *ngIf="isAdmissionsPage" class="ward-data-table__check">
+                    <input
+                      type="checkbox"
+                      [checked]="allVisibleSelected"
+                      (change)="toggleSelectAllVisible($event)"
+                      aria-label="Select all visible rows"
+                    />
+                  </th>
                   <th *ngFor="let column of config.columns">{{ column.label }}</th>
                   <th class="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let row of paginatedRows; trackBy: trackById">
+                <tr *ngFor="let row of paginatedRows; trackBy: trackById" [class.is-selected]="isRowSelected(row)">
+                  <td *ngIf="isAdmissionsPage" class="ward-data-table__check">
+                    <input
+                      type="checkbox"
+                      [checked]="isRowSelected(row)"
+                      (change)="toggleRowSelection(row, $event)"
+                      [attr.aria-label]="'Select ' + (row.cells['patient'] || row.cells['orderNo'] || 'row')"
+                    />
+                  </td>
                   <td *ngFor="let column of config.columns">
-                    <ng-container *ngIf="column.type === 'link'; else cellValue">
-                      <button type="button" class="ward-link-btn-inline" (click)="openRow(row)">
-                        {{ row.cells[column.key] }}
-                      </button>
-                      <small class="ward-cell-sub" *ngIf="column.key === 'patient' && row.cells['patientSub']">{{ row.cells['patientSub'] }}</small>
-                    </ng-container>
-                    <ng-template #cellValue>
+                    <div class="ward-person-cell" *ngIf="isAdmissionsPage && column.key === 'patient'">
+                      <span class="ward-avatar">{{ row.cells['patientInitials'] || '?' }}</span>
+                      <span class="ward-person-cell__copy">
+                        <button type="button" class="ward-link-btn-inline" (click)="openRow(row)">
+                          {{ row.cells['patient'] }}
+                        </button>
+                        <small class="ward-cell-sub" *ngIf="row.cells['patientSub']">{{ row.cells['patientSub'] }}</small>
+                      </span>
+                    </div>
+
+                    <div class="ward-doctor-cell" *ngIf="isAdmissionsPage && column.key === 'doctor'">
+                      <i class="fa fa-user-md" aria-hidden="true"></i>
+                      <span>{{ row.cells['doctor'] }}</span>
+                    </div>
+
+                    <span *ngIf="isAdmissionsPage && column.key === 'priority'" [ngClass]="badgeClass('priority', row)">
+                      <span class="ward-badge__dot" aria-hidden="true"></span>
+                      {{ row.cells['priority'] }}
+                    </span>
+
+                    <ng-container *ngIf="!isAdmissionsPage || (column.key !== 'patient' && column.key !== 'doctor' && column.key !== 'priority')">
+                      <ng-container *ngIf="column.type === 'link'">
+                        <button type="button" class="ward-link-btn-inline" (click)="openRow(row)">
+                          {{ row.cells[column.key] }}
+                        </button>
+                        <small class="ward-cell-sub" *ngIf="column.key === 'patient' && row.cells['patientSub']">{{ row.cells['patientSub'] }}</small>
+                      </ng-container>
                       <span *ngIf="column.type === 'badge'" [ngClass]="badgeClass(column.key, row)">
                         {{ row.cells[column.key] }}
                       </span>
                       <span *ngIf="column.type === 'chip'" [ngClass]="typeChipClass(row.cells[column.key])">
                         {{ row.cells[column.key] }}
                       </span>
-                      <ng-container *ngIf="column.type !== 'badge' && column.type !== 'chip'">{{ row.cells[column.key] }}</ng-container>
-                    </ng-template>
+                      <ng-container *ngIf="!column.type || (column.type !== 'link' && column.type !== 'badge' && column.type !== 'chip')">
+                        {{ row.cells[column.key] }}
+                      </ng-container>
+                    </ng-container>
                   </td>
                   <td>
-                    <div class="table-actions table-actions--wide">
+                    <div class="table-actions" [class.table-actions--wide]="!isAdmissionsPage">
                       <button
                         type="button"
                         class="table-actions__label-btn table-actions__label-btn--start"
@@ -222,7 +397,7 @@
                       >
                         <i class="fa fa-check"></i> Review &amp; Admit
                       </button>
-                      <button type="button" title="View" (click)="openRow(row)" *ngIf="row.linkRoute"><i class="fa fa-eye"></i></button>
+                      <button type="button" title="View" (click)="openRow(row)" *ngIf="row.linkRoute && !isAdmissionsPage"><i class="fa fa-eye"></i></button>
                       <button
                         type="button"
                         class="table-actions__label-btn table-actions__label-btn--start"

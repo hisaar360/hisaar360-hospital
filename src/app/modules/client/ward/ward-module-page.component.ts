@@ -8,7 +8,7 @@ import {
   OnInit,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { WARD_MODULE_PAGE_CONFIGS } from './ward-module.config';
@@ -33,7 +33,15 @@ import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../co
 
 @Component({
   selector: 'app-ward-module-page',
-  imports: [CommonModule, FormsModule, WardActionModalComponent, WardDripActionModalComponent, WardVitalsTrendsComponent, HmsActionMenuComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    WardActionModalComponent,
+    WardDripActionModalComponent,
+    WardVitalsTrendsComponent,
+    HmsActionMenuComponent,
+  ],
   templateUrl: './ward-module-page.component.html',
   styleUrl: './ward-module-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -54,6 +62,7 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
   search = '';
   currentPage = 1;
   readonly pageSize = 8;
+  selectedRowIds = new Set<string>();
 
   contextPatientId = '';
   contextAdmissionId = '';
@@ -109,7 +118,30 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
   }
 
   get showMobileCards(): boolean {
-    return this.isCompactViewport && (this.config?.key === 'orders-services' || this.config?.key === 'inventory');
+    return (
+      this.isCompactViewport &&
+      (this.config?.key === 'orders-services' || this.config?.key === 'inventory' || this.config?.key === 'admissions')
+    );
+  }
+
+  get isAdmissionsPage(): boolean {
+    return this.config?.key === 'admissions';
+  }
+
+  get shiftIcon(): string {
+    const key = String(this.shift || '').toLowerCase();
+    if (key.includes('night')) {
+      return 'fa-moon-o';
+    }
+    if (key.includes('evening')) {
+      return 'fa-cloud';
+    }
+    return 'fa-sun-o';
+  }
+
+  get allVisibleSelected(): boolean {
+    const visible = this.paginatedRows;
+    return visible.length > 0 && visible.every((row) => this.selectedRowIds.has(row.id));
   }
 
   ngOnInit(): void {
@@ -704,6 +736,7 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
 
   resetFilters(): void {
     this.activeTab = 'all';
+    this.selectedRowIds.clear();
     this.clearPatientContext();
   }
 
@@ -746,12 +779,69 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
   setTab(tabKey: string): void {
     this.activeTab = tabKey;
     this.currentPage = 1;
+    this.selectedRowIds.clear();
     if (this.config.layout === 'reports') {
       this.filterReportCards();
       this.cdr.markForCheck();
       return;
     }
     this.applyTabFilter();
+    this.cdr.markForCheck();
+  }
+
+  onKpiClick(kpi: WardModuleKpi): void {
+    if (!this.isAdmissionsPage) {
+      return;
+    }
+    const countTab = kpi.countTab;
+    if (!countTab || countTab === 'total') {
+      this.setTab('all');
+      return;
+    }
+    if (countTab === 'discharge-today') {
+      this.setTab('discharge');
+      return;
+    }
+    if (countTab === 'transfer') {
+      this.setTab('all');
+      this.toastr.info('No transfer records for the current filters.', 'Transfers');
+      return;
+    }
+    this.setTab(countTab);
+  }
+
+  isKpiActive(kpi: WardModuleKpi): boolean {
+    const countTab = kpi.countTab;
+    if (!countTab || countTab === 'total') {
+      return this.activeTab === 'all';
+    }
+    if (countTab === 'discharge-today') {
+      return this.activeTab === 'discharge';
+    }
+    return this.activeTab === countTab;
+  }
+
+  isRowSelected(row: WardModuleRow): boolean {
+    return this.selectedRowIds.has(row.id);
+  }
+
+  toggleRowSelection(row: WardModuleRow, event: Event): void {
+    const checked = (event.target as HTMLInputElement | null)?.checked;
+    if (checked) {
+      this.selectedRowIds.add(row.id);
+    } else {
+      this.selectedRowIds.delete(row.id);
+    }
+    this.cdr.markForCheck();
+  }
+
+  toggleSelectAllVisible(event: Event): void {
+    const checked = (event.target as HTMLInputElement | null)?.checked;
+    if (checked) {
+      this.paginatedRows.forEach((row) => this.selectedRowIds.add(row.id));
+    } else {
+      this.paginatedRows.forEach((row) => this.selectedRowIds.delete(row.id));
+    }
     this.cdr.markForCheck();
   }
 
@@ -885,6 +975,7 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
       next: (rows) => {
         const patchedRows = this.applyDripStatusPatch(rows);
         this.allRows = patchedRows;
+        this.selectedRowIds.clear();
         this.applyTabFilter();
         this.reportCards = [];
         this.loading = false;
@@ -893,6 +984,7 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
       error: () => {
         this.allRows = [];
         this.rows = [];
+        this.selectedRowIds.clear();
         this.loading = false;
         this.toastr.error(`Failed to load ${this.config.title}.`);
         this.cdr.markForCheck();

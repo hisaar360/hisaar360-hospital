@@ -27,9 +27,6 @@ export const WARD_MODULE_PAGE_CONFIGS: Record<string, WardModulePageConfig> = {
       { key: 'doctor', label: 'Doctor' },
       { key: 'priority', label: 'Priority', type: 'badge' },
       { key: 'reason', label: 'Reason' },
-      { key: 'diagnosis', label: 'Diagnosis' },
-      { key: 'admittedOn', label: 'Ordered At' },
-      { key: 'status', label: 'Status', type: 'badge' },
     ],
   },
   'nursing-care': {

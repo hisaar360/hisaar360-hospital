@@ -1,8 +1,361 @@
 @use './ward-shared.scss';
 
 .ward-module-page {
+  --ward-teal: #0d9488;
+  --ward-teal-soft: #ccfbf1;
   min-height: 100%;
   overflow-x: hidden;
+}
+
+.ward-module-page--admissions {
+  .ward-page-container {
+    padding-top: 10px;
+  }
+}
+
+.ward-breadcrumb {
+  align-items: center;
+  color: var(--ward-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.ward-breadcrumb a {
+  color: var(--ward-muted);
+  text-decoration: none;
+}
+
+.ward-breadcrumb a:hover {
+  color: var(--ward-teal);
+  text-decoration: underline;
+}
+
+.ward-breadcrumb__sep {
+  color: #cbd5e1;
+}
+
+.ward-breadcrumb__current {
+  color: var(--ward-text);
+  font-weight: 600;
+}
+
+.ward-page-header--admissions {
+  margin-bottom: 12px;
+}
+
+.ward-page-header__title-icon {
+  align-items: center;
+  background: var(--ward-teal-soft);
+  border-radius: 10px;
+  color: var(--ward-teal);
+  display: inline-flex;
+  font-size: 14px;
+  height: 34px;
+  justify-content: center;
+  margin-right: 8px;
+  vertical-align: middle;
+  width: 34px;
+}
+
+.ward-btn-outline-teal,
+.ward-btn-teal {
+  align-items: center;
+  border-radius: 8px;
+  display: inline-flex;
+  font-weight: 700;
+  gap: 6px;
+  height: 34px;
+  min-height: 34px;
+}
+
+.ward-btn-outline-teal {
+  background: #fff;
+  border: 1px solid rgba(13, 148, 136, 0.35);
+  color: var(--ward-teal);
+}
+
+.ward-btn-outline-teal:hover,
+.ward-btn-outline-teal:focus {
+  background: var(--ward-teal-soft);
+  border-color: var(--ward-teal);
+  color: #0f766e;
+}
+
+.ward-btn-teal {
+  background: var(--ward-teal);
+  border: 1px solid var(--ward-teal);
+  color: #fff;
+}
+
+.ward-btn-teal:hover,
+.ward-btn-teal:focus {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+}
+
+.ward-admissions-filters {
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+}
+
+.ward-admissions-filters__control {
+  min-width: 150px;
+}
+
+.ward-filter-input-wrap {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--ward-border);
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.ward-filter-input-wrap > i {
+  color: #94a3b8;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.ward-filter-input-wrap select,
+.ward-filter-input-wrap input {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none;
+  flex: 1;
+  font-size: 12px;
+  min-height: 32px;
+  min-width: 0;
+  outline: none;
+  padding: 0 !important;
+  width: 100%;
+}
+
+.ward-admissions-filters__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.ward-kpi-grid--admissions {
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
+.ward-kpi-grid--admissions .ward-kpi-card {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.ward-kpi-grid--admissions .ward-kpi-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
+}
+
+.ward-kpi-grid--admissions .ward-kpi-card.is-active {
+  border-color: rgba(13, 148, 136, 0.45);
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.12);
+}
+
+.ward-kpi-card__chevron {
+  color: #94a3b8;
+  font-size: 11px;
+  margin-left: auto;
+}
+
+.ward-panel--admissions {
+  overflow: hidden;
+}
+
+.ward-panel__head--admissions {
+  align-items: center;
+  background: #fff;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.ward-panel__title-block h2 {
+  align-items: center;
+  display: flex;
+  font-size: 14px;
+  gap: 8px;
+}
+
+.ward-panel__title-block h2 .fa {
+  color: var(--ward-teal);
+}
+
+.ward-panel__head-tools {
+  align-items: center;
+  display: flex;
+  flex: 1 1 280px;
+  gap: 8px;
+  justify-content: flex-end;
+  max-width: 460px;
+  min-width: 220px;
+}
+
+.ward-panel__head-tools .ward-filter--search {
+  flex: 1 1 auto;
+  margin: 0;
+  min-width: 0;
+}
+
+.ward-panel__head-tools .ward-filter--search > span.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.ward-panel__head-tools .ward-filter-input-wrap {
+  background: #f8fafc;
+}
+
+.ward-status-tabs--admissions {
+  border-bottom: 1px solid var(--ward-border);
+  gap: 8px;
+  padding: 0 14px 12px;
+}
+
+.ward-module-page--admissions .ward-status-tab {
+  background: #fff;
+  border-color: #e2e8f0;
+  color: #64748b;
+  padding: 6px 12px;
+}
+
+.ward-module-page--admissions .ward-status-tab--active {
+  background: var(--ward-teal);
+  border-color: var(--ward-teal);
+  color: #fff;
+}
+
+.ward-data-table--admissions thead th {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  padding: 10px 12px;
+}
+
+.ward-data-table--admissions tbody td {
+  padding: 10px 12px;
+}
+
+.ward-data-table--admissions tbody tr.is-selected {
+  background: #f0fdfa;
+}
+
+.ward-data-table__check {
+  width: 36px;
+}
+
+.ward-data-table__check input {
+  cursor: pointer;
+}
+
+.ward-person-cell {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ward-person-cell__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ward-person-cell__copy .ward-link-btn-inline {
+  color: #2563eb;
+  font-size: 12px;
+  text-align: left;
+}
+
+.ward-avatar {
+  align-items: center;
+  background: #dbeafe;
+  border-radius: 999px;
+  color: #1d4ed8;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.ward-doctor-cell {
+  align-items: center;
+  color: #334155;
+  display: inline-flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.ward-doctor-cell .fa {
+  color: #94a3b8;
+}
+
+.ward-badge {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.ward-badge__dot {
+  background: currentColor;
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 7px;
+  opacity: 0.9;
+  width: 7px;
+}
+
+.ward-badge--urgent,
+.ward-badge--critical {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ward-badge--urgent .ward-badge__dot,
+.ward-badge--critical .ward-badge__dot {
+  background: #dc2626;
+}
+
+.ward-badge--routine,
+.ward-badge--normal,
+.ward-badge--low {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.ward-badge--routine .ward-badge__dot,
+.ward-badge--normal .ward-badge__dot,
+.ward-badge--low .ward-badge__dot {
+  background: #16a34a;
 }
 
 .ward-link-btn-inline {
@@ -54,7 +407,7 @@
 }
 
 .ward-patient-context strong {
-  color: var(--ward-ink);
+  color: var(--ward-ink, var(--ward-text));
 }
 
 .ward-vitals-hint {
@@ -195,6 +548,7 @@
 .ward-mobile-card__head {
   align-items: center;
   display: flex;
+  gap: 8px;
   justify-content: space-between;
 }
 
@@ -215,6 +569,12 @@
   flex: 1;
 }
 
+@media (max-width: 1100px) {
+  .ward-kpi-grid--admissions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 768px) {
   .ward-data-table-wrap {
     overflow: visible;
@@ -228,6 +588,51 @@
   .ward-page-header__actions {
     align-items: center;
     width: 100%;
+  }
+
+  .ward-admissions-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ward-admissions-filters__control {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .ward-admissions-filters__actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .ward-admissions-filters__actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .ward-kpi-grid--admissions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ward-panel__head--admissions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ward-panel__head-tools {
+    max-width: none;
+    width: 100%;
+  }
+
+  .ward-status-tabs--admissions {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 10px;
+  }
+
+  .ward-status-tabs--admissions .ward-status-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 }
 

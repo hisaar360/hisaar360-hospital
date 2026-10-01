@@ -172,12 +172,21 @@ export function patientSex(patient?: Patient | null): 'M' | 'F' {
   return patient?.gender === 'female' ? 'F' : 'M';
 }
 
-export function doctorName(doctorId?: string | null, doctors: Doctor[] = []): string {
+export function doctorName(doctorId?: string | null, doctors: Doctor[] = [], fallbackName = ''): string {
+  if (doctorId) {
+    const doctor = doctors.find((item) => item._id === doctorId);
+    if (doctor?.user?.name?.trim()) {
+      return doctor.user.name.trim();
+    }
+  }
+  if (fallbackName.trim()) {
+    return fallbackName.trim();
+  }
   if (!doctorId) {
     return '—';
   }
   const doctor = doctors.find((item) => item._id === doctorId);
-  return doctor?.user?.name || doctor?.specialization || 'Assigned Doctor';
+  return doctor?.specialization || 'Assigned Doctor';
 }
 
 export function formatDisplayDate(value?: string | null): string {
@@ -189,6 +198,57 @@ export function formatDisplayDate(value?: string | null): string {
     return value;
   }
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+export function patientDisplayInitials(name: string): string {
+  const parts = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) {
+    return '?';
+  }
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase();
+}
+
+export function patientAgeGenderLabel(patient?: Patient | null): string {
+  if (!patient) {
+    return '';
+  }
+  const genderRaw = String(patient.gender || '').trim().toLowerCase();
+  const gender =
+    genderRaw === 'f' || genderRaw === 'female'
+      ? 'Female'
+      : genderRaw === 'm' || genderRaw === 'male'
+        ? 'Male'
+        : genderRaw
+          ? genderRaw.charAt(0).toUpperCase() + genderRaw.slice(1)
+          : '';
+  const age = patientAge(patient);
+  const ageLabel = age > 0 ? `${age} years` : '';
+  return [gender, ageLabel].filter(Boolean).join(' • ');
+}
+
+export function priorityBadgeTone(priority: string): string {
+  const key = String(priority || 'routine').trim().toLowerCase();
+  if (key === 'stat' || key === 'critical') {
+    return 'critical';
+  }
+  if (key === 'urgent' || key === 'high') {
+    return 'urgent';
+  }
+  return 'routine';
+}
+
+export function priorityDisplayLabel(priority: string): string {
+  const key = String(priority || 'routine').trim().toLowerCase();
+  if (!key) {
+    return 'Routine';
+  }
+  return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
 export function derivePatientStatus(
@@ -949,14 +1009,25 @@ export function mapAdmissionRecommendationRows(
         ? (clinicalSnapshot['admissionDecision'] as Record<string, unknown>)
         : undefined;
 
+    const patientName = patientFullName(patient);
+    const doctorFallback =
+      doctorRef && typeof doctorRef === 'object'
+        ? String((doctorRef as Doctor).user?.name || (doctorRef as { name?: string }).name || '')
+        : '';
+    const doctorLabel = doctorName(doctorId, doctors, doctorFallback);
+    const priority = String(item['priority'] || admissionDecision?.['priority'] || 'routine');
+
     return withModuleMeta(
       {
         id: String(item['_id']),
         cells: {
-          patient: patientFullName(patient),
+          patient: patientName,
+          patientSub: patientAgeGenderLabel(patient),
+          patientInitials: patientDisplayInitials(patientName),
           mrn: patient?.patientNo || '—',
           bed: '—',
-          doctor: doctorName(doctorId, doctors),
+          doctor: doctorLabel,
+          doctorInitials: patientDisplayInitials(doctorLabel),
           admittedOn: formatDisplayDate(String(item['recommendedAt'] || item['createdAt'] || '')),
           status:
             status === 'pending'
@@ -969,7 +1040,7 @@ export function mapAdmissionRecommendationRows(
                     ? 'Admitted'
                     : status,
           orderNo: String(item['orderNo'] || '—'),
-          priority: String(item['priority'] || 'routine'),
+          priority: priorityDisplayLabel(priority),
           reason: String(item['reason'] || '—'),
           diagnosis: String(item['initialDiagnosis'] || '—'),
           levelOfCare: String(admissionDecision?.['levelOfCare'] || '—'),
@@ -978,6 +1049,7 @@ export function mapAdmissionRecommendationRows(
         },
         badgeTone: {
           status: status === 'pending' || status === 'acknowledged' ? 'pending' : status === 'admitted' ? 'active' : 'completed',
+          priority: priorityBadgeTone(priority),
         },
         linkRoute: status === 'admitted' && roomAllotmentId ? `/ward/patient-detail/${roomAllotmentId}` : undefined,
       },
@@ -992,29 +1064,40 @@ export function mapAdmissionRecommendationRows(
 }
 
 export function mapAdmissionRows(allotments: RoomAllotment[], doctors: Doctor[] = []): WardModuleRow[] {
-  return allotments.map((item) =>
-    withModuleMeta(
+  return allotments.map((item) => {
+    const patientName = patientFullName(item.patient);
+    const doctorLabel = doctorName(item.consultantDoctorId, doctors);
+    return withModuleMeta(
       {
         id: item._id,
         cells: {
-          patient: patientFullName(item.patient),
+          patient: patientName,
+          patientSub: patientAgeGenderLabel(item.patient) || (item.bedLabel ? `Bed ${item.bedLabel}` : ''),
+          patientInitials: patientDisplayInitials(patientName),
           mrn: item.patient?.patientNo || '—',
           bed: item.bedLabel || item.room?.roomNo || '—',
-          doctor: doctorName(item.consultantDoctorId, doctors),
+          doctor: doctorLabel,
+          doctorInitials: patientDisplayInitials(doctorLabel),
           admittedOn: formatDisplayDate(item.admittedAt),
           status: item.status === 'admitted' ? 'Active' : 'Discharged',
+          orderNo: item.admissionNo || '—',
+          priority: 'Routine',
+          reason: item.admissionReason || '—',
           _tab: item.status === 'admitted' ? 'active' : item.dischargedAt ? 'discharge' : 'pending',
           _dischargedAt: item.dischargedAt || '',
+          _source: 'room_allotment',
         },
         badgeTone: {
           status: item.status === 'admitted' ? 'active' : 'completed',
+          priority: 'routine',
         },
         linkRoute: `/ward/patient-detail/${item._id}`,
       },
       item.patientId,
-      item._id
-    )
-  );
+      item._id,
+      { rowSource: 'room_allotment' }
+    );
+  });
 }
 
 export function mapNursingRows(history: PatientHistory[]): WardModuleRow[] {
