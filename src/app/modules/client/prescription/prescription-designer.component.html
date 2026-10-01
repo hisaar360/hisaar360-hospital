@@ -170,6 +170,38 @@
       </section>
 
       <section class="panel-card">
+        <h2>5b. Block positions (up / down)</h2>
+        <p class="hint">Har block ko mm mein upar/neeche shift karein. Positive = neeche, negative = upar.</p>
+        <label>Header ({{ style.offsetHeaderY }}mm)
+          <input type="range" min="-20" max="40" step="0.5" [(ngModel)]="style.offsetHeaderY" />
+        </label>
+        <label>Date bar ({{ style.offsetDateY }}mm)
+          <input type="range" min="-20" max="40" step="0.5" [(ngModel)]="style.offsetDateY" />
+        </label>
+        <label>Patient table ({{ style.offsetPatientY }}mm)
+          <input type="range" min="-20" max="40" step="0.5" [(ngModel)]="style.offsetPatientY" />
+        </label>
+        <label>Body / medicines ({{ style.offsetBodyY }}mm)
+          <input type="range" min="-20" max="40" step="0.5" [(ngModel)]="style.offsetBodyY" />
+        </label>
+        <label>Follow up ({{ style.offsetFollowUpY }}mm)
+          <input type="range" min="-20" max="40" step="0.5" [(ngModel)]="style.offsetFollowUpY" />
+        </label>
+        <label>Gynae / OBS details ({{ style.offsetGynaeY }}mm)
+          <input type="range" min="-20" max="40" step="0.5" [(ngModel)]="style.offsetGynaeY" />
+        </label>
+        <label>Note to Patient ({{ style.offsetNotesY }}mm)
+          <input type="range" min="-20" max="40" step="0.5" [(ngModel)]="style.offsetNotesY" />
+        </label>
+        <label>Note line gap ({{ style.noteLineGap }}mm)
+          <input type="range" min="0" max="12" step="0.5" [(ngModel)]="style.noteLineGap" />
+        </label>
+        <label>Footer ({{ style.offsetFooterY }}mm)
+          <input type="range" min="-20" max="40" step="0.5" [(ngModel)]="style.offsetFooterY" />
+        </label>
+      </section>
+
+      <section class="panel-card">
         <h2>6. Show / hide blocks</h2>
         <label class="check"><input type="checkbox" [(ngModel)]="style.showHospitalAddress" /> Hospital address</label>
         <label class="check"><input type="checkbox" [(ngModel)]="style.showUrduAdvice" /> Urdu advice strip</label>
@@ -336,16 +368,16 @@
               <thead>
                 <tr>
                   <th class="print-medicine-title" rowspan="2">Medicines<br /><span class="print-urdu-inline">(دوائیاں)</span></th>
-                  <th class="print-urdu-cell" rowspan="2">مدت</th>
-                  <th class="print-urdu-cell" rowspan="2">غذا کے بعد</th>
-                  <th class="print-urdu-cell" rowspan="2">غذا سے پہلے</th>
-                  <th class="print-urdu-cell" colspan="4">وقت</th>
+                  <th class="print-urdu-cell" rowspan="2">Duration<br /><span class="print-urdu-inline">(مدت)</span></th>
+                  <th class="print-urdu-cell" rowspan="2">After meal<br /><span class="print-urdu-inline">(غذا کے بعد)</span></th>
+                  <th class="print-urdu-cell" rowspan="2">Before meal<br /><span class="print-urdu-inline">(غذا سے پہلے)</span></th>
+                  <th class="print-urdu-cell" colspan="4">Time<br /><span class="print-urdu-inline">(وقت)</span></th>
                 </tr>
                 <tr>
-                  <th class="print-urdu-cell">صبح</th>
-                  <th class="print-urdu-cell">دوپہر</th>
-                  <th class="print-urdu-cell">شام</th>
-                  <th class="print-urdu-cell">رات</th>
+                  <th class="print-urdu-cell">Morning<br /><span class="print-urdu-inline">صبح</span></th>
+                  <th class="print-urdu-cell">Noon<br /><span class="print-urdu-inline">دوپہر</span></th>
+                  <th class="print-urdu-cell">Evening<br /><span class="print-urdu-inline">شام</span></th>
+                  <th class="print-urdu-cell">Night<br /><span class="print-urdu-inline">رات</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -353,7 +385,12 @@
                   <td class="print-med-name">
                     <strong>{{ med.name }}</strong>
                   </td>
-                  <td>{{ med.duration }}</td>
+                  <td class="print-duration-cell">
+                    <ng-container *ngIf="printDurationParts(med.duration) as d">
+                      <span>{{ d.en }}</span>
+                      <small class="print-urdu-inline" *ngIf="d.ur">{{ d.ur }}</small>
+                    </ng-container>
+                  </td>
                   <td>{{ med.after ? '√' : '' }}</td>
                   <td>{{ med.before ? '√' : '' }}</td>
                   <td>{{ med.morning || '' }}</td>
@@ -388,7 +425,7 @@
         <div class="print-clinical-notes" *ngIf="sectionVisible('instructions')">
           <div class="print-patient-note">
             <strong>Note to Patient</strong>
-            <p>{{ samplePatientNote }}</p>
+            <p *ngFor="let line of samplePatientNoteLines">{{ line }}</p>
           </div>
         </div>
 

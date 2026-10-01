@@ -151,6 +151,9 @@
         <app-clinical-patient-header [model]="clinicalPatientHeaderModel()"></app-clinical-patient-header>
 
         <div class="rx-tabs clinical-workspace-tabs">
+          <button type="button" [class.active]="workspaceTab === 'vitals'" (click)="setWorkspaceTab('vitals')">
+            Vitals &amp; Trends
+          </button>
           <button type="button" [class.active]="workspaceTab === 'visit'" (click)="setWorkspaceTab('visit')">
             {{ isGynaeDoctor() ? 'Visit Details' : 'Visit' }}
           </button>
@@ -162,40 +165,53 @@
           <button type="button" [class.active]="workspaceTab === 'history'" (click)="setWorkspaceTab('history')">History</button>
         </div>
 
-        <section class="clinical-workspace-panel" *ngIf="workspaceTab === 'visit'">
-          <app-clinical-visit
-            [form]="prescriptionForm"
-            [isGynaeDoctor]="isGynaeDoctor()"
-            [chiefComplaintPlaceholder]="visitChiefComplaintPlaceholder()"
-            [historyPlaceholder]="visitHistoryPlaceholder()"
-            [gynaeAdviceTemplates]="gynaeAdviceTemplates"
-            [sidebarVitalItems]="sidebarVitalItems"
-            [hasRecordedVitals]="hasRecordedVitals()"
-            [patientAllergies]="patientAllergiesLabel()"
-            [patientCurrentMedicines]="patientCurrentMedicinesLabel()"
-            [patientChronicIllness]="patientChronicIllnessLabel()"
-            [showAdvancedHistory]="showAdvancedVisitHistory"
-            (toggleAdvancedHistory)="toggleAdvancedVisitHistory()"
-            (openVitalsTrends)="toggleVisitVitalsTrends()"
-            (openVitals)="openVitalsModal()"
-            (applyAdviceTemplate)="applyGynaeAdviceTemplate($event)"
-            (chaperoneChange)="onVisitChaperoneChange($event)"
-            (consentChange)="onVisitConsentChange($event)"
-            (pelvicExamChange)="onVisitPelvicExamChange($event)">
-          </app-clinical-visit>
-
-          <section class="vitals-dashboard-panel visit-vitals-trends" *ngIf="showVisitVitalsTrends">
+        <section class="clinical-workspace-panel vitals-workspace-panel" *ngIf="workspaceTab === 'vitals'">
+          <section class="vitals-dashboard-panel visit-vitals-trends">
             <div class="vitals-dashboard-head">
-              <h3>Vitals Trends</h3>
-              <div class="vitals-range-switch">
-                <button type="button" *ngFor="let range of vitalsTrendRanges"
-                  [class.active]="vitalsTrendRange === range.key"
-                  (click)="setVitalsTrendRange(range.key)">
-                  {{ range.label }}
+              <div>
+                <h3>Vitals &amp; Trends</h3>
+                <p class="vitals-dashboard-sub">Recorded vitals, charts, and history for this patient — separate from visit notes.</p>
+              </div>
+              <div class="vitals-dashboard-head__actions">
+                <div class="vitals-range-switch">
+                  <button type="button" *ngFor="let range of vitalsTrendRanges"
+                    [class.active]="vitalsTrendRange === range.key"
+                    (click)="setVitalsTrendRange(range.key)">
+                    {{ range.label }}
+                  </button>
+                </div>
+                <button type="button" class="btn-light" (click)="openVitalsModal()">
+                  <i class="fa fa-plus-circle" aria-hidden="true"></i>
+                  Add / Edit Vitals
                 </button>
               </div>
-              <button type="button" class="btn-light" (click)="toggleVisitVitalsTrends()">Hide Trends</button>
             </div>
+
+            <div class="vitals-overview-grid" *ngIf="sidebarVitalItems.length; else noVitalsOverview">
+              <button
+                type="button"
+                class="vitals-overview-card"
+                *ngFor="let vital of sidebarVitalItems"
+                (click)="openVitalsModal()"
+                [attr.aria-label]="'Edit ' + vital.label"
+              >
+                <span class="vitals-overview-card__label">{{ vital.label }}</span>
+                <strong class="vitals-overview-card__value">{{ vital.displayValue || '—' }}</strong>
+                <small class="vitals-overview-card__status" [ngClass]="'vital-status-' + vital.status">
+                  {{ vital.statusLabel }}
+                  <span *ngIf="vital.compactTrend" [ngClass]="vital.trendClass">{{ vital.compactTrend }}</span>
+                </small>
+              </button>
+            </div>
+            <ng-template #noVitalsOverview>
+              <div class="vitals-history-empty">
+                No vitals recorded yet.
+                <button type="button" class="vitals-add-link" (click)="openVitalsModal()">
+                  <i class="fa fa-plus-circle"></i>
+                  Add New Vitals
+                </button>
+              </div>
+            </ng-template>
 
             <div class="vitals-charts-grid">
               <article class="vital-chart-card" *ngFor="let chart of vitalMiniCharts; trackBy: trackVitalChart">
@@ -302,6 +318,29 @@
               </div>
             </div>
           </section>
+        </section>
+
+        <section class="clinical-workspace-panel" *ngIf="workspaceTab === 'visit'">
+          <app-clinical-visit
+            [form]="prescriptionForm"
+            [isGynaeDoctor]="isGynaeDoctor()"
+            [chiefComplaintPlaceholder]="visitChiefComplaintPlaceholder()"
+            [historyPlaceholder]="visitHistoryPlaceholder()"
+            [gynaeAdviceTemplates]="gynaeAdviceTemplates"
+            [sidebarVitalItems]="sidebarVitalItems"
+            [hasRecordedVitals]="hasRecordedVitals()"
+            [patientAllergies]="patientAllergiesLabel()"
+            [patientCurrentMedicines]="patientCurrentMedicinesLabel()"
+            [patientChronicIllness]="patientChronicIllnessLabel()"
+            [showAdvancedHistory]="showAdvancedVisitHistory"
+            (toggleAdvancedHistory)="toggleAdvancedVisitHistory()"
+            (openVitalsTrends)="setWorkspaceTab('vitals')"
+            (openVitals)="openVitalsModal()"
+            (applyAdviceTemplate)="applyGynaeAdviceTemplate($event)"
+            (chaperoneChange)="onVisitChaperoneChange($event)"
+            (consentChange)="onVisitConsentChange($event)"
+            (pelvicExamChange)="onVisitPelvicExamChange($event)">
+          </app-clinical-visit>
         </section>
 
         <div class="rx-tabs clinical-orders-subtabs" *ngIf="workspaceTab === 'orders'">
@@ -1451,7 +1490,7 @@
                     <th rowspan="2">Medicine</th>
                     <th rowspan="2">Dose</th>
                     <th rowspan="2">Frequency</th>
-                    <th rowspan="2">Duration</th>
+                    <th rowspan="2">Duration<br /><small class="print-urdu-inline">(مدت)</small></th>
                     <th colspan="6">When to Take</th>
                     <th rowspan="2">Instruction</th>
                     <th rowspan="2">Actions</th>
@@ -2348,7 +2387,7 @@
                           <th rowspan="2">#</th>
                           <th rowspan="2">Medicine <small class="print-urdu-inline">(دوائی)</small></th>
                           <th rowspan="2">Dose</th>
-                          <th rowspan="2">Duration</th>
+                          <th rowspan="2">Duration<br /><small class="print-urdu-inline">(مدت)</small></th>
                           <th colspan="4">Timing <small class="print-urdu-inline">(اوقات)</small></th>
                           <th rowspan="2">Food<br><small class="print-urdu-inline">(کھانے سے)</small></th>
                           <th rowspan="2">Instructions<br><small class="print-urdu-inline">(ہدایات)</small></th>
@@ -2369,7 +2408,12 @@
                             <small>{{ medicine['frequency'] || '' }}</small>
                           </td>
                           <td>{{ medicine['dosage'] || '-' }}</td>
-                          <td>{{ medicine['duration'] || '-' }}</td>
+                          <td class="print-duration-cell">
+                        <ng-container *ngIf="printDurationParts(medicine['duration']) as d">
+                          <span>{{ d.en }}</span>
+                          <small class="print-urdu-inline" *ngIf="d.ur">{{ d.ur }}</small>
+                        </ng-container>
+                      </td>
                           <td>{{ slotDose(medicine, 'morning') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'noon') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'evening') || '-' }}</td>
@@ -2570,7 +2614,7 @@
                         <th rowspan="2">#</th>
                         <th rowspan="2">Medicine</th>
                         <th rowspan="2">Dose</th>
-                        <th rowspan="2">Duration</th>
+                        <th rowspan="2">Duration<br /><small class="print-urdu-inline">(مدت)</small></th>
                         <th colspan="4">Timing</th>
                         <th rowspan="2">Food</th>
                         <th rowspan="2">Instructions</th>
@@ -2586,7 +2630,12 @@
                           <strong>{{ medicine['name'] || 'Medicine' }}</strong>
                         </td>
                         <td>{{ medicine['dosage'] || '-' }}</td>
-                        <td>{{ medicine['duration'] || '-' }}</td>
+                        <td class="print-duration-cell">
+                        <ng-container *ngIf="printDurationParts(medicine['duration']) as d">
+                          <span>{{ d.en }}</span>
+                          <small class="print-urdu-inline" *ngIf="d.ur">{{ d.ur }}</small>
+                        </ng-container>
+                      </td>
                         <td>{{ slotDose(medicine, 'morning') || '-' }}</td>
                         <td>{{ slotDose(medicine, 'noon') || '-' }}</td>
                         <td>{{ slotDose(medicine, 'evening') || '-' }}</td>
@@ -2716,7 +2765,7 @@
                           <th rowspan="2">#</th>
                           <th rowspan="2">Medicine</th>
                           <th rowspan="2">Dose</th>
-                          <th rowspan="2">Duration</th>
+                          <th rowspan="2">Duration<br /><small class="print-urdu-inline">(مدت)</small></th>
                           <th colspan="4">Timing</th>
                           <th rowspan="2">Food</th>
                           <th rowspan="2">Instructions</th>
@@ -2732,7 +2781,12 @@
                             <strong>{{ medicine['name'] || 'Medicine' }}</strong>
                           </td>
                           <td>{{ medicine['dosage'] || '-' }}</td>
-                          <td>{{ medicine['duration'] || '-' }}</td>
+                          <td class="print-duration-cell">
+                        <ng-container *ngIf="printDurationParts(medicine['duration']) as d">
+                          <span>{{ d.en }}</span>
+                          <small class="print-urdu-inline" *ngIf="d.ur">{{ d.ur }}</small>
+                        </ng-container>
+                      </td>
                           <td>{{ slotDose(medicine, 'morning') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'noon') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'evening') || '-' }}</td>
@@ -2921,16 +2975,16 @@
                   <thead>
                     <tr>
                       <th class="print-medicine-title" rowspan="2">Medicines<br /><span class="print-urdu-inline">(دوائیاں)</span></th>
-                      <th class="print-urdu-cell" rowspan="2">مدت</th>
-                      <th class="print-urdu-cell" rowspan="2">غذا کے بعد</th>
-                      <th class="print-urdu-cell" rowspan="2">غذا سے پہلے</th>
-                      <th class="print-urdu-cell" colspan="4">وقت</th>
+                      <th class="print-urdu-cell" rowspan="2">Duration<br /><span class="print-urdu-inline">(مدت)</span></th>
+                      <th class="print-urdu-cell" rowspan="2">After meal<br /><span class="print-urdu-inline">(غذا کے بعد)</span></th>
+                      <th class="print-urdu-cell" rowspan="2">Before meal<br /><span class="print-urdu-inline">(غذا سے پہلے)</span></th>
+                      <th class="print-urdu-cell" colspan="4">Time<br /><span class="print-urdu-inline">(وقت)</span></th>
                     </tr>
                     <tr>
-                      <th class="print-urdu-cell">صبح</th>
-                      <th class="print-urdu-cell">دوپہر</th>
-                      <th class="print-urdu-cell">شام</th>
-                      <th class="print-urdu-cell">رات</th>
+                      <th class="print-urdu-cell">Morning<br /><span class="print-urdu-inline">صبح</span></th>
+                      <th class="print-urdu-cell">Noon<br /><span class="print-urdu-inline">دوپہر</span></th>
+                      <th class="print-urdu-cell">Evening<br /><span class="print-urdu-inline">شام</span></th>
+                      <th class="print-urdu-cell">Night<br /><span class="print-urdu-inline">رات</span></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2940,7 +2994,12 @@
                         <span>{{ medicine['dosage'] || '' }}</span>
                         <small>{{ medicine['instructions'] || '' }}</small>
                       </td>
-                      <td>{{ medicine['duration'] || '-' }}</td>
+                      <td class="print-duration-cell">
+                        <ng-container *ngIf="printDurationParts(medicine['duration']) as d">
+                          <span>{{ d.en }}</span>
+                          <small class="print-urdu-inline" *ngIf="d.ur">{{ d.ur }}</small>
+                        </ng-container>
+                      </td>
                       <td>{{ medicine['afterMeal'] ? '√' : '' }}</td>
                       <td>{{ medicine['beforeMeal'] ? '√' : '' }}</td>
                       <td>{{ slotDose(medicine, 'morning') }}</td>
@@ -2980,7 +3039,7 @@
             *ngIf="page.isLastPage && (preview.patientNote || preview.consultation || preview.admissionOrderLines.length)">
             <div class="print-patient-note" *ngIf="preview.patientNote">
               <strong>Note to Patient</strong>
-              <p>{{ preview.patientNote }}</p>
+              <p *ngFor="let line of patientNoteLines(preview.patientNote)">{{ line }}</p>
             </div>
             <div class="print-order-notes" *ngIf="preview.consultation || preview.admissionOrderLines.length">
               <strong>Orders</strong>

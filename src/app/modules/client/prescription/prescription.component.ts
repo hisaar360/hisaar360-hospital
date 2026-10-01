@@ -221,6 +221,7 @@ import {
   formatUrduQualification,
   formatUrduAddress,
   formatUrduOrganizationName,
+  formatMedicineDurationForPrint,
   stripDoctorPrefix,
   toPrescriptionUrduText,
 } from './prescription-print-urdu';
@@ -243,6 +244,7 @@ import {
   PrescriptionStyleSettings,
   normalizePrescriptionStyle,
   prescriptionStyleToCssVars,
+  splitPrescriptionNoteLines,
 } from './prescription-style';
 
 interface PrintPreviewData {
@@ -415,7 +417,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   routePrescriptionTemplate: PrescriptionTemplate | null = null;
   /** @deprecated Prefer workspaceTab / ordersSubTab; kept for transitional template checks. */
   activeTab: string = 'visit';
-  workspaceTab: ClinicalWorkspaceTab = 'visit';
+  workspaceTab: ClinicalWorkspaceTab = 'vitals';
   ordersSubTab: ClinicalOrdersSubTab = 'medicines';
   specialtySubTab: ClinicalSpecialtySubTab = 'notes';
   /** Mobile / narrow: show Specialty Library grid instead of the form. */
@@ -1247,8 +1249,7 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   openVitalsTrendsModal(): void {
-    this.refreshVitalAnalytics();
-    this.activeTab = 'vitals';
+    this.setWorkspaceTab('vitals');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -1257,22 +1258,23 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
   }
 
   openVitalsTab(): void {
-    this.setWorkspaceTab('visit');
+    this.setWorkspaceTab('vitals');
     this.showVisitVitalsTrends = true;
-    this.activeTab = 'visit';
   }
 
   toggleVisitVitalsTrends(): void {
-    this.showVisitVitalsTrends = !this.showVisitVitalsTrends;
-    if (this.showVisitVitalsTrends) {
-      this.setWorkspaceTab('visit');
-      this.refreshVitalAnalytics();
-    }
+    this.setWorkspaceTab('vitals');
+    this.showVisitVitalsTrends = true;
+    this.refreshVitalAnalytics();
   }
 
   setWorkspaceTab(tab: ClinicalWorkspaceTab): void {
     this.workspaceTab = tab;
-    if (tab === 'visit') {
+    if (tab === 'vitals') {
+      this.activeTab = 'vitals';
+      this.showVisitVitalsTrends = true;
+      this.refreshVitalAnalytics();
+    } else if (tab === 'visit') {
       this.activeTab = 'visit';
     } else if (tab === 'specialty') {
       if (!this.isGynaeDoctor()) {
@@ -2285,6 +2287,14 @@ export class PrescriptionComponent implements OnInit, OnDestroy {
 
   slotDose(medicine: Record<string, unknown> | null | undefined, slot: DoseSlot): string {
     return resolvePrintSlotDose(medicine, slot);
+  }
+
+  printDurationParts(value: unknown): { en: string; ur: string } {
+    return formatMedicineDurationForPrint(value == null ? '' : String(value));
+  }
+
+  patientNoteLines(note: string | null | undefined): string[] {
+    return splitPrescriptionNoteLines(note || '');
   }
 
   trackClinicalPage(_index: number, page: ClinicalRxPrintPage): number {

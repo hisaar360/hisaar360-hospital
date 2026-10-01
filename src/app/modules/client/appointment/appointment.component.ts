@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import {
   FormArray,
   FormBuilder,
@@ -31,6 +31,7 @@ import {
   todayIsoDate,
 } from '../../../core/utils/dob-age.util';
 import { AppDialogService } from '../../../core/services/app-dialog.service';
+import { HmsDocumentService } from '../../../core/services/hms-document.service';
 import { MooliOfflineService, MooliQueuedWork } from '../../../core/services/mooli-offline.service';
 import {
   Appointment,
@@ -73,7 +74,7 @@ interface AppointmentToken {
   templateUrl: './appointment.component.html',
   styleUrl: './appointment.component.scss',
 })
-export class AppointmentComponent implements OnInit {
+export class AppointmentComponent implements OnInit, OnDestroy {
   @ViewChild('appointmentPhoneInput') appointmentPhoneInput?: ElementRef<HTMLInputElement>;
   @ViewChild('appointmentFeeInput') appointmentFeeInput?: ElementRef<HTMLInputElement>;
   @ViewChild('appointmentDiscountInput') appointmentDiscountInput?: ElementRef<HTMLInputElement>;
@@ -100,6 +101,9 @@ export class AppointmentComponent implements OnInit {
   totalPages = 0;
   updatingAppointmentIds = new Set<string>();
   private pendingDoctorId = '';
+  whatsappShareBusy = false;
+  whatsappShareHint = '';
+  blockedWhatsAppUrl: string | null = null;
   readonly appointmentStatusOptions: Array<Appointment['status']> = [
     'pending',
     'confirmed',
@@ -164,7 +168,8 @@ export class AppointmentComponent implements OnInit {
     private route: ActivatedRoute,
     private dialog: AppDialogService,
     private keyboard: HmsKeyboardService,
-    private currency: CurrencyService
+    private currency: CurrencyService,
+    private docs: HmsDocumentService
   ) {
     this.appointmentForm = this.fb.group({
       patientId: ['', Validators.required],
@@ -448,6 +453,10 @@ export class AppointmentComponent implements OnInit {
         { emitEvent: false }
       );
     });
+  }
+
+  ngOnDestroy(): void {
+    // no-op — prepared WhatsApp images live on HmsDocumentService cache
   }
 
   get vitalsGroup(): FormGroup {
@@ -1865,6 +1874,11 @@ export class AppointmentComponent implements OnInit {
     return group.doctorId;
   }
 
+  doctorGroupToneClass(index: number): string {
+    const tone = ((Number(index) || 0) % 6 + 6) % 6;
+    return `tone-${tone}`;
+  }
+
   trackAppointment(_index: number, appointment: Appointment): string {
     return appointment._id;
   }
@@ -3023,17 +3037,96 @@ export class AppointmentComponent implements OnInit {
   }
 
   sendAppointmentWhatsApp(appointment: any): void {
+    if (this.whatsappShareBusy) {
+      return;
+    }
     if (!appointment.patient?.phone) {
       this.toastr.error('Patient does not have a phone number.');
       return;
     }
 
     const token = this.buildAppointmentToken(appointment, appointment.patient, appointment.doctor);
-    const phone = this.normalizePhone(appointment.patient.phone);
-    const whatsappUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(
-      this.buildAppointmentWhatsAppMessage(token)
-    )}`;
+    const phone = this.docs.normalizeWhatsAppPhone(appointment.patient.phone);
+    if (!phone || phone.length < 10) {
+      this.toastr.error('Patient phone number looks incomplete.');
+      return;
+    }
 
-    window.open(whatsappUrl, '_blank');
+    const prepareKey = `appointment-token:${appointment._id || token.appointmentNo}`;
+    const fileName = `appointment-token-${token.appointmentNo || appointment._id || 'receipt'}.png`;
+    const documentLabel = 'Appointment token';
+
+    this.whatsappShareBusy = true;
+    this.whatsappShareHint = '';
+    this.blockedWhatsAppUrl = null;
+
+    const finish = () => {
+      this.whatsappShareBusy = false;
+    };
+
+    const applyResult = (result: string) => {
+      const hint = this.docs.hintForResult(result as any, documentLabel);
+      this.whatsappShareHint = hint;
+      if (result === 'popup_blocked') {
+        this.blockedWhatsAppUrl = this.docs.lastBlockedWhatsAppUrl;
+      } else {
+        this.blockedWhatsAppUrl = null;
+      }
+      if (hint) {
+        if (result === 'failed') {
+          this.toastr.error('Unable to share receipt image on WhatsApp.');
+        } else if (result === 'popup_blocked') {
+          this.toastr.warning(hint);
+        } else {
+          this.toastr.success(hint);
+        }
+      } else if (result === 'failed') {
+        this.toastr.error('Unable to share receipt image on WhatsApp.');
+      }
+    };
+
+    // Second click / cached PNG: clipboard + WhatsApp start in this click turn (marque style).
+    const cached = this.docs.getPrepared(prepareKey);
+    if (cached?.blob) {
+      void this.docs
+        .deliverPreparedKey(prepareKey)
+        .then(applyResult)
+        .catch(() => this.toastr.error('Unable to copy receipt image. Please try again.'))
+        .finally(finish);
+      return;
+    }
+
+    this.whatsappShareHint = 'Preparing receipt image…';
+    const html = this.buildAppointmentTokenPrintHtml(token);
+    void this.docs
+      .shareHtmlAsImage({
+        html,
+        fileName,
+        title: `Token ${token.appointmentNo}`,
+        phone,
+        documentLabel,
+        prepareKey,
+        widthPx: 420,
+        scale: 2,
+      })
+      .then(applyResult)
+      .catch(() => this.toastr.error('Unable to share receipt image on WhatsApp.'))
+      .finally(finish);
+  }
+
+  openBlockedWhatsApp(): void {
+    const url = this.blockedWhatsAppUrl;
+    if (!url) {
+      return;
+    }
+    if (this.docs.openWhatsAppDirect(url)) {
+      this.blockedWhatsAppUrl = null;
+      this.whatsappShareHint = '';
+    }
+  }
+
+  dismissWhatsAppShareHint(): void {
+    this.whatsappShareHint = '';
+    this.blockedWhatsAppUrl = null;
   }
 }

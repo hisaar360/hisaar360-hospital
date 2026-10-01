@@ -711,10 +711,64 @@ dd {
 .vitals-dashboard-panel {
   background: var(--rx-panel);
   border: 1px solid var(--rx-line);
-  border-top: 0;
+  border-radius: 0 0 10px 10px;
   display: grid;
   gap: 14px;
   padding: 14px;
+}
+
+.vitals-workspace-panel .vitals-dashboard-panel {
+  border-top: 0;
+}
+
+.vitals-dashboard-sub {
+  color: var(--rx-muted);
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.vitals-dashboard-head__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.vitals-overview-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.vitals-overview-card {
+  background: #f8fbff;
+  border: 1px solid var(--rx-line);
+  border-radius: 10px;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  text-align: left;
+}
+
+.vitals-overview-card__label {
+  color: var(--rx-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.vitals-overview-card__value {
+  color: var(--rx-ink);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.vitals-overview-card__status {
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .vitals-dashboard-head,
@@ -2226,7 +2280,8 @@ dd {
 .consultation-panel > form > .admission-orders-dashboard-panel,
 .consultation-panel > form > .documents-dashboard-panel,
 .consultation-panel > form > .gynae-documents-panel,
-.consultation-panel > form > .clinical-workspace-panel {
+.consultation-panel > form > .clinical-workspace-panel,
+.consultation-panel > form > .vitals-workspace-panel {
   flex: 1 1 auto;
   min-height: 0;
   overflow-x: hidden;

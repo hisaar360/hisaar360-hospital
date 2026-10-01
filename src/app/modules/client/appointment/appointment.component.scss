@@ -1047,6 +1047,60 @@
   padding: 10px 12px;
 }
 
+.doctor-group-row.tone-0 td {
+  background: #ecfeff;
+  border-bottom-color: #67e8f9;
+}
+
+.doctor-group-row.tone-0 .doctor-group-label {
+  color: #0e7490;
+}
+
+.doctor-group-row.tone-1 td {
+  background: #eef2ff;
+  border-bottom-color: #a5b4fc;
+}
+
+.doctor-group-row.tone-1 .doctor-group-label {
+  color: #3730a3;
+}
+
+.doctor-group-row.tone-2 td {
+  background: #fdf2f8;
+  border-bottom-color: #f9a8d4;
+}
+
+.doctor-group-row.tone-2 .doctor-group-label {
+  color: #9d174d;
+}
+
+.doctor-group-row.tone-3 td {
+  background: #f0fdf4;
+  border-bottom-color: #86efac;
+}
+
+.doctor-group-row.tone-3 .doctor-group-label {
+  color: #166534;
+}
+
+.doctor-group-row.tone-4 td {
+  background: #fff7ed;
+  border-bottom-color: #fdba74;
+}
+
+.doctor-group-row.tone-4 .doctor-group-label {
+  color: #9a3412;
+}
+
+.doctor-group-row.tone-5 td {
+  background: #f5f3ff;
+  border-bottom-color: #c4b5fd;
+}
+
+.doctor-group-row.tone-5 .doctor-group-label {
+  color: #5b21b6;
+}
+
 .doctor-group-label {
   align-items: center;
   color: #0f766e;
@@ -2038,3 +2092,43 @@ th, td{
 .patient-result-card.is-keyboard-focus {
   box-shadow: 0 0 0 2px #0d9488;
 }
+
+.whatsapp-share-banner {
+  align-items: center;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 10px;
+  color: #065f46;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+}
+
+.whatsapp-share-banner strong {
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.whatsapp-share-banner-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.btn-whatsapp {
+  align-items: center;
+  background: #25d366;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+}
+

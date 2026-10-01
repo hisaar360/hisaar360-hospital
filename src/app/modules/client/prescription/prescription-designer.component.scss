@@ -594,6 +594,7 @@
   align-items: start;
   display: grid;
   gap: 2mm;
+  grid-template-columns: 34mm minmax(0, 1fr) 30mm;
 }
 
 .print-mini-title {
@@ -627,6 +628,13 @@
   border: 1px solid #94a3b8;
   padding: 2px 3px;
   text-align: center;
+}
+
+.print-medicine-table th .print-urdu-inline,
+.print-duration-cell .print-urdu-inline {
+  display: block;
+  line-height: 1.85;
+  margin-top: 3px;
 }
 
 .print-urdu-note,

@@ -17,6 +17,7 @@ import {
   normalizePrescriptionLayout,
   normalizePrescriptionStyle,
   prescriptionStyleToCssVars,
+  splitPrescriptionNoteLines,
 } from './prescription-style';
 import {
   ANTEPARTUM_DEFAULT_NOTE_TO_PATIENT,
@@ -33,6 +34,7 @@ import {
   formatUrduDoctorTitle,
   formatUrduOrganizationName,
   formatUrduQualification,
+  formatMedicineDurationForPrint,
   toPrescriptionUrduText,
 } from './prescription-print-urdu';
 import { transliterateLatinToUrdu } from '../../../shared/utils/urdu-transliteration';
@@ -345,6 +347,10 @@ export class PrescriptionDesignerComponent implements OnInit, OnDestroy {
     return 'Take medicines as advised. Follow up after 2 weeks.';
   }
 
+  get samplePatientNoteLines(): string[] {
+    return splitPrescriptionNoteLines(this.samplePatientNote);
+  }
+
   get sampleFollowUpDate(): string {
     if (this.specialtyKey === 'gynae') {
       return 'Oct 6, 2026';
@@ -375,6 +381,10 @@ export class PrescriptionDesignerComponent implements OnInit, OnDestroy {
       ];
     }
     return this.sampleMedicines;
+  }
+
+  printDurationParts(value: unknown): { en: string; ur: string } {
+    return formatMedicineDurationForPrint(value == null ? '' : String(value));
   }
 
   sectionVisible(key: PrescriptionLayoutSectionKey): boolean {

@@ -920,6 +920,11 @@
             <div class="receipt-actions">
                 <button type="button" class="btn btn-default" data-kb-receipt-close
                     (click)="closeReceiptPreview()">Close</button>
+                <button type="button" class="btn btn-default" (click)="sendReceiptWhatsApp()"
+                    title="Copy receipt image and open WhatsApp">
+                    <i class="fa fa-whatsapp"></i>
+                    WhatsApp
+                </button>
                 <button type="button" class="btn btn-primary" data-kb-receipt-print (click)="printReceipt()">
                     <i class="fa fa-print"></i>
                     Print Bill

@@ -318,6 +318,23 @@
   text-decoration: none;
 }
 
+.settings-btn-secondary {
+  @include adm-btn-ghost;
+  min-height: 42px;
+  padding: 10px 16px;
+  text-decoration: none;
+
+  &--compact {
+    min-height: 36px;
+    padding: 6px 12px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+}
+
 .settings-btn-ghost {
   @include adm-btn-ghost;
 
@@ -411,6 +428,10 @@
   line-height: 1.5;
   margin: 0 0 16px;
   max-width: 560px;
+
+  &--tight {
+    margin-bottom: 12px;
+  }
 }
 
 .settings-alert {
@@ -439,6 +460,156 @@
   font-size: 14px;
   font-weight: 800;
   margin: 0 0 12px;
+}
+
+.settings-notif-summary {
+  align-items: center;
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+}
+
+.settings-notif-summary__stat {
+  .label {
+    color: var(--adm-muted);
+    display: block;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  strong {
+    color: #0f766e;
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+}
+
+.settings-notif-summary__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-pref-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.settings-pref-row {
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid var(--adm-border);
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.settings-pref-row__copy {
+  flex: 1 1 240px;
+  min-width: 0;
+
+  strong {
+    color: var(--adm-text);
+    display: block;
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  p {
+    color: var(--adm-muted);
+    font-size: 13px;
+    line-height: 1.45;
+    margin: 0;
+
+    em {
+      color: var(--adm-text);
+      font-style: normal;
+      font-weight: 700;
+    }
+  }
+}
+
+.settings-pref-row__controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-switch {
+  align-items: center;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+
+  input {
+    accent-color: var(--adm-teal);
+    height: 16px;
+    width: 16px;
+  }
+}
+
+.settings-channel-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    align-items: flex-start;
+    background: #f8fafc;
+    border: 1px solid var(--adm-border);
+    border-radius: 10px;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    padding: 12px 14px;
+
+    strong {
+      color: var(--adm-text);
+      display: block;
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 2px;
+    }
+
+    p {
+      color: var(--adm-muted);
+      font-size: 12px;
+      line-height: 1.4;
+      margin: 0;
+    }
+  }
+}
+
+.settings-channel-badge {
+  background: #ecfeff;
+  border: 1px solid #a5f3fc;
+  border-radius: 999px;
+  color: #0e7490;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 4px 10px;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .settings-checkbox {

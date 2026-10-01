@@ -315,7 +315,7 @@
                           <th rowspan="2">#</th>
                           <th rowspan="2">Medicine <small class="print-urdu-inline">(دوائی)</small></th>
                           <th rowspan="2">Dose</th>
-                          <th rowspan="2">Duration</th>
+                          <th rowspan="2">Duration<br /><small class="print-urdu-inline">(مدت)</small></th>
                           <th colspan="4">Timing <small class="print-urdu-inline">(اوقات)</small></th>
                           <th rowspan="2">Food<br><small class="print-urdu-inline">(کھانے سے)</small></th>
                           <th rowspan="2">Instructions<br><small class="print-urdu-inline">(ہدایات)</small></th>
@@ -336,7 +336,12 @@
                             <small>{{ medicine['frequency'] || '' }}</small>
                           </td>
                           <td>{{ medicine['dosage'] || '-' }}</td>
-                          <td>{{ medicine['duration'] || '-' }}</td>
+                          <td class="print-duration-cell">
+                        <ng-container *ngIf="printDurationParts(medicine['duration']) as d">
+                          <span>{{ d.en }}</span>
+                          <small class="print-urdu-inline" *ngIf="d.ur">{{ d.ur }}</small>
+                        </ng-container>
+                      </td>
                           <td>{{ slotDose(medicine, 'morning') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'noon') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'evening') || '-' }}</td>
@@ -536,7 +541,7 @@
                         <th rowspan="2">#</th>
                         <th rowspan="2">Medicine</th>
                         <th rowspan="2">Dose</th>
-                        <th rowspan="2">Duration</th>
+                        <th rowspan="2">Duration<br /><small class="print-urdu-inline">(مدت)</small></th>
                         <th colspan="4">Timing</th>
                         <th rowspan="2">Food</th>
                         <th rowspan="2">Instructions</th>
@@ -550,7 +555,12 @@
                         <td>{{ i + 1 }}</td>
                         <td class="stacked-rx-med-name"><strong>{{ medicine['name'] || 'Medicine' }}</strong></td>
                         <td>{{ medicine['dosage'] || '-' }}</td>
-                        <td>{{ medicine['duration'] || '-' }}</td>
+                        <td class="print-duration-cell">
+                        <ng-container *ngIf="printDurationParts(medicine['duration']) as d">
+                          <span>{{ d.en }}</span>
+                          <small class="print-urdu-inline" *ngIf="d.ur">{{ d.ur }}</small>
+                        </ng-container>
+                      </td>
                         <td>{{ slotDose(medicine, 'morning') || '-' }}</td>
                         <td>{{ slotDose(medicine, 'noon') || '-' }}</td>
                         <td>{{ slotDose(medicine, 'evening') || '-' }}</td>
@@ -680,7 +690,7 @@
                           <th rowspan="2">#</th>
                           <th rowspan="2">Medicine</th>
                           <th rowspan="2">Dose</th>
-                          <th rowspan="2">Duration</th>
+                          <th rowspan="2">Duration<br /><small class="print-urdu-inline">(مدت)</small></th>
                           <th colspan="4">Timing</th>
                           <th rowspan="2">Food</th>
                           <th rowspan="2">Instructions</th>
@@ -694,7 +704,12 @@
                           <td>{{ i + 1 }}</td>
                           <td class="sectioned-rx-med-name"><strong>{{ medicine['name'] || 'Medicine' }}</strong></td>
                           <td>{{ medicine['dosage'] || '-' }}</td>
-                          <td>{{ medicine['duration'] || '-' }}</td>
+                          <td class="print-duration-cell">
+                        <ng-container *ngIf="printDurationParts(medicine['duration']) as d">
+                          <span>{{ d.en }}</span>
+                          <small class="print-urdu-inline" *ngIf="d.ur">{{ d.ur }}</small>
+                        </ng-container>
+                      </td>
                           <td>{{ slotDose(medicine, 'morning') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'noon') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'evening') || '-' }}</td>
@@ -883,16 +898,16 @@
                   <thead>
                     <tr>
                       <th class="print-medicine-title" rowspan="2">Medicines<br /><span class="print-urdu-inline">(دوائیاں)</span></th>
-                      <th class="print-urdu-cell" rowspan="2">مدت</th>
-                      <th class="print-urdu-cell" rowspan="2">غذا کے بعد</th>
-                      <th class="print-urdu-cell" rowspan="2">غذا سے پہلے</th>
-                      <th class="print-urdu-cell" colspan="4">وقت</th>
+                      <th class="print-urdu-cell" rowspan="2">Duration<br /><span class="print-urdu-inline">(مدت)</span></th>
+                      <th class="print-urdu-cell" rowspan="2">After meal<br /><span class="print-urdu-inline">(غذا کے بعد)</span></th>
+                      <th class="print-urdu-cell" rowspan="2">Before meal<br /><span class="print-urdu-inline">(غذا سے پہلے)</span></th>
+                      <th class="print-urdu-cell" colspan="4">Time<br /><span class="print-urdu-inline">(وقت)</span></th>
                     </tr>
                     <tr>
-                      <th class="print-urdu-cell">صبح</th>
-                      <th class="print-urdu-cell">دوپہر</th>
-                      <th class="print-urdu-cell">شام</th>
-                      <th class="print-urdu-cell">رات</th>
+                      <th class="print-urdu-cell">Morning<br /><span class="print-urdu-inline">صبح</span></th>
+                      <th class="print-urdu-cell">Noon<br /><span class="print-urdu-inline">دوپہر</span></th>
+                      <th class="print-urdu-cell">Evening<br /><span class="print-urdu-inline">شام</span></th>
+                      <th class="print-urdu-cell">Night<br /><span class="print-urdu-inline">رات</span></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -902,7 +917,12 @@
                         <span>{{ medicine['dosage'] || '' }}</span>
                         <small>{{ medicine['instructions'] || '' }}</small>
                       </td>
-                      <td>{{ medicine['duration'] || '-' }}</td>
+                      <td class="print-duration-cell">
+                        <ng-container *ngIf="printDurationParts(medicine['duration']) as d">
+                          <span>{{ d.en }}</span>
+                          <small class="print-urdu-inline" *ngIf="d.ur">{{ d.ur }}</small>
+                        </ng-container>
+                      </td>
                       <td>{{ medicine['afterMeal'] ? '√' : '' }}</td>
                       <td>{{ medicine['beforeMeal'] ? '√' : '' }}</td>
                       <td>{{ slotDose(medicine, 'morning') }}</td>
@@ -942,7 +962,7 @@
             *ngIf="page.isLastPage && (preview.patientNote || preview.consultation || preview.admissionOrderLines.length)">
             <div class="print-patient-note" *ngIf="preview.patientNote">
               <strong>Note to Patient</strong>
-              <p>{{ preview.patientNote }}</p>
+              <p *ngFor="let line of patientNoteLines(preview.patientNote)">{{ line }}</p>
             </div>
             <div class="print-order-notes" *ngIf="preview.consultation || preview.admissionOrderLines.length">
               <strong>Orders</strong>

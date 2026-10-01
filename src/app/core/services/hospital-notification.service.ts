@@ -74,6 +74,10 @@ export class HospitalNotificationService {
           for (const item of items) {
             if (!item.isRead && !this.knownIds.has(item._id) && actionableTypes.has(item.type)) {
               this.sound.playOnce(item._id);
+              this.sound.showDesktopToast(item.title, {
+                body: item.message,
+                tag: item._id,
+              });
             }
           }
         } else {

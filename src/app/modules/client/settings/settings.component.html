@@ -3,7 +3,7 @@
     <header class="adm-page-header settings-header">
       <div class="adm-page-header__copy">
         <h1>Settings</h1>
-        <p>Manage your profile, security, and hospital preferences.</p>
+        <p>Manage your profile, security, hospital preferences, and alerts.</p>
       </div>
     </header>
 
@@ -378,21 +378,111 @@
       </form>
     </section>
 
-    <!-- Placeholder tabs -->
-    <section class="settings-card settings-card--panel" *ngIf="isPlaceholderTab">
+    <!-- Notifications -->
+    <section class="settings-card settings-card--panel" *ngIf="activeTab === 'notifications'">
       <div class="settings-card__head">
         <div class="settings-card__title-row">
-          <span class="settings-card__icon"><i class="fa" [ngClass]="activeTabMeta?.icon" aria-hidden="true"></i></span>
+          <span class="settings-card__icon"><i class="fa fa-bell" aria-hidden="true"></i></span>
           <div>
-            <h2>{{ activeTabMeta?.label }}</h2>
-            <p>{{ activeTabMeta?.description }}</p>
+            <h2>Notifications</h2>
+            <p>Control sound, desktop toasts, and review which hospital alerts you receive.</p>
           </div>
         </div>
       </div>
-      <div class="settings-coming-soon">
-        <i class="fa fa-clock-o" aria-hidden="true"></i>
-        <p>Coming soon. This section is not available yet.</p>
+
+      <div class="settings-alert" *ngIf="!canUseNotifications">
+        Your role does not have access to the hospital notification feed yet. Ask an admin for ward, lab, pharmacy, or room-allotment permissions.
       </div>
+
+      <ng-container *ngIf="canUseNotifications">
+        <div class="settings-notif-summary">
+          <div class="settings-notif-summary__stat">
+            <span class="label">Unread</span>
+            <strong>{{ notificationUnread }}</strong>
+          </div>
+          <div class="settings-notif-summary__actions">
+            <button
+              type="button"
+              class="settings-btn-secondary"
+              [disabled]="!notificationUnread || markingNotificationsRead"
+              (click)="markAllNotificationsRead()"
+            >
+              <i class="fa fa-check-circle" aria-hidden="true"></i>
+              {{ markingNotificationsRead ? 'Updating…' : 'Mark all read' }}
+            </button>
+            <a class="settings-btn-primary" routerLink="/notifications">
+              <i class="fa fa-inbox" aria-hidden="true"></i>
+              Open notification center
+            </a>
+          </div>
+        </div>
+
+        <h3 class="settings-subheader">Delivery preferences</h3>
+
+        <div class="settings-pref-list">
+          <div class="settings-pref-row">
+            <div class="settings-pref-row__copy">
+              <strong>Alert sounds</strong>
+              <p>Play a short tone when a new actionable hospital alert arrives (admission, medicine request, lab, imaging).</p>
+            </div>
+            <div class="settings-pref-row__controls">
+              <label class="settings-switch">
+                <input
+                  type="checkbox"
+                  [checked]="!soundMuted"
+                  (change)="setSoundMuted(!$any($event.target).checked)"
+                />
+                <span>{{ soundMuted ? 'Muted' : 'On' }}</span>
+              </label>
+              <button type="button" class="settings-btn-secondary settings-btn-secondary--compact" (click)="playTestSound()">
+                <i class="fa fa-volume-up" aria-hidden="true"></i>
+                Test
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-pref-row">
+            <div class="settings-pref-row__copy">
+              <strong>Desktop browser alerts</strong>
+              <p>
+                Show a system toast when a new actionable alert arrives while Hisaar360 is open.
+                Browser permission: <em>{{ desktopPermissionLabel }}</em>.
+              </p>
+            </div>
+            <div class="settings-pref-row__controls">
+              <label class="settings-switch">
+                <input
+                  type="checkbox"
+                  [checked]="desktopAlertsEnabled"
+                  [disabled]="requestingDesktopPermission || desktopPermission === 'unsupported'"
+                  (change)="toggleDesktopAlerts($any($event.target).checked)"
+                />
+                <span>{{ desktopAlertsEnabled ? 'On' : 'Off' }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="settings-subheader">Alerts available for your role</h3>
+        <p class="settings-panel-copy settings-panel-copy--tight">
+          These match the hospital notification feed. Channels stay on when the module is enabled and your role has the matching permission.
+        </p>
+
+        <ul class="settings-channel-list" *ngIf="enabledNotificationChannels.length; else noChannels">
+          <li *ngFor="let channel of enabledNotificationChannels">
+            <div>
+              <strong>{{ channel.title }}</strong>
+              <p>{{ channel.description }}</p>
+            </div>
+            <span class="settings-channel-badge">{{ channel.module }}</span>
+          </li>
+        </ul>
+        <ng-template #noChannels>
+          <div class="settings-alert">
+            No alert channels match your current modules and permissions. Enable ward, pharmacy, or laboratory modules, or update role permissions.
+          </div>
+        </ng-template>
+      </ng-container>
     </section>
   </div>
 </div>

@@ -430,6 +430,20 @@
           </button>
         </div>
 
+        <div class="whatsapp-share-banner" *ngIf="whatsappShareHint || blockedWhatsAppUrl">
+          <div>
+            <strong *ngIf="whatsappShareBusy">Preparing…</strong>
+            <span>{{ whatsappShareHint }}</span>
+          </div>
+          <div class="whatsapp-share-banner-actions">
+            <button type="button" class="btn-whatsapp" *ngIf="blockedWhatsAppUrl" (click)="openBlockedWhatsApp()">
+              <i class="fa fa-whatsapp"></i>
+              Open WhatsApp
+            </button>
+            <button type="button" class="btn-light" (click)="dismissWhatsAppShareHint()">Dismiss</button>
+          </div>
+        </div>
+
         <div class="filters-row">
           <select
             [ngModel]="filterDoctorId"
@@ -474,8 +488,8 @@
               </tr>
             </thead>
             <tbody>
-              <ng-container *ngFor="let group of appointmentGroups; trackBy: trackAppointmentGroup">
-                <tr class="doctor-group-row">
+              <ng-container *ngFor="let group of appointmentGroups; let groupIndex = index; trackBy: trackAppointmentGroup">
+                <tr class="doctor-group-row" [ngClass]="doctorGroupToneClass(groupIndex)">
                   <td colspan="10">
                     <div class="doctor-group-label">
                       <strong><i class="fa fa-user-md"></i> {{ group.doctorName }}</strong>
@@ -557,10 +571,12 @@
                     <button type="button" (click)="reprintAppointmentToken(appointment); $event.stopPropagation()" title="Print Token">
                       <i class="fa fa-print"></i>
                     </button>
-                    <button type="button" *ngIf="appointment.patient?.phone"
-                      (click)="sendAppointmentWhatsApp(appointment); $event.stopPropagation()" title="Send via WhatsApp">
-                      <i class="fa fa-whatsapp"></i>
-                    </button>
+                      <button type="button" *ngIf="appointment.patient?.phone"
+                        (click)="sendAppointmentWhatsApp(appointment); $event.stopPropagation()"
+                        [disabled]="whatsappShareBusy"
+                        title="Share receipt image via WhatsApp">
+                        <i class="fa fa-whatsapp"></i>
+                      </button>
                   </div>
                 </td>
               </tr>

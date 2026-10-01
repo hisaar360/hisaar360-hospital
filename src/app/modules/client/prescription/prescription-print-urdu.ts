@@ -345,3 +345,51 @@ export const formatUrduQualification = (qualification?: string | null): string =
     .filter(Boolean)
     .join(' | ');
 };
+
+/** Print medicine duration as English + Urdu (e.g. "1 Month" → urdu "1 ماہ"). */
+export const formatMedicineDurationForPrint = (
+  value?: string | null
+): { en: string; ur: string } => {
+  const raw = String(value || '').trim();
+  if (!raw || raw === '-') {
+    return { en: raw || '-', ur: '' };
+  }
+
+  if (/^continue$/i.test(raw)) {
+    return { en: 'Continue', ur: 'جاری رکھیں' };
+  }
+
+  const match = /^(\d+)\s*(day|days|week|weeks|month|months)$/i.exec(raw);
+  if (!match) {
+    return { en: raw, ur: '' };
+  }
+
+  const amount = match[1];
+  const unit = match[2].toLowerCase();
+  let urUnit = 'دن';
+  if (unit.startsWith('week')) {
+    urUnit = Number(amount) === 1 ? 'ہفتہ' : 'ہفتے';
+  } else if (unit.startsWith('month')) {
+    urUnit = 'ماہ';
+  } else {
+    urUnit = 'دن';
+  }
+
+  const enUnit =
+    unit.startsWith('day')
+      ? Number(amount) === 1
+        ? 'Day'
+        : 'Days'
+      : unit.startsWith('week')
+        ? Number(amount) === 1
+          ? 'Week'
+          : 'Weeks'
+        : Number(amount) === 1
+          ? 'Month'
+          : 'Months';
+
+  return {
+    en: `${amount} ${enUnit}`,
+    ur: `${amount} ${urUnit}`,
+  };
+};

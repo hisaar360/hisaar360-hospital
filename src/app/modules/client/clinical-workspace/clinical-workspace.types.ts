@@ -3,7 +3,7 @@
  * Persistence currently maps to the Prescription API for compatibility.
  * Encounter remains the visit/admission identity when present.
  */
-export type ClinicalWorkspaceTab = 'visit' | 'specialty' | 'orders' | 'history';
+export type ClinicalWorkspaceTab = 'vitals' | 'visit' | 'specialty' | 'orders' | 'history';
 
 export type ClinicalOrdersSubTab =
   | 'medicines'

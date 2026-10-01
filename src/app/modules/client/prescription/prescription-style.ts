@@ -43,6 +43,16 @@ export interface PrescriptionStyleSettings {
   logoOffsetY: number;
   medicineRowGap: number;
   medicineFontSize: number;
+  /** Vertical nudge (mm) — positive moves block down. */
+  offsetHeaderY: number;
+  offsetDateY: number;
+  offsetPatientY: number;
+  offsetBodyY: number;
+  offsetFollowUpY: number;
+  offsetGynaeY: number;
+  offsetNotesY: number;
+  offsetFooterY: number;
+  noteLineGap: number;
   showUrduAdvice: boolean;
   showRightNote: boolean;
   showHospitalAddress: boolean;
@@ -86,6 +96,15 @@ export const DEFAULT_PRESCRIPTION_STYLE: PrescriptionStyleSettings = {
   logoOffsetY: 0,
   medicineRowGap: 0,
   medicineFontSize: 9,
+  offsetHeaderY: 0,
+  offsetDateY: 0,
+  offsetPatientY: 0,
+  offsetBodyY: 0,
+  offsetFollowUpY: 0,
+  offsetGynaeY: 0,
+  offsetNotesY: 0,
+  offsetFooterY: 0,
+  noteLineGap: 2.5,
   showUrduAdvice: true,
   showRightNote: true,
   showHospitalAddress: true,
@@ -263,6 +282,15 @@ export function normalizePrescriptionStyle(
       14,
       DEFAULT_PRESCRIPTION_STYLE.medicineFontSize
     ),
+    offsetHeaderY: clamp(incoming.offsetHeaderY, -20, 40, DEFAULT_PRESCRIPTION_STYLE.offsetHeaderY),
+    offsetDateY: clamp(incoming.offsetDateY, -20, 40, DEFAULT_PRESCRIPTION_STYLE.offsetDateY),
+    offsetPatientY: clamp(incoming.offsetPatientY, -20, 40, DEFAULT_PRESCRIPTION_STYLE.offsetPatientY),
+    offsetBodyY: clamp(incoming.offsetBodyY, -20, 40, DEFAULT_PRESCRIPTION_STYLE.offsetBodyY),
+    offsetFollowUpY: clamp(incoming.offsetFollowUpY, -20, 40, DEFAULT_PRESCRIPTION_STYLE.offsetFollowUpY),
+    offsetGynaeY: clamp(incoming.offsetGynaeY, -20, 40, DEFAULT_PRESCRIPTION_STYLE.offsetGynaeY),
+    offsetNotesY: clamp(incoming.offsetNotesY, -20, 40, DEFAULT_PRESCRIPTION_STYLE.offsetNotesY),
+    offsetFooterY: clamp(incoming.offsetFooterY, -20, 40, DEFAULT_PRESCRIPTION_STYLE.offsetFooterY),
+    noteLineGap: clamp(incoming.noteLineGap, 0, 12, DEFAULT_PRESCRIPTION_STYLE.noteLineGap),
     showUrduAdvice:
       typeof incoming.showUrduAdvice === 'boolean'
         ? incoming.showUrduAdvice
@@ -379,6 +407,15 @@ export function prescriptionStyleToCssVars(
     '--rx-logo-offset-y': `${normalized.logoOffsetY}mm`,
     '--rx-med-row-gap': `${normalized.medicineRowGap}mm`,
     '--rx-med-font-size': `${normalized.medicineFontSize}px`,
+    '--rx-offset-header': `${normalized.offsetHeaderY}mm`,
+    '--rx-offset-date': `${normalized.offsetDateY}mm`,
+    '--rx-offset-patient': `${normalized.offsetPatientY}mm`,
+    '--rx-offset-body': `${normalized.offsetBodyY}mm`,
+    '--rx-offset-followup': `${normalized.offsetFollowUpY}mm`,
+    '--rx-offset-gynae': `${normalized.offsetGynaeY}mm`,
+    '--rx-offset-notes': `${normalized.offsetNotesY}mm`,
+    '--rx-offset-footer': `${normalized.offsetFooterY}mm`,
+    '--rx-note-line-gap': `${normalized.noteLineGap}mm`,
     '--rx-accent': normalized.accentColor,
     '--rx-table-header-bg': normalized.tableHeaderBg,
     '--rx-table-border': normalized.tableBorderColor,
@@ -459,3 +496,26 @@ export const THEME_COLOR_PRESETS: Array<{
     sectionTitleColor: '#1e293b',
   },
 ];
+
+/** Split Note-to-Patient into separate lines for print gap control. */
+export function splitPrescriptionNoteLines(note: string): string[] {
+  const text = String(note || '')
+    .replace(/\r\n/g, '\n')
+    .trim();
+  if (!text) {
+    return [];
+  }
+  const byNewline = text
+    .split(/\n+/)
+    .map((line) => line.replace(/^[-•*_]\s*/, '').trim())
+    .filter(Boolean);
+  if (byNewline.length > 1) {
+    return byNewline;
+  }
+  // Soft-split long single paragraph on sentence ends so line-gap can apply.
+  const sentences = text
+    .split(/(?<=[.!?])\s+(?=[A-Z*“"])/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return sentences.length > 1 ? sentences : [text];
+}

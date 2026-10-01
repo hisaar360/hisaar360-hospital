@@ -11,6 +11,10 @@
           <i class="fa" [ngClass]="sound.muted ? 'fa-volume-off' : 'fa-volume-up'"></i>
           {{ sound.muted ? 'Unmute' : 'Mute' }}
         </button>
+        <a class="hms-btn hms-btn-secondary hms-btn-sm" routerLink="/settings" [queryParams]="{ tab: 'notifications' }">
+          <i class="fa fa-cog"></i>
+          Alert settings
+        </a>
         <button
           type="button"
           class="hms-btn hms-btn-secondary hms-btn-sm"

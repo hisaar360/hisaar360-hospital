@@ -6,6 +6,8 @@ import {
   PrescriptionPrintDoseSlot,
   PrescriptionPrintPreviewData,
 } from './prescription-print-data.model';
+import { formatMedicineDurationForPrint } from './prescription-print-urdu';
+import { splitPrescriptionNoteLines } from './prescription-style';
 
 @Component({
   selector: 'app-prescription-print-sheet',
@@ -24,6 +26,14 @@ export class PrescriptionPrintSheetComponent {
     slot: PrescriptionPrintDoseSlot
   ): string {
     return resolvePrintSlotDose(medicine, slot);
+  }
+
+  printDurationParts(value: unknown): { en: string; ur: string } {
+    return formatMedicineDurationForPrint(value == null ? '' : String(value));
+  }
+
+  patientNoteLines(note: string | null | undefined): string[] {
+    return splitPrescriptionNoteLines(note || '');
   }
 
   printMedicineDensityClass(medicineCount: number): string {

@@ -12,6 +12,7 @@ import {
 import { printHtmlJob } from '../../../core/keyboard/print-job.util';
 import { BackendService } from '../../../core/services/backend.service';
 import { formatActiveCurrency } from '../../../core/services/currency.service';
+import { HmsDocumentService } from '../../../core/services/hms-document.service';
 import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import {
   MooliOfflineService,
@@ -191,6 +192,7 @@ interface ReceiptPreviewData {
   storePhone: string;
   cashierName: string;
   customerName: string;
+  customerPhone?: string;
   paymentMethod: string;
   paymentStatus: string;
   items: ReceiptPreviewLine[];
@@ -410,6 +412,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     private readonly medicineCatalog: MedicineCatalogCacheService,
     private toastr: ToastrService,
     private keyboard: HmsKeyboardService,
+    private docs: HmsDocumentService,
   ) {}
 
   ngOnInit(): void {
@@ -2151,6 +2154,61 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.openReceiptPrintWindow(this.receiptPreview);
   }
 
+  async sendReceiptWhatsApp(): Promise<void> {
+    if (!this.receiptPreview) {
+      return;
+    }
+
+    const phone = this.docs.normalizeWhatsAppPhone(this.receiptPreview.customerPhone || '');
+    if (!phone || phone.length < 10) {
+      this.toastr.error(
+        'Customer phone number missing. Select a customer/patient with WhatsApp number first.',
+      );
+      return;
+    }
+
+    const html = this.receiptHtml(this.receiptPreview);
+    const prepareKey = `pos-receipt:${this.receiptPreview.reference || 'preview'}`;
+    const toastRef = this.toastr.info('Preparing receipt image for WhatsApp…', undefined, {
+      disableTimeOut: true,
+    });
+
+    try {
+      const cached = this.docs.getPrepared(prepareKey);
+      const result = cached?.blob
+        ? await this.docs.deliverPreparedKey(prepareKey)
+        : await this.docs.shareHtmlAsImage({
+            html,
+            fileName: `receipt-${this.receiptPreview.reference || 'sale'}.png`,
+            title: this.receiptBrandTitle(this.receiptPreview),
+            phone,
+            documentLabel: 'Receipt',
+            prepareKey,
+            widthPx: 360,
+            scale: 2,
+          });
+
+      this.toastr.clear(toastRef.toastId);
+      const hint = this.docs.hintForResult(result, 'Receipt');
+      if (result === 'failed') {
+        this.toastr.error('Could not share receipt image on WhatsApp.');
+        return;
+      }
+      if (result === 'popup_blocked') {
+        this.toastr.warning(hint || 'WhatsApp popup blocked. Allow popups and try again.');
+        if (this.docs.lastBlockedWhatsAppUrl) {
+          this.docs.openWhatsAppDirect(this.docs.lastBlockedWhatsAppUrl);
+        }
+        return;
+      }
+      this.toastr.success(hint || 'Receipt image ready for WhatsApp.');
+    } catch (error) {
+      this.toastr.clear(toastRef.toastId);
+      console.error(error);
+      this.toastr.error('Could not create receipt image. Try Print Bill first, then WhatsApp again.');
+    }
+  }
+
   loadRecentSales(): void {
     if (!this.canReadSales) {
       this.recentSales = [];
@@ -2829,6 +2887,13 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     return customer?.name || 'Walk-in Customer';
   }
 
+  resolvedCustomerPhone(): string {
+    if (this.prescription?.patient?.phone) {
+      return String(this.prescription.patient.phone || '').trim();
+    }
+    return String(this.selectedCustomer?.phone || '').trim();
+  }
+
   updateReturnLineQty(line: PharmacyReturnLine, value: string | number): void {
     const qty = Math.max(0, Math.min(Number(value || 0), line.maxQty));
     line.qty = Number.isFinite(qty) ? qty : 0;
@@ -2948,6 +3013,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       storePhone: store?.phone || '',
       cashierName: this.cashierName,
       customerName: this.resolvedCustomerName(),
+      customerPhone: this.resolvedCustomerPhone(),
       paymentMethod: this.receiptPaymentMethodLabel(
         this.paymentMethod,
         this.paymentStatusPreview,
@@ -3010,6 +3076,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       storePhone: store?.phone || '',
       cashierName: this.cashierName,
       customerName: this.resolveSaleCustomerName(sale),
+      customerPhone: this.resolveSaleCustomerPhone(sale),
       paymentMethod: this.resolveSalePaymentLabel(sale),
       paymentStatus: sale.paymentStatus,
       items: (sale.items || []).map((item) => ({
@@ -3691,6 +3758,11 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   private resolveSaleCustomerName(sale: Sale): string {
     const customer = this.customers.find((item) => item._id === sale.customerId);
     return customer?.name || 'Walk-in Customer';
+  }
+
+  private resolveSaleCustomerPhone(sale: Sale): string {
+    const customer = this.customers.find((item) => item._id === sale.customerId);
+    return String(customer?.phone || '').trim();
   }
 
   private mergeSales(items: Sale[]): Sale[] {

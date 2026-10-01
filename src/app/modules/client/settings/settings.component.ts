@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
-import { catchError, finalize, of } from 'rxjs';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Subscription, catchError, finalize, of } from 'rxjs';
 import { BackendService } from '../../../core/services/backend.service';
 import { AuthService } from '../../../core/services/auth.service';
 import {
@@ -10,6 +10,8 @@ import {
   DEFAULT_CURRENCY,
   HMS_CURRENCY_OPTIONS,
 } from '../../../core/services/currency.service';
+import { HospitalNotificationService } from '../../../core/services/hospital-notification.service';
+import { NotificationSoundService } from '../../../core/services/notification-sound.service';
 import { ToastrService } from 'ngx-toastr';
 import { Doctor, Hospital, PrescriptionPrintSettings, Store, User } from '../../../shared/models/hospital.model';
 import { CompanyProfile } from '../../../shared/models/company.model';
@@ -17,15 +19,14 @@ import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import { ProfilePhotoFieldComponent } from '../../../shared/components/profile-photo-field/profile-photo-field.component';
 import { ImageViewerModalComponent } from '../../../shared/components/image-viewer-modal/image-viewer-modal.component';
 import { isDoctorRole } from '../../auth/access-control';
+import {
+  isClinicalModuleEnabled,
+  isLaboratoryModuleEnabled,
+  isPharmacyModuleEnabled,
+  isWardModuleEnabled,
+} from '../../auth/hospital-modules';
 
-type SettingsTab =
-  | 'profile'
-  | 'password'
-  | 'hospital'
-  | 'notifications'
-  | 'integrations'
-  | 'appearance'
-  | 'system';
+type SettingsTab = 'profile' | 'password' | 'hospital' | 'notifications';
 
 interface SettingsTabMeta {
   id: SettingsTab;
@@ -33,8 +34,15 @@ interface SettingsTabMeta {
   shortLabel: string;
   icon: string;
   description: string;
-  real: boolean;
   requiresHospitalRead?: boolean;
+}
+
+interface NotificationChannelInfo {
+  id: string;
+  title: string;
+  description: string;
+  module: string;
+  enabled: boolean;
 }
 
 @Component({
@@ -44,7 +52,11 @@ interface SettingsTabMeta {
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
-export class SettingsComponent implements OnInit {
+export class SettingsComponent implements OnInit, OnDestroy {
+  private readonly route = inject(ActivatedRoute);
+  private readonly notificationService = inject(HospitalNotificationService);
+  readonly notificationSound = inject(NotificationSoundService);
+
   readonly tabs: SettingsTabMeta[] = [
     {
       id: 'profile',
@@ -52,7 +64,6 @@ export class SettingsComponent implements OnInit {
       shortLabel: 'Profile',
       icon: 'fa-user',
       description: 'Update your personal information and profile photo.',
-      real: true,
     },
     {
       id: 'password',
@@ -60,7 +71,6 @@ export class SettingsComponent implements OnInit {
       shortLabel: 'Security',
       icon: 'fa-lock',
       description: 'Change your password and keep your account secure.',
-      real: true,
     },
     {
       id: 'hospital',
@@ -68,7 +78,6 @@ export class SettingsComponent implements OnInit {
       shortLabel: 'Hospital',
       icon: 'fa-hospital-o',
       description: 'Update hospital identity and prescription print defaults.',
-      real: true,
       requiresHospitalRead: true,
     },
     {
@@ -76,32 +85,7 @@ export class SettingsComponent implements OnInit {
       label: 'Notifications',
       shortLabel: 'Alerts',
       icon: 'fa-bell',
-      description: 'Choose how you receive alerts and updates.',
-      real: false,
-    },
-    {
-      id: 'integrations',
-      label: 'Integrations',
-      shortLabel: 'Integrations',
-      icon: 'fa-puzzle-piece',
-      description: 'Connect external services and hospital systems.',
-      real: false,
-    },
-    {
-      id: 'appearance',
-      label: 'Appearance',
-      shortLabel: 'Appearance',
-      icon: 'fa-paint-brush',
-      description: 'Customize theme and display preferences.',
-      real: false,
-    },
-    {
-      id: 'system',
-      label: 'System',
-      shortLabel: 'System',
-      icon: 'fa-cog',
-      description: 'System-level preferences and diagnostics.',
-      real: false,
+      description: 'Sound, desktop alerts, and hospital notification preferences.',
     },
   ];
 
@@ -144,7 +128,15 @@ export class SettingsComponent implements OnInit {
   photoUploading = false;
   photoViewerOpen = false;
 
+  soundMuted = false;
+  desktopAlertsEnabled = false;
+  desktopPermission: NotificationPermission | 'unsupported' = 'unsupported';
+  notificationUnread = 0;
+  markingNotificationsRead = false;
+  requestingDesktopPermission = false;
+
   readonly dateFormatDisplay = 'DD/MM/YYYY';
+  private unreadSub: Subscription | null = null;
 
   constructor(
     private backend: BackendService,
@@ -159,6 +151,26 @@ export class SettingsComponent implements OnInit {
     this.loadStoredUser();
     this.refreshCurrentUser();
     this.loadCompanyProfile();
+    this.syncNotificationPrefsFromStorage();
+    this.unreadSub = this.notificationService.unreadCount$.subscribe(
+      (count) => (this.notificationUnread = count)
+    );
+    if (this.notificationService.canSeeNotifications()) {
+      this.notificationService.startPolling();
+    }
+
+    const tab = String(this.route.snapshot.queryParamMap.get('tab') || '').trim().toLowerCase();
+    if (tab === 'notifications' || tab === 'alerts') {
+      this.setTab('notifications');
+    } else if (tab === 'hospital') {
+      this.setTab('hospital');
+    } else if (tab === 'password' || tab === 'security') {
+      this.setTab('password');
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.unreadSub?.unsubscribe();
   }
 
   get visibleTabs(): SettingsTabMeta[] {
@@ -167,10 +179,6 @@ export class SettingsComponent implements OnInit {
 
   get activeTabMeta(): SettingsTabMeta | undefined {
     return this.tabs.find((tab) => tab.id === this.activeTab);
-  }
-
-  get isPlaceholderTab(): boolean {
-    return Boolean(this.activeTabMeta && !this.activeTabMeta.real);
   }
 
   get profilePhotoUrl(): string {
@@ -258,11 +266,154 @@ export class SettingsComponent implements OnInit {
     return items.slice(0, 3);
   }
 
+  get canUseNotifications(): boolean {
+    return this.notificationService.canSeeNotifications();
+  }
+
+  get notificationChannels(): NotificationChannelInfo[] {
+    const wildcard = this.permissions.includes('*');
+    const has = (permission: string) => wildcard || this.permissions.includes(permission);
+
+    return [
+      {
+        id: 'ADMISSION_RECOMMENDED',
+        title: 'Admission recommended',
+        description: 'Doctor recommended inpatient admission — open room allotment.',
+        module: 'Ward',
+        enabled: isWardModuleEnabled() && (has('room_allotments.create') || has('ward.read')),
+      },
+      {
+        id: 'MEDICINE_REQUEST_CREATED',
+        title: 'Ward medicine request',
+        description: 'Nursing requested pharmacy issue for a ward patient.',
+        module: 'Pharmacy',
+        enabled: isPharmacyModuleEnabled() && has('pharmacy.ward_requests.read'),
+      },
+      {
+        id: 'LAB_ORDER_CREATED',
+        title: 'Lab order placed',
+        description: 'New laboratory order waiting for sample or processing.',
+        module: 'Laboratory',
+        enabled: isLaboratoryModuleEnabled() && has('lab_orders.read'),
+      },
+      {
+        id: 'IMAGING_ORDER_CREATED',
+        title: 'Imaging order',
+        description: 'Imaging / radiology order created from clinical or ward flow.',
+        module: 'Ward',
+        enabled: isWardModuleEnabled() && has('ward.read'),
+      },
+      {
+        id: 'MEDICINE_ISSUED',
+        title: 'Medicine issued',
+        description: 'Pharmacy fulfilled a ward medicine request.',
+        module: 'Ward',
+        enabled:
+          isWardModuleEnabled() && (has('ward.read') || has('ward.medicine_requests.read')),
+      },
+      {
+        id: 'LAB_RESULT_VERIFIED',
+        title: 'Lab result verified',
+        description: 'Verified lab results are ready for clinical review.',
+        module: 'Clinical',
+        enabled:
+          (isClinicalModuleEnabled() || isWardModuleEnabled()) &&
+          (has('ward.read') || has('prescriptions.read')),
+      },
+    ];
+  }
+
+  get enabledNotificationChannels(): NotificationChannelInfo[] {
+    return this.notificationChannels.filter((channel) => channel.enabled);
+  }
+
+  get desktopPermissionLabel(): string {
+    switch (this.desktopPermission) {
+      case 'granted':
+        return 'Allowed';
+      case 'denied':
+        return 'Blocked in browser';
+      case 'default':
+        return 'Not requested yet';
+      default:
+        return 'Not supported in this browser';
+    }
+  }
+
   setTab(tab: SettingsTab): void {
     if (tab === 'hospital' && !this.canReadHospitalSettings) {
       return;
     }
     this.activeTab = tab;
+    if (tab === 'notifications') {
+      this.syncNotificationPrefsFromStorage();
+    }
+  }
+
+  setSoundMuted(muted: boolean): void {
+    this.notificationSound.setMuted(muted);
+    this.soundMuted = muted;
+    this.toaster.success(muted ? 'Alert sounds muted.' : 'Alert sounds enabled.');
+  }
+
+  playTestSound(): void {
+    this.notificationSound.playPreview();
+    this.toaster.info('Playing a short test tone.');
+  }
+
+  async toggleDesktopAlerts(enabled: boolean): Promise<void> {
+    if (!enabled) {
+      this.notificationSound.setDesktopEnabled(false);
+      this.desktopAlertsEnabled = false;
+      this.toaster.success('Desktop alerts turned off.');
+      return;
+    }
+
+    this.requestingDesktopPermission = true;
+    try {
+      const permission = await this.notificationSound.requestDesktopPermission();
+      this.desktopPermission = permission;
+      this.desktopAlertsEnabled =
+        permission === 'granted' && this.notificationSound.desktopEnabled;
+      if (permission === 'granted') {
+        this.toaster.success('Desktop alerts enabled for actionable hospital events.');
+        this.notificationSound.showDesktopToast('Desktop alerts ready', {
+          body: 'You will see a browser toast for new actionable hospital notifications.',
+          tag: 'hms-desktop-test',
+        });
+      } else if (permission === 'denied') {
+        this.toaster.error(
+          'Browser blocked notifications. Allow them in site settings, then try again.'
+        );
+      } else if (permission === 'unsupported') {
+        this.toaster.warning('Desktop notifications are not supported in this browser.');
+      } else {
+        this.toaster.info('Permission was not granted. You can try again anytime.');
+      }
+    } finally {
+      this.requestingDesktopPermission = false;
+    }
+  }
+
+  markAllNotificationsRead(): void {
+    if (!this.notificationUnread || this.markingNotificationsRead) {
+      return;
+    }
+    this.markingNotificationsRead = true;
+    this.notificationService.markAllReadLocal();
+    this.notificationService
+      .markAllRead()
+      .pipe(finalize(() => (this.markingNotificationsRead = false)))
+      .subscribe({
+        next: () => this.toaster.success('All notifications marked as read.'),
+        error: () => this.toaster.error('Unable to mark notifications as read.'),
+      });
+  }
+
+  private syncNotificationPrefsFromStorage(): void {
+    this.soundMuted = this.notificationSound.muted;
+    this.desktopAlertsEnabled = this.notificationSound.desktopEnabled;
+    this.desktopPermission = this.notificationSound.desktopPermission;
   }
 
   saveProfile(): void {

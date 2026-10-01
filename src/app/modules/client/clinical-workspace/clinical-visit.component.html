@@ -87,7 +87,7 @@
             <strong>Vitals</strong>
             <div>
               <button type="button" class="gynae-visit__link" (click)="openVitals.emit()">+ Add / Edit</button>
-              <button type="button" class="gynae-visit__link" (click)="openVitalsTrends.emit()">View Trends</button>
+              <button type="button" class="gynae-visit__link" (click)="openVitalsTrends.emit()">Vitals &amp; Trends</button>
             </div>
           </div>
           <div class="gynae-visit__vitals-grid">
@@ -168,7 +168,7 @@
         <strong>Vitals</strong>
         <div class="clinical-visit__section-actions">
           <button type="button" class="clinical-visit__link" (click)="openVitals.emit()">+ Add / Edit</button>
-          <button type="button" class="clinical-visit__link" (click)="openVitalsTrends.emit()">Trends</button>
+          <button type="button" class="clinical-visit__link" (click)="openVitalsTrends.emit()">Vitals &amp; Trends</button>
         </div>
       </div>
       <div class="clinical-visit__vitals-row" *ngIf="hasRecordedVitals; else noVitals">

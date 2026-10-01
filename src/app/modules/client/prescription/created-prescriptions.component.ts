@@ -47,6 +47,7 @@ import {
   PrescriptionStyleSettings,
   normalizePrescriptionStyle,
   prescriptionStyleToCssVars,
+  splitPrescriptionNoteLines,
 } from './prescription-style';
 import { GynaeClinicalPrintPageComponent } from './gynae-clinical-print-page.component';
 import { GynaeWomensHealthPrintPageComponent } from './gynae-womens-health-print-page.component';
@@ -68,6 +69,7 @@ import {
   formatUrduDoctorTitle,
   formatUrduOrganizationName,
   formatUrduQualification,
+  formatMedicineDurationForPrint,
   stripDoctorPrefix,
   toPrescriptionUrduText,
 } from './prescription-print-urdu';
@@ -560,6 +562,14 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
     slot: DoseSlot
   ): string {
     return resolvePrintSlotDose(medicine, slot);
+  }
+
+  printDurationParts(value: unknown): { en: string; ur: string } {
+    return formatMedicineDurationForPrint(value == null ? '' : String(value));
+  }
+
+  patientNoteLines(note: string | null | undefined): string[] {
+    return splitPrescriptionNoteLines(note || '');
   }
 
   trackClinicalPage(_index: number, page: ClinicalRxPrintPage): number {
