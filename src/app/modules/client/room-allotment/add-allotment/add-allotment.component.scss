@@ -927,7 +927,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   margin: 12px 0 16px;
-  padding: 14px;
+  padding: 14px 16px 16px;
 }
 
 .identity-card__head {
@@ -935,6 +935,7 @@
 }
 
 .identity-card__head h3 {
+  color: #0f172a;
   font-size: 14px;
   font-weight: 800;
   margin: 0 0 4px;
@@ -946,19 +947,85 @@
   margin: 0;
 }
 
+.identity-card__section + .identity-card__section {
+  border-top: 1px solid #eef2f7;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.identity-card__section-title {
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+}
+
 .identity-card__grid {
+  align-items: start;
   display: grid;
-  gap: 10px 12px;
+  gap: 12px 14px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.identity-card__grid > .allotment-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  min-width: 0;
+}
+
+.identity-card__grid > .allotment-field > label:not(.checkbox-inline) {
+  margin: 0;
+  min-height: 16px;
+}
+
+.identity-card__grid .allotment-input,
+.identity-card__grid .allotment-select {
+  box-sizing: border-box;
+  height: 40px;
+  min-height: 40px;
+  width: 100%;
 }
 
 .identity-card__span-2 {
   grid-column: span 2;
 }
 
-.identity-card__check {
-  align-items: end;
-  display: flex;
+.identity-card__span-3 {
+  grid-column: 1 / -1;
+}
+
+.identity-card__check-field {
+  justify-content: flex-start;
+}
+
+.identity-card__check-label {
+  display: block;
+  min-height: 16px;
+  visibility: hidden;
+}
+
+.identity-card__check-field .checkbox-inline {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-sizing: border-box;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 8px;
+  height: 40px;
+  margin: 0;
+  padding: 0 12px;
+  width: 100%;
+}
+
+.identity-card__spacer {
+  display: none;
 }
 
 .checkbox-inline {
@@ -974,19 +1041,31 @@
   color: #b91c1c;
   display: block;
   font-size: 11px;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 @media (max-width: 900px) {
   .identity-card__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .identity-card__span-2,
+  .identity-card__span-3 {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 640px) {
-  .identity-card__grid,
-  .identity-card__span-2 {
-    grid-column: auto;
+  .identity-card__grid {
     grid-template-columns: 1fr;
+  }
+
+  .identity-card__span-2,
+  .identity-card__span-3 {
+    grid-column: auto;
+  }
+
+  .identity-card__spacer {
+    display: none;
   }
 }

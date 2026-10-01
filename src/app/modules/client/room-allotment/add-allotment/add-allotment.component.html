@@ -198,94 +198,111 @@
               </div>
             </header>
 
-            <div class="identity-card__grid">
-              <div class="allotment-field">
-                <label>Patient name</label>
-                <input class="allotment-input" type="text" [value]="patientName(selectedPatient)" readonly />
-              </div>
-              <div class="allotment-field">
-                <label>Identity type</label>
-                <select class="allotment-input allotment-select" [(ngModel)]="identityForm.identityType" [ngModelOptions]="{standalone: true}">
-                  <option value="CNIC">CNIC</option>
-                  <option value="PASSPORT">Passport</option>
-                  <option value="OTHER">Other</option>
-                </select>
-              </div>
-              <div class="allotment-field">
-                <label>Patient CNIC / ID <em *ngIf="!identityForm.identityUnavailable">*</em></label>
-                <input
-                  class="allotment-input"
-                  type="text"
-                  [disabled]="identityForm.identityUnavailable"
-                  [ngModel]="identityForm.identityNumber"
-                  [ngModelOptions]="{standalone: true}"
-                  (ngModelChange)="onPatientCnicInput($event)"
-                  placeholder="XXXXX-XXXXXXX-X"
-                />
-                <small class="field-error" *ngIf="identityErrors['identityNumber']">{{ identityErrors['identityNumber'] }}</small>
-              </div>
-              <div class="allotment-field identity-card__check">
-                <label class="checkbox-inline">
-                  <input type="checkbox" [(ngModel)]="identityForm.identityUnavailable" [ngModelOptions]="{standalone: true}" />
-                  CNIC not available
-                </label>
-              </div>
-              <div class="allotment-field" *ngIf="identityForm.identityUnavailable">
-                <label>Reason</label>
-                <input class="allotment-input" type="text" [(ngModel)]="identityForm.identityUnavailableReason" [ngModelOptions]="{standalone: true}" placeholder="e.g. Emergency / documents pending" />
-                <small class="field-error" *ngIf="identityErrors['identityUnavailableReason']">{{ identityErrors['identityUnavailableReason'] }}</small>
-              </div>
-              <div class="allotment-field">
-                <label>Mobile <em>*</em></label>
-                <input class="allotment-input" type="tel" [(ngModel)]="identityForm.phone" [ngModelOptions]="{standalone: true}" />
-                <small class="field-error" *ngIf="identityErrors['phone']">{{ identityErrors['phone'] }}</small>
-              </div>
-              <div class="allotment-field identity-card__span-2">
-                <label>Full address <em>*</em></label>
-                <input class="allotment-input" type="text" [(ngModel)]="identityForm.address" [ngModelOptions]="{standalone: true}" (ngModelChange)="onGuardianSameAddressChange()" />
-                <small class="field-error" *ngIf="identityErrors['address']">{{ identityErrors['address'] }}</small>
-              </div>
+            <div class="identity-card__section">
+              <h4 class="identity-card__section-title">Patient</h4>
+              <div class="identity-card__grid">
+                <div class="allotment-field">
+                  <label>Patient name</label>
+                  <input class="allotment-input" type="text" [value]="patientName(selectedPatient)" readonly />
+                </div>
+                <div class="allotment-field">
+                  <label>Identity type</label>
+                  <select class="allotment-input allotment-select" [(ngModel)]="identityForm.identityType" [ngModelOptions]="{standalone: true}">
+                    <option value="CNIC">CNIC</option>
+                    <option value="PASSPORT">Passport</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+                <div class="allotment-field">
+                  <label>Patient CNIC / ID <em *ngIf="!identityForm.identityUnavailable">*</em></label>
+                  <input
+                    class="allotment-input"
+                    type="text"
+                    [disabled]="identityForm.identityUnavailable"
+                    [ngModel]="identityForm.identityNumber"
+                    [ngModelOptions]="{standalone: true}"
+                    (ngModelChange)="onPatientCnicInput($event)"
+                    placeholder="XXXXX-XXXXXXX-X"
+                  />
+                  <small class="field-error" *ngIf="identityErrors['identityNumber']">{{ identityErrors['identityNumber'] }}</small>
+                </div>
 
-              <div class="allotment-field">
-                <label>{{ isMaternityAdmission ? 'Husband / Father name' : 'Guardian / Attendant name' }} <em>*</em></label>
-                <input class="allotment-input" type="text" [(ngModel)]="identityForm.guardianName" [ngModelOptions]="{standalone: true}" />
-                <small class="field-error" *ngIf="identityErrors['guardianName']">{{ identityErrors['guardianName'] }}</small>
+                <div class="allotment-field">
+                  <label>Mobile <em>*</em></label>
+                  <input class="allotment-input" type="tel" [(ngModel)]="identityForm.phone" [ngModelOptions]="{standalone: true}" />
+                  <small class="field-error" *ngIf="identityErrors['phone']">{{ identityErrors['phone'] }}</small>
+                </div>
+                <div class="allotment-field identity-card__check-field">
+                  <label class="identity-card__check-label">&nbsp;</label>
+                  <label class="checkbox-inline">
+                    <input type="checkbox" [(ngModel)]="identityForm.identityUnavailable" [ngModelOptions]="{standalone: true}" />
+                    CNIC not available
+                  </label>
+                </div>
+                <div class="allotment-field" *ngIf="identityForm.identityUnavailable; else identitySpacer">
+                  <label>Reason</label>
+                  <input class="allotment-input" type="text" [(ngModel)]="identityForm.identityUnavailableReason" [ngModelOptions]="{standalone: true}" placeholder="e.g. Emergency / documents pending" />
+                  <small class="field-error" *ngIf="identityErrors['identityUnavailableReason']">{{ identityErrors['identityUnavailableReason'] }}</small>
+                </div>
+                <ng-template #identitySpacer>
+                  <div class="allotment-field identity-card__spacer" aria-hidden="true"></div>
+                </ng-template>
+
+                <div class="allotment-field identity-card__span-3">
+                  <label>Full address <em>*</em></label>
+                  <input class="allotment-input" type="text" [(ngModel)]="identityForm.address" [ngModelOptions]="{standalone: true}" (ngModelChange)="onGuardianSameAddressChange()" />
+                  <small class="field-error" *ngIf="identityErrors['address']">{{ identityErrors['address'] }}</small>
+                </div>
               </div>
-              <div class="allotment-field">
-                <label>Relationship <em>*</em></label>
-                <select class="allotment-input allotment-select" [(ngModel)]="identityForm.guardianRelationship" [ngModelOptions]="{standalone: true}">
-                  <option value="">Select</option>
-                  <option *ngFor="let rel of guardianRelationships" [value]="rel">{{ rel }}</option>
-                </select>
-                <small class="field-error" *ngIf="identityErrors['guardianRelationship']">{{ identityErrors['guardianRelationship'] }}</small>
-              </div>
-              <div class="allotment-field">
-                <label>{{ isMaternityAdmission ? 'Husband / Father CNIC' : 'Guardian CNIC' }} <em *ngIf="isMaternityAdmission">*</em></label>
-                <input
-                  class="allotment-input"
-                  type="text"
-                  [ngModel]="identityForm.guardianIdentityNumber"
-                  [ngModelOptions]="{standalone: true}"
-                  (ngModelChange)="onGuardianCnicInput($event)"
-                  placeholder="XXXXX-XXXXXXX-X"
-                />
-                <small class="field-error" *ngIf="identityErrors['guardianIdentityNumber']">{{ identityErrors['guardianIdentityNumber'] }}</small>
-              </div>
-              <div class="allotment-field">
-                <label>Guardian mobile <em>*</em></label>
-                <input class="allotment-input" type="tel" [(ngModel)]="identityForm.guardianPhone" [ngModelOptions]="{standalone: true}" />
-                <small class="field-error" *ngIf="identityErrors['guardianPhone']">{{ identityErrors['guardianPhone'] }}</small>
-              </div>
-              <div class="allotment-field identity-card__check">
-                <label class="checkbox-inline">
-                  <input type="checkbox" [(ngModel)]="identityForm.guardianSameAsPatientAddress" [ngModelOptions]="{standalone: true}" (ngModelChange)="onGuardianSameAddressChange()" />
-                  Same as {{ isMaternityAdmission ? "mother's" : 'patient' }} address
-                </label>
-              </div>
-              <div class="allotment-field identity-card__span-2" *ngIf="!identityForm.guardianSameAsPatientAddress">
-                <label>Guardian address <em>*</em></label>
-                <input class="allotment-input" type="text" [(ngModel)]="identityForm.guardianAddress" [ngModelOptions]="{standalone: true}" />
-                <small class="field-error" *ngIf="identityErrors['guardianAddress']">{{ identityErrors['guardianAddress'] }}</small>
+            </div>
+
+            <div class="identity-card__section">
+              <h4 class="identity-card__section-title">{{ isMaternityAdmission ? 'Father / Husband' : 'Guardian / Attendant' }}</h4>
+              <div class="identity-card__grid">
+                <div class="allotment-field">
+                  <label>{{ isMaternityAdmission ? 'Husband / Father name' : 'Guardian / Attendant name' }} <em>*</em></label>
+                  <input class="allotment-input" type="text" [(ngModel)]="identityForm.guardianName" [ngModelOptions]="{standalone: true}" />
+                  <small class="field-error" *ngIf="identityErrors['guardianName']">{{ identityErrors['guardianName'] }}</small>
+                </div>
+                <div class="allotment-field">
+                  <label>Relationship <em>*</em></label>
+                  <select class="allotment-input allotment-select" [(ngModel)]="identityForm.guardianRelationship" [ngModelOptions]="{standalone: true}">
+                    <option value="">Select</option>
+                    <option *ngFor="let rel of guardianRelationships" [value]="rel">{{ rel }}</option>
+                  </select>
+                  <small class="field-error" *ngIf="identityErrors['guardianRelationship']">{{ identityErrors['guardianRelationship'] }}</small>
+                </div>
+                <div class="allotment-field">
+                  <label>{{ isMaternityAdmission ? 'Husband / Father CNIC' : 'Guardian CNIC' }} <em *ngIf="isMaternityAdmission">*</em></label>
+                  <input
+                    class="allotment-input"
+                    type="text"
+                    [ngModel]="identityForm.guardianIdentityNumber"
+                    [ngModelOptions]="{standalone: true}"
+                    (ngModelChange)="onGuardianCnicInput($event)"
+                    placeholder="XXXXX-XXXXXXX-X"
+                  />
+                  <small class="field-error" *ngIf="identityErrors['guardianIdentityNumber']">{{ identityErrors['guardianIdentityNumber'] }}</small>
+                </div>
+
+                <div class="allotment-field">
+                  <label>Guardian mobile <em>*</em></label>
+                  <input class="allotment-input" type="tel" [(ngModel)]="identityForm.guardianPhone" [ngModelOptions]="{standalone: true}" />
+                  <small class="field-error" *ngIf="identityErrors['guardianPhone']">{{ identityErrors['guardianPhone'] }}</small>
+                </div>
+                <div class="allotment-field identity-card__check-field identity-card__span-2">
+                  <label class="identity-card__check-label">&nbsp;</label>
+                  <label class="checkbox-inline">
+                    <input type="checkbox" [(ngModel)]="identityForm.guardianSameAsPatientAddress" [ngModelOptions]="{standalone: true}" (ngModelChange)="onGuardianSameAddressChange()" />
+                    Same as {{ isMaternityAdmission ? "mother's" : 'patient' }} address
+                  </label>
+                </div>
+
+                <div class="allotment-field identity-card__span-3" *ngIf="!identityForm.guardianSameAsPatientAddress">
+                  <label>Guardian address <em>*</em></label>
+                  <input class="allotment-input" type="text" [(ngModel)]="identityForm.guardianAddress" [ngModelOptions]="{standalone: true}" />
+                  <small class="field-error" *ngIf="identityErrors['guardianAddress']">{{ identityErrors['guardianAddress'] }}</small>
+                </div>
               </div>
             </div>
           </section>
