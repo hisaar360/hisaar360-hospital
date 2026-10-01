@@ -306,6 +306,12 @@ export class WardBillingPanelComponent implements OnChanges {
       },
       error: (err) => {
         this.loading = false;
+        const code = String(err?.error?.error || err?.error?.code || '').toUpperCase();
+        // Backend now auto-heals missing encounters; if an old conflict still surfaces, don't spam.
+        if (code === 'ENCOUNTER_MISSING' || /no linked encounter/i.test(String(err?.error?.message || ''))) {
+          this.billData = {};
+          return;
+        }
         this.toastr.error(err?.error?.message || 'Unable to load ward bill');
       },
     });
