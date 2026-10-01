@@ -1,27 +1,233 @@
 @use './ward-shared.scss';
 
 .ward-my-work-page {
-  --ward-primary: #2563eb;
+  --mw-teal: #0f766e;
+  --mw-teal-soft: #ecfdf5;
+  --mw-overdue: #dc2626;
+  --mw-overdue-soft: #fef2f2;
+  --mw-due: #2563eb;
+  --mw-due-soft: #eff6ff;
+  --mw-upcoming: #0f766e;
+  --mw-upcoming-soft: #f0fdfa;
+  --mw-border: #e5e7eb;
+  --mw-muted: #64748b;
+  --mw-text: #0f172a;
+  background: #f8fafc;
+  min-height: 100%;
+  padding-bottom: 0;
 }
 
-.ward-work-counts {
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+.ward-my-work-container {
+  max-width: 1400px;
+  padding-bottom: 24px;
 }
 
-.ward-work-btn {
-  border-radius: 8px;
+.mw-header {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.mw-header__copy h1 {
+  color: var(--mw-text);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.mw-header__copy p {
+  color: var(--mw-muted);
+  font-size: 13px;
+  margin: 4px 0 0;
+  max-width: 520px;
+}
+
+.mw-header__controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mw-control {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--mw-border);
+  border-radius: 10px;
+  color: var(--mw-text);
+  display: inline-flex;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 10px;
+  position: relative;
+}
+
+.mw-control__icon {
+  color: var(--mw-muted);
+  font-size: 14px;
+}
+
+.mw-control select,
+.mw-control input[type='date'] {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--mw-text);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 36px;
+  outline: none;
+  padding-right: 4px;
+}
+
+.mw-control input[type='date'] {
+  color: transparent;
+  max-width: 132px;
+  position: relative;
+  z-index: 1;
+}
+
+.mw-control__value {
+  color: var(--mw-text);
+  font-size: 13px;
+  font-weight: 700;
+  left: 34px;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+.mw-refresh {
+  min-width: 38px;
+  padding: 0 10px;
+}
+
+.mw-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.mw-filter {
+  background: #fff;
+  border: 1px solid var(--mw-border);
+  border-radius: 999px;
+  color: #334155;
+  cursor: pointer;
+  flex: 0 0 auto;
   font-size: 12px;
   font-weight: 700;
-  padding: 6px 12px;
+  min-height: 34px;
+  padding: 0 14px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.ward-work-btn--primary {
-  background: var(--ward-primary);
-  border: 1px solid var(--ward-primary);
+.mw-filter:hover {
+  border-color: rgba(15, 118, 110, 0.35);
+  color: var(--mw-teal);
+}
+
+.mw-filter.is-active {
+  background: var(--mw-teal);
+  border-color: var(--mw-teal);
   color: #fff;
 }
 
-.ward-work-error {
+.mw-filter__short {
+  display: none;
+}
+
+.mw-stats {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.mw-stat {
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid var(--mw-border);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto 1fr;
+  padding: 14px;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mw-stat:hover {
+  border-color: rgba(15, 118, 110, 0.35);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+.mw-stat__icon {
+  align-items: center;
+  border-radius: 12px;
+  display: inline-flex;
+  font-size: 15px;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.mw-stat--red .mw-stat__icon { background: #fee2e2; color: #dc2626; }
+.mw-stat--green .mw-stat__icon { background: #dcfce7; color: #16a34a; }
+.mw-stat--blue .mw-stat__icon { background: #dbeafe; color: #2563eb; }
+.mw-stat--amber .mw-stat__icon { background: #fef3c7; color: #d97706; }
+.mw-stat--purple .mw-stat__icon { background: #ede9fe; color: #7c3aed; }
+
+.mw-stat__body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mw-stat__body strong {
+  color: var(--mw-text);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.mw-stat__body small {
+  color: var(--mw-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mw-stat__short {
+  display: none;
+}
+
+.mw-stat__link {
+  color: var(--mw-teal);
+  font-size: 11px;
+  font-weight: 700;
+  grid-column: 1 / -1;
+  margin-top: 2px;
+}
+
+.mw-stat__link .fa {
+  font-size: 10px;
+  margin-left: 2px;
+}
+
+.mw-error {
   align-items: center;
   background: #fff1f2;
   border: 1px solid #fecdd3;
@@ -32,162 +238,515 @@
   font-size: 13px;
   gap: 10px;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   padding: 10px 12px;
 }
 
-.ward-work-section {
+.mw-section {
   margin-bottom: 14px;
 }
 
-.ward-work-section__header {
-  align-items: baseline;
+.mw-section__head {
+  align-items: center;
+  border-radius: 12px 12px 0 0;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: space-between;
-  margin-bottom: 6px;
+  padding: 10px 14px;
 }
 
-.ward-work-section__header h2 {
+.mw-section__head h2 {
   align-items: center;
-  display: flex;
+  display: inline-flex;
   font-size: 14px;
   font-weight: 800;
-  gap: 6px;
-  margin: 0;
-  text-transform: uppercase;
-}
-
-.ward-work-section__header span {
-  color: var(--ward-muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.ward-work-list {
-  display: grid;
   gap: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  margin: 0;
 }
 
-.ward-work-card {
+.mw-section__head h2 span {
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.mw-section--overdue .mw-section__head {
+  background: var(--mw-overdue-soft);
+  color: #991b1b;
+}
+
+.mw-section--due .mw-section__head {
+  background: var(--mw-due-soft);
+  color: #1d4ed8;
+}
+
+.mw-section--upcoming .mw-section__head {
+  background: var(--mw-upcoming-soft);
+  color: #115e59;
+}
+
+.mw-section__panel {
   background: #fff;
-  border: 1px solid var(--ward-border);
-  border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
-  display: grid;
-  gap: 4px;
+  border: 1px solid var(--mw-border);
+  border-radius: 0 0 14px 14px;
+  border-top: 0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.mw-table-wrap {
+  display: block;
+  overflow-x: auto;
+}
+
+.mw-table {
+  border-collapse: collapse;
+  margin: 0;
+  min-width: 920px;
+  width: 100%;
+}
+
+.mw-table thead th {
+  background: #fafafa;
+  border-bottom: 1px solid var(--mw-border);
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   padding: 10px 12px;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.ward-work-card--overdue {
-  border-color: #fca5a5;
+.mw-table tbody td {
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--mw-text);
+  font-size: 13px;
+  padding: 12px;
+  vertical-align: middle;
 }
 
-.ward-work-card--clickable {
+.mw-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.mw-table tbody tr.is-clickable {
   cursor: pointer;
 }
 
-.ward-work-card--clickable:focus-visible {
-  outline: 2px solid var(--ward-primary);
-  outline-offset: 2px;
+.mw-table tbody tr.is-clickable:hover {
+  background: #f8fafc;
 }
 
-.ward-work-card__header {
-  align-items: start;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-}
-
-.ward-work-card__header strong {
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.ward-work-badge {
+.mw-patient {
   align-items: center;
-  background: #fef3c7;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mw-avatar {
+  align-items: center;
+  background: #e0f2fe;
   border-radius: 999px;
-  color: #b45309;
+  color: #0369a1;
   display: inline-flex;
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
-  gap: 4px;
-  letter-spacing: 0.04em;
-  padding: 3px 8px;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
 }
 
-.ward-work-badge--overdue {
+.mw-patient__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mw-patient__copy strong {
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.mw-patient__copy small {
+  color: var(--mw-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mw-task-title {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  max-width: 220px;
+}
+
+.mw-type {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.mw-type[data-kind='task'] {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.mw-type[data-kind='order'] {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.mw-type[data-kind='medication'] {
   background: #fee2e2;
   color: #b91c1c;
 }
 
-.ward-work-card__patient {
+.mw-type[data-kind='vitals'] {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.mw-type[data-kind='drip'] {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.mw-type[data-kind='handover'] {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.mw-type[data-kind='io'] {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.mw-section--overdue .mw-type[data-kind='task'] {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.mw-details,
+.mw-assigned {
+  color: var(--mw-muted);
+  display: inline-block;
   font-size: 12px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mw-due {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mw-due.is-overdue {
+  color: var(--mw-overdue);
+}
+
+.mw-actions {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.mw-more {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--mw-border);
+  border-radius: 8px;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.mw-more:hover:not(:disabled) {
+  border-color: rgba(15, 118, 110, 0.4);
+  color: var(--mw-teal);
+}
+
+.mw-more:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.mw-mobile-list {
+  display: none;
+}
+
+.mw-mobile-card {
+  border-bottom: 1px solid #f1f5f9;
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.mw-mobile-card:last-child {
+  border-bottom: 0;
+}
+
+.mw-mobile-card.is-clickable {
+  cursor: pointer;
+}
+
+.mw-mobile-card__top {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.mw-mobile-badge {
+  border-radius: 999px;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 4px 8px;
+  text-transform: uppercase;
+}
+
+.mw-mobile-badge.is-overdue {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.mw-mobile-badge.is-due {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.mw-mobile-badge.is-upcoming {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.mw-mobile-card__task {
+  color: var(--mw-text);
+  font-size: 13px;
   font-weight: 700;
   margin: 0;
 }
 
-.ward-work-card__meta {
+.mw-mobile-card__foot {
   align-items: center;
-  color: var(--ward-muted);
+  color: var(--mw-muted);
   display: flex;
-  font-size: 11px;
-  gap: 8px;
-  margin: 0;
+  font-size: 12px;
+  justify-content: space-between;
 }
 
-.ward-work-priority {
+.mw-empty {
+  background: #fff;
+  border: 1px solid var(--mw-border);
+  border-radius: 0 0 14px 14px;
+  border-top: 0;
+  padding: 28px 16px;
+  text-align: center;
+}
+
+.mw-empty__icon {
   align-items: center;
-  color: #b91c1c;
+  background: #f1f5f9;
+  border-radius: 999px;
+  color: #64748b;
   display: inline-flex;
-  font-weight: 800;
-  gap: 4px;
+  font-size: 18px;
+  height: 48px;
+  justify-content: center;
+  margin-bottom: 10px;
+  width: 48px;
 }
 
-.ward-work-card__desc {
-  color: var(--ward-muted);
+.mw-empty--due .mw-empty__icon {
+  background: var(--mw-due-soft);
+  color: var(--mw-due);
+}
+
+.mw-empty h3 {
+  color: var(--mw-text);
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0 0 4px;
+}
+
+.mw-empty p {
+  color: var(--mw-muted);
   font-size: 12px;
   margin: 0;
 }
 
-.ward-work-empty {
-  padding: 16px 12px;
-}
-
-.ward-work-skeleton-tile,
-.ward-work-skeleton-card {
-  animation: ward-work-pulse 1.4s ease-in-out infinite;
+.mw-skeleton {
+  animation: mw-pulse 1.4s ease-in-out infinite;
   background: #e2e8f0;
-  border-radius: 12px;
-}
-
-.ward-work-skeleton-tile {
-  min-height: 62px;
-}
-
-.ward-work-skeleton-card {
+  border: 0;
+  border-radius: 14px;
   min-height: 96px;
+  pointer-events: none;
 }
 
-@keyframes ward-work-pulse {
+.mw-skeleton--section {
+  min-height: 120px;
+}
+
+.mw-bottom-nav {
+  display: none;
+}
+
+@keyframes mw-pulse {
   0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.55;
+  100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@media (max-width: 1100px) {
+  .mw-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 767px) {
-  .ward-work-list {
-    grid-template-columns: 1fr;
+  .ward-my-work-page {
+    padding-bottom: 78px;
   }
 
-  .ward-work-counts {
+  .ward-my-work-container {
+    padding: 12px 12px 20px;
+  }
+
+  .mw-header {
+    gap: 10px;
+  }
+
+  .mw-header__copy h1 {
+    font-size: 22px;
+  }
+
+  .mw-header__copy p {
+    display: none;
+  }
+
+  .mw-header__controls {
+    width: 100%;
+  }
+
+  .mw-control {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
+  }
+
+  .mw-control input[type='date'] {
+    max-width: 100%;
+  }
+
+  .mw-refresh {
+    flex: 0 0 auto;
+  }
+
+  .mw-filter__full {
+    display: none;
+  }
+
+  .mw-filter__short {
+    display: inline;
+  }
+
+  .mw-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .mw-stat {
+    gap: 8px;
+    padding: 12px 10px;
+  }
+
+  .mw-stat__icon {
+    height: 34px;
+    width: 34px;
+  }
+
+  .mw-stat__body strong {
+    font-size: 18px;
+  }
+
+  .mw-stat__full,
+  .mw-stat__link {
+    display: none;
+  }
+
+  .mw-stat__short {
+    display: inline;
+  }
+
+  .mw-section__head {
+    border-radius: 12px 12px 0 0;
+    padding: 10px 12px;
+  }
+
+  .mw-section__head .hms-btn-secondary {
+    display: none;
+  }
+
+  .mw-table-wrap {
+    display: none;
+  }
+
+  .mw-mobile-list {
+    display: grid;
+  }
+
+  .mw-bottom-nav {
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--mw-border);
+    bottom: 0;
+    display: grid;
+    gap: 4px;
+    grid-template-columns: repeat(4, 1fr);
+    left: 0;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    position: fixed;
+    right: 0;
+    z-index: 40;
+  }
+
+  .mw-bottom-nav a {
+    align-content: center;
+    color: #64748b;
+    display: grid;
+    font-size: 11px;
+    font-weight: 800;
+    gap: 4px;
+    justify-items: center;
+    min-height: 52px;
+    text-decoration: none;
+  }
+
+  .mw-bottom-nav i {
+    font-size: 18px;
+  }
+
+  .mw-bottom-nav .is-active {
+    color: var(--mw-teal);
+  }
+}
+
+@media (max-width: 420px) {
+  .mw-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

@@ -1,17 +1,23 @@
 import {
   buildWardBedCards,
   buildWardHomeSummaryTiles,
+  classifyWardWorkItem,
+  countWardWorkKinds,
   filterWardBedCards,
+  filterWardWorkByKind,
   formatLengthOfStay,
+  formatWorkDueLabel,
   groupWardBedCards,
   mapBedStatusToSummaryKey,
   normalizeWardAttendantTask,
   normalizeWardHomeSummary,
   normalizeWardMyWork,
+  patientInitials,
   uniquePatientsFromWork,
   UNASSIGNED_WARD_LABEL,
   WardWorkItem,
   workItemChartTab,
+  workItemTypeLabel,
 } from './ward-home.util';
 
 const NOW = new Date('2026-09-19T10:00:00.000Z');
@@ -214,6 +220,41 @@ describe('ward-home.util work list', () => {
     expect(workItemChartTab(workItem({ title: 'Drip start: NS' }))).toBe('drips');
     expect(workItemChartTab(workItem({ title: 'Service Order: Dressing' }))).toBe('procedures');
     expect(workItemChartTab(workItem({ title: 'Something else' }))).toBe('orders');
+  });
+
+  it('classifies work kinds for My Work filters and badges', () => {
+    expect(classifyWardWorkItem(workItem({ activityType: 'mar_dose' }))).toBe('medication');
+    expect(classifyWardWorkItem(workItem({ activityType: 'io_entry' }))).toBe('io');
+    expect(classifyWardWorkItem(workItem({ activityType: 'handover' }))).toBe('handover');
+    expect(classifyWardWorkItem(workItem({ title: 'Lab Order: CBC' }))).toBe('order');
+    expect(classifyWardWorkItem(workItem({ title: 'Record Vitals' }))).toBe('vitals');
+    expect(classifyWardWorkItem(workItem({ title: 'Drip change' }))).toBe('drip');
+    expect(classifyWardWorkItem(workItem({ title: 'Attendant transport' }))).toBe('task');
+    expect(workItemTypeLabel('order')).toBe('Order');
+    expect(patientInitials('QA-P1-A GeneralMed')).toBe('QG');
+    expect(patientInitials('Sana')).toBe('SA');
+  });
+
+  it('filters and counts work kinds for the My Work pills', () => {
+    const items = [
+      workItem({ id: '1', activityType: 'mar_dose', title: 'Dose' }),
+      workItem({ id: '2', title: 'Lab Order: CBC' }),
+      workItem({ id: '3', title: 'Change dressing' }),
+      workItem({ id: '4', title: 'Attendant transport' }),
+    ];
+    const counts = countWardWorkKinds(items);
+    expect(counts.all).toBe(4);
+    expect(counts.medication).toBe(1);
+    expect(counts.order).toBe(1);
+    expect(counts.task).toBe(2);
+    expect(filterWardWorkByKind(items, 'task').length).toBe(2);
+    expect(filterWardWorkByKind(items, 'all').length).toBe(4);
+  });
+
+  it('formats due labels as Today or dated overdue text', () => {
+    expect(formatWorkDueLabel('2026-09-19T09:00:00.000Z', NOW)).toContain('Today');
+    expect(formatWorkDueLabel('2026-09-18T12:37:00.000Z', NOW)).toMatch(/\d/);
+    expect(formatWorkDueLabel('', NOW)).toBe('Not scheduled');
   });
 
   it('builds compact My Patients cards from due work without a second query', () => {

@@ -277,6 +277,123 @@ export function normalizeWardMyWork(raw: unknown): WardMyWork {
   };
 }
 
+/**
+ * Nurse-facing work kind for My Work filters / badges. Mirrors backend
+ * classifyWorkItem so tile counts and pills stay aligned with the API.
+ */
+export type WardWorkKind = 'medication' | 'vitals' | 'drip' | 'io' | 'order' | 'handover' | 'task';
+
+export type WardWorkFilterKind = WardWorkKind | 'all';
+
+export function classifyWardWorkItem(item: Pick<WardWorkItem, 'activityType' | 'title'>): WardWorkKind {
+  const activityType = String(item.activityType || '');
+  if (activityType === 'mar_dose') {
+    return 'medication';
+  }
+  if (activityType === 'io_entry') {
+    return 'io';
+  }
+  if (activityType === 'handover') {
+    return 'handover';
+  }
+
+  const title = String(item.title || '');
+  if (/^lab order|^imaging|^service order/i.test(title) || /\border\b/i.test(title)) {
+    return 'order';
+  }
+  if (/vital/i.test(title)) {
+    return 'vitals';
+  }
+  if (/\bdrip\b|\biv fluid/i.test(title)) {
+    return 'drip';
+  }
+  return 'task';
+}
+
+export function workItemTypeLabel(kind: WardWorkKind): string {
+  switch (kind) {
+    case 'medication':
+      return 'Medication';
+    case 'vitals':
+      return 'Vitals';
+    case 'drip':
+      return 'Drip';
+    case 'io':
+      return 'I/O';
+    case 'order':
+      return 'Order';
+    case 'handover':
+      return 'Handover';
+    default:
+      return 'Task';
+  }
+}
+
+export function patientInitials(name: string): string {
+  const parts = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) {
+    return '?';
+  }
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase();
+}
+
+export function flattenWardWorkItems(work: WardMyWork): WardWorkItem[] {
+  return [...work.overdue, ...work.dueNow, ...work.upcoming];
+}
+
+export function countWardWorkKinds(items: WardWorkItem[]): Record<WardWorkFilterKind, number> {
+  const counts: Record<WardWorkFilterKind, number> = {
+    all: items.length,
+    medication: 0,
+    vitals: 0,
+    drip: 0,
+    io: 0,
+    order: 0,
+    handover: 0,
+    task: 0,
+  };
+  items.forEach((item) => {
+    counts[classifyWardWorkItem(item)] += 1;
+  });
+  return counts;
+}
+
+export function filterWardWorkByKind(items: WardWorkItem[], kind: WardWorkFilterKind): WardWorkItem[] {
+  if (kind === 'all') {
+    return items;
+  }
+  return items.filter((item) => classifyWardWorkItem(item) === kind);
+}
+
+/** Compact due label: "Today 9:00 AM" or "5:37 PM, 19 Sep 2026". */
+export function formatWorkDueLabel(scheduledAt: string, now: Date = new Date()): string {
+  if (!scheduledAt) {
+    return 'Not scheduled';
+  }
+  const due = new Date(scheduledAt);
+  if (Number.isNaN(due.getTime())) {
+    return 'Not scheduled';
+  }
+
+  const time = due.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const sameDay =
+    due.getFullYear() === now.getFullYear() &&
+    due.getMonth() === now.getMonth() &&
+    due.getDate() === now.getDate();
+  if (sameDay) {
+    return `Today ${time}`;
+  }
+
+  const date = due.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${time}, ${date}`;
+}
+
 /** Patient-workspace tab that matches a work item, so nurses land on the right chart section. */
 export function workItemChartTab(item: WardWorkItem): string {
   const title = item.title.toLowerCase();
