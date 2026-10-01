@@ -59,7 +59,13 @@
               <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="printPatientSummary()">
                 <i class="fa fa-print" aria-hidden="true"></i> Print
               </button>
-              <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="toggleKeyboardHint()" title="Keyboard shortcuts">
+              <button
+                type="button"
+                class="hms-btn hms-btn-sm hms-btn-secondary ward-chart-icon-btn"
+                (click)="toggleMoreTabs()"
+                title="More actions"
+                aria-label="More actions"
+              >
                 <i class="fa fa-ellipsis-h" aria-hidden="true"></i>
               </button>
             </div>
@@ -71,7 +77,7 @@
     <div class="kb-hint-panel" *ngIf="keyboardHintOpen">
       <div class="kb-hint-head">
         <strong>Keyboard shortcuts</strong>
-        <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="keyboardHintOpen = false">Close</button>
+        <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="keyboardHintOpen = false">Close</button>
       </div>
       <ul>
         <li *ngFor="let hint of keyboardHints"><kbd>{{ hint.keys }}</kbd> <span>{{ hint.action }}</span></li>
@@ -170,7 +176,9 @@
               <article class="ward-board-card ward-board-card--vitals">
                 <header class="ward-board-card__head">
                   <h3>Recent Vitals</h3>
-                  <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="setTab('vitals')">Open</button>
+                  <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="setTab('vitals')">
+                    <i class="fa fa-heartbeat" aria-hidden="true"></i> Open vitals
+                  </button>
                 </header>
                 <div class="ward-vital-tiles" *ngIf="latestVitalsRow; else noVitalsTiles">
                   <div class="ward-vital-tile ward-vital-tile--temp">
@@ -485,7 +493,7 @@
                     <button type="submit" class="hms-btn hms-btn-sm hms-btn-primary" [disabled]="!noteDirty || noteSaving">
                       {{ noteSaving ? 'Saving…' : noteKind === 'handover' ? 'Save handover' : 'Save note' }}
                     </button>
-                    <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" [disabled]="!noteDirty" (click)="discardNote()">
+                    <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" [disabled]="!noteDirty" (click)="discardNote()">
                       Clear
                     </button>
                     <small *ngIf="noteDirty" class="ward-note-form__dirty">
@@ -509,7 +517,7 @@
                 <div class="ward-widget-skeleton" *ngIf="updatesState.loading"><span></span><span></span><span></span></div>
                 <div class="ward-widget-error" *ngIf="updatesState.failed">
                   <p><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Doctor / round notes could not be loaded.</p>
-                  <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="loadPatientUpdates(true)">Retry</button>
+                  <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="loadPatientUpdates(true)">Retry</button>
                 </div>
 
                 <ul class="ward-note-list" *ngIf="filteredNotes.length; else emptyNotes">
@@ -555,7 +563,7 @@
                 <i class="fa fa-info-circle" aria-hidden="true"></i>
                 Showing this admission only.
               </span>
-              <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="toggleHistoryScope()">
+              <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="toggleHistoryScope()">
                 {{ historyIncludePrevious ? 'Hide previous admissions' : 'Include previous admissions' }}
               </button>
             </div>
@@ -565,7 +573,7 @@
             </div>
             <div class="ward-widget-error" *ngIf="admissionHistoryState.failed">
               <p><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Previous admissions could not be loaded.</p>
-              <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="loadPreviousAdmissions()">Retry</button>
+              <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="loadPreviousAdmissions()">Retry</button>
             </div>
 
             <ol class="ward-timeline" *ngIf="filteredHistory.length; else emptyHistory">
@@ -600,7 +608,7 @@
             <div class="ward-widget-skeleton" *ngIf="planState.loading"><span></span><span></span></div>
             <div class="ward-widget-error" *ngIf="planState.failed">
               <p><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Admission plan could not be loaded.</p>
-              <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="loadAdmissionPlan()">Retry</button>
+              <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="loadAdmissionPlan()">Retry</button>
             </div>
             <div *ngIf="admissionRecommendation as rec; else emptyAdmissionPlan">
               <p><strong>Order No:</strong> {{ rec.orderNo || '—' }} · <strong>Status:</strong> {{ admissionPlanStatusLabel(rec.status) }}</p>

@@ -168,6 +168,11 @@
   font-size: 12px;
 }
 
+.ward-chart-icon-btn {
+  min-width: var(--hms-btn-h-sm, 32px);
+  padding: 0 10px;
+}
+
 .ward-id-strip {
   align-items: center;
   display: flex;

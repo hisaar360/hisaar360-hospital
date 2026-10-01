@@ -17,6 +17,7 @@ import {
   buildWardPatientSummaryDocumentHtml,
 } from '../../../core/documents/ward-clinical-document.builder';
 import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../core/utils/hms-document-context.util';
+import { HmsDocumentService } from '../../../core/services/hms-document.service';
 import { HmsDocumentToolbarComponent } from '../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
 import { WardDataService } from './services/ward-data.service';
 import {
@@ -206,7 +207,8 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
     private router: Router,
     private toastr: ToastrService,
     private wardData: WardDataService,
-    private backend: BackendService
+    private backend: BackendService,
+    private docs: HmsDocumentService
   ) {}
 
   ngOnInit(): void {
@@ -789,19 +791,11 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
 
   printPatientSummary(): void {
     const html = this.buildPatientSummaryDocument();
-    if (!html) {
+    if (!html?.trim()) {
       this.toastr.warning('Nothing to print yet.');
       return;
     }
-    const popup = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700');
-    if (!popup) {
-      this.toastr.warning('Allow pop-ups to print.');
-      return;
-    }
-    popup.document.open();
-    popup.document.write(html);
-    popup.document.close();
-    setTimeout(() => popup.print(), 250);
+    this.docs.printA4(html, 'Ward Patient Summary');
   }
 
   editPatientProfile(): void {
