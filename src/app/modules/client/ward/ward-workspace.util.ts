@@ -44,7 +44,7 @@ export const WARD_WORKSPACE_TABS: readonly WardWorkspaceTab[] = [
   { key: 'overview', label: 'Overview', icon: 'fa-id-card-o', group: 'primary' },
   { key: 'vitals', label: 'Vitals', icon: 'fa-heartbeat', group: 'primary' },
   { key: 'medicines', label: 'Medications', icon: 'fa-medkit', group: 'primary' },
-  { key: 'drips', label: 'IV / I-O', icon: 'fa-tint', group: 'primary' },
+  { key: 'drips', label: 'N/I-O', icon: 'fa-tint', group: 'primary' },
   { key: 'orders', label: 'Orders', icon: 'fa-list-ul', group: 'primary' },
   { key: 'notes', label: 'Notes', icon: 'fa-sticky-note-o', group: 'primary' },
   { key: 'history', label: 'History', icon: 'fa-history', group: 'primary' },

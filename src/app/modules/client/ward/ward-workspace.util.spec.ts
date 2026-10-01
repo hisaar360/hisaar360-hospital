@@ -34,7 +34,7 @@ describe('ward-workspace.util tab model', () => {
 
   it('labels the consolidated medication and IV tabs', () => {
     expect(WARD_WORKSPACE_PRIMARY_TABS.find((tab) => tab.key === 'medicines')?.label).toBe('Medications');
-    expect(WARD_WORKSPACE_PRIMARY_TABS.find((tab) => tab.key === 'drips')?.label).toBe('IV / I-O');
+    expect(WARD_WORKSPACE_PRIMARY_TABS.find((tab) => tab.key === 'drips')?.label).toBe('N/I-O');
   });
 
   it('keeps every legacy tab reachable in the More group', () => {

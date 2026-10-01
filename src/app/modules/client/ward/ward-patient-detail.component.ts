@@ -130,6 +130,8 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
   activeTab: WardWorkspaceTabKey = 'overview';
   ivSubTab: WardIvSubTab = 'iv';
   moreTabsOpen = false;
+  /** Dedicated More panel (matches design) instead of only expanding secondary chips. */
+  showingMorePanel = false;
   stickyActionIndex = 0;
   keyboardHintOpen = false;
   readonly keyboardHints = [
@@ -496,7 +498,7 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
   }
 
   get isSecondaryTabActive(): boolean {
-    return this.visibleSecondaryTabs.some((tab) => tab.key === this.activeTab);
+    return this.showingMorePanel || this.visibleSecondaryTabs.some((tab) => tab.key === this.activeTab);
   }
 
   setTab(tab: string, subTab?: WardIvSubTab): void {
@@ -513,6 +515,7 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
 
     this.activeTab = next;
     this.moreTabsOpen = false;
+    this.showingMorePanel = false;
     if (!this.loadedTabs.has(next)) {
       this.loadedTabs.add(next);
       this.ensureTabData(next);
@@ -535,7 +538,15 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
   }
 
   toggleMoreTabs(): void {
-    this.moreTabsOpen = !this.moreTabsOpen;
+    if (!this.confirmLeavingNote()) {
+      return;
+    }
+    this.showingMorePanel = true;
+    this.moreTabsOpen = true;
+  }
+
+  openMoreItem(tab: WardWorkspaceTabKey): void {
+    this.setTab(tab);
   }
 
   toggleKeyboardHint(): void {
@@ -685,6 +696,121 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
       alerts.push({ icon: 'fa-user-times', text: 'No nurse assigned to this bed' });
     }
     return alerts;
+  }
+
+  /** Overview sidebar actions matching the design card (subset of quickActions). */
+  get overviewActionList(): WardQuickAction[] {
+    const preferred = ['add-nursing-note', 'transfer-bed', 'new-order', 'discharge-recommendation', 'round-note'];
+    const byId = new Map(this.quickActions.map((action) => [action.id, action]));
+    const ordered = preferred.map((id) => byId.get(id as WardQuickAction['id'])).filter(Boolean) as WardQuickAction[];
+    if (ordered.length) {
+      return ordered;
+    }
+    return this.quickActions.slice(0, 4);
+  }
+
+  get moreMenuItems(): Array<{ key: WardWorkspaceTabKey | 'print' | 'settings'; label: string; icon: string }> {
+    const secondary = this.visibleSecondaryTabs.map((tab) => ({
+      key: tab.key as WardWorkspaceTabKey | 'print' | 'settings',
+      label: tab.label,
+      icon: tab.icon,
+    }));
+    return [
+      ...secondary,
+      { key: 'notes', label: 'Add Nursing Note', icon: 'fa-sticky-note-o' },
+      { key: 'orders', label: 'New Order', icon: 'fa-plus-square-o' },
+      { key: 'print', label: 'Print Records', icon: 'fa-print' },
+      { key: 'documents', label: 'Patient Documents', icon: 'fa-folder-open-o' },
+    ];
+  }
+
+  vitalCell(key: string): string {
+    const row = this.latestVitalsRow;
+    if (!row) return '—';
+    return String(row.cells[key] || '—');
+  }
+
+  /** Simple SVG polyline for overview temperature trend (no chart lib). */
+  get vitalsSparklinePoints(): string {
+    const temps = this.vitalsRows
+      .slice(0, 8)
+      .reverse()
+      .map((row) => Number(String(row.cells['temp'] || '').replace(/[^\d.]/g, '')))
+      .filter((value) => Number.isFinite(value) && value > 0);
+    if (temps.length < 2) {
+      return '';
+    }
+    const min = Math.min(...temps);
+    const max = Math.max(...temps);
+    const span = Math.max(0.5, max - min);
+    const width = 280;
+    const height = 88;
+    return temps
+      .map((value, index) => {
+        const x = (index / (temps.length - 1)) * width;
+        const y = height - ((value - min) / span) * (height - 12) - 6;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(' ');
+  }
+
+  get ioSummary(): { intake: number; output: number; balance: number } {
+    let intake = 0;
+    let output = 0;
+    for (const row of this.ioRows) {
+      intake += Number(row.cells['intake'] || 0) || 0;
+      output += Number(row.cells['output'] || 0) || 0;
+    }
+    return { intake, output, balance: intake - output };
+  }
+
+  get statusToneLabel(): string {
+    const status = String(this.patient?.status || '');
+    if (/critical/i.test(status)) return 'Critical';
+    if (/watch|unstable/i.test(status)) return 'Watch';
+    return 'Stable';
+  }
+
+  runMoreMenuItem(item: { key: WardWorkspaceTabKey | 'print' | 'settings' }): void {
+    if (item.key === 'print') {
+      this.printPatientSummary();
+      return;
+    }
+    if (item.key === 'settings') {
+      void this.router.navigate(['/settings']);
+      return;
+    }
+    if (item.key === 'orders') {
+      this.openDoctorOrder();
+      return;
+    }
+    this.openMoreItem(item.key);
+  }
+
+  printPatientSummary(): void {
+    const html = this.buildPatientSummaryDocument();
+    if (!html) {
+      this.toastr.warning('Nothing to print yet.');
+      return;
+    }
+    const popup = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700');
+    if (!popup) {
+      this.toastr.warning('Allow pop-ups to print.');
+      return;
+    }
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+    setTimeout(() => popup.print(), 250);
+  }
+
+  editPatientProfile(): void {
+    const patientId = this.patient?.patientId;
+    if (!patientId) {
+      this.toastr.warning('Patient profile is unavailable.');
+      return;
+    }
+    void this.router.navigate(['/patients/patient-profile', patientId]);
   }
 
   /* ----------------------------------------------------------------- notes */
@@ -974,8 +1100,9 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
       this.keyboardHintOpen = false;
       return true;
     }
-    if (this.moreTabsOpen) {
+    if (this.moreTabsOpen || this.showingMorePanel) {
       this.moreTabsOpen = false;
+      this.showingMorePanel = false;
       return true;
     }
     if (this.doctorOrderOpen) {
@@ -997,6 +1124,19 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
 
   get canDoctorOrder(): boolean {
     return isWardModuleEnabled() && (this.hasPerm('ward.create') || isDoctorRole(readStoredRole()));
+  }
+
+  get canCreateOrder(): boolean {
+    return this.canDoctorOrder || this.hasPerm('prescriptions.create') || this.hasPerm('lab_orders.create');
+  }
+
+  get todayLabel(): string {
+    return new Date().toLocaleDateString(undefined, {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   }
 
   get canMar(): boolean {

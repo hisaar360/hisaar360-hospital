@@ -23,9 +23,6 @@
                   <i class="fa" [ngClass]="patientStatusIcon(p.status)" aria-hidden="true"></i>
                   {{ statusLabel(p.status) }}
                 </span>
-                <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="toggleKeyboardHint()" title="Keyboard shortcuts">
-                  <i class="fa fa-keyboard-o"></i>
-                </button>
               </div>
               <p class="ward-chart-hero__ids ward-id-strip" aria-label="Patient identifiers">
                 <span class="ward-id-chip"><strong>MRN</strong> {{ p.mrn || '—' }}</span>
@@ -44,8 +41,6 @@
                 <span><i class="fa fa-clock-o" aria-hidden="true"></i> {{ p.admittedOn | date:'medium' }}</span>
                 <span class="ward-patient-facts__sep" aria-hidden="true"></span>
                 <span><i class="fa fa-bed" aria-hidden="true"></i> Day {{ lengthOfStayLabel }}</span>
-                <span class="ward-patient-facts__sep" aria-hidden="true"></span>
-                <span><i class="fa fa-file-text-o" aria-hidden="true"></i> {{ p.diagnosis || 'Diagnosis pending' }}</span>
               </div>
               <p class="ward-alert-banner" *ngIf="allergyWarning">
                 <i class="fa fa-ban" aria-hidden="true"></i>
@@ -55,6 +50,17 @@
                 <i class="fa fa-check" aria-hidden="true"></i>
                 <span>No known allergies recorded</span>
               </p>
+            </div>
+            <div class="ward-chart-hero__actions">
+              <button type="button" class="hms-btn hms-btn-sm hms-btn-primary" (click)="editPatientProfile()">
+                <i class="fa fa-pencil" aria-hidden="true"></i> Edit
+              </button>
+              <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="printPatientSummary()">
+                <i class="fa fa-print" aria-hidden="true"></i> Print
+              </button>
+              <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="toggleKeyboardHint()" title="Keyboard shortcuts">
+                <i class="fa fa-ellipsis-h" aria-hidden="true"></i>
+              </button>
             </div>
           </div>
         </ng-container>
@@ -76,30 +82,14 @@
       <button type="button" class="hms-btn hms-btn-sm hms-btn-primary" (click)="loadWorkspace()">Retry</button>
     </div>
 
-    <section class="ward-chart-actions-card ward-chart-actions-card--sticky" *ngIf="patient && quickActions.length">
-      <div class="ward-chart-actions ward-chart-actions--primary">
-        <button
-          *ngFor="let action of quickActions"
-          type="button"
-          class="ward-chart-action ward-chart-action--primary"
-          [class.is-active]="action.tab && activeTab === action.tab"
-          [class.is-keyboard-focus]="isQuickActionFocused(action)"
-          [attr.data-testid]="'ward-quick-action-' + action.id"
-          (click)="runQuickAction(action)"
-        >
-          <i class="fa" [ngClass]="action.icon" aria-hidden="true"></i><span>{{ action.label }}</span>
-        </button>
-      </div>
-    </section>
-
-    <div class="ward-detail-layout" [class.ward-detail-layout--full]="activeTab !== 'overview'" *ngIf="patient as p">
+    <div class="ward-detail-layout ward-detail-layout--full" *ngIf="patient as p">
       <section class="hms-card ward-panel ward-detail-main">
         <div class="hms-tabs ward-detail-tabs ward-status-tabs ward-status-tabs--scroll">
           <button
             type="button"
             class="hms-tab ward-status-tab"
             *ngFor="let tab of visiblePrimaryTabs"
-            [class.hms-tab--active]="activeTab === tab.key"
+            [class.hms-tab--active]="!showingMorePanel && activeTab === tab.key"
             (click)="setTab(tab.key)"
             [attr.data-testid]="'ward-tab-' + tab.key"
           >
@@ -116,176 +106,170 @@
           </button>
         </div>
 
-        <div class="ward-secondary-tabs" *ngIf="moreTabsOpen || isSecondaryTabActive">
-          <button
-            type="button"
-            class="ward-secondary-tab"
-            *ngFor="let tab of visibleSecondaryTabs"
-            [class.is-active]="activeTab === tab.key"
-            (click)="setTab(tab.key)"
-            [attr.data-testid]="'ward-tab-' + tab.key"
-          >
-            <i class="fa" [ngClass]="tab.icon" aria-hidden="true"></i> {{ tab.label }}
-          </button>
+        <div class="hms-card-body ward-detail-content" *ngIf="showingMorePanel; else tabBody">
+          <div class="ward-more-panel" data-testid="ward-more-panel">
+            <header class="ward-section-head">
+              <h3>More actions</h3>
+              <p>Transfers, discharge, documents and other workspace tools</p>
+            </header>
+            <div class="ward-action-list">
+              <button
+                type="button"
+                class="ward-action-list__item"
+                *ngFor="let item of moreMenuItems"
+                (click)="runMoreMenuItem(item)"
+              >
+                <span class="ward-action-list__icon"><i class="fa" [ngClass]="item.icon" aria-hidden="true"></i></span>
+                <span class="ward-action-list__label">{{ item.label }}</span>
+                <i class="fa fa-chevron-right ward-action-list__chevron" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
         </div>
 
+        <ng-template #tabBody>
         <div class="hms-card-body ward-detail-content" [ngSwitch]="activeTab">
           <!-- ------------------------------------------------------ overview -->
-          <div *ngSwitchCase="'overview'" class="ward-overview">
+          <div *ngSwitchCase="'overview'" class="ward-overview ward-overview--design">
             <ul class="ward-overview-alerts" *ngIf="overviewAlerts.length">
               <li *ngFor="let alert of overviewAlerts">
                 <i class="fa" [ngClass]="alert.icon" aria-hidden="true"></i> {{ alert.text }}
               </li>
             </ul>
 
-            <div class="ward-overview-grid">
-              <article class="ward-overview-card">
-                <h3><i class="fa fa-question-circle" aria-hidden="true"></i> Why this patient is here</h3>
-                <dl class="ward-overview-list">
-                  <div><dt>Admission reason</dt><dd>{{ admissionReason || 'Not recorded' }}</dd></div>
-                  <div><dt>Diagnosis</dt><dd>{{ p.diagnosis || 'Pending' }}</dd></div>
+            <div class="ward-overview-board">
+              <article class="ward-board-card ward-board-card--summary">
+                <header class="ward-board-card__head">
+                  <h3>Patient Summary</h3>
+                </header>
+                <dl class="ward-summary-rows">
+                  <div><dt>MRN</dt><dd>{{ p.mrn || '—' }}</dd></div>
+                  <div><dt>Admission No</dt><dd>{{ p.admissionNo || '—' }}</dd></div>
+                  <div><dt>Bed</dt><dd>{{ p.wardName }} · {{ p.roomName }} / {{ p.bedNo }}</dd></div>
+                  <div><dt>Gender / Age</dt><dd>{{ genderLabel(p) }} · {{ ageLabel(p) }}</dd></div>
+                  <div><dt>Blood Group</dt><dd>{{ p.bloodGroup || '—' }}</dd></div>
                   <div><dt>Consultant</dt><dd>{{ p.doctorName || 'Unassigned' }}</dd></div>
-                  <div><dt>Admitted</dt><dd>{{ p.admittedOn | date:'medium' }} · {{ lengthOfStayLabel }}</dd></div>
+                  <div><dt>Admitted</dt><dd>{{ p.admittedOn | date:'medium' }}</dd></div>
+                  <div><dt>Days in hospital</dt><dd>{{ lengthOfStayLabel }}</dd></div>
                   <div><dt>Nurse</dt><dd>{{ p.nurseName || 'Unassigned' }}</dd></div>
+                  <div><dt>Diagnosis</dt><dd>{{ p.diagnosis || 'Pending' }}</dd></div>
+                  <div><dt>Admission reason</dt><dd>{{ admissionReason || 'Not recorded' }}</dd></div>
                   <div>
                     <dt>Discharge</dt>
                     <dd><i class="fa" [ngClass]="statusIcon(dischargeStatusLabel)" aria-hidden="true"></i> {{ dischargeStatusLabel }}</dd>
                   </div>
                 </dl>
+                <footer class="ward-board-card__foot" *ngIf="p.admittedOn">
+                  <i class="fa fa-info-circle" aria-hidden="true"></i>
+                  Latest update — Admitted {{ p.admittedOn | date:'medium' }}
+                  <span *ngIf="p.doctorName"> by {{ p.doctorName }}</span>
+                </footer>
               </article>
 
-              <article class="ward-overview-card">
-                <h3><i class="fa fa-tasks" aria-hidden="true"></i> What needs doing now</h3>
-                <div class="hms-kpi-grid ward-summary-kpis">
-                  <button type="button" class="hms-kpi-card ward-kpi-button" (click)="setTab('medicines')">
-                    <strong>{{ dueMedicationCount }}</strong><small>Medications due</small>
-                  </button>
-                  <button type="button" class="hms-kpi-card ward-kpi-button" (click)="setTab('drips')">
-                    <strong>{{ activeDripCount }}</strong><small>Active IV / drips</small>
-                  </button>
-                  <button type="button" class="hms-kpi-card ward-kpi-button" (click)="setTab('orders')">
-                    <strong>{{ pendingOrderCount }}</strong><small>Pending orders</small>
-                  </button>
-                  <button type="button" class="hms-kpi-card ward-kpi-button" (click)="setTab('notes')">
-                    <strong>{{ outstandingTaskCount }}</strong><small>Outstanding tasks</small>
-                  </button>
+              <article class="ward-board-card ward-board-card--vitals">
+                <header class="ward-board-card__head">
+                  <h3>Recent Vitals</h3>
+                  <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="setTab('vitals')">Open</button>
+                </header>
+                <div class="ward-vital-tiles" *ngIf="latestVitalsRow; else noVitalsTiles">
+                  <div class="ward-vital-tile ward-vital-tile--temp">
+                    <span class="ward-vital-tile__icon"><i class="fa fa-thermometer-half" aria-hidden="true"></i></span>
+                    <small>Temp</small>
+                    <strong>{{ vitalCell('temp') }}</strong>
+                  </div>
+                  <div class="ward-vital-tile ward-vital-tile--bp">
+                    <span class="ward-vital-tile__icon"><i class="fa fa-tint" aria-hidden="true"></i></span>
+                    <small>BP</small>
+                    <strong>{{ vitalCell('bp') }}</strong>
+                  </div>
+                  <div class="ward-vital-tile ward-vital-tile--pulse">
+                    <span class="ward-vital-tile__icon"><i class="fa fa-heartbeat" aria-hidden="true"></i></span>
+                    <small>Pulse</small>
+                    <strong>{{ vitalCell('pulse') }}</strong>
+                  </div>
+                  <div class="ward-vital-tile ward-vital-tile--spo2">
+                    <span class="ward-vital-tile__icon"><i class="fa fa-cloud" aria-hidden="true"></i></span>
+                    <small>SpO2</small>
+                    <strong>{{ vitalCell('spo2') }}</strong>
+                  </div>
+                  <div class="ward-vital-tile ward-vital-tile--rr">
+                    <span class="ward-vital-tile__icon"><i class="fa fa-exchange" aria-hidden="true"></i></span>
+                    <small>RR</small>
+                    <strong>{{ vitalCell('rr') !== '—' ? vitalCell('rr') : vitalCell('respiratoryRate') }}</strong>
+                  </div>
                 </div>
-                <p class="ward-detail-note" *ngIf="!dueMedicationCount">No medications due right now.</p>
-                <p class="ward-detail-note" *ngIf="!activeDripCount">No active drips.</p>
-              </article>
-
-              <article class="ward-overview-card">
-                <h3><i class="fa fa-heartbeat" aria-hidden="true"></i> Latest vitals</h3>
-                <ng-container *ngIf="latestVitalsRow as vitals; else noVitals">
-                  <dl class="ward-overview-list ward-overview-list--inline">
-                    <div><dt>BP</dt><dd>{{ vitals.cells['bp'] || '—' }}</dd></div>
-                    <div><dt>Pulse</dt><dd>{{ vitals.cells['pulse'] || '—' }}</dd></div>
-                    <div><dt>Temp</dt><dd>{{ vitals.cells['temp'] || '—' }}</dd></div>
-                    <div><dt>SpO2</dt><dd>{{ vitals.cells['spo2'] || '—' }}</dd></div>
-                  </dl>
-                  <small class="ward-detail-note">Recorded {{ vitals.cells['recordedAt'] || '—' }}</small>
-                </ng-container>
-                <ng-template #noVitals>
+                <ng-template #noVitalsTiles>
                   <p class="ward-detail-note">No vitals recorded for this admission yet.</p>
                 </ng-template>
-                <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="setTab('vitals')">Open vitals</button>
-              </article>
-
-              <article class="ward-overview-card">
-                <h3><i class="fa fa-sticky-note-o" aria-hidden="true"></i> Latest important note</h3>
-                <ng-container *ngIf="latestImportantNote as note; else noNote">
-                  <p class="ward-overview-note">{{ note.title }}</p>
-                  <small class="ward-detail-note">
-                    <i class="fa" [ngClass]="note.statusIcon" aria-hidden="true"></i>
-                    {{ note.kindLabel }} · {{ note.author || 'Ward staff' }} · {{ note.timeLabel || '—' }}
-                  </small>
-                </ng-container>
-                <ng-template #noNote>
-                  <p class="ward-detail-note">No nursing or round notes yet.</p>
-                </ng-template>
-                <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="setTab('notes')">Open notes</button>
-              </article>
-
-              <article class="ward-overview-card" *ngIf="canCreateAttendantTask" data-testid="ward-attendant-task-create">
-                <h3><i class="fa fa-wheelchair" aria-hidden="true"></i> Request attendant task</h3>
-                <p class="ward-detail-note">Transport, cleaning, or equipment — not a clinical order.</p>
-                <button
-                  type="button"
-                  class="hms-btn hms-btn-sm hms-btn-secondary"
-                  *ngIf="!attendantFormOpen"
-                  (click)="attendantFormOpen = true"
-                >
-                  New task
-                </button>
-                <form *ngIf="attendantFormOpen" class="ward-note-form" (ngSubmit)="submitAttendantTask()">
-                  <div class="ward-note-form__row">
-                    <label>
-                      <span>Task type</span>
-                      <select [(ngModel)]="attendantTaskType" name="attendantTaskType">
-                        <option *ngFor="let type of attendantTaskTypes" [value]="type.value">{{ type.label }}</option>
-                      </select>
-                    </label>
-                    <label>
-                      <span>Priority</span>
-                      <select [(ngModel)]="attendantPriority" name="attendantPriority">
-                        <option value="normal">Normal</option>
-                        <option value="urgent">Urgent</option>
-                        <option value="stat">Stat</option>
-                      </select>
-                    </label>
-                  </div>
-                  <div class="ward-note-form__row">
-                    <label>
-                      <span>Destination</span>
-                      <input type="text" name="attendantDestination" [(ngModel)]="attendantDestination" placeholder="Radiology, Lab, Ward 2…" />
-                    </label>
-                    <label>
-                      <span>Due</span>
-                      <input type="datetime-local" name="attendantDueAt" [(ngModel)]="attendantDueAt" />
-                    </label>
-                  </div>
-                  <label class="ward-note-form__text">
-                    <span>Instruction</span>
-                    <textarea rows="2" name="attendantInstruction" [(ngModel)]="attendantInstruction" placeholder="What should the attendant do?"></textarea>
-                  </label>
-                  <div class="ward-note-form__actions">
-                    <button type="submit" class="hms-btn hms-btn-sm hms-btn-primary" [disabled]="attendantSaving">
-                      {{ attendantSaving ? 'Sending…' : 'Create task' }}
-                    </button>
-                    <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="attendantFormOpen = false">Cancel</button>
-                  </div>
-                </form>
-              </article>
-
-              <article class="ward-overview-card" data-testid="ward-operation-widget">
-                <h3><i class="fa fa-scissors" aria-hidden="true"></i> Operation</h3>
-                <div class="ward-widget-skeleton" *ngIf="operationState.loading">
-                  <span></span><span></span>
+                <div class="ward-vital-chart" *ngIf="vitalsSparklinePoints">
+                  <div class="ward-vital-chart__label">Temperature trend</div>
+                  <svg viewBox="0 0 280 88" preserveAspectRatio="none" aria-hidden="true">
+                    <polyline
+                      [attr.points]="vitalsSparklinePoints"
+                      fill="none"
+                      stroke="#0d9488"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
                 </div>
-                <div class="ward-widget-error" *ngIf="operationState.failed">
-                  <p><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Operation status unavailable.</p>
-                  <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="loadOperation(p.patientId)">Retry</button>
+                <div class="ward-needs-strip">
+                  <button type="button" class="ward-needs-chip" (click)="setTab('medicines')">
+                    <strong>{{ dueMedicationCount }}</strong><span>Meds due</span>
+                  </button>
+                  <button type="button" class="ward-needs-chip" (click)="setTab('drips')">
+                    <strong>{{ activeDripCount }}</strong><span>Active drips</span>
+                  </button>
+                  <button type="button" class="ward-needs-chip" (click)="setTab('orders')">
+                    <strong>{{ pendingOrderCount }}</strong><span>Orders</span>
+                  </button>
+                  <button type="button" class="ward-needs-chip" (click)="setTab('notes')">
+                    <strong>{{ outstandingTaskCount }}</strong><span>Tasks</span>
+                  </button>
                 </div>
-                <ng-container *ngIf="!operationState.loading && !operationState.failed">
-                  <ng-container *ngIf="operation as op; else noOperation">
-                    <dl class="ward-overview-list">
-                      <div><dt>Procedure</dt><dd>{{ op.procedure }}</dd></div>
-                      <div>
-                        <dt>Status</dt>
-                        <dd><i class="fa" [ngClass]="statusIcon(op.status)" aria-hidden="true"></i> {{ op.statusLabel }}</dd>
-                      </div>
-                      <div><dt>Site / side</dt><dd>{{ op.siteLabel || 'Not confirmed' }}</dd></div>
-                      <div *ngIf="op.scheduledAt"><dt>Scheduled</dt><dd>{{ op.scheduledAt | date:'medium' }}</dd></div>
-                    </dl>
-                    <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="navigateAction(op.route)">
-                      View Operation
+              </article>
+
+              <div class="ward-overview-side">
+                <article class="ward-board-card ward-board-card--actions">
+                  <header class="ward-board-card__head"><h3>Quick Actions</h3></header>
+                  <div class="ward-action-list" *ngIf="overviewActionList.length; else noActions">
+                    <button
+                      type="button"
+                      class="ward-action-list__item"
+                      *ngFor="let action of overviewActionList"
+                      [class.is-keyboard-focus]="isQuickActionFocused(action)"
+                      [attr.data-testid]="'ward-quick-action-' + action.id"
+                      (click)="runQuickAction(action)"
+                    >
+                      <span class="ward-action-list__icon"><i class="fa" [ngClass]="action.icon" aria-hidden="true"></i></span>
+                      <span class="ward-action-list__label">{{ action.label }}</span>
+                      <i class="fa fa-chevron-right ward-action-list__chevron" aria-hidden="true"></i>
                     </button>
-                  </ng-container>
-                  <ng-template #noOperation>
-                    <p class="ward-detail-note">No operation scheduled for this patient.</p>
+                  </div>
+                  <ng-template #noActions>
+                    <p class="ward-detail-note">No quick actions available for your role.</p>
                   </ng-template>
-                </ng-container>
-              </article>
+                </article>
+
+                <article class="ward-board-card ward-board-card--status">
+                  <header class="ward-board-card__head"><h3>Current Status</h3></header>
+                  <div class="ward-status-pill" [attr.data-tone]="statusToneLabel.toLowerCase()">
+                    <i class="fa fa-heartbeat" aria-hidden="true"></i>
+                    <div>
+                      <strong>{{ statusToneLabel }}</strong>
+                      <small *ngIf="activeDripCount; else noDripsStatus">{{ activeDripCount }} active drip(s)</small>
+                      <ng-template #noDripsStatus><small>No active drips</small></ng-template>
+                    </div>
+                  </div>
+                  <ng-container *ngIf="latestImportantNote as note">
+                    <p class="ward-overview-note">{{ note.title }}</p>
+                    <small class="ward-detail-note">
+                      {{ note.kindLabel }} · {{ note.author || 'Ward staff' }} · {{ note.timeLabel || '—' }}
+                    </small>
+                  </ng-container>
+                </article>
+              </div>
             </div>
           </div>
 
@@ -350,13 +334,38 @@
               (refreshed)="refreshChartModules()"
             ></app-ward-drip-panel>
 
-            <div *ngIf="ivSubTab === 'io'" class="ward-io-block">
+            <div *ngIf="ivSubTab === 'io'" class="ward-io-block ward-io-board">
               <div class="ward-io-block__head">
-                <h3>Intake / Output</h3>
+                <div>
+                  <h3>Intake / Output</h3>
+                  <small>{{ todayLabel }}</small>
+                </div>
                 <button type="button" class="hms-btn hms-btn-sm hms-btn-primary" *ngIf="canVitals" (click)="openIoEntry()">
                   <i class="fa fa-plus" aria-hidden="true"></i> Add I/O Entry
                 </button>
               </div>
+
+              <div class="ward-io-grid">
+                <article class="ward-board-card">
+                  <header class="ward-board-card__head"><h3>Input</h3></header>
+                  <dl class="ward-summary-rows">
+                    <div><dt>Recorded intake</dt><dd>{{ ioSummary.intake }} ml</dd></div>
+                    <div class="is-total"><dt>Total Intake</dt><dd>{{ ioSummary.intake }} ml</dd></div>
+                  </dl>
+                </article>
+                <article class="ward-board-card">
+                  <header class="ward-board-card__head"><h3>Output</h3></header>
+                  <dl class="ward-summary-rows">
+                    <div><dt>Recorded output</dt><dd>{{ ioSummary.output }} ml</dd></div>
+                    <div class="is-total"><dt>Total Output</dt><dd>{{ ioSummary.output }} ml</dd></div>
+                  </dl>
+                </article>
+              </div>
+              <div class="ward-io-balance" [class.is-positive]="ioSummary.balance >= 0" [class.is-negative]="ioSummary.balance < 0">
+                <span>Balance</span>
+                <strong>{{ ioSummary.balance >= 0 ? '+' : '' }}{{ ioSummary.balance }} ml</strong>
+              </div>
+
               <ul class="ward-detail-list" *ngIf="ioRows.length; else emptyIo">
                 <li *ngFor="let row of ioRows">
                   <span>
@@ -379,13 +388,40 @@
           </div>
 
           <!-- -------------------------------------------------------- orders -->
-          <div *ngSwitchCase="'orders'">
-            <ul class="ward-detail-list" *ngIf="orderRows.length; else emptyOrders">
-              <li *ngFor="let row of orderRows">
-                <span>{{ rowTitle(row) }}<small *ngIf="row.cells['type']"> · {{ row.cells['type'] }}</small></span>
-                <strong><i class="fa" [ngClass]="statusIcon(row.cells['status'])" aria-hidden="true"></i> {{ rowStatus(row) }}</strong>
-              </li>
-            </ul>
+          <div *ngSwitchCase="'orders'" class="ward-orders-board">
+            <header class="ward-section-head ward-section-head--row">
+              <div>
+                <h3>Orders</h3>
+                <p>Labs, imaging and service orders for this admission</p>
+              </div>
+              <button type="button" class="hms-btn hms-btn-sm hms-btn-primary" *ngIf="canCreateOrder" (click)="openDoctorOrder()">
+                <i class="fa fa-plus" aria-hidden="true"></i> New Order
+              </button>
+            </header>
+            <div class="ward-table-card" *ngIf="orderRows.length; else emptyOrders">
+              <table class="ward-simple-table">
+                <thead>
+                  <tr>
+                    <th>Date / Time</th>
+                    <th>Order</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of orderRows">
+                    <td>{{ row.cells['orderedAt'] || row.cells['recordedAt'] || '—' }}</td>
+                    <td>{{ rowTitle(row) }}</td>
+                    <td>{{ row.cells['type'] || '—' }}</td>
+                    <td>
+                      <span class="ward-status-badge" [attr.data-status]="(row.cells['status'] || '') | lowercase">
+                        {{ rowStatus(row) }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
             <ng-template #emptyOrders>
               <div class="hms-empty-state ward-empty-state ward-empty-state--compact">
                 <h3>No orders yet</h3>
@@ -395,107 +431,111 @@
           </div>
 
           <!-- --------------------------------------------------------- notes -->
-          <div *ngSwitchCase="'notes'" class="ward-notes">
-            <aside class="ward-handover-snapshot" *ngIf="handoverSnapshot.length" data-testid="ward-handover-snapshot">
-              <h3>Current care snapshot</h3>
-              <p class="ward-detail-note">Live view of the chart — not saved into the handover. Write only your narrative below.</p>
-              <dl>
-                <div *ngFor="let line of handoverSnapshot">
-                  <dt>{{ line.label }}</dt>
-                  <dd>{{ line.value }}</dd>
+          <div *ngSwitchCase="'notes'" class="ward-notes ward-notes--design">
+            <div class="ward-notes-layout">
+              <aside class="ward-board-card ward-handover-snapshot" *ngIf="handoverSnapshot.length" data-testid="ward-handover-snapshot">
+                <header class="ward-board-card__head"><h3>Current care snapshot</h3></header>
+                <p class="ward-detail-note">Live view of the chart — not saved into the handover.</p>
+                <dl class="ward-summary-rows">
+                  <div *ngFor="let line of handoverSnapshot">
+                    <dt>{{ line.label }}</dt>
+                    <dd>{{ line.value }}</dd>
+                  </div>
+                </dl>
+              </aside>
+
+              <div class="ward-notes-main">
+                <form class="ward-board-card ward-note-form" *ngIf="canWriteNursingNote || canWriteRoundNote" (ngSubmit)="submitNote()">
+                  <div class="ward-note-form__head">
+                    <h3>
+                      {{ noteKind === 'round' ? 'Add Round Note' : noteKind === 'handover' ? 'Add Handover Note' : 'Add Nursing Note' }}
+                    </h3>
+                    <small>{{ noteAuthorLabel }} · time recorded automatically</small>
+                  </div>
+                  <div class="ward-note-form__row">
+                    <label *ngIf="canWriteRoundNote || canWriteNursingNote">
+                      <span>Note type</span>
+                      <select [(ngModel)]="noteKind" name="noteKind">
+                        <option value="nursing" *ngIf="canWriteNursingNote">Nursing note</option>
+                        <option value="round" *ngIf="canWriteRoundNote">Doctor / round note</option>
+                        <option value="handover" *ngIf="canWriteNursingNote">Handover note</option>
+                      </select>
+                    </label>
+                    <label *ngIf="noteKind !== 'handover'">
+                      <span>Category</span>
+                      <select [(ngModel)]="noteCategory" name="noteCategory">
+                        <option value="routine">Routine</option>
+                        <option value="progress">Progress</option>
+                        <option value="care_plan">Care plan</option>
+                        <option value="critical">Critical / escalation</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label class="ward-note-form__text">
+                    <span>Note</span>
+                    <textarea
+                      rows="3"
+                      name="noteText"
+                      [(ngModel)]="noteText"
+                      placeholder="What was observed, done, or escalated?"
+                    ></textarea>
+                  </label>
+                  <div class="ward-note-form__actions">
+                    <button type="submit" class="hms-btn hms-btn-sm hms-btn-primary" [disabled]="!noteDirty || noteSaving">
+                      {{ noteSaving ? 'Saving…' : noteKind === 'handover' ? 'Save handover' : 'Save note' }}
+                    </button>
+                    <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" [disabled]="!noteDirty" (click)="discardNote()">
+                      Clear
+                    </button>
+                    <small *ngIf="noteDirty" class="ward-note-form__dirty">
+                      <i class="fa fa-pencil" aria-hidden="true"></i> Unsaved note
+                    </small>
+                  </div>
+                </form>
+
+                <div class="ward-filter-chips">
+                  <button
+                    type="button"
+                    *ngFor="let filter of noteKindFilters"
+                    class="ward-filter-chip"
+                    [class.is-active]="noteFilter === filter.key"
+                    (click)="noteFilter = filter.key"
+                  >
+                    {{ filter.label }}
+                  </button>
                 </div>
-              </dl>
-            </aside>
 
-            <form class="ward-note-form" *ngIf="canWriteNursingNote || canWriteRoundNote" (ngSubmit)="submitNote()">
-              <div class="ward-note-form__head">
-                <h3>
-                  {{ noteKind === 'round' ? 'Add Round Note' : noteKind === 'handover' ? 'Add Handover Note' : 'Add Nursing Note' }}
-                </h3>
-                <small>{{ noteAuthorLabel }} · time recorded automatically</small>
-              </div>
-              <div class="ward-note-form__row">
-                <label *ngIf="canWriteRoundNote || canWriteNursingNote">
-                  <span>Note type</span>
-                  <select [(ngModel)]="noteKind" name="noteKind">
-                    <option value="nursing" *ngIf="canWriteNursingNote">Nursing note</option>
-                    <option value="round" *ngIf="canWriteRoundNote">Doctor / round note</option>
-                    <option value="handover" *ngIf="canWriteNursingNote">Handover note</option>
-                  </select>
-                </label>
-                <label *ngIf="noteKind !== 'handover'">
-                  <span>Category</span>
-                  <select [(ngModel)]="noteCategory" name="noteCategory">
-                    <option value="routine">Routine</option>
-                    <option value="progress">Progress</option>
-                    <option value="care_plan">Care plan</option>
-                    <option value="critical">Critical / escalation</option>
-                  </select>
-                </label>
-              </div>
-              <label class="ward-note-form__text">
-                <span>Note</span>
-                <textarea
-                  rows="3"
-                  name="noteText"
-                  [(ngModel)]="noteText"
-                  placeholder="What was observed, done, or escalated?"
-                ></textarea>
-              </label>
-              <div class="ward-note-form__actions">
-                <button type="submit" class="hms-btn hms-btn-sm hms-btn-primary" [disabled]="!noteDirty || noteSaving">
-                  {{ noteSaving ? 'Saving…' : noteKind === 'handover' ? 'Save handover' : 'Save note' }}
-                </button>
-                <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" [disabled]="!noteDirty" (click)="discardNote()">
-                  Clear
-                </button>
-                <small *ngIf="noteDirty" class="ward-note-form__dirty">
-                  <i class="fa fa-pencil" aria-hidden="true"></i> Unsaved note
-                </small>
-              </div>
-            </form>
-
-            <div class="ward-filter-chips">
-              <button
-                type="button"
-                *ngFor="let filter of noteKindFilters"
-                class="ward-filter-chip"
-                [class.is-active]="noteFilter === filter.key"
-                (click)="noteFilter = filter.key"
-              >
-                {{ filter.label }}
-              </button>
-            </div>
-
-            <div class="ward-widget-skeleton" *ngIf="updatesState.loading"><span></span><span></span><span></span></div>
-            <div class="ward-widget-error" *ngIf="updatesState.failed">
-              <p><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Doctor / round notes could not be loaded.</p>
-              <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="loadPatientUpdates(true)">Retry</button>
-            </div>
-
-            <ul class="ward-note-list" *ngIf="filteredNotes.length; else emptyNotes">
-              <li *ngFor="let note of filteredNotes" [class.is-important]="note.important">
-                <div class="ward-note-list__head">
-                  <strong>{{ note.title }}</strong>
-                  <span class="ward-note-kind">{{ note.kindLabel }}</span>
+                <div class="ward-widget-skeleton" *ngIf="updatesState.loading"><span></span><span></span><span></span></div>
+                <div class="ward-widget-error" *ngIf="updatesState.failed">
+                  <p><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Doctor / round notes could not be loaded.</p>
+                  <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="loadPatientUpdates(true)">Retry</button>
                 </div>
-                <p *ngIf="note.detail">{{ note.detail }}</p>
-                <small>
-                  <i class="fa" [ngClass]="note.statusIcon" aria-hidden="true"></i> {{ note.status }}
-                  · {{ note.author || 'Ward staff' }} · {{ note.timeLabel || '—' }}
-                </small>
-              </li>
-            </ul>
-            <ng-template #emptyNotes>
-              <div class="hms-empty-state ward-empty-state ward-empty-state--compact">
-                <h3>No notes yet</h3>
-                <p>Nursing notes, round notes and handover summaries appear here, newest first.</p>
+
+                <ul class="ward-note-list" *ngIf="filteredNotes.length; else emptyNotes">
+                  <li *ngFor="let note of filteredNotes" [class.is-important]="note.important">
+                    <div class="ward-note-list__head">
+                      <strong>{{ note.title }}</strong>
+                      <span class="ward-note-kind">{{ note.kindLabel }}</span>
+                    </div>
+                    <p *ngIf="note.detail">{{ note.detail }}</p>
+                    <small>
+                      <i class="fa" [ngClass]="note.statusIcon" aria-hidden="true"></i> {{ note.status }}
+                      · {{ note.author || 'Ward staff' }} · {{ note.timeLabel || '—' }}
+                    </small>
+                  </li>
+                </ul>
+                <ng-template #emptyNotes>
+                  <div class="hms-empty-state ward-empty-state ward-empty-state--compact">
+                    <h3>No notes yet</h3>
+                    <p>Nursing notes, round notes and handover summaries appear here, newest first.</p>
+                  </div>
+                </ng-template>
               </div>
-            </ng-template>
+            </div>
           </div>
 
           <!-- ------------------------------------------------------- history -->
-          <div *ngSwitchCase="'history'" class="ward-history">
+          <div *ngSwitchCase="'history'" class="ward-history ward-history--design">
             <div class="ward-filter-chips">
               <button
                 type="button"
@@ -527,17 +567,23 @@
               <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="loadPreviousAdmissions()">Retry</button>
             </div>
 
-            <ol class="ward-history-list" *ngIf="filteredHistory.length; else emptyHistory">
+            <ol class="ward-timeline" *ngIf="filteredHistory.length; else emptyHistory">
               <li *ngFor="let entry of filteredHistory">
-                <div class="ward-history-list__head">
-                  <strong>{{ entry.title }}</strong>
-                  <span class="ward-history-time">{{ entry.timeLabel || '—' }}</span>
+                <div class="ward-timeline__rail" aria-hidden="true">
+                  <span class="ward-timeline__dot"></span>
                 </div>
-                <p *ngIf="entry.detail">{{ entry.detail }}</p>
-                <small>
-                  <i class="fa" [ngClass]="entry.statusIcon" aria-hidden="true"></i> {{ entry.status }}
-                  <span *ngIf="entry.author"> · {{ entry.author }}</span>
-                </small>
+                <div class="ward-timeline__meta">{{ entry.timeLabel || '—' }}</div>
+                <article class="ward-timeline__card">
+                  <div class="ward-timeline__head">
+                    <span class="ward-timeline__icon"><i class="fa" [ngClass]="entry.statusIcon || 'fa-circle-o'" aria-hidden="true"></i></span>
+                    <strong>{{ entry.title }}</strong>
+                  </div>
+                  <p *ngIf="entry.detail">{{ entry.detail }}</p>
+                  <small>
+                    {{ entry.status }}
+                    <span *ngIf="entry.author"> · {{ entry.author }}</span>
+                  </small>
+                </article>
               </li>
             </ol>
             <ng-template #emptyHistory>
@@ -620,6 +666,7 @@
             ></app-ward-activity-timeline>
           </div>
         </div>
+        </ng-template>
       </section>
     </div>
 
