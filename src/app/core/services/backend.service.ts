@@ -1513,6 +1513,13 @@ export class BackendService {
     );
   }
 
+  /** Ward-scoped recommendations list — same permission as Ward Home pending count. */
+  listWardAdmissionRecommendations(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
+    return this.get<PaginatedResponse<Record<string, unknown>>>(`${CONFIG.ward}/admission-recommendations`, params).pipe(
+      map((response) => this.unwrapListResult(response))
+    );
+  }
+
   getWardMyWork(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
     return this.get<Record<string, unknown>>(`${CONFIG.ward}/my-work`, params).pipe(
       map((response) => this.unwrapData(response))

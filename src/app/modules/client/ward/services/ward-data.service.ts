@@ -699,8 +699,16 @@ export class WardDataService {
     if (moduleKey === 'admissions') {
       return forkJoin({
         bundle: this.loadClinicalBundle(),
-        recommendations: this.safeList(this.backend.listAdmissionRecommendations({ limit: 100 })).pipe(
-          map((result) => result.items || [])
+        recommendations: this.backend.listWardAdmissionRecommendations({ limit: 100 }).pipe(
+          timeout(12000),
+          map((result) => result.items || []),
+          catchError(() =>
+            this.backend.listAdmissionRecommendations({ limit: 100 }).pipe(
+              timeout(12000),
+              map((result) => result.items || []),
+              catchError(() => of([] as Array<Record<string, unknown>>))
+            )
+          )
         ),
       }).pipe(
         map(({ bundle, recommendations }) => {
@@ -709,11 +717,12 @@ export class WardDataService {
             (item) => !['admitted'].includes(String(item['status'] || ''))
           );
           const recommendationRows = mapAdmissionRecommendationRows(pendingRecommendations, bundle.doctors);
-          // Pending doctor recommendations first — these are what notifications point to.
+          // Pending doctor recommendations first — same set Ward Home counts as Pending Admissions.
           return [...recommendationRows, ...baseRows];
         }),
         catchError(() =>
-          this.safeList(this.backend.listAdmissionRecommendations({ limit: 100 })).pipe(
+          this.backend.listWardAdmissionRecommendations({ limit: 100 }).pipe(
+            timeout(12000),
             map((result) =>
               mapAdmissionRecommendationRows(
                 (result.items || []).filter((item) => !['admitted'].includes(String(item['status'] || ''))),

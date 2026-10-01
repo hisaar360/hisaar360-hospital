@@ -131,7 +131,7 @@ const RULES: AccessRule[] = [
   { methods: ['PATCH'], pattern: /^\/rooms\//, any: ['rooms.update'] },
   { methods: ['DELETE'], pattern: /^\/rooms\//, any: ['rooms.delete'] },
 
-  { methods: ['GET'], pattern: /^\/room-allotments/, any: ['room_allotments.read'], empty: LIST },
+  { methods: ['GET'], pattern: /^\/room-allotments/, any: ['room_allotments.read', 'ward.read'], empty: LIST },
   { methods: ['POST'], pattern: /^\/room-allotments$/, any: ['room_allotments.create'] },
   { methods: ['PATCH'], pattern: /^\/room-allotments\//, any: ['room_allotments.update'] },
 
