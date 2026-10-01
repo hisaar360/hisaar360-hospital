@@ -11,6 +11,7 @@ import {
   Doctor,
   OperationSchedule,
   OperationScheduleStatus,
+  Patient,
   TreatmentCatalogItem,
 } from '../../../shared/models/hospital.model';
 
@@ -1012,12 +1013,30 @@ export class OperationCalendarComponent implements OnInit {
   deliveryModalOpen = false;
   deliveryModalItem: OperationSchedule | null = null;
   deliverySaving = false;
+  deliveryStep = 1;
+  activeBabyTab = 0;
+  deliveryMotherEditing = false;
+  deliveryGuardianEditing = false;
+  deliveryAddressEditing = false;
+  deliveryMotherPatient: Patient | null = null;
+  deliveryIdentity = {
+    motherName: '',
+    motherMrn: '',
+    motherCnic: '',
+    motherAgeGender: '',
+    motherPhone: '',
+    guardianName: '',
+    guardianCnic: '',
+    guardianRelationship: '',
+    guardianPhone: '',
+    address: '',
+  };
   deliveryForm = {
     deliveryOutcome: 'live_birth' as 'live_birth' | 'stillbirth' | 'no_delivery' | 'other',
     babyCount: 1,
     babies: [
       {
-        sex: 'Girl',
+        sex: 'Boy',
         dateOfBirth: '',
         timeOfBirth: '',
         birthWeight: '',
@@ -1030,6 +1049,11 @@ export class OperationCalendarComponent implements OnInit {
 
   openDeliveryCompleteModal(item: OperationSchedule): void {
     this.deliveryModalItem = item;
+    this.deliveryStep = 1;
+    this.activeBabyTab = 0;
+    this.deliveryMotherEditing = false;
+    this.deliveryGuardianEditing = false;
+    this.deliveryAddressEditing = false;
     const now = new Date();
     const date = now.toISOString().slice(0, 10);
     const time = now.toTimeString().slice(0, 5);
@@ -1038,7 +1062,7 @@ export class OperationCalendarComponent implements OnInit {
       babyCount: 1,
       babies: [
         {
-          sex: 'Girl',
+          sex: 'Boy',
           dateOfBirth: date,
           timeOfBirth: time,
           birthWeight: '',
@@ -1048,13 +1072,122 @@ export class OperationCalendarComponent implements OnInit {
         },
       ],
     };
+    this.hydrateDeliveryIdentityFromPatient(typeof item.patientId === 'object' ? item.patientId : item.patient);
     this.deliveryModalOpen = true;
+    const pid = this.patientId(item);
+    if (pid) {
+      this.backend.getPatient(pid).subscribe({
+        next: (patient) => {
+          this.deliveryMotherPatient = patient;
+          this.hydrateDeliveryIdentityFromPatient(patient);
+        },
+        error: () => {
+          this.deliveryMotherPatient = null;
+        },
+      });
+    }
+  }
+
+  private hydrateDeliveryIdentityFromPatient(patient: Patient | null | undefined): void {
+    if (!patient) {
+      this.deliveryIdentity = {
+        motherName: this.deliveryModalItem ? this.patientName(this.deliveryModalItem) : '—',
+        motherMrn: this.deliveryModalItem ? this.patientMrn(this.deliveryModalItem) : '—',
+        motherCnic: '—',
+        motherAgeGender: '—',
+        motherPhone: '',
+        guardianName: '',
+        guardianCnic: '',
+        guardianRelationship: '',
+        guardianPhone: '',
+        address: '',
+      };
+      return;
+    }
+    const ageLabel = (() => {
+      if (!patient.dateOfBirth) return '—';
+      const birth = new Date(patient.dateOfBirth);
+      if (Number.isNaN(birth.getTime())) return '—';
+      const now = new Date();
+      let age = now.getFullYear() - birth.getFullYear();
+      const monthDiff = now.getMonth() - birth.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) age -= 1;
+      return age >= 0 ? `${age} yrs` : '—';
+    })();
+    const gender = patient.gender
+      ? String(patient.gender).charAt(0).toUpperCase() + String(patient.gender).slice(1)
+      : '—';
+    const cnicDigits = String(patient.identityNumber || '').replace(/\D/g, '');
+    const motherCnic =
+      cnicDigits.length === 13
+        ? `${cnicDigits.slice(0, 5)}-${cnicDigits.slice(5, 12)}-${cnicDigits.slice(12)}`
+        : String(patient.identityNumber || '—') || '—';
+    const gDigits = String(patient.guardianIdentityNumber || '').replace(/\D/g, '');
+    const guardianCnic =
+      gDigits.length === 13
+        ? `${gDigits.slice(0, 5)}-${gDigits.slice(5, 12)}-${gDigits.slice(12)}`
+        : String(patient.guardianIdentityNumber || '—') || '—';
+    this.deliveryIdentity = {
+      motherName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || '—',
+      motherMrn: patient.patientNo || '—',
+      motherCnic,
+      motherAgeGender: `${ageLabel} / ${gender}`,
+      motherPhone: patient.phone || '',
+      guardianName: patient.emergencyContactName || '',
+      guardianCnic,
+      guardianRelationship: patient.guardianRelationship || '',
+      guardianPhone: patient.emergencyContactPhone || '',
+      address: patient.address || patient.guardianAddress || '',
+    };
   }
 
   closeDeliveryModal(): void {
     this.deliveryModalOpen = false;
     this.deliveryModalItem = null;
     this.deliverySaving = false;
+    this.deliveryStep = 1;
+    this.activeBabyTab = 0;
+    this.deliveryMotherPatient = null;
+  }
+
+  setDeliveryOutcome(outcome: 'live_birth' | 'stillbirth' | 'no_delivery'): void {
+    this.deliveryForm.deliveryOutcome = outcome;
+    if (outcome === 'no_delivery') {
+      this.deliveryForm.babyCount = 0;
+      this.deliveryForm.babies = [];
+      this.deliveryStep = 3;
+    } else if (!this.deliveryForm.babies.length) {
+      this.onDeliveryBabyCountChange(1);
+    }
+  }
+
+  goDeliveryStep(step: number): void {
+    if (step < 1 || step > 4) return;
+    if (
+      (this.deliveryForm.deliveryOutcome === 'live_birth' ||
+        this.deliveryForm.deliveryOutcome === 'stillbirth') &&
+      step >= 2 &&
+      !this.deliveryForm.babies.length
+    ) {
+      this.onDeliveryBabyCountChange(Math.max(1, this.deliveryForm.babyCount || 1));
+    }
+    this.deliveryStep = step;
+  }
+
+  deliveryStepClass(step: number): string {
+    if (step === this.deliveryStep) return 'is-active';
+    if (step < this.deliveryStep) return 'is-done';
+    return '';
+  }
+
+  addDeliveryBaby(): void {
+    if (this.deliveryForm.babies.length >= 6) return;
+    this.onDeliveryBabyCountChange(this.deliveryForm.babies.length + 1);
+    this.activeBabyTab = this.deliveryForm.babies.length - 1;
+  }
+
+  selectBabyTab(index: number): void {
+    this.activeBabyTab = Math.max(0, Math.min(index, this.deliveryForm.babies.length - 1));
   }
 
   onDeliveryBabyCountChange(count: number): void {
@@ -1065,7 +1198,7 @@ export class OperationCalendarComponent implements OnInit {
     const time = now.toTimeString().slice(0, 5);
     while (this.deliveryForm.babies.length < n) {
       this.deliveryForm.babies.push({
-        sex: 'Girl',
+        sex: 'Boy',
         dateOfBirth: date,
         timeOfBirth: time,
         birthWeight: '',
@@ -1075,6 +1208,43 @@ export class OperationCalendarComponent implements OnInit {
       });
     }
     this.deliveryForm.babies = this.deliveryForm.babies.slice(0, n);
+    if (this.activeBabyTab >= this.deliveryForm.babies.length) {
+      this.activeBabyTab = Math.max(0, this.deliveryForm.babies.length - 1);
+    }
+  }
+
+  saveDeliveryIdentityEdits(): void {
+    const pid = this.deliveryModalItem ? this.patientId(this.deliveryModalItem) : '';
+    if (!pid) {
+      this.deliveryMotherEditing = false;
+      this.deliveryGuardianEditing = false;
+      this.deliveryAddressEditing = false;
+      return;
+    }
+    const payload: Record<string, unknown> = {
+      phone: this.deliveryIdentity.motherPhone || undefined,
+      address: this.deliveryIdentity.address || undefined,
+      emergencyContactName: this.deliveryIdentity.guardianName || undefined,
+      emergencyContactPhone: this.deliveryIdentity.guardianPhone || undefined,
+      guardianRelationship: this.deliveryIdentity.guardianRelationship || undefined,
+      guardianIdentityNumber: String(this.deliveryIdentity.guardianCnic || '').replace(/\D/g, '') || undefined,
+      identityNumber: String(this.deliveryIdentity.motherCnic || '').replace(/\D/g, '') || undefined,
+      guardianAddress: this.deliveryIdentity.address || undefined,
+    };
+    this.backend.updatePatient(pid, payload).subscribe({
+      next: (res) => {
+        const patient = ((res as { data?: Patient })?.data || res) as Patient;
+        if (patient && typeof patient === 'object' && (patient as Patient)._id) {
+          this.deliveryMotherPatient = patient;
+          this.hydrateDeliveryIdentityFromPatient(patient);
+        }
+        this.deliveryMotherEditing = false;
+        this.deliveryGuardianEditing = false;
+        this.deliveryAddressEditing = false;
+        this.toastr.success('Parent details updated.');
+      },
+      error: (err) => this.toastr.error(err?.error?.message || 'Unable to update parent details.'),
+    });
   }
 
   private buildDeliveryPayload(recordBirthNow: boolean): Record<string, unknown> {
@@ -1098,6 +1268,8 @@ export class OperationCalendarComponent implements OnInit {
       postponeBirthDetails: !recordBirthNow,
       expectedBabyCount: this.deliveryForm.babyCount,
       modeOfDelivery: 'c_section',
+      fatherName: this.deliveryIdentity.guardianName || undefined,
+      fatherCNIC: this.deliveryIdentity.guardianCnic || undefined,
       babies,
     };
   }
@@ -1109,9 +1281,10 @@ export class OperationCalendarComponent implements OnInit {
     if (
       (this.deliveryForm.deliveryOutcome === 'live_birth' ||
         this.deliveryForm.deliveryOutcome === 'stillbirth') &&
-      this.deliveryForm.babies.some((b) => !b.sex || !b.birthWeight)
+      this.deliveryForm.babies.some((b) => !b.sex || !b.birthWeight || !b.dateOfBirth || !b.timeOfBirth)
     ) {
-      this.toastr.error('Enter baby sex and birth weight for each baby, or choose Birth Details Later.');
+      this.toastr.error('Enter baby sex, DOB, time, and birth weight for each baby, or choose Birth Details Later.');
+      this.deliveryStep = 2;
       return;
     }
     this.deliverySaving = true;
@@ -1152,7 +1325,6 @@ export class OperationCalendarComponent implements OnInit {
 
   completeBirthDetailsLater(item: OperationSchedule): void {
     this.openDeliveryCompleteModal(item);
-    // Reuse modal in "later" mode — submitting with birth will call birth-details if already completed
     if (item.status === 'completed') {
       this.deliverySaving = false;
     }
@@ -1163,6 +1335,15 @@ export class OperationCalendarComponent implements OnInit {
       return;
     }
     if (this.deliveryModalItem.status === 'completed') {
+      if (
+        (this.deliveryForm.deliveryOutcome === 'live_birth' ||
+          this.deliveryForm.deliveryOutcome === 'stillbirth') &&
+        this.deliveryForm.babies.some((b) => !b.sex || !b.birthWeight)
+      ) {
+        this.toastr.error('Enter baby sex and birth weight for each baby.');
+        this.deliveryStep = 2;
+        return;
+      }
       this.deliverySaving = true;
       this.backend
         .completeOperationBirthDetails(this.deliveryModalItem._id, this.buildDeliveryPayload(true))

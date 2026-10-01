@@ -781,85 +781,308 @@
 
 <div class="ops-modal" *ngIf="deliveryModalOpen && deliveryModalItem as op" role="dialog" aria-modal="true">
   <div class="ops-modal__scrim" (click)="closeDeliveryModal()"></div>
-  <div class="ops-modal__panel">
-    <header class="ops-modal__head">
-      <div>
-        <h3>Complete Operation — Delivery Outcome</h3>
-        <p>{{ op.operationNo }} · {{ patientName(op) }}</p>
+  <div class="ops-modal__panel ops-delivery">
+    <header class="ops-delivery__head">
+      <div class="ops-delivery__head-copy">
+        <h3>Complete Operation — Delivery Details</h3>
+        <p>{{ op.operationNo || 'Operation' }} • {{ patientName(op) }} • {{ procedureName(op) }}</p>
       </div>
-      <button type="button" class="ops-icon-btn" (click)="closeDeliveryModal()" aria-label="Close"><i class="fa fa-times"></i></button>
+      <div class="ops-delivery__head-actions">
+        <span class="ops-detail__status" [ngClass]="statusClass(op.status)">
+          <i class="fa fa-circle" aria-hidden="true"></i>
+          {{ statusLabel(op.status) }}
+        </span>
+        <button type="button" class="ops-icon-btn" (click)="closeDeliveryModal()" aria-label="Close">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
     </header>
 
-    <div class="ops-modal__body">
-      <label class="ops-field">
-        <span>Delivery outcome</span>
-        <select [(ngModel)]="deliveryForm.deliveryOutcome">
-          <option value="live_birth">Live birth</option>
-          <option value="stillbirth">Stillbirth</option>
-          <option value="no_delivery">No delivery / procedure only</option>
-          <option value="other">Other</option>
-        </select>
-      </label>
-
-      <ng-container *ngIf="deliveryForm.deliveryOutcome === 'live_birth' || deliveryForm.deliveryOutcome === 'stillbirth'">
-        <label class="ops-field">
-          <span>Number of babies</span>
-          <input type="number" min="1" max="6" [ngModel]="deliveryForm.babyCount" (ngModelChange)="onDeliveryBabyCountChange($event)" />
-        </label>
-
-        <article class="ops-baby-card" *ngFor="let baby of deliveryForm.babies; let i = index">
-          <h4>Baby {{ i + 1 }}</h4>
-          <div class="ops-baby-card__grid">
-            <label class="ops-field">
-              <span>Sex</span>
-              <select [(ngModel)]="baby.sex">
-                <option>Boy</option>
-                <option>Girl</option>
-                <option>Indeterminate</option>
-              </select>
-            </label>
-            <label class="ops-field">
-              <span>Date of birth</span>
-              <input type="date" [(ngModel)]="baby.dateOfBirth" />
-            </label>
-            <label class="ops-field">
-              <span>Time of birth</span>
-              <input type="time" [(ngModel)]="baby.timeOfBirth" />
-            </label>
-            <label class="ops-field">
-              <span>Birth weight</span>
-              <input type="number" step="0.01" min="0" [(ngModel)]="baby.birthWeight" placeholder="e.g. 2.9" />
-            </label>
-            <label class="ops-field">
-              <span>Unit</span>
-              <select [(ngModel)]="baby.weightUnit">
-                <option value="kg">kg</option>
-                <option value="grams">grams</option>
-              </select>
-            </label>
-            <label class="ops-field">
-              <span>Baby name (optional)</span>
-              <input type="text" [(ngModel)]="baby.babyName" placeholder="Provisional if undecided" />
-            </label>
-          </div>
-        </article>
-      </ng-container>
+    <div class="ops-delivery__summary">
+      <article class="ops-delivery__summary-card">
+        <span class="ops-delivery__summary-icon"><i class="fa fa-user"></i></span>
+        <div>
+          <strong>{{ patientName(op) }}</strong>
+          <small>MRN: {{ patientMrn(op) }}</small>
+          <small>{{ patientAge(op) }} / {{ patientGender(op) }}</small>
+        </div>
+      </article>
+      <article class="ops-delivery__summary-card">
+        <span class="ops-delivery__summary-icon"><i class="fa fa-medkit"></i></span>
+        <div>
+          <strong>{{ procedureName(op) }}</strong>
+          <small>{{ doctorName(op) }}</small>
+          <small>OT: {{ departmentName(op) }}</small>
+        </div>
+      </article>
+      <article class="ops-delivery__summary-card">
+        <span class="ops-delivery__summary-icon"><i class="fa fa-calendar"></i></span>
+        <div>
+          <strong>{{ op.scheduledStart ? (op.scheduledStart | date:'medium') : '—' }}</strong>
+          <small>Duration: {{ durationMinutes(op) }} min</small>
+        </div>
+      </article>
     </div>
 
-    <footer class="ops-modal__footer">
-      <button type="button" class="ops-btn ops-btn--secondary" (click)="closeDeliveryModal()" [disabled]="deliverySaving">Cancel</button>
-      <button
-        type="button"
-        class="ops-btn ops-btn--secondary"
-        *ngIf="op.status !== 'completed'"
-        (click)="submitCompleteBirthLater()"
-        [disabled]="deliverySaving"
-      >
-        Complete Operation — Birth Details Later
+    <nav class="ops-delivery__steps" aria-label="Delivery steps">
+      <button type="button" class="ops-delivery__step" [ngClass]="deliveryStepClass(1)" (click)="goDeliveryStep(1)">
+        <span>1</span> Delivery Outcome
       </button>
-      <button type="button" class="ops-btn ops-btn--primary" (click)="confirmDeliveryModalForCompleted()" [disabled]="deliverySaving">
-        {{ op.status === 'completed' ? 'Save Birth Details' : 'Complete Operation & Record Birth' }}
+      <button type="button" class="ops-delivery__step" [ngClass]="deliveryStepClass(2)" (click)="goDeliveryStep(2)">
+        <span>2</span> Baby / Babies Details
       </button>
+      <button type="button" class="ops-delivery__step" [ngClass]="deliveryStepClass(3)" (click)="goDeliveryStep(3)">
+        <span>3</span> Mother Details (Required)
+      </button>
+      <button type="button" class="ops-delivery__step" [ngClass]="deliveryStepClass(4)" (click)="goDeliveryStep(4)">
+        <span>4</span> Summary
+      </button>
+    </nav>
+
+    <div class="ops-delivery__layout">
+      <div class="ops-delivery__main">
+        <section class="ops-delivery__section" *ngIf="deliveryStep === 1 || deliveryStep === 2">
+          <header class="ops-delivery__section-head" *ngIf="deliveryStep === 1">
+            <h4>1. Delivery Outcome</h4>
+            <p>Select the outcome of this operation.</p>
+          </header>
+
+          <div class="ops-delivery__outcomes" *ngIf="deliveryStep === 1">
+            <button
+              type="button"
+              class="ops-delivery__outcome"
+              [class.is-active]="deliveryForm.deliveryOutcome === 'live_birth'"
+              (click)="setDeliveryOutcome('live_birth')"
+            >
+              <i class="fa fa-child" aria-hidden="true"></i>
+              <span>Live birth</span>
+            </button>
+            <button
+              type="button"
+              class="ops-delivery__outcome"
+              [class.is-active]="deliveryForm.deliveryOutcome === 'stillbirth'"
+              (click)="setDeliveryOutcome('stillbirth')"
+            >
+              <i class="fa fa-heartbeat" aria-hidden="true"></i>
+              <span>Still birth</span>
+            </button>
+            <button
+              type="button"
+              class="ops-delivery__outcome"
+              [class.is-active]="deliveryForm.deliveryOutcome === 'no_delivery'"
+              (click)="setDeliveryOutcome('no_delivery')"
+            >
+              <i class="fa fa-ban" aria-hidden="true"></i>
+              <span>No baby</span>
+            </button>
+          </div>
+
+          <label class="ops-delivery__field" *ngIf="deliveryStep === 1 && deliveryForm.deliveryOutcome !== 'no_delivery'">
+            <span>Number of babies born <em>*</em></span>
+            <select [ngModel]="deliveryForm.babyCount" (ngModelChange)="onDeliveryBabyCountChange($event)">
+              <option *ngFor="let n of [1,2,3,4,5,6]" [ngValue]="n">{{ n }}</option>
+            </select>
+          </label>
+
+          <div class="ops-delivery__section-actions" *ngIf="deliveryStep === 1">
+            <button type="button" class="ops-btn ops-btn--primary" (click)="goDeliveryStep(deliveryForm.deliveryOutcome === 'no_delivery' ? 3 : 2)">
+              Continue
+            </button>
+          </div>
+        </section>
+
+        <section class="ops-delivery__section" *ngIf="deliveryStep === 2 && deliveryForm.deliveryOutcome !== 'no_delivery'">
+          <header class="ops-delivery__section-head">
+            <h4>2. Baby / Babies Details</h4>
+            <p>Enter details for each baby born in this delivery.</p>
+          </header>
+
+          <div class="ops-delivery__baby-tabs">
+            <button
+              type="button"
+              class="ops-delivery__baby-tab"
+              *ngFor="let baby of deliveryForm.babies; let i = index"
+              [class.is-active]="activeBabyTab === i"
+              (click)="selectBabyTab(i)"
+            >
+              Baby {{ i + 1 }}
+            </button>
+            <button type="button" class="ops-delivery__baby-add" (click)="addDeliveryBaby()" *ngIf="deliveryForm.babies.length < 6">
+              + Add Another Baby
+            </button>
+          </div>
+
+          <article class="ops-delivery__baby-card" *ngIf="deliveryForm.babies[activeBabyTab] as baby">
+            <header>
+              <span class="ops-delivery__summary-icon is-sm"><i class="fa fa-child"></i></span>
+              <strong>Baby {{ activeBabyTab + 1 }} Details</strong>
+            </header>
+            <div class="ops-delivery__baby-grid">
+              <label class="ops-delivery__field">
+                <span>Sex <em>*</em></span>
+                <select [(ngModel)]="baby.sex">
+                  <option>Boy</option>
+                  <option>Girl</option>
+                  <option>Indeterminate</option>
+                </select>
+              </label>
+              <label class="ops-delivery__field">
+                <span>Date of Birth <em>*</em></span>
+                <input type="date" [(ngModel)]="baby.dateOfBirth" />
+              </label>
+              <label class="ops-delivery__field">
+                <span>Time of Birth <em>*</em></span>
+                <input type="time" [(ngModel)]="baby.timeOfBirth" />
+              </label>
+              <label class="ops-delivery__field">
+                <span>Birth Weight <em>*</em></span>
+                <input type="number" step="0.01" min="0" [(ngModel)]="baby.birthWeight" placeholder="2.8" />
+              </label>
+              <label class="ops-delivery__field">
+                <span>Unit <em>*</em></span>
+                <select [(ngModel)]="baby.weightUnit">
+                  <option value="kg">kg</option>
+                  <option value="grams">grams</option>
+                </select>
+              </label>
+              <label class="ops-delivery__field">
+                <span>Baby Name (Optional)</span>
+                <input type="text" [(ngModel)]="baby.babyName" placeholder="e.g. Muhammad Ali" />
+              </label>
+            </div>
+          </article>
+
+          <div class="ops-delivery__section-actions">
+            <button type="button" class="ops-btn ops-btn--secondary" (click)="goDeliveryStep(1)">Back</button>
+            <button type="button" class="ops-btn ops-btn--primary" (click)="goDeliveryStep(3)">Continue</button>
+          </div>
+        </section>
+
+        <section class="ops-delivery__section" *ngIf="deliveryStep === 3">
+          <header class="ops-delivery__section-head">
+            <h4>3. Mother / Father Details</h4>
+            <p>Confirm identity details required for the hospital birth certificate.</p>
+          </header>
+          <div class="ops-delivery__baby-grid">
+            <label class="ops-delivery__field">
+              <span>Mother CNIC</span>
+              <input type="text" [(ngModel)]="deliveryIdentity.motherCnic" placeholder="XXXXX-XXXXXXX-X" />
+            </label>
+            <label class="ops-delivery__field">
+              <span>Mother mobile</span>
+              <input type="tel" [(ngModel)]="deliveryIdentity.motherPhone" />
+            </label>
+            <label class="ops-delivery__field">
+              <span>Husband / Father name</span>
+              <input type="text" [(ngModel)]="deliveryIdentity.guardianName" />
+            </label>
+            <label class="ops-delivery__field">
+              <span>Husband / Father CNIC</span>
+              <input type="text" [(ngModel)]="deliveryIdentity.guardianCnic" placeholder="XXXXX-XXXXXXX-X" />
+            </label>
+            <label class="ops-delivery__field">
+              <span>Relationship</span>
+              <input type="text" [(ngModel)]="deliveryIdentity.guardianRelationship" />
+            </label>
+            <label class="ops-delivery__field">
+              <span>Guardian mobile</span>
+              <input type="tel" [(ngModel)]="deliveryIdentity.guardianPhone" />
+            </label>
+            <label class="ops-delivery__field ops-delivery__field--full">
+              <span>Address</span>
+              <input type="text" [(ngModel)]="deliveryIdentity.address" />
+            </label>
+          </div>
+          <div class="ops-delivery__section-actions">
+            <button type="button" class="ops-btn ops-btn--secondary" (click)="goDeliveryStep(deliveryForm.deliveryOutcome === 'no_delivery' ? 1 : 2)">Back</button>
+            <button type="button" class="ops-btn ops-btn--secondary" (click)="saveDeliveryIdentityEdits()">Save parent details</button>
+            <button type="button" class="ops-btn ops-btn--primary" (click)="goDeliveryStep(4)">Continue</button>
+          </div>
+        </section>
+
+        <section class="ops-delivery__section" *ngIf="deliveryStep === 4">
+          <header class="ops-delivery__section-head">
+            <h4>4. Summary</h4>
+            <p>Review before completing the operation.</p>
+          </header>
+          <div class="ops-delivery__review">
+            <div><span>Outcome</span><strong>{{ deliveryForm.deliveryOutcome.replace('_', ' ') }}</strong></div>
+            <div *ngIf="deliveryForm.deliveryOutcome !== 'no_delivery'">
+              <span>Babies</span>
+              <strong>{{ deliveryForm.babies.length }}</strong>
+            </div>
+            <div *ngFor="let baby of deliveryForm.babies; let i = index">
+              <span>Baby {{ i + 1 }}</span>
+              <strong>{{ baby.sex }} · {{ baby.birthWeight || '—' }} {{ baby.weightUnit }} · {{ baby.dateOfBirth || '—' }} {{ baby.timeOfBirth }}</strong>
+            </div>
+            <div><span>Mother CNIC</span><strong>{{ deliveryIdentity.motherCnic || '—' }}</strong></div>
+            <div><span>Father CNIC</span><strong>{{ deliveryIdentity.guardianCnic || '—' }}</strong></div>
+          </div>
+          <div class="ops-delivery__section-actions">
+            <button type="button" class="ops-btn ops-btn--secondary" (click)="goDeliveryStep(3)">Back</button>
+          </div>
+        </section>
+      </div>
+
+      <aside class="ops-delivery__side">
+        <article class="ops-delivery__side-card">
+          <header>
+            <h5>Mother Information</h5>
+            <button type="button" class="ops-delivery__edit" (click)="deliveryStep = 3; deliveryMotherEditing = true">Edit</button>
+          </header>
+          <dl>
+            <div><dt>Name</dt><dd>{{ deliveryIdentity.motherName || '—' }}</dd></div>
+            <div><dt>MRN</dt><dd>{{ deliveryIdentity.motherMrn || '—' }}</dd></div>
+            <div><dt>CNIC</dt><dd>{{ deliveryIdentity.motherCnic || '—' }}</dd></div>
+            <div><dt>Age / Gender</dt><dd>{{ deliveryIdentity.motherAgeGender || '—' }}</dd></div>
+          </dl>
+        </article>
+
+        <article class="ops-delivery__side-card">
+          <header>
+            <h5>Husband / Guardian</h5>
+            <button type="button" class="ops-delivery__edit" (click)="deliveryStep = 3; deliveryGuardianEditing = true">Edit</button>
+          </header>
+          <dl>
+            <div><dt>Name</dt><dd>{{ deliveryIdentity.guardianName || '—' }}</dd></div>
+            <div><dt>CNIC</dt><dd>{{ deliveryIdentity.guardianCnic || '—' }}</dd></div>
+            <div><dt>Relation</dt><dd>{{ deliveryIdentity.guardianRelationship || '—' }}</dd></div>
+            <div><dt>Phone</dt><dd>{{ deliveryIdentity.guardianPhone || '—' }}</dd></div>
+          </dl>
+        </article>
+
+        <article class="ops-delivery__side-card">
+          <header>
+            <h5>Address</h5>
+            <button type="button" class="ops-delivery__edit" (click)="deliveryStep = 3; deliveryAddressEditing = true">Edit</button>
+          </header>
+          <p>{{ deliveryIdentity.address || '—' }}</p>
+        </article>
+
+        <div class="ops-delivery__side-note">
+          <i class="fa fa-info-circle" aria-hidden="true"></i>
+          Mother and father identity is required for the birth certificate. You can edit these details later from Birth Records.
+        </div>
+      </aside>
+    </div>
+
+    <footer class="ops-delivery__footer">
+      <button type="button" class="ops-btn ops-btn--ghost" (click)="closeDeliveryModal()" [disabled]="deliverySaving">Cancel</button>
+      <div class="ops-delivery__footer-right">
+        <button
+          type="button"
+          class="ops-btn ops-btn--secondary"
+          *ngIf="op.status !== 'completed'"
+          (click)="submitCompleteBirthLater()"
+          [disabled]="deliverySaving"
+        >
+          Complete Operation — Add Birth Details Later
+        </button>
+        <button type="button" class="ops-btn ops-btn--success" (click)="confirmDeliveryModalForCompleted()" [disabled]="deliverySaving">
+          <i class="fa fa-check" aria-hidden="true"></i>
+          {{ op.status === 'completed' ? 'Save Birth Details' : 'Complete Operation & Save Birth Details' }}
+        </button>
+      </div>
     </footer>
   </div>
 </div>
