@@ -1234,6 +1234,14 @@
   padding: 16px 20px 0;
 }
 
+.ops-card.is-draggable {
+  cursor: grab;
+}
+
+.ops-card.is-draggable:active {
+  cursor: grabbing;
+}
+
 .ops-meta-grid {
   display: grid;
   gap: 10px;
