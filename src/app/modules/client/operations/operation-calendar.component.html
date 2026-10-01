@@ -316,299 +316,459 @@
 
   <aside class="ops-drawer" *ngIf="selected as item" aria-label="Operation details">
     <div class="ops-drawer__scrim" (click)="closeDetails()"></div>
-    <div class="ops-drawer__panel">
-      <header class="ops-drawer__head">
-        <div>
-          <p class="ops-kicker">Operation Details</p>
-          <h2>{{ item.operationNo || 'Operation' }}</h2>
+    <div class="ops-drawer__panel ops-detail">
+      <header class="ops-detail__head">
+        <div class="ops-detail__head-main">
+          <span class="ops-detail__head-icon" aria-hidden="true"><i class="fa fa-medkit"></i></span>
+          <div>
+            <div class="ops-detail__title-row">
+              <h2>Operation Details</h2>
+              <span class="ops-detail__status" [ngClass]="statusClass(item.status)">
+                <i class="fa fa-calendar" aria-hidden="true"></i>
+                {{ statusLabel(item.status) }}
+              </span>
+            </div>
+            <p class="ops-detail__subtitle">{{ item.operationNo || 'Operation' }}</p>
+          </div>
         </div>
-        <div class="ops-drawer__head-actions">
-          <span class="ops-pill" [ngClass]="statusClass(item.status)">{{ statusLabel(item.status) }}</span>
-          <button type="button" class="ops-icon-btn" (click)="closeDetails()" aria-label="Close">
-            <i class="fa fa-times" aria-hidden="true"></i>
-          </button>
-        </div>
+        <button type="button" class="ops-icon-btn" (click)="closeDetails()" aria-label="Close">
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
       </header>
 
-      <section class="ops-drawer__block ops-safety-banner">
-        <h3>Confirm before proceed</h3>
-        <div class="ops-meta-grid ops-meta-grid--2">
-          <div><span>Patient</span><strong>{{ patientName(item) }}</strong></div>
-          <div><span>MRN</span><strong>{{ patientMrn(item) }}</strong></div>
-          <div><span>Procedure</span><strong>{{ procedureName(item) }}</strong></div>
-          <div><span>Surgeon</span><strong>{{ doctorName(item) }}</strong></div>
+      <div class="ops-detail__body">
+        <div class="ops-detail__alert" *ngIf="drawerPanel === 'details' && canMutateOperation(item)">
+          <span class="ops-detail__alert-icon" aria-hidden="true"><i class="fa fa-info-circle"></i></span>
           <div>
-            <span>Operative site</span>
-            <strong>{{ operativeSiteLabel(item) }}</strong>
-          </div>
-          <div>
-            <span>Side</span>
-            <strong>
-              {{ item.operativeLaterality || 'Not set' }}
-              <em *ngIf="item.lateralityConfirmed" class="ops-confirmed"> · confirmed</em>
-              <em *ngIf="item.operativeLaterality && !item.lateralityConfirmed" class="ops-unconfirmed"> · needs OT confirm</em>
-            </strong>
+            <strong>Confirm before proceed</strong>
+            <p>Review the operation details and set site/side information.</p>
           </div>
         </div>
-        <p class="ops-warn" *ngIf="item.lateralityMismatchWarning as warn">{{ warn.message }}</p>
-        <p class="ops-hint" *ngIf="item.opdLateralityPrefill && !item.lateralityConfirmed">
-          OPD laterality prefill: {{ item.opdLateralityPrefill }} — review/confirm in OT (prefill ≠ confirmation).
-        </p>
-        <div class="ops-safety-actions" *ngIf="canMutateOperation(item) && drawerPanel === 'details'">
-          <label>
-            Region
-            <select [(ngModel)]="safetyDraft.region">
-              <option value="">—</option>
-              <option *ngFor="let r of operativeRegions" [value]="r">{{ r }}</option>
-            </select>
-          </label>
-          <label>
-            Specific site
-            <input type="text" [(ngModel)]="safetyDraft.specificSite" placeholder="Optional detail" />
-          </label>
-          <label>
-            Laterality
-            <select [(ngModel)]="safetyDraft.laterality">
-              <option value="">—</option>
-              <option *ngFor="let s of operativeLateralities" [value]="s">{{ s }}</option>
-            </select>
-          </label>
-          <button type="button" class="btn btn-sm btn-outline-primary" (click)="saveOperativeSiteSide(item)">
-            Save site / side
-          </button>
+
+        <section class="ops-detail__card">
+          <header class="ops-detail__card-head">
+            <div class="ops-detail__card-title">
+              <span class="ops-detail__card-icon" aria-hidden="true"><i class="fa fa-user"></i></span>
+              <h3>Patient Information</h3>
+            </div>
+            <a
+              *ngIf="patientId(item)"
+              class="ops-detail__link"
+              [routerLink]="['/patients/patient-profile', patientId(item)]"
+            >
+              View Patient <i class="fa fa-external-link" aria-hidden="true"></i>
+            </a>
+          </header>
+          <div class="ops-detail__grid ops-detail__grid--4">
+            <div>
+              <span>Patient Name</span>
+              <strong>{{ patientName(item) }}</strong>
+            </div>
+            <div>
+              <span>MRN</span>
+              <strong>{{ patientMrn(item) }}</strong>
+            </div>
+            <div>
+              <span>Age</span>
+              <strong>{{ patientAge(item) }}</strong>
+            </div>
+            <div>
+              <span>Gender</span>
+              <strong>{{ patientGender(item) }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="ops-detail__card">
+          <header class="ops-detail__card-head">
+            <div class="ops-detail__card-title">
+              <span class="ops-detail__card-icon" aria-hidden="true"><i class="fa fa-scissors"></i></span>
+              <h3>Operation Information</h3>
+            </div>
+          </header>
+          <div class="ops-detail__grid ops-detail__grid--2">
+            <div>
+              <span>Procedure</span>
+              <strong>{{ procedureName(item) }}</strong>
+            </div>
+            <div>
+              <span>Priority</span>
+              <strong>
+                <span class="ops-priority-pill" [ngClass]="'prio-' + (item.priority || 'routine')">
+                  <i class="fa" [ngClass]="(item.priority || 'routine') === 'routine' ? 'fa-check-circle' : 'fa-exclamation-circle'" aria-hidden="true"></i>
+                  {{ priorityLabel(item.priority) }}
+                </span>
+              </strong>
+            </div>
+            <div>
+              <span>Primary Surgeon</span>
+              <strong>{{ doctorName(item) }}</strong>
+            </div>
+            <div>
+              <span>Operative site</span>
+              <strong>{{ operativeSiteLabel(item) }}</strong>
+            </div>
+            <div>
+              <span>Department</span>
+              <strong>{{ departmentName(item) }}</strong>
+            </div>
+            <div>
+              <span>Side</span>
+              <strong>
+                {{ item.operativeLaterality || 'Not set' }}
+                <em *ngIf="item.lateralityConfirmed" class="ops-confirmed"> · confirmed</em>
+                <em *ngIf="item.operativeLaterality && !item.lateralityConfirmed" class="ops-unconfirmed"> · needs OT confirm</em>
+              </strong>
+            </div>
+          </div>
+          <p class="ops-warn" *ngIf="item.lateralityMismatchWarning as warn">{{ warn.message }}</p>
+          <p class="ops-hint" *ngIf="item.opdLateralityPrefill && !item.lateralityConfirmed">
+            OPD laterality prefill: {{ item.opdLateralityPrefill }} — review/confirm in OT (prefill ≠ confirmation).
+          </p>
+        </section>
+
+        <section class="ops-detail__card" *ngIf="canMutateOperation(item) && drawerPanel === 'details'">
+          <header class="ops-detail__card-head">
+            <div class="ops-detail__card-title">
+              <span class="ops-detail__card-icon" aria-hidden="true"><i class="fa fa-crosshairs"></i></span>
+              <h3>Site &amp; Side</h3>
+            </div>
+          </header>
+          <div class="ops-detail__form-grid">
+            <label class="ops-detail__field">
+              <span>Region</span>
+              <select [(ngModel)]="safetyDraft.region">
+                <option value="">—</option>
+                <option *ngFor="let r of operativeRegions" [value]="r">{{ r }}</option>
+              </select>
+            </label>
+            <label class="ops-detail__field">
+              <span>Specific site (optional)</span>
+              <input type="text" [(ngModel)]="safetyDraft.specificSite" placeholder="e.g. L4-L5" />
+            </label>
+            <label class="ops-detail__field">
+              <span>Laterality</span>
+              <select [(ngModel)]="safetyDraft.laterality">
+                <option value="">—</option>
+                <option *ngFor="let s of operativeLateralities" [value]="s">{{ s }}</option>
+              </select>
+            </label>
+          </div>
+          <div class="ops-detail__site-actions">
+            <button type="button" class="ops-btn ops-btn--primary ops-btn--block" (click)="saveOperativeSiteSide(item)">
+              <i class="fa fa-save" aria-hidden="true"></i>
+              Save site / side
+            </button>
+            <button
+              type="button"
+              class="ops-btn ops-btn--secondary ops-btn--block"
+              *ngIf="item.operativeLaterality && !item.lateralityConfirmed"
+              (click)="confirmOperativeLaterality(item)"
+            >
+              Confirm side
+            </button>
+          </div>
+        </section>
+
+        <section class="ops-detail__card" *ngIf="item.safetyCheck as sc">
+          <header class="ops-detail__card-head">
+            <div class="ops-detail__card-title">
+              <span class="ops-detail__card-icon" aria-hidden="true"><i class="fa fa-shield"></i></span>
+              <h3>Safety Checklist</h3>
+            </div>
+          </header>
+          <div class="ops-detail__phases">
+            <span class="ops-phase" [class.is-done]="sc.beforeAnesthesia?.completed">Before anesthesia</span>
+            <span class="ops-phase" [class.is-done]="sc.beforeIncision?.completed">Before incision</span>
+            <span class="ops-phase" [class.is-done]="sc.beforeLeavingOR?.completed">Before leaving OR</span>
+          </div>
           <button
             type="button"
-            class="btn btn-sm btn-primary"
-            *ngIf="item.operativeLaterality && !item.lateralityConfirmed"
-            (click)="confirmOperativeLaterality(item)"
-          >
-            Confirm side
-          </button>
-        </div>
-        <div class="ops-safety-phases" *ngIf="item.safetyCheck as sc">
-          <span class="ops-phase" [class.is-done]="sc.beforeAnesthesia?.completed">Before anesthesia</span>
-          <span class="ops-phase" [class.is-done]="sc.beforeIncision?.completed">Before incision</span>
-          <span class="ops-phase" [class.is-done]="sc.beforeLeavingOR?.completed">Before leaving OR</span>
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary"
-            *ngIf="canMutateOperation(item)"
+            class="ops-btn ops-btn--ghost ops-btn--block"
+            *ngIf="canMutateOperation(item) && drawerPanel === 'details'"
             (click)="completeNextSafetyPhase(item)"
           >
+            <i class="fa fa-check-square-o" aria-hidden="true"></i>
             Mark next safety phase
           </button>
-        </div>
-      </section>
+        </section>
 
-      <section class="ops-drawer__block">
-        <div class="ops-drawer__block-head">
-          <h3>Patient</h3>
-          <a *ngIf="patientId(item)" class="ops-link" [routerLink]="['/patients/patient-profile', patientId(item)]">View Patient</a>
-        </div>
-        <p class="ops-drawer__title">{{ patientName(item) }}</p>
-        <div class="ops-meta-grid">
-          <div><span>MRN</span><strong>{{ patientMrn(item) }}</strong></div>
-          <div><span>Gender</span><strong>{{ patientGender(item) }}</strong></div>
-          <div><span>Age</span><strong>{{ patientAge(item) }}</strong></div>
-        </div>
-      </section>
-
-      <section class="ops-drawer__block">
-        <h3>Operation</h3>
-        <div class="ops-meta-grid ops-meta-grid--2">
-          <div><span>Procedure</span><strong>{{ procedureName(item) }}</strong></div>
-          <div><span>Department</span><strong>{{ departmentName(item) }}</strong></div>
-          <div><span>Primary Surgeon</span><strong>{{ doctorName(item) }}</strong></div>
-          <div>
-            <span>Priority</span>
-            <strong>
-              <span class="ops-priority" [ngClass]="'prio-' + (item.priority || 'routine')">
-                {{ priorityLabel(item.priority) }}
-              </span>
-            </strong>
+        <section class="ops-detail__card">
+          <header class="ops-detail__card-head">
+            <div class="ops-detail__card-title">
+              <span class="ops-detail__card-icon" aria-hidden="true"><i class="fa fa-calendar"></i></span>
+              <h3>Schedule &amp; Location</h3>
+            </div>
+          </header>
+          <div class="ops-detail__grid ops-detail__grid--4">
+            <div>
+              <span>Date &amp; Time</span>
+              <strong>
+                <i class="fa fa-calendar-o ops-detail__value-icon" aria-hidden="true"></i>
+                {{ item.scheduledStart ? (item.scheduledStart | date:'medium') : 'Needs scheduling' }}
+              </strong>
+            </div>
+            <div>
+              <span>Duration</span>
+              <strong>
+                <i class="fa fa-clock-o ops-detail__value-icon" aria-hidden="true"></i>
+                {{ durationMinutes(item) }} min
+              </strong>
+            </div>
+            <div>
+              <span>Time window</span>
+              <strong>
+                <i class="fa fa-clock-o ops-detail__value-icon" aria-hidden="true"></i>
+                {{ timeRangeLabel(item) }}
+              </strong>
+            </div>
+            <div>
+              <span>Department / OT Lane</span>
+              <strong>
+                <i class="fa fa-desktop ops-detail__value-icon" aria-hidden="true"></i>
+                {{ departmentName(item) }}
+              </strong>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="ops-drawer__block">
-        <h3>Schedule &amp; Location</h3>
-        <div class="ops-meta-grid ops-meta-grid--2">
-          <div><span>When</span><strong>{{ item.scheduledStart ? (item.scheduledStart | date:'medium') : 'Needs scheduling' }}</strong></div>
-          <div><span>Duration</span><strong>{{ durationMinutes(item) }} min</strong></div>
-          <div><span>Department / OT lane</span><strong>{{ departmentName(item) }}</strong></div>
-          <div><span>Time window</span><strong>{{ timeRangeLabel(item) }}</strong></div>
-        </div>
-      </section>
-
-      <section class="ops-drawer__block" *ngIf="assistantNames(item).length">
-        <h3>Theatre Team</h3>
-        <ul class="ops-team">
-          <li>
-            <span>{{ doctorName(item) }}</span>
-            <em>Lead Surgeon</em>
-          </li>
-          <li *ngFor="let name of assistantNames(item)">
-            <span>{{ name }}</span>
-            <em>Assistant</em>
-          </li>
-        </ul>
-      </section>
-
-      <section class="ops-drawer__block" *ngIf="item.treatmentPricingSnapshot as pricing">
-        <h3>Pricing Snapshot</h3>
-        <div class="ops-meta-grid ops-meta-grid--2">
-          <div><span>Package Rate</span><strong>{{ (pricing.baseRate || 0) | hmsCurrency }}</strong></div>
-          <div *ngIf="item.procedureDiscountApproved as discount">
-            <span>Discount</span>
-            <strong>
-              <ng-container [ngSwitch]="discount.type">
-                <ng-container *ngSwitchCase="'percentage'">{{ discount.value }}%</ng-container>
-                <ng-container *ngSwitchCase="'fixed'">{{ discount.value | hmsCurrency }}</ng-container>
-                <ng-container *ngSwitchDefault>None</ng-container>
-              </ng-container>
-            </strong>
+        <section class="ops-detail__card" *ngIf="item.treatmentPricingSnapshot as pricing">
+          <header class="ops-detail__card-head">
+            <div class="ops-detail__card-title">
+              <span class="ops-detail__card-icon" aria-hidden="true"><i class="fa fa-calculator"></i></span>
+              <h3>Pricing Snapshot</h3>
+            </div>
+          </header>
+          <div class="ops-detail__grid ops-detail__grid--3">
+            <div>
+              <span>Package Rate</span>
+              <strong>
+                <i class="fa fa-money ops-detail__value-icon" aria-hidden="true"></i>
+                {{ (pricing.baseRate || 0) | hmsCurrency }}
+              </strong>
+            </div>
+            <div *ngIf="item.procedureDiscountApproved as discount; else noDiscount">
+              <span>Discount</span>
+              <strong>
+                <i class="fa fa-tag ops-detail__value-icon" aria-hidden="true"></i>
+                <ng-container [ngSwitch]="discount.type">
+                  <ng-container *ngSwitchCase="'percentage'">{{ discount.value }}%</ng-container>
+                  <ng-container *ngSwitchCase="'fixed'">{{ discount.value | hmsCurrency }}</ng-container>
+                  <ng-container *ngSwitchDefault>None</ng-container>
+                </ng-container>
+              </strong>
+            </div>
+            <ng-template #noDiscount>
+              <div>
+                <span>Discount</span>
+                <strong>
+                  <i class="fa fa-tag ops-detail__value-icon" aria-hidden="true"></i>
+                  None
+                </strong>
+              </div>
+            </ng-template>
+            <div>
+              <span>Estimated Charge</span>
+              <strong>
+                <i class="fa fa-file-text-o ops-detail__value-icon" aria-hidden="true"></i>
+                {{ estimatedCharge(item) | hmsCurrency }}
+              </strong>
+            </div>
           </div>
-          <div>
-            <span>Estimated Charge</span>
-            <strong>{{ estimatedCharge(item) | hmsCurrency }}</strong>
+          <div class="ops-detail__info-strip">
+            <i class="fa fa-info-circle" aria-hidden="true"></i>
+            Charge posts when the operation is completed.
           </div>
-        </div>
-        <small class="ops-hint">Charge posts when the operation is completed.</small>
-      </section>
+        </section>
 
-      <section class="ops-drawer__block" *ngIf="item.stoppedFromStart">
-        <h3>Stopped From</h3>
-        <div class="ops-meta-grid ops-meta-grid--2">
-          <div>
-            <span>Original slot</span>
-            <strong>{{ item.stoppedFromStart | date:'medium' }}</strong>
+        <section class="ops-detail__card" *ngIf="assistantNames(item).length">
+          <header class="ops-detail__card-head">
+            <div class="ops-detail__card-title">
+              <span class="ops-detail__card-icon" aria-hidden="true"><i class="fa fa-users"></i></span>
+              <h3>Theatre Team</h3>
+            </div>
+          </header>
+          <ul class="ops-team">
+            <li>
+              <span>{{ doctorName(item) }}</span>
+              <em>Lead Surgeon</em>
+            </li>
+            <li *ngFor="let name of assistantNames(item)">
+              <span>{{ name }}</span>
+              <em>Assistant</em>
+            </li>
+          </ul>
+        </section>
+
+        <section
+          class="ops-detail__card"
+          *ngIf="item.birthDetailsStatus === 'pending' || item.birthDetailsStatus === 'partial' || (item.birthRecordIds?.length || 0) > 0"
+        >
+          <header class="ops-detail__card-head">
+            <div class="ops-detail__card-title">
+              <span class="ops-detail__card-icon" aria-hidden="true"><i class="fa fa-child"></i></span>
+              <h3>Delivery</h3>
+            </div>
+          </header>
+          <p class="ops-detail__plain" *ngIf="item.deliveryOutcome">
+            Outcome: {{ item.deliveryOutcome.replace('_', ' ') }}
+          </p>
+          <p *ngIf="item.birthDetailsStatus === 'pending'" class="ops-birth-pending">Birth details pending</p>
+          <p class="ops-detail__plain" *ngIf="item.birthDetailsStatus === 'recorded'">
+            Birth recorded ({{ item.birthRecordIds?.length || 0 }} record{{ (item.birthRecordIds?.length || 0) === 1 ? '' : 's' }})
+          </p>
+          <div class="ops-detail__site-actions" *ngIf="item.birthDetailsStatus === 'pending' || item.birthDetailsStatus === 'partial'">
+            <button type="button" class="ops-btn ops-btn--primary ops-btn--block" (click)="completeBirthDetailsLater(item)">
+              Complete Birth Details
+            </button>
           </div>
-          <div>
-            <span>Original window</span>
-            <strong>
-              {{ item.stoppedFromStart | date:'HH:mm' }}
-              <ng-container *ngIf="item.stoppedFromEnd"> – {{ item.stoppedFromEnd | date:'HH:mm' }}</ng-container>
-            </strong>
+          <div class="ops-detail__site-actions" *ngIf="item.birthDetailsStatus === 'recorded' && (item.birthRecordIds?.length || 0) > 0">
+            <a
+              class="ops-btn ops-btn--secondary ops-btn--block"
+              [routerLink]="['/ward/nursery/birth-records']"
+              [queryParams]="{ birthRecordId: item.birthRecordIds?.[0] }"
+            >
+              Open Birth Record
+            </a>
           </div>
-        </div>
-        <small class="ops-hint">Red card on the calendar marks where this operation was stopped.</small>
-      </section>
+        </section>
 
-      <section class="ops-drawer__block" *ngIf="item.clinicalNotes || item.operationNotes">
-        <h3>Notes</h3>
-        <p class="ops-notes" *ngIf="item.clinicalNotes">{{ item.clinicalNotes }}</p>
-        <p class="ops-notes" *ngIf="item.operationNotes">{{ item.operationNotes }}</p>
-      </section>
+        <section class="ops-detail__card" *ngIf="item.stoppedFromStart">
+          <header class="ops-detail__card-head">
+            <div class="ops-detail__card-title">
+              <span class="ops-detail__card-icon" aria-hidden="true"><i class="fa fa-pause-circle"></i></span>
+              <h3>Stopped From</h3>
+            </div>
+          </header>
+          <div class="ops-detail__grid ops-detail__grid--2">
+            <div>
+              <span>Original slot</span>
+              <strong>{{ item.stoppedFromStart | date:'medium' }}</strong>
+            </div>
+            <div>
+              <span>Original window</span>
+              <strong>
+                {{ item.stoppedFromStart | date:'HH:mm' }}
+                <ng-container *ngIf="item.stoppedFromEnd"> – {{ item.stoppedFromEnd | date:'HH:mm' }}</ng-container>
+              </strong>
+            </div>
+          </div>
+        </section>
 
-      <section class="ops-drawer__block" *ngIf="drawerPanel === 'reschedule'">
-        <h3>Reschedule</h3>
-        <label class="ops-field">
-          <span>New date &amp; time</span>
-          <input type="datetime-local" [(ngModel)]="rescheduleAt" />
-        </label>
-        <div class="ops-drawer__actions">
-          <button type="button" class="ops-btn ops-btn--secondary" (click)="cancelDrawerPanel()" [disabled]="savingAction">Back</button>
-          <button type="button" class="ops-btn ops-btn--primary" (click)="submitReschedule()" [disabled]="savingAction">
-            Save Reschedule
+        <section class="ops-detail__card" *ngIf="item.clinicalNotes || item.operationNotes">
+          <header class="ops-detail__card-head">
+            <div class="ops-detail__card-title">
+              <span class="ops-detail__card-icon" aria-hidden="true"><i class="fa fa-sticky-note-o"></i></span>
+              <h3>Notes</h3>
+            </div>
+          </header>
+          <p class="ops-notes" *ngIf="item.clinicalNotes">{{ item.clinicalNotes }}</p>
+          <p class="ops-notes" *ngIf="item.operationNotes">{{ item.operationNotes }}</p>
+        </section>
+
+        <section class="ops-detail__card" *ngIf="drawerPanel === 'reschedule'">
+          <header class="ops-detail__card-head">
+            <div class="ops-detail__card-title">
+              <span class="ops-detail__card-icon" aria-hidden="true"><i class="fa fa-calendar"></i></span>
+              <h3>Reschedule</h3>
+            </div>
+          </header>
+          <label class="ops-detail__field">
+            <span>New date &amp; time</span>
+            <input type="datetime-local" [(ngModel)]="rescheduleAt" />
+          </label>
+          <div class="ops-detail__site-actions ops-detail__site-actions--row">
+            <button type="button" class="ops-btn ops-btn--secondary" (click)="cancelDrawerPanel()" [disabled]="savingAction">Back</button>
+            <button type="button" class="ops-btn ops-btn--primary" (click)="submitReschedule()" [disabled]="savingAction">
+              Save Reschedule
+            </button>
+          </div>
+        </section>
+
+        <section class="ops-detail__card" *ngIf="drawerPanel === 'stop'">
+          <header class="ops-detail__card-head">
+            <div class="ops-detail__card-title">
+              <span class="ops-detail__card-icon" aria-hidden="true"><i class="fa fa-pause"></i></span>
+              <h3>Operation Stopped</h3>
+            </div>
+          </header>
+          <p class="ops-hint">Surgery pause — reason required, then set the next OT slot.</p>
+          <label class="ops-detail__field">
+            <span>Stop reason</span>
+            <textarea rows="3" [(ngModel)]="stopReason" placeholder="Why was the operation stopped?"></textarea>
+          </label>
+          <label class="ops-detail__field">
+            <span>Next schedule date &amp; time</span>
+            <input type="datetime-local" [(ngModel)]="stopRescheduleAt" />
+          </label>
+          <div class="ops-detail__site-actions ops-detail__site-actions--row">
+            <button type="button" class="ops-btn ops-btn--secondary" (click)="cancelDrawerPanel()" [disabled]="savingAction">Back</button>
+            <button type="button" class="ops-btn ops-btn--danger" (click)="submitStopOperation()" [disabled]="savingAction">
+              Confirm Stop
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <footer class="ops-detail__footer" *ngIf="drawerPanel === 'details' && canMutateOperation(item)">
+        <div class="ops-detail__footer-left">
+          <button
+            *ngIf="canReschedule(item)"
+            type="button"
+            class="ops-btn ops-btn--secondary"
+            (click)="showReschedulePanel()"
+          >
+            <i class="fa fa-calendar" aria-hidden="true"></i>
+            Reschedule
+          </button>
+          <button
+            *ngIf="canStopOperation(item)"
+            type="button"
+            class="ops-btn ops-btn--secondary"
+            (click)="showStopPanel()"
+          >
+            Operation Stopped
+          </button>
+          <button
+            *ngIf="canCancel(item)"
+            type="button"
+            class="ops-btn ops-btn--danger"
+            (click)="cancel(item)"
+          >
+            Cancel
           </button>
         </div>
-      </section>
-
-      <section class="ops-drawer__block" *ngIf="drawerPanel === 'stop'">
-        <h3>Operation Stopped</h3>
-        <p class="ops-hint">Surgery pause — reason required, then set the next OT slot.</p>
-        <label class="ops-field">
-          <span>Stop reason</span>
-          <textarea rows="3" [(ngModel)]="stopReason" placeholder="Why was the operation stopped?"></textarea>
-        </label>
-        <label class="ops-field">
-          <span>Next schedule date &amp; time</span>
-          <input type="datetime-local" [(ngModel)]="stopRescheduleAt" />
-        </label>
-        <div class="ops-drawer__actions">
-          <button type="button" class="ops-btn ops-btn--secondary" (click)="cancelDrawerPanel()" [disabled]="savingAction">Back</button>
-          <button type="button" class="ops-btn ops-btn--danger" (click)="submitStopOperation()" [disabled]="savingAction">
-            Confirm Stop
+        <div class="ops-detail__footer-right">
+          <button
+            *ngIf="canScheduleOps() && canMarkInProgress(item)"
+            type="button"
+            class="ops-btn ops-btn--secondary"
+            (click)="updateStatus(item, 'in_progress')"
+          >
+            <i class="fa fa-play" aria-hidden="true"></i>
+            In Progress
+          </button>
+          <button
+            *ngIf="canScheduleOps() && canConfirm(item)"
+            type="button"
+            class="ops-btn ops-btn--primary"
+            (click)="updateStatus(item, 'confirmed')"
+          >
+            <i class="fa fa-check" aria-hidden="true"></i>
+            Confirm
+          </button>
+          <button
+            *ngIf="can('operations.complete') && canComplete(item)"
+            type="button"
+            class="ops-btn ops-btn--primary"
+            (click)="complete(item)"
+          >
+            Complete
           </button>
         </div>
-      </section>
-
-      <section class="ops-drawer__block" *ngIf="item.birthDetailsStatus === 'pending' || item.birthDetailsStatus === 'partial' || (item.birthRecordIds?.length || 0) > 0">
-        <h4>Delivery</h4>
-        <p *ngIf="item.deliveryOutcome">Outcome: {{ item.deliveryOutcome.replace('_', ' ') }}</p>
-        <p *ngIf="item.birthDetailsStatus === 'pending'" class="ops-birth-pending">
-          Birth details pending
-        </p>
-        <p *ngIf="item.birthDetailsStatus === 'recorded'">
-          Birth recorded ({{ item.birthRecordIds?.length || 0 }} record{{ (item.birthRecordIds?.length || 0) === 1 ? '' : 's' }})
-        </p>
-        <div class="ops-drawer__actions" *ngIf="item.birthDetailsStatus === 'pending' || item.birthDetailsStatus === 'partial'">
-          <button type="button" class="ops-btn ops-btn--primary" (click)="completeBirthDetailsLater(item)">
-            Complete Birth Details
-          </button>
-        </div>
-        <div class="ops-drawer__actions" *ngIf="item.birthDetailsStatus === 'recorded' && (item.birthRecordIds?.length || 0) > 0">
-          <a class="ops-btn ops-btn--secondary" [routerLink]="['/ward/nursery/birth-records']" [queryParams]="{ birthRecordId: item.birthRecordIds?.[0] }">
-            Open Birth Record
-          </a>
-        </div>
-      </section>
-
-      <footer class="ops-drawer__actions" *ngIf="drawerPanel === 'details' && canMutateOperation(item)">
-        <button
-          *ngIf="canScheduleOps() && canConfirm(item)"
-          type="button"
-          class="ops-btn ops-btn--secondary"
-          (click)="updateStatus(item, 'confirmed')"
-        >
-          Confirm
-        </button>
-        <button
-          *ngIf="canScheduleOps() && canMarkInProgress(item)"
-          type="button"
-          class="ops-btn ops-btn--secondary"
-          (click)="updateStatus(item, 'in_progress')"
-        >
-          In Progress
-        </button>
-        <button
-          *ngIf="canReschedule(item)"
-          type="button"
-          class="ops-btn ops-btn--secondary"
-          (click)="showReschedulePanel()"
-        >
-          Reschedule
-        </button>
-        <button
-          *ngIf="canStopOperation(item)"
-          type="button"
-          class="ops-btn ops-btn--secondary"
-          (click)="showStopPanel()"
-        >
-          Operation Stopped
-        </button>
-        <button
-          *ngIf="can('operations.complete') && canComplete(item)"
-          type="button"
-          class="ops-btn ops-btn--primary"
-          (click)="complete(item)"
-        >
-          Complete
-        </button>
-        <button
-          *ngIf="canCancel(item)"
-          type="button"
-          class="ops-btn ops-btn--danger"
-          (click)="cancel(item)"
-        >
-          Cancel
-        </button>
       </footer>
       <p class="ops-drawer__done" *ngIf="drawerPanel === 'details' && !canMutateOperation(item)">
         This operation is {{ statusLabel(item.status).toLowerCase() }}. No further actions available.
-      </p>
-      <p class="ops-drawer__hint" *ngIf="drawerPanel === 'details' && canReschedule(item)">
-        Tip: drag the card on the day calendar to move the time slot quickly.
       </p>
     </div>
   </aside>
