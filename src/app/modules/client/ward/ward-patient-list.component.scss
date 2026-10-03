@@ -637,25 +637,29 @@
 
 .ward-drawer-backdrop {
   animation: wardModalFade 0.2s ease;
-  background: rgba(15, 23, 42, 0.35);
+  background: rgba(15, 23, 42, 0.42);
   inset: 0;
   position: fixed;
   z-index: 1045;
 }
 
-.ward-drawer {
-  animation: wardDrawerSlide 0.24s ease;
+.ward-drawer,
+.ward-quick-preview {
+  animation: wardQuickPreviewIn 0.22s ease;
   background: #fff;
-  border-left: 1px solid var(--ward-border);
-  box-shadow: -12px 0 40px rgba(15, 23, 42, 0.12);
+  border: 1px solid #e8eef5;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  max-width: 420px;
+  left: 50%;
+  max-height: min(92vh, 860px);
+  max-width: 460px;
+  overflow: hidden;
   position: fixed;
-  right: 0;
-  top: 0;
-  width: calc(100% - 24px);
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 28px);
   z-index: 1050;
 }
 
@@ -664,97 +668,407 @@
   to { opacity: 1; }
 }
 
-@keyframes wardDrawerSlide {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+@keyframes wardQuickPreviewIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 12px));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
 }
 
-.ward-drawer__head {
-  align-items: start;
-  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 55%, #3b82f6 100%);
-  color: #fff;
+.ward-quick-preview__glow {
+  background: radial-gradient(circle at 100% 0%, rgba(186, 230, 253, 0.85) 0%, rgba(255, 255, 255, 0) 55%);
+  height: 140px;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 220px;
+  z-index: 0;
+}
+
+.ward-quick-preview__head,
+.ward-quick-preview__body,
+.ward-quick-preview__footer {
+  position: relative;
+  z-index: 1;
+}
+
+.ward-quick-preview__head {
+  padding: 16px 16px 8px;
+}
+
+.ward-quick-preview__title-row {
+  align-items: center;
   display: flex;
-  gap: 10px;
   justify-content: space-between;
-  padding: 16px;
+  margin-bottom: 14px;
 }
 
-.ward-drawer__eyebrow {
-  background: rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  display: inline-block;
-  font-size: 10px;
+.ward-quick-preview__title {
+  align-items: center;
+  color: #334155;
+  display: inline-flex;
+  font-size: 13px;
   font-weight: 700;
-  margin-bottom: 6px;
-  padding: 3px 8px;
-  text-transform: uppercase;
+  gap: 8px;
 }
 
-.ward-drawer__head h3 {
-  font-size: 18px;
-  font-weight: 800;
-  margin: 0 0 4px;
-}
-
-.ward-drawer__head p {
+.ward-quick-preview__title-icon {
+  align-items: center;
+  background: #e0f2fe;
+  border-radius: 8px;
+  color: #0284c7;
+  display: inline-flex;
   font-size: 12px;
-  margin: 0;
-  opacity: 0.92;
+  height: 26px;
+  justify-content: center;
+  width: 26px;
 }
 
+.ward-quick-preview__close,
 .ward-drawer__close {
   align-items: center;
-  background: rgba(255, 255, 255, 0.16);
+  background: #f1f5f9;
   border: 0;
   border-radius: 10px;
-  color: #fff;
+  color: #64748b;
   display: inline-flex;
   height: 32px;
   justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
   width: 32px;
+
+  &:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+  }
 }
 
-.ward-drawer__body {
+.ward-quick-preview__identity {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.ward-quick-preview__identity-text {
+  min-width: 0;
+
+  h3 {
+    color: #0f172a;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin: 0 0 4px;
+  }
+
+  p {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 500;
+    margin: 0;
+  }
+}
+
+.ward-quick-preview__body {
   flex: 1;
   overflow: auto;
-  padding: 14px 16px;
+  padding: 4px 16px 8px;
 }
 
-.ward-drawer__pending h4 {
-  font-size: 12px;
-  font-weight: 800;
-  margin: 0 0 8px;
+.ward-quick-preview__section {
+  margin-bottom: 16px;
 }
 
-.ward-drawer__pending ul {
+.ward-quick-preview__section-head {
+  align-items: center;
+  color: #334155;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+
+  i {
+    color: #64748b;
+    font-size: 13px;
+  }
+
+  h4 {
+    color: #0f172a;
+    flex: 0 0 auto;
+    font-size: 13px;
+    font-weight: 800;
+    margin: 0;
+    white-space: nowrap;
+  }
+}
+
+.ward-quick-preview__section-line {
+  background: #e2e8f0;
+  flex: 1 1 auto;
+  height: 1px;
+  min-width: 24px;
+}
+
+.ward-quick-preview__info-grid {
   display: grid;
-  gap: 6px;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ward-qp-info {
+  align-items: flex-start;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.ward-qp-info__icon {
+  align-items: center;
+  border-radius: 10px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 13px;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.ward-qp-info__icon--blue {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.ward-qp-info__icon--green {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.ward-qp-info__icon--teal {
+  background: #ccfbf1;
+  color: #0d9488;
+}
+
+.ward-qp-info__icon--purple {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.ward-qp-info__icon--orange {
+  background: #ffedd5;
+  color: #ea580c;
+}
+
+.ward-qp-info__icon--sky {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.ward-qp-info__label {
+  color: #94a3b8;
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+
+.ward-qp-info__value {
+  color: #0f172a;
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ward-qp-pending {
+  background: #fff;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
   list-style: none;
   margin: 0;
+  overflow: hidden;
   padding: 0;
 }
 
-.ward-drawer__pending li {
-  align-items: center;
-  background: #f8fafc;
-  border: 1px solid #eef2f7;
-  border-radius: 8px;
-  display: flex;
-  font-size: 12px;
-  justify-content: space-between;
-  padding: 8px 10px;
+.ward-qp-pending li {
+  border-bottom: 1px solid #f1f5f9;
+  margin: 0;
+  padding: 0;
+
+  &:last-child {
+    border-bottom: 0;
+  }
 }
 
-.ward-drawer__pending strong.is-alert {
+.ward-qp-pending__row {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  width: 100%;
+
+  &:hover {
+    background: #f8fafc;
+  }
+}
+
+.ward-qp-pending__icon {
+  align-items: center;
+  border-radius: 10px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 12px;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.ward-qp-pending__icon--meds {
+  background: #fee2e2;
   color: #dc2626;
 }
 
-.ward-drawer__footer {
-  border-top: 1px solid var(--ward-border);
-  display: flex;
-  flex-wrap: wrap;
+.ward-qp-pending__icon--vitals {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.ward-qp-pending__icon--drips {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.ward-qp-pending__icon--tasks {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.ward-qp-pending__icon--alerts {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.ward-qp-pending__label {
+  color: #0f172a;
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.ward-qp-pending__count {
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: 999px;
+  color: #64748b;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  justify-content: center;
+  min-width: 24px;
+  padding: 3px 8px;
+
+  &.is-due {
+    background: #ffedd5;
+    color: #c2410c;
+  }
+
+  &.is-alert {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+}
+
+.ward-qp-pending__chevron {
+  color: #cbd5e1;
+  font-size: 11px;
+}
+
+.ward-quick-preview__footer {
+  background: #fff;
+  border-top: 1px solid #eef2f7;
+  display: grid;
   gap: 8px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   padding: 12px 16px 16px;
+}
+
+.ward-qp-btn {
+  align-items: center;
+  border-radius: 10px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  justify-content: center;
+  line-height: 1.2;
+  min-height: 38px;
+  padding: 8px 10px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+
+  i {
+    font-size: 12px;
+  }
+}
+
+.ward-qp-btn--outline {
+  background: #fff;
+  border: 1px solid #99f6e4;
+  color: #0f766e;
+  grid-column: span 2;
+
+  &:hover {
+    background: #f0fdfa;
+    border-color: #2dd4bf;
+    color: #0d9488;
+  }
+}
+
+.ward-qp-btn--primary {
+  background: var(--ward-teal, #0d9488);
+  border: 1px solid var(--ward-teal, #0d9488);
+  color: #fff;
+
+  &:hover {
+    background: #0f766e;
+    border-color: #0f766e;
+    color: #fff;
+  }
+}
+
+.ward-qp-btn--wide {
+  grid-column: span 4;
+}
+
+@media (max-width: 480px) {
+  .ward-quick-preview__footer {
+    grid-template-columns: 1fr;
+  }
+
+  .ward-qp-btn--outline,
+  .ward-qp-btn--wide {
+    grid-column: auto;
+  }
+
+  .ward-quick-preview__info-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .ward-assign-nurse {

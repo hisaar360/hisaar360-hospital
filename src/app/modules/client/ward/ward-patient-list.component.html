@@ -346,50 +346,187 @@
     </section>
 
     <div class="ward-drawer-backdrop" *ngIf="previewPatient" (click)="closePreview()"></div>
-    <aside class="ward-drawer" *ngIf="previewPatient as patient" (click)="$event.stopPropagation()">
-      <div class="ward-drawer__head">
-        <div>
-          <span class="ward-drawer__eyebrow">Quick Preview</span>
-          <h3>{{ patient.patientName }}</h3>
-          <p>{{ patient.mrn }} · {{ ageSex(patient) }}</p>
+    <aside
+      class="ward-drawer ward-quick-preview"
+      *ngIf="previewPatient as patient"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Quick Preview"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="ward-quick-preview__glow" aria-hidden="true"></div>
+
+      <header class="ward-quick-preview__head">
+        <div class="ward-quick-preview__title-row">
+          <div class="ward-quick-preview__title">
+            <span class="ward-quick-preview__title-icon" aria-hidden="true">
+              <i class="fa fa-user"></i>
+            </span>
+            <span>Quick Preview</span>
+          </div>
+          <button type="button" class="ward-quick-preview__close" (click)="closePreview()" aria-label="Close">
+            <i class="fa fa-times"></i>
+          </button>
         </div>
-        <button type="button" class="ward-drawer__close" (click)="closePreview()" aria-label="Close">
-          <i class="fa fa-times"></i>
-        </button>
-      </div>
 
-      <div class="ward-drawer__body">
-        <dl class="room-details-grid room-details-grid--drawer">
-          <div><dt>Bed</dt><dd>{{ patient.bedNo }}</dd></div>
-          <div><dt>Status</dt><dd><span class="patient-badge" [ngClass]="statusClass(patient.status)">{{ statusLabel(patient.status) }}</span></dd></div>
-          <div><dt>Ward</dt><dd>{{ patient.wardName }}</dd></div>
-          <div><dt>Room</dt><dd>{{ patient.roomName }}</dd></div>
-          <div><dt>Gallery</dt><dd>{{ patient.galleryName }}</dd></div>
-          <div><dt>Doctor</dt><dd>{{ displayValue(patient.doctorName) }}</dd></div>
-          <div><dt>Nurse</dt><dd>{{ displayValue(patient.nurseName) }}</dd></div>
-          <div><dt>Diagnosis</dt><dd>{{ patient.diagnosis }}</dd></div>
-          <div class="ward-modal__full"><dt>Admitted</dt><dd>{{ formatDateTime(patient.admittedOn) }}</dd></div>
-        </dl>
+        <div class="ward-quick-preview__identity">
+          <div class="ward-quick-preview__identity-text">
+            <h3>{{ patient.patientName }}</h3>
+            <p>{{ patient.mrn }} · {{ ageSex(patient) }}</p>
+          </div>
+          <span class="patient-badge" [ngClass]="statusClass(patient.status)">
+            <span class="patient-badge__dot" aria-hidden="true"></span>
+            {{ statusLabel(patient.status) }}
+          </span>
+        </div>
+      </header>
 
-        <section class="ward-drawer__pending">
-          <h4>Today's Pending Items</h4>
-          <ul>
-            <li><span>Medications Due</span><strong>{{ patient.medicationsDue }}</strong></li>
-            <li><span>Vitals Due</span><strong>{{ patient.vitalsDue }}</strong></li>
-            <li><span>Drips Running</span><strong>{{ patient.dripsRunning }}</strong></li>
-            <li><span>Nursing Tasks Due</span><strong>{{ patient.nursingTasksDue }}</strong></li>
-            <li><span>Critical Alerts</span><strong [class.is-alert]="patient.criticalAlerts">{{ patient.criticalAlerts }}</strong></li>
+      <div class="ward-quick-preview__body">
+        <section class="ward-quick-preview__section">
+          <div class="ward-quick-preview__section-head">
+            <i class="fa fa-id-card-o" aria-hidden="true"></i>
+            <h4>Patient Information</h4>
+            <span class="ward-quick-preview__section-line" aria-hidden="true"></span>
+          </div>
+
+          <div class="ward-quick-preview__info-grid">
+            <div class="ward-qp-info">
+              <span class="ward-qp-info__icon ward-qp-info__icon--blue" aria-hidden="true"><i class="fa fa-bed"></i></span>
+              <div>
+                <span class="ward-qp-info__label">Bed</span>
+                <strong class="ward-qp-info__value">{{ displayValue(patient.bedNo) }}</strong>
+              </div>
+            </div>
+            <div class="ward-qp-info">
+              <span class="ward-qp-info__icon ward-qp-info__icon--blue" aria-hidden="true"><i class="fa fa-home"></i></span>
+              <div>
+                <span class="ward-qp-info__label">Room</span>
+                <strong class="ward-qp-info__value">{{ displayValue(patient.roomName) }}</strong>
+              </div>
+            </div>
+            <div class="ward-qp-info">
+              <span class="ward-qp-info__icon ward-qp-info__icon--blue" aria-hidden="true"><i class="fa fa-hospital-o"></i></span>
+              <div>
+                <span class="ward-qp-info__label">Ward</span>
+                <strong class="ward-qp-info__value" [title]="patient.wardName">{{ displayValue(patient.wardName) }}</strong>
+              </div>
+            </div>
+            <div class="ward-qp-info">
+              <span class="ward-qp-info__icon ward-qp-info__icon--green" aria-hidden="true"><i class="fa fa-th-large"></i></span>
+              <div>
+                <span class="ward-qp-info__label">Gallery</span>
+                <strong class="ward-qp-info__value">{{ displayValue(patient.galleryName) }}</strong>
+              </div>
+            </div>
+            <div class="ward-qp-info">
+              <span class="ward-qp-info__icon ward-qp-info__icon--teal" aria-hidden="true"><i class="fa fa-user-md"></i></span>
+              <div>
+                <span class="ward-qp-info__label">Doctor</span>
+                <strong class="ward-qp-info__value">{{ displayValue(patient.doctorName) }}</strong>
+              </div>
+            </div>
+            <div class="ward-qp-info">
+              <span class="ward-qp-info__icon ward-qp-info__icon--purple" aria-hidden="true"><i class="fa fa-user"></i></span>
+              <div>
+                <span class="ward-qp-info__label">Nurse</span>
+                <strong class="ward-qp-info__value">{{ displayValue(patient.nurseName) }}</strong>
+              </div>
+            </div>
+            <div class="ward-qp-info">
+              <span class="ward-qp-info__icon ward-qp-info__icon--orange" aria-hidden="true"><i class="fa fa-stethoscope"></i></span>
+              <div>
+                <span class="ward-qp-info__label">Diagnosis</span>
+                <strong class="ward-qp-info__value">{{ displayValue(patient.diagnosis) }}</strong>
+              </div>
+            </div>
+            <div class="ward-qp-info">
+              <span class="ward-qp-info__icon ward-qp-info__icon--sky" aria-hidden="true"><i class="fa fa-calendar"></i></span>
+              <div>
+                <span class="ward-qp-info__label">Admitted</span>
+                <strong class="ward-qp-info__value">{{ formatDateTime(patient.admittedOn) }}</strong>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="ward-quick-preview__section">
+          <div class="ward-quick-preview__section-head">
+            <i class="fa fa-clipboard" aria-hidden="true"></i>
+            <h4>Today's Pending Items</h4>
+            <span class="ward-quick-preview__section-line" aria-hidden="true"></span>
+          </div>
+
+          <ul class="ward-qp-pending">
+            <li>
+              <button type="button" class="ward-qp-pending__row" (click)="navigateWithAdmission('/ward/mar', patient)">
+                <span class="ward-qp-pending__icon ward-qp-pending__icon--meds" aria-hidden="true"><i class="fa fa-medkit"></i></span>
+                <span class="ward-qp-pending__label">Medications Due</span>
+                <span class="ward-qp-pending__count" [class.is-due]="patient.medicationsDue > 0">{{ patient.medicationsDue }}</span>
+                <i class="fa fa-chevron-right ward-qp-pending__chevron" aria-hidden="true"></i>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="ward-qp-pending__row" (click)="navigateWithAdmission('/ward/vitals', patient)">
+                <span class="ward-qp-pending__icon ward-qp-pending__icon--vitals" aria-hidden="true"><i class="fa fa-heartbeat"></i></span>
+                <span class="ward-qp-pending__label">Vitals Due</span>
+                <span class="ward-qp-pending__count" [class.is-due]="patient.vitalsDue > 0">{{ patient.vitalsDue }}</span>
+                <i class="fa fa-chevron-right ward-qp-pending__chevron" aria-hidden="true"></i>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="ward-qp-pending__row" (click)="navigateWithAdmission('/ward/drips-iv', patient)">
+                <span class="ward-qp-pending__icon ward-qp-pending__icon--drips" aria-hidden="true"><i class="fa fa-tint"></i></span>
+                <span class="ward-qp-pending__label">Drips Running</span>
+                <span class="ward-qp-pending__count" [class.is-due]="patient.dripsRunning > 0">{{ patient.dripsRunning }}</span>
+                <i class="fa fa-chevron-right ward-qp-pending__chevron" aria-hidden="true"></i>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="ward-qp-pending__row" (click)="viewPatient(patient)">
+                <span class="ward-qp-pending__icon ward-qp-pending__icon--tasks" aria-hidden="true"><i class="fa fa-list-alt"></i></span>
+                <span class="ward-qp-pending__label">Nursing Tasks Due</span>
+                <span class="ward-qp-pending__count" [class.is-due]="patient.nursingTasksDue > 0">{{ patient.nursingTasksDue }}</span>
+                <i class="fa fa-chevron-right ward-qp-pending__chevron" aria-hidden="true"></i>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="ward-qp-pending__row" (click)="viewPatient(patient)">
+                <span class="ward-qp-pending__icon ward-qp-pending__icon--alerts" aria-hidden="true"><i class="fa fa-exclamation-triangle"></i></span>
+                <span class="ward-qp-pending__label">Critical Alerts</span>
+                <span
+                  class="ward-qp-pending__count"
+                  [class.is-due]="patient.criticalAlerts > 0"
+                  [class.is-alert]="patient.criticalAlerts > 0"
+                >{{ patient.criticalAlerts }}</span>
+                <i class="fa fa-chevron-right ward-qp-pending__chevron" aria-hidden="true"></i>
+              </button>
+            </li>
           </ul>
         </section>
       </div>
 
-      <div class="ward-drawer__footer">
-        <button type="button" class="btn btn-sm btn-default" (click)="viewPatient(patient)">Open Full Profile</button>
-        <button type="button" class="btn btn-sm btn-outline-primary" (click)="navigateWithAdmission('/ward/mar', patient)">View MAR</button>
-        <button type="button" class="btn btn-sm btn-outline-primary" (click)="navigateWithAdmission('/ward/vitals', patient)">Record Vitals</button>
-        <button type="button" class="btn btn-sm btn-outline-primary" (click)="navigateWithAdmission('/ward/drips-iv', patient)">View Drips</button>
-        <button type="button" class="btn btn-sm btn-primary" (click)="assignNurse(patient)">Assign Nurse</button>
-      </div>
+      <footer class="ward-quick-preview__footer">
+        <button type="button" class="ward-qp-btn ward-qp-btn--outline" (click)="viewPatient(patient)">
+          <i class="fa fa-folder-open-o" aria-hidden="true"></i>
+          <span>Open Full Profile</span>
+        </button>
+        <button type="button" class="ward-qp-btn ward-qp-btn--outline" (click)="navigateWithAdmission('/ward/mar', patient)">
+          <i class="fa fa-list-ul" aria-hidden="true"></i>
+          <span>View MAR</span>
+        </button>
+        <button type="button" class="ward-qp-btn ward-qp-btn--outline" (click)="navigateWithAdmission('/ward/vitals', patient)">
+          <i class="fa fa-heartbeat" aria-hidden="true"></i>
+          <span>Record Vitals</span>
+        </button>
+        <button type="button" class="ward-qp-btn ward-qp-btn--outline" (click)="navigateWithAdmission('/ward/drips-iv', patient)">
+          <i class="fa fa-tint" aria-hidden="true"></i>
+          <span>View Drips</span>
+        </button>
+        <button type="button" class="ward-qp-btn ward-qp-btn--primary ward-qp-btn--wide" (click)="assignNurse(patient)">
+          <i class="fa fa-user-plus" aria-hidden="true"></i>
+          <span>Assign Nurse</span>
+        </button>
+      </footer>
     </aside>
 
     <div class="ward-drawer-backdrop" *ngIf="assignNursePatient" (click)="closeAssignNurse()"></div>

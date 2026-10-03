@@ -341,7 +341,7 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
   }
 
   ageSex(patient: WardPatient): string {
-    const agePart = patient.age > 0 ? `${patient.age} Y` : '—';
+    const agePart = patient.age > 0 ? `${patient.age}Y` : '—';
     return `${agePart} / ${patient.sex || '—'}`;
   }
 
@@ -376,11 +376,18 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
     event?.stopPropagation();
     this.previewPatient = patient;
     this.openMenuAdmissionId = null;
+    if (!this.assignNursePatient) {
+      this.previousBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+    }
     this.cdr.markForCheck();
   }
 
   closePreview(): void {
     this.previewPatient = null;
+    if (!this.assignNursePatient) {
+      document.body.style.overflow = this.previousBodyOverflow || '';
+    }
     this.cdr.markForCheck();
   }
 
@@ -424,6 +431,7 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
   }
 
   assignNurse(patient: WardPatient): void {
+    this.previewPatient = null;
     this.assignNursePatient = patient;
     this.selectedAssignNurseId = patient.nurseId || '';
     this.nurseSearch = '';
