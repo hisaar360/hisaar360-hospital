@@ -975,10 +975,12 @@
     text-align: center;
     z-index: 1;
   }
+}
 
-  .form-control {
-    padding-left: 40px;
-  }
+// Must beat `.hs-page .hs-input .form-control { padding: 10px 14px }`,
+// which otherwise pulls the value under the prefix icon.
+.hs-page .hs-input .form-control {
+  padding-left: 2.5rem;
 }
 
 .hs-switch {
