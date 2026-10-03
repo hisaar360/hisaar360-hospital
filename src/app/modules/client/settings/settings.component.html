@@ -212,18 +212,8 @@
       </div>
     </section>
 
-    <!-- Hospital Settings (existing) -->
-    <section class="settings-card settings-card--panel" *ngIf="activeTab === 'hospital'">
-      <div class="settings-card__head">
-        <div class="settings-card__title-row">
-          <span class="settings-card__icon"><i class="fa fa-hospital-o" aria-hidden="true"></i></span>
-          <div>
-            <h2>Hospital Settings</h2>
-            <p>Update hospital identity, currency, and prescription print defaults.</p>
-          </div>
-        </div>
-      </div>
-
+    <!-- Hospital Settings -->
+    <div class="hs-page" *ngIf="activeTab === 'hospital'">
       <div *ngIf="!canReadHospitalSettings" class="settings-alert">
         You do not have permission to view hospital settings.
       </div>
@@ -232,151 +222,234 @@
       </div>
       <div *ngIf="hospitalLoading" class="settings-muted">Loading hospital settings...</div>
 
-      <form *ngIf="canReadHospitalSettings && currentHospitalId && !hospitalLoading">
-        <div class="settings-form-grid">
-          <label class="settings-field">
-            <span>Hospital Name <span class="req">*</span></span>
-            <input class="form-control" type="text" [(ngModel)]="hospitalName" name="hospitalName"
-              [disabled]="!canManageHospitalSettings" />
-          </label>
-          <label class="settings-field">
-            <span>Phone</span>
-            <input class="form-control" type="text" [(ngModel)]="hospitalPhone" name="hospitalPhone"
-              [disabled]="!canManageHospitalSettings" />
-          </label>
-          <label class="settings-field">
-            <span>Email</span>
-            <input class="form-control" type="email" [(ngModel)]="hospitalEmail" name="hospitalEmail"
-              [disabled]="!canManageHospitalSettings" />
-          </label>
-          <label class="settings-field settings-field--full">
-            <span>Address</span>
-            <textarea class="form-control" rows="2" [(ngModel)]="hospitalAddress" name="hospitalAddress"
-              [disabled]="!canManageHospitalSettings"></textarea>
-          </label>
-          <label class="settings-field">
-            <span>City</span>
-            <input class="form-control" type="text" [(ngModel)]="hospitalCity" name="hospitalCity"
-              [disabled]="!canManageHospitalSettings" />
-          </label>
-          <label class="settings-field">
-            <span>Country</span>
-            <input class="form-control" type="text" [(ngModel)]="hospitalCountry" name="hospitalCountry"
-              [disabled]="!canManageHospitalSettings" />
-          </label>
-          <div class="settings-field">
-            <span>Currency</span>
-            <select
-              class="form-control"
-              [(ngModel)]="hospitalCurrency"
-              name="hospitalCurrency"
-              [disabled]="!canManageCurrency"
-            >
-              <option *ngFor="let option of currencyOptions" [ngValue]="option.code">{{ option.label }}</option>
-            </select>
-            <small class="settings-field__hint" *ngIf="canManageCurrency">
-              Default PKR. Used on lab, pharmacy, and invoices. Save Hospital Settings to apply.
-            </small>
-            <small class="settings-field__hint" *ngIf="!canManageCurrency">
-              Read-only — needs hospitals.update or company.manage to change.
-            </small>
-          </div>
-        </div>
-
-        <hr class="settings-divider" />
-        <h3 class="settings-subheader">Prescription Header &amp; Footer</h3>
-
-        <div class="settings-form-grid settings-form-grid--logo">
-          <div class="settings-field">
-            <label class="settings-checkbox">
-              <input type="checkbox" [(ngModel)]="prescriptionShowLogo" name="prescriptionShowLogo"
-                [disabled]="!canManageHospitalSettings" />
-              <span>Show logo on prescription</span>
-            </label>
-            <div class="hospital-logo-preview">
-              <img *ngIf="hospitalLogoUrl" [src]="hospitalLogoUrl" alt="Hospital logo" />
-              <span *ngIf="!hospitalLogoUrl">Rx</span>
+      <form class="hs-grid" *ngIf="canReadHospitalSettings && currentHospitalId && !hospitalLoading">
+        <section class="hs-card hs-info" [class.is-collapsed]="!hospitalSectionOpen.info">
+          <button type="button" class="hs-card__bar" (click)="toggleHospitalSection('info')" [attr.aria-expanded]="hospitalSectionOpen.info">
+            <span class="settings-card__icon" aria-hidden="true"><i class="fa fa-hospital-o"></i></span>
+            <span class="hs-card__titles">
+              <strong>Hospital Information</strong>
+              <small class="hs-card__sub">Update hospital identity, contact details, currency, and prescription defaults.</small>
+            </span>
+            <i class="fa fa-chevron-down hs-card__chevron" aria-hidden="true"></i>
+          </button>
+          <div class="hs-card__body">
+            <div class="hs-info-grid">
+              <label class="settings-field">
+                <span>Hospital Name <span class="req">*</span></span>
+                <span class="hs-input">
+                  <i class="fa fa-hospital-o" aria-hidden="true"></i>
+                  <input class="form-control" type="text" [(ngModel)]="hospitalName" name="hospitalName" [disabled]="!canManageHospitalSettings" />
+                </span>
+              </label>
+              <label class="settings-field">
+                <span>Phone</span>
+                <span class="hs-input">
+                  <i class="fa fa-phone" aria-hidden="true"></i>
+                  <input class="form-control" type="text" [(ngModel)]="hospitalPhone" name="hospitalPhone" [disabled]="!canManageHospitalSettings" />
+                </span>
+              </label>
+              <label class="settings-field hs-email">
+                <span>Email</span>
+                <span class="hs-input">
+                  <i class="fa fa-envelope-o" aria-hidden="true"></i>
+                  <input class="form-control" type="email" [(ngModel)]="hospitalEmail" name="hospitalEmail" [disabled]="!canManageHospitalSettings" />
+                </span>
+              </label>
+              <label class="settings-field hs-address">
+                <span>Address</span>
+                <span class="hs-input">
+                  <i class="fa fa-map-marker" aria-hidden="true"></i>
+                  <input class="form-control" type="text" [(ngModel)]="hospitalAddress" name="hospitalAddress" [disabled]="!canManageHospitalSettings" />
+                </span>
+              </label>
+              <label class="settings-field">
+                <span>City</span>
+                <span class="hs-input">
+                  <i class="fa fa-building-o" aria-hidden="true"></i>
+                  <input class="form-control" type="text" [(ngModel)]="hospitalCity" name="hospitalCity" [disabled]="!canManageHospitalSettings" />
+                </span>
+              </label>
+              <label class="settings-field">
+                <span>Country</span>
+                <span class="hs-input">
+                  <i class="fa fa-globe" aria-hidden="true"></i>
+                  <input class="form-control" type="text" [(ngModel)]="hospitalCountry" name="hospitalCountry" [disabled]="!canManageHospitalSettings" />
+                </span>
+              </label>
+              <div class="settings-field hs-currency">
+                <span>Currency</span>
+                <select class="form-control" [(ngModel)]="hospitalCurrency" name="hospitalCurrency" [disabled]="!canManageCurrency">
+                  <option *ngFor="let option of currencyOptions" [ngValue]="option.code">{{ option.label }}</option>
+                </select>
+                <small class="settings-field__hint" *ngIf="canManageCurrency">
+                  Default PKR. Used on lab, pharmacy, and invoices. Save Hospital Settings to apply.
+                </small>
+                <small class="settings-field__hint" *ngIf="!canManageCurrency">
+                  Read-only — needs hospitals.update or company.manage to change.
+                </small>
+              </div>
             </div>
           </div>
-          <div class="settings-field settings-field--span">
-            <label class="settings-field">
-              <span>Upload Logo</span>
-              <input class="form-control" type="file" accept="image/*" (change)="onHospitalLogoSelected($event)"
-                [disabled]="!canManageHospitalSettings" />
-              <small class="settings-field__hint">Any image size is supported. Large logos are optimized automatically when you save.</small>
-            </label>
-            <label class="settings-field">
-              <span>Logo URL / Uploaded Image Data</span>
-              <input class="form-control" type="text" [(ngModel)]="hospitalLogoUrl" name="hospitalLogoUrl"
-                [disabled]="!canManageHospitalSettings" />
-            </label>
-            <button type="button" class="settings-btn-ghost settings-btn-ghost--sm" (click)="clearHospitalLogo()"
-              [disabled]="!canManageHospitalSettings || !hospitalLogoUrl">
-              Remove Logo
-            </button>
-            <label class="settings-field logo-scale-control">
-              <span>
-                Prescription Logo Size
-                <strong>{{ prescriptionLogoScale }}%</strong>
+        </section>
+
+        <section class="hs-card hs-header" [class.is-collapsed]="!hospitalSectionOpen.header">
+          <button type="button" class="hs-card__bar" (click)="toggleHospitalSection('header')" [attr.aria-expanded]="hospitalSectionOpen.header">
+            <span class="settings-card__icon" aria-hidden="true"><i class="fa fa-file-text-o"></i></span>
+            <span class="hs-card__titles">
+              <strong>Prescription Header &amp; Footer</strong>
+              <small class="hs-card__sub">Configure logo and footer content for printed prescriptions.</small>
+            </span>
+            <i class="fa fa-chevron-down hs-card__chevron" aria-hidden="true"></i>
+          </button>
+          <div class="hs-card__body">
+            <label class="hs-switch">
+              <input type="checkbox" [(ngModel)]="prescriptionShowLogo" name="prescriptionShowLogo" [disabled]="!canManageHospitalSettings" />
+              <span class="hs-switch__track" aria-hidden="true"></span>
+              <span class="hs-switch__copy">
+                <strong>Show logo on prescription</strong>
+                <small>Display hospital logo on top of prescriptions.</small>
               </span>
-              <input type="range" min="50" max="200" step="5"
-                [(ngModel)]="prescriptionLogoScale" name="prescriptionLogoScale"
-                [disabled]="!canManageHospitalSettings" />
-              <div class="logo-scale-labels"><span>Small</span><span>Default</span><span>Large</span></div>
             </label>
-          </div>
-        </div>
 
-        <div class="settings-form-grid settings-form-grid--single">
-          <label class="settings-field">
-            <span>Revision Note</span>
-            <input class="form-control" type="text" [(ngModel)]="prescriptionRevisionNote"
-              name="prescriptionRevisionNote" [disabled]="!canManageHospitalSettings" />
-          </label>
-          <label class="settings-field">
-            <span>Follow-up Line</span>
-            <input class="form-control" type="text" [(ngModel)]="prescriptionFollowUpLine"
-              name="prescriptionFollowUpLine" [disabled]="!canManageHospitalSettings" />
-          </label>
-          <label class="settings-field">
-            <span>Contact Line</span>
-            <input class="form-control" type="text" [(ngModel)]="prescriptionContactLine"
-              name="prescriptionContactLine" [disabled]="!canManageHospitalSettings" />
-          </label>
-          <label class="settings-field">
-            <span>Extra Footer Lines</span>
-            <textarea class="form-control" rows="3" [(ngModel)]="prescriptionFooterLines"
-              name="prescriptionFooterLines" placeholder="One line per row"
-              [disabled]="!canManageHospitalSettings"></textarea>
-          </label>
-        </div>
-
-        <div class="settings-preview">
-          <small class="settings-muted d-block mb-2">Prescription Preview</small>
-          <div class="hospital-prescription-preview">
-            <div>
-              <img *ngIf="hospitalPrescriptionPreview().showLogo && hospitalPrescriptionPreview().logoUrl"
-                [src]="hospitalPrescriptionPreview().logoUrl" alt="Hospital logo"
-                [style.transform]="'scale(' + (hospitalPrescriptionPreview().logoScale / 100) + ')'" />
-              <span *ngIf="!(hospitalPrescriptionPreview().showLogo && hospitalPrescriptionPreview().logoUrl)">Rx</span>
+            <div class="hs-logo-tools">
+              <div class="hs-logo-preview">
+                <span class="hs-mini-label">Logo Preview</span>
+                <div class="hs-logo-preview__box">
+                  <img *ngIf="hospitalLogoUrl" [src]="hospitalLogoUrl" alt="Hospital logo" />
+                  <span *ngIf="!hospitalLogoUrl">Rx</span>
+                </div>
+              </div>
+              <label class="settings-field hs-upload">
+                <span>Upload Logo</span>
+                <span class="hs-file">
+                  <span class="hs-file__btn"><i class="fa fa-folder-open-o" aria-hidden="true"></i> Choose File</span>
+                  <span class="hs-file__name">{{ hospitalLogoFileLabel || 'No file chosen' }}</span>
+                  <input type="file" accept="image/*" (change)="onHospitalLogoSelected($event)" [disabled]="!canManageHospitalSettings" />
+                </span>
+                <small class="settings-field__hint">Any image size is supported. Large logos are optimized automatically when you save.</small>
+              </label>
             </div>
-            <h5>{{ hospitalPrescriptionPreview().hospitalName }}</h5>
-            <p *ngIf="hospitalPrescriptionPreview().hospitalAddress">{{ hospitalPrescriptionPreview().hospitalAddress }}</p>
-            <p>{{ hospitalPrescriptionPreview().followUpLine }}</p>
-            <p>{{ hospitalPrescriptionPreview().hospitalContactLine }}</p>
-            <strong>{{ hospitalPrescriptionPreview().revisionNote }}</strong>
+
+            <div class="hs-url-row">
+              <label class="settings-field">
+                <span>Logo URL / Uploaded Image Data</span>
+                <input class="form-control" type="text" [(ngModel)]="hospitalLogoUrl" name="hospitalLogoUrl" [disabled]="!canManageHospitalSettings" />
+              </label>
+              <button type="button" class="hs-remove" (click)="clearHospitalLogo()" [disabled]="!canManageHospitalSettings || !hospitalLogoUrl">
+                <i class="fa fa-trash-o" aria-hidden="true"></i>
+                Remove Logo
+              </button>
+            </div>
           </div>
+        </section>
+
+        <div class="hs-stack">
+          <section class="hs-card hs-logo" [class.is-collapsed]="!hospitalSectionOpen.logo">
+            <button type="button" class="hs-card__bar" (click)="toggleHospitalSection('logo')" [attr.aria-expanded]="hospitalSectionOpen.logo">
+              <span class="settings-card__icon" aria-hidden="true"><i class="fa fa-sliders"></i></span>
+              <span class="hs-card__titles">
+                <strong>Prescription Logo Size</strong>
+                <small class="hs-card__sub">Adjust logo size on printed prescriptions.</small>
+              </span>
+              <strong class="hs-scale-badge">{{ prescriptionLogoScale }}%</strong>
+              <i class="fa fa-chevron-down hs-card__chevron" aria-hidden="true"></i>
+            </button>
+            <div class="hs-card__body">
+              <div class="hs-scale">
+                <input
+                  type="range"
+                  min="50"
+                  max="200"
+                  step="5"
+                  [(ngModel)]="prescriptionLogoScale"
+                  name="prescriptionLogoScale"
+                  [disabled]="!canManageHospitalSettings"
+                  [style.--hs-pct.%]="prescriptionLogoScaleTrack"
+                />
+                <div class="hs-scale__labels"><span>Small</span><span>Default</span><span>Large</span></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="hs-card hs-revision" [class.is-collapsed]="!hospitalSectionOpen.revision">
+            <button type="button" class="hs-card__bar" (click)="toggleHospitalSection('revision')" [attr.aria-expanded]="hospitalSectionOpen.revision">
+              <span class="settings-card__icon" aria-hidden="true"><i class="fa fa-align-left"></i></span>
+              <span class="hs-card__titles">
+                <strong>Revision &amp; Footer Lines</strong>
+                <small class="hs-card__sub">Set revision note, follow-up line, contact line, and extra footer lines.</small>
+              </span>
+              <i class="fa fa-chevron-down hs-card__chevron" aria-hidden="true"></i>
+            </button>
+            <div class="hs-card__body">
+              <div class="hs-revision-fields">
+                <label class="settings-field">
+                  <span>Revision Note</span>
+                  <span class="hs-input">
+                    <i class="fa fa-file-text-o" aria-hidden="true"></i>
+                    <input class="form-control" type="text" [(ngModel)]="prescriptionRevisionNote" name="prescriptionRevisionNote" [disabled]="!canManageHospitalSettings" />
+                  </span>
+                </label>
+                <label class="settings-field">
+                  <span>Follow-up Line</span>
+                  <span class="hs-input">
+                    <i class="fa fa-calendar" aria-hidden="true"></i>
+                    <input class="form-control" type="text" [(ngModel)]="prescriptionFollowUpLine" name="prescriptionFollowUpLine" [disabled]="!canManageHospitalSettings" />
+                  </span>
+                </label>
+                <label class="settings-field">
+                  <span>Contact Line</span>
+                  <span class="hs-input">
+                    <i class="fa fa-phone" aria-hidden="true"></i>
+                    <input class="form-control" type="text" [(ngModel)]="prescriptionContactLine" name="prescriptionContactLine" [disabled]="!canManageHospitalSettings" />
+                  </span>
+                </label>
+                <label class="settings-field">
+                  <span>Extra Footer Lines</span>
+                  <textarea class="form-control" rows="3" [(ngModel)]="prescriptionFooterLines" name="prescriptionFooterLines" placeholder="One line per row" [disabled]="!canManageHospitalSettings"></textarea>
+                </label>
+              </div>
+            </div>
+          </section>
         </div>
 
-        <div class="settings-actions" *ngIf="canManageHospitalSettings || canManageCurrency">
-          <button type="button" class="settings-btn-primary"
-            [disabled]="hospitalLoading || hospitalSaving" (click)="saveHospitalSettings()">
+        <section class="hs-card hs-preview" [class.is-collapsed]="!hospitalSectionOpen.preview">
+          <button type="button" class="hs-card__bar" (click)="toggleHospitalSection('preview')" [attr.aria-expanded]="hospitalSectionOpen.preview">
+            <span class="settings-card__icon" aria-hidden="true"><i class="fa fa-eye"></i></span>
+            <span class="hs-card__titles">
+              <strong>Prescription Preview</strong>
+              <small class="hs-card__sub">This is a sample preview of how the header and footer will appear on prescriptions.</small>
+            </span>
+            <i class="fa fa-chevron-down hs-card__chevron" aria-hidden="true"></i>
+          </button>
+          <div class="hs-card__body">
+            <div class="hs-slip">
+              <div class="hs-slip__logo">
+                <img
+                  *ngIf="hospitalPrescriptionPreview().showLogo && hospitalPrescriptionPreview().logoUrl"
+                  [src]="hospitalPrescriptionPreview().logoUrl"
+                  alt="Hospital logo"
+                  [style.transform]="'scale(' + (hospitalPrescriptionPreview().logoScale / 100) + ')'"
+                />
+                <span *ngIf="!(hospitalPrescriptionPreview().showLogo && hospitalPrescriptionPreview().logoUrl)">Rx</span>
+              </div>
+              <h5>{{ hospitalPrescriptionPreview().hospitalName }}</h5>
+              <p *ngIf="hospitalPrescriptionPreview().hospitalAddress">{{ hospitalPrescriptionPreview().hospitalAddress }}</p>
+              <p>{{ hospitalPrescriptionPreview().followUpLine }}</p>
+              <p>{{ hospitalPrescriptionPreview().hospitalContactLine }}</p>
+              <p *ngFor="let line of hospitalPrescriptionPreview().footerLines">{{ line }}</p>
+              <strong>{{ hospitalPrescriptionPreview().revisionNote }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <div class="hs-save settings-actions" *ngIf="canManageHospitalSettings || canManageCurrency">
+          <button type="button" class="settings-btn-primary hs-save-btn" [disabled]="hospitalLoading || hospitalSaving" (click)="saveHospitalSettings()">
             <i class="fa fa-save" aria-hidden="true"></i>
             {{ hospitalSaving ? 'Saving...' : 'Save Hospital Settings' }}
           </button>
         </div>
       </form>
-    </section>
+    </div>
 
     <!-- Notifications -->
     <section class="settings-card settings-card--panel" *ngIf="activeTab === 'notifications'">

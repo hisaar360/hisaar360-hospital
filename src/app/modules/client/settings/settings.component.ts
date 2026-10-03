@@ -124,6 +124,14 @@ export class SettingsComponent implements OnInit, OnDestroy {
   prescriptionFollowUpLine = '';
   prescriptionContactLine = '';
   prescriptionFooterLines = '';
+  hospitalLogoFileLabel = '';
+  readonly hospitalSectionOpen: Record<'info' | 'header' | 'logo' | 'revision' | 'preview', boolean> = {
+    info: true,
+    header: false,
+    logo: false,
+    revision: false,
+    preview: false,
+  };
   doctorProfile: Doctor | null = null;
   photoUploading = false;
   photoViewerOpen = false;
@@ -572,14 +580,18 @@ export class SettingsComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.hospitalLogoFileLabel = file.name;
+
     if (!file.type.startsWith('image/')) {
       this.toaster.error('Please select an image file.');
+      this.hospitalLogoFileLabel = '';
       input.value = '';
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
       this.toaster.error('Logo image must be 5 MB or smaller.');
+      this.hospitalLogoFileLabel = '';
       input.value = '';
       return;
     }
@@ -597,6 +609,16 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   clearHospitalLogo(): void {
     this.hospitalLogoUrl = '';
+    this.hospitalLogoFileLabel = '';
+  }
+
+  toggleHospitalSection(section: 'info' | 'header' | 'logo' | 'revision' | 'preview'): void {
+    this.hospitalSectionOpen[section] = !this.hospitalSectionOpen[section];
+  }
+
+  get prescriptionLogoScaleTrack(): number {
+    const scale = this.normalizePrescriptionLogoScale(this.prescriptionLogoScale);
+    return Math.round(((scale - 50) / 150) * 100);
   }
 
   onProfilePhotoSelected(file: File | null): void {
