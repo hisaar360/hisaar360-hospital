@@ -7,22 +7,40 @@ export interface PrintJobOptions {
   title?: string;
 }
 
+/**
+ * Thermal / small invoice printers (58mm–80mm roll).
+ * Important: use continuous height (`auto`), tiny margins, and never force A4 —
+ * `size: auto` alone is often treated as Letter/A4 and truncates the receipt.
+ */
 const INVOICE_PAGE_CSS = `
-@page { size: auto; margin: 4mm; }
+@page { size: 80mm auto; margin: 0; }
 html, body {
-  margin: 0;
-  padding: 0;
+  margin: 0 !important;
+  padding: 0 !important;
   background: #fff;
+  height: auto !important;
+  overflow: visible !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 body.hms-print-invoice {
   width: 80mm;
   max-width: 80mm;
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0 auto !important;
+  font-family: Arial, "Noto Nastaliq Urdu", Helvetica, sans-serif;
   font-size: 11px;
   color: #111;
+  height: auto !important;
+  overflow: visible !important;
 }
 @media print {
-  body.hms-print-invoice { width: 80mm; }
+  @page { size: 80mm auto; margin: 0; }
+  html, body, body.hms-print-invoice {
+    width: 80mm;
+    max-width: 80mm;
+    height: auto !important;
+    overflow: visible !important;
+  }
 }
 `;
 
@@ -70,10 +88,32 @@ export const wrapPrintHtml = (html: string, options: PrintJobOptions): string =>
       }
       return `<body${attrs} class="${bodyClass}">`;
     });
+
+    // Receipt HTML already sets @page width (58/80mm). Do not override it with
+    // a second @page { size: 80mm } / size:auto — that truncates small printers.
+    const hasThermalPage =
+      jobType === 'invoice' && /@page\s*\{[^}]*size\s*:\s*\d+mm/i.test(next);
+    const injectCss = hasThermalPage
+      ? `
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  height: auto !important;
+  overflow: visible !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+body.hms-print-invoice {
+  height: auto !important;
+  overflow: visible !important;
+}
+`
+      : pageCss;
+
     if (/<\/head>/i.test(next)) {
-      next = next.replace(/<\/head>/i, `<style id="hms-print-job">${pageCss}</style></head>`);
+      next = next.replace(/<\/head>/i, `<style id="hms-print-job">${injectCss}</style></head>`);
     } else if (/<html[\s>]/i.test(next)) {
-      next = next.replace(/<html([^>]*)>/i, `<html$1><head><style id="hms-print-job">${pageCss}</style></head>`);
+      next = next.replace(/<html([^>]*)>/i, `<html$1><head><style id="hms-print-job">${injectCss}</style></head>`);
     }
     if (/<title>.*?<\/title>/i.test(next)) {
       next = next.replace(/<title>.*?<\/title>/i, `<title>${escapeTitle(title)}</title>`);
@@ -116,15 +156,17 @@ export const printHtmlJob = (html: string, options: PrintJobOptions): boolean =>
   const iframe = document.createElement('iframe');
   iframe.setAttribute('title', options.title || 'Print');
   iframe.setAttribute('aria-hidden', 'true');
+  // Keep a real layout box. Zero-size iframes often clip thermal receipts mid-print.
   Object.assign(iframe.style, {
     border: '0',
-    height: '0',
+    height: '1px',
     left: '-10000px',
     opacity: '0',
+    overflow: 'hidden',
     pointerEvents: 'none',
     position: 'fixed',
     top: '0',
-    width: '0',
+    width: options.jobType === 'invoice' ? '80mm' : '210mm',
   });
   document.body.appendChild(iframe);
 

@@ -136,6 +136,7 @@
             <label class="pis-field">
               <span>Paper Width (mm)</span>
               <input type="number" min="58" max="120" [(ngModel)]="form.paperWidthMm" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
+              <small>Use 58 for mini thermal, 80 for standard invoice roll. In print dialog pick the same paper size, Margins = None, Headers/footers off.</small>
             </label>
             <label class="pis-field">
               <span>Border Style</span>

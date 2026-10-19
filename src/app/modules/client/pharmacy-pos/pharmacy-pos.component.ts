@@ -3218,34 +3218,90 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       )
       .join('');
 
+    const pageMarginMm = paperMm <= 58 ? 1 : 2;
+    const receiptWidthCss = `${paperMm}mm`;
+
     return `
       <!doctype html>
       <html>
         <head>
+          <meta charset="utf-8" />
           <title>${this.escapeHtml(receipt.reference)}</title>
           <style>
-            @page { margin: 8mm; size: ${paperMm}mm auto; }
+            @page { size: ${paperMm}mm auto; margin: ${pageMarginMm}mm; }
             * { box-sizing: border-box; }
-            body { color: #111827; font-family: Arial, "Noto Nastaliq Urdu", "Segoe UI", sans-serif; font-size: ${fontBody}px; font-weight: ${weightBody}; margin: 0; }
-            .receipt { margin: 0 auto; max-width: ${Math.round(paperMm * 4)}px; padding: 8px; }
+            html, body {
+              margin: 0;
+              padding: 0;
+              height: auto;
+              overflow: visible;
+              background: #fff;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            body {
+              color: #111827;
+              font-family: Arial, "Noto Nastaliq Urdu", "Segoe UI", sans-serif;
+              font-size: ${fontBody}px;
+              font-weight: ${weightBody};
+              width: ${receiptWidthCss};
+              max-width: ${receiptWidthCss};
+            }
+            .receipt {
+              margin: 0;
+              width: 100%;
+              max-width: 100%;
+              padding: 2mm 1mm 14mm;
+              overflow: visible;
+            }
             .center { text-align: center; }
-            .logo { display: block; height: ${logoPx}px; margin: 0 auto 8px; max-width: ${logoPx}px; object-fit: contain; }
-            h1 { font-size: ${fontHeader}px; font-weight: ${weightHeader}; margin: 0 0 4px; }
-            p { margin: 2px 0; }
-            .meta { border-bottom: ${border}; border-top: ${border}; margin: 10px 0; padding: 8px 0; }
-            .meta div, .totals div { display: flex; justify-content: space-between; gap: 10px; }
+            .logo { display: block; height: ${logoPx}px; margin: 0 auto 6px; max-width: 100%; object-fit: contain; }
+            h1 { font-size: ${fontHeader}px; font-weight: ${weightHeader}; margin: 0 0 4px; word-break: break-word; }
+            p { margin: 2px 0; word-break: break-word; }
+            .meta { border-bottom: ${border}; border-top: ${border}; margin: 8px 0; padding: 6px 0; }
+            .meta div, .totals div { display: flex; justify-content: space-between; gap: 6px; }
             table { border-collapse: collapse; table-layout: fixed; width: 100%; }
-            th, td { border-bottom: 1px solid #e5e7eb; font-size: ${Math.max(8, fontBody - 2)}px; line-height: 1.2; padding: 4px 1px; text-align: left; vertical-align: top; word-break: break-word; }
-            th:first-child, td:first-child { width: 36%; }
+            th, td {
+              border-bottom: 1px solid #e5e7eb;
+              font-size: ${Math.max(7, fontBody - 2)}px;
+              line-height: 1.25;
+              padding: 3px 1px;
+              text-align: left;
+              vertical-align: top;
+              word-break: break-word;
+            }
+            th:first-child, td:first-child { width: 34%; }
             th:nth-child(2), td:nth-child(2) { width: 10%; text-align: center; }
             th:nth-child(3), td:nth-child(3),
             th:nth-child(4), td:nth-child(4),
             th:nth-child(5), td:nth-child(5) { width: 18%; text-align: right; }
-            small { color: #6b7280; display: block; font-size: 8px; margin-top: 2px; }
-            .totals { border-top: ${border}; margin-top: 8px; padding-top: 8px; }
-            .grand { font-size: ${fontBody + 4}px; font-weight: 800; }
-            .foot { border-top: ${border}; margin-top: 12px; padding-top: 8px; text-align: center; font-size: ${fontFooter}px; font-weight: ${weightFooter}; }
-            .terms { margin-top: 8px; text-align: right; white-space: pre-wrap; font-size: ${fontFooter}px; font-weight: ${weightFooter}; unicode-bidi: plaintext; direction: rtl; line-height: 1.55; }
+            small { color: #6b7280; display: block; font-size: 7px; margin-top: 1px; }
+            .totals { border-top: ${border}; margin-top: 6px; padding-top: 6px; }
+            .grand { font-size: ${fontBody + 3}px; font-weight: 800; }
+            .foot {
+              border-top: ${border};
+              margin-top: 10px;
+              padding-top: 6px;
+              text-align: center;
+              font-size: ${fontFooter}px;
+              font-weight: ${weightFooter};
+            }
+            .terms {
+              margin-top: 6px;
+              text-align: right;
+              white-space: pre-wrap;
+              font-size: ${fontFooter}px;
+              font-weight: ${weightFooter};
+              unicode-bidi: plaintext;
+              direction: rtl;
+              line-height: 1.45;
+              word-break: break-word;
+            }
+            .cut-spacer { height: 12mm; }
+            @media print {
+              @page { size: ${paperMm}mm auto; margin: ${pageMarginMm}mm; }
+              html, body, .receipt { height: auto !important; overflow: visible !important; }
+            }
           </style>
         </head>
         <body>
@@ -3281,6 +3337,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               ${footerLines.map((line) => `<p>${this.escapeHtml(line)}</p>`).join('')}
               ${termsText ? `<div class="terms" dir="rtl" lang="ur">${this.escapeHtml(termsText)}</div>` : ''}
             </div>
+            <div class="cut-spacer" aria-hidden="true"></div>
           </section>
         </body>
       </html>
