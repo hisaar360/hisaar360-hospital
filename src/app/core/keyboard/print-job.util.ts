@@ -158,8 +158,10 @@ const escapeTitle = (value: string): string =>
     .replace(/"/g, '&quot;');
 
 /**
- * Print HTML via a short-lived window (more reliable than a 0-height iframe
- * for Chrome thermal print preview).
+ * Print HTML without opening a new browser tab.
+ *
+ * `window.open('', '_blank')` briefly navigates the cashier to about:blank
+ * (looks like a blank page after double-Enter sale). Use a hidden iframe instead.
  */
 export const printHtmlJob = (html: string, options: PrintJobOptions): boolean => {
   if (typeof document === 'undefined' || typeof window === 'undefined') {
@@ -172,57 +174,21 @@ export const printHtmlJob = (html: string, options: PrintJobOptions): boolean =>
   );
   const wrapped = wrapPrintHtml(html, { ...options, paperWidthMm });
 
-  const printWindow = window.open(
-    '',
-    '_blank',
-    `noopener,noreferrer,width=${Math.max(360, paperWidthMm * 6)},height=780`,
-  );
-
-  if (printWindow) {
-    try {
-      printWindow.document.open();
-      printWindow.document.write(wrapped);
-      printWindow.document.close();
-      const trigger = (): void => {
-        try {
-          printWindow.focus();
-          printWindow.print();
-        } finally {
-          window.setTimeout(() => {
-            try {
-              printWindow.close();
-            } catch {
-              /* ignore */
-            }
-          }, 600);
-        }
-      };
-      // Wait a tick so layout paints before Chrome builds the preview.
-      window.setTimeout(trigger, 450);
-      return true;
-    } catch {
-      try {
-        printWindow.close();
-      } catch {
-        /* ignore */
-      }
-    }
-  }
-
-  // Popup blocked — fallback to iframe with a real layout box.
   const iframe = document.createElement('iframe');
   iframe.setAttribute('title', options.title || 'Print');
   iframe.setAttribute('aria-hidden', 'true');
   Object.assign(iframe.style, {
     border: '0',
-    height: '900px',
-    left: '-10000px',
+    height: `${Math.max(400, paperWidthMm * 8)}px`,
+    left: '0',
     opacity: '0',
     overflow: 'hidden',
     pointerEvents: 'none',
     position: 'fixed',
     top: '0',
+    visibility: 'hidden',
     width: `${Math.max(paperWidthMm, 58)}mm`,
+    zIndex: '-1',
   });
   document.body.appendChild(iframe);
 
@@ -233,28 +199,33 @@ export const printHtmlJob = (html: string, options: PrintJobOptions): boolean =>
     return false;
   }
 
-  frameDocument.open();
-  frameDocument.write(wrapped);
-  frameDocument.close();
+  const cleanup = (): void => {
+    window.setTimeout(() => {
+      if (iframe.parentNode) {
+        iframe.parentNode.removeChild(iframe);
+      }
+    }, 1500);
+  };
 
   const trigger = (): void => {
     try {
-      frameWindow.focus();
+      // Keep cashier on POS — do not focus the iframe window/tab.
       frameWindow.print();
     } finally {
-      window.setTimeout(() => {
-        if (iframe.parentNode) {
-          iframe.parentNode.removeChild(iframe);
-        }
-      }, 1200);
+      cleanup();
     }
   };
 
-  if (frameDocument.readyState === 'complete') {
-    window.setTimeout(trigger, 450);
-  } else {
-    iframe.onload = () => window.setTimeout(trigger, 450);
+  try {
+    frameDocument.open();
+    frameDocument.write(wrapped);
+    frameDocument.close();
+  } catch {
+    iframe.remove();
+    return false;
   }
 
+  // Let layout paint so Chrome thermal preview is not empty.
+  window.setTimeout(trigger, 500);
   return true;
 };

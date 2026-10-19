@@ -2632,15 +2632,45 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Cash/Card/etc Confirm Sale with blank Paid (0) = pay full bill, not credit.
+    // Only the Credit button / paymentMethod=credit (or intentional partial pay) uses credit.
+    if (
+      this.settlementMode !== 'ENCOUNTER' &&
+      this.paymentMethod !== 'credit' &&
+      Number(this.paidAmount || 0) <= 0
+    ) {
+      this.paidAmount = this.payableAmount;
+      this.paidAmountTouched = false;
+      if (this.paymentMethod === 'cash') {
+        this.cashReceivedAmount = String(
+          Math.max(
+            Number(this.cashReceivedAmount || 0),
+            Number(this.payableAmount || 0),
+          ),
+        );
+        this.cashReceivedTouched = false;
+      } else {
+        this.cashReceivedAmount = this.paidAmount;
+      }
+    }
+
     const paidAmount =
       this.settlementMode === 'ENCOUNTER' || this.paymentMethod === 'credit'
         ? 0
         : this.normalizeMoneyInput(this.paidAmount, this.subtotal);
 
     if (this.settlementMode !== 'ENCOUNTER') {
-      const unpaidPortion = Math.max(Number(this.payableAmount || 0) - paidAmount, 0);
+      const unpaidPortion = Math.max(
+        Number(this.payableAmount || 0) - paidAmount,
+        0,
+      );
+      // Credit path: explicit Credit, or partial pay leaving a balance.
       if (this.paymentMethod === 'credit' || unpaidPortion > 0) {
-        const creditError = this.assertCustomerCreditAllowed(unpaidPortion);
+        const creditError = this.assertCustomerCreditAllowed(
+          this.paymentMethod === 'credit'
+            ? Number(this.payableAmount || 0)
+            : unpaidPortion,
+        );
         if (creditError) {
           this.toastr.error(creditError);
           return;
@@ -4271,6 +4301,11 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Stale "touched with 0" left Status=unpaid and triggered false credit errors.
+    if (this.paidAmountTouched && Number(this.paidAmount || 0) <= 0) {
+      this.paidAmountTouched = false;
+    }
+
     if (!this.paidAmountTouched) {
       this.paidAmount = this.payableAmount;
     } else {
@@ -4675,6 +4710,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         this.moveCartEditableFocus(-1, cartIndexes, currentPosition);
         return true;
       case 'ArrowDown':
+        // Qty/Price/Discount inputs: ↑↓ step values (handled earlier).
+        if (this.isCartNumberInputTarget(event.target)) {
+          return false;
+        }
         event.preventDefault();
         if (currentPosition >= cartIndexes.length - 1) {
           this.focusCheckoutDock();
@@ -4690,6 +4729,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         );
         return true;
       case 'ArrowUp':
+        if (this.isCartNumberInputTarget(event.target)) {
+          return false;
+        }
         event.preventDefault();
         if (currentPosition <= 0) {
           this.focusProductSearch(true);
@@ -5435,11 +5477,18 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   private handleCartValueStepKeydown(event: KeyboardEvent): boolean {
-    // Plain arrows move focus. Hold Shift to nudge qty / price / discount.
-    if (!event.shiftKey) {
+    // On Qty / Price / Discount inputs: ↑↓ change the value (not row focus).
+    // ←→ still move between fields via cart-zone navigation.
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') {
       return false;
     }
-    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') {
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+      return false;
+    }
+    if (
+      !this.isCartNumberInputTarget(event.target) ||
+      !this.isCartKeyboardTarget(event.target)
+    ) {
       return false;
     }
 
@@ -5449,13 +5498,17 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
 
     const direction = event.key === 'ArrowUp' ? 1 : -1;
+    const bigStep = event.shiftKey;
 
     if (this.isQtyInputTarget(event.target)) {
       event.preventDefault();
-      if (direction > 0) {
-        this.incrementLineQty(cartIndex);
-      } else {
-        this.decrementLineQty(cartIndex);
+      const steps = bigStep ? 10 : 1;
+      for (let i = 0; i < steps; i += 1) {
+        if (direction > 0) {
+          this.incrementLineQty(cartIndex);
+        } else {
+          this.decrementLineQty(cartIndex);
+        }
       }
       this.focusCartCell(cartIndex, this.selectedCartCellIndex);
       return true;
@@ -5463,14 +5516,17 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
     if (this.isUnitPriceInputTarget(event.target)) {
       event.preventDefault();
-      this.stepLineUnitPrice(cartIndex, direction);
+      this.stepLineUnitPrice(cartIndex, direction * (bigStep ? 10 : 1));
       this.focusCartCell(cartIndex, this.selectedCartCellIndex);
       return true;
     }
 
     if (this.isDiscountInputTarget(event.target)) {
       event.preventDefault();
-      this.stepLineDiscount(cartIndex, direction > 0 ? 0.5 : -0.5);
+      this.stepLineDiscount(
+        cartIndex,
+        (direction > 0 ? 0.5 : -0.5) * (bigStep ? 10 : 1),
+      );
       this.focusCartCell(cartIndex, this.selectedCartCellIndex);
       return true;
     }
@@ -5543,14 +5599,11 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
 
     if (
-      (event.key === 'ArrowLeft' ||
-        event.key === 'ArrowRight' ||
-        event.key === 'ArrowUp' ||
-        event.key === 'ArrowDown') &&
+      (event.key === 'ArrowLeft' || event.key === 'ArrowRight') &&
       this.isCartNumberInputTarget(event.target) &&
       this.isCartKeyboardTarget(event.target)
     ) {
-      // Let cart-zone navigation move focus (do not spin number inputs).
+      // ←→ move Qty → Price → Discount. ↑↓ are handled by value stepping.
       return false;
     }
 
