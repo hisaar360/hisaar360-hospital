@@ -93,6 +93,14 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
     this.refreshPreview();
   }
 
+  setPaperWidth(mm: 58 | 80): void {
+    if (!this.canEdit) {
+      return;
+    }
+    this.form.paperWidthMm = mm;
+    this.onFormChange();
+  }
+
   onLogoSelected(event: Event): void {
     if (!this.canEdit) {
       return;
@@ -303,7 +311,7 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
     const maxWidth = isA4 ? 640 : Math.round(width * 3.78);
 
     return `<!doctype html><html><head><meta charset="utf-8"/><style>
-@page{margin:8mm;size:${width}mm auto}
+@page{margin:0;size:auto}
 *{box-sizing:border-box}
 body{margin:0;color:#111827;font-family:Arial,"Noto Nastaliq Urdu","Segoe UI",sans-serif;font-size:${bodySize}px;font-weight:${bodyWeight};background:#eef2f7}
 .wrap{padding:18px 12px 28px}

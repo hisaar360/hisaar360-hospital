@@ -135,8 +135,12 @@
           <div class="pis-grid pis-grid--3">
             <label class="pis-field">
               <span>Paper Width (mm)</span>
+              <div class="pis-paper-presets">
+                <button type="button" class="pis-preset" [class.active]="form.paperWidthMm === 58" (click)="setPaperWidth(58)" [disabled]="!canEdit">58mm POS mini</button>
+                <button type="button" class="pis-preset" [class.active]="form.paperWidthMm === 80" (click)="setPaperWidth(80)" [disabled]="!canEdit">80mm roll</button>
+              </div>
               <input type="number" min="58" max="120" [(ngModel)]="form.paperWidthMm" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
-              <small>Use 58 for mini thermal, 80 for standard invoice roll. In print dialog pick the same paper size, Margins = None, Headers/footers off.</small>
+              <small>Invoice printers only (not A4). Chrome: paper = 58×3276 / 80mm, Margins = <strong>None</strong>, Scale = <strong>100</strong>, Headers and footers = <strong>off</strong>.</small>
             </label>
             <label class="pis-field">
               <span>Border Style</span>

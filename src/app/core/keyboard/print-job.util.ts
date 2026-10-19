@@ -5,44 +5,72 @@ export type { HmsPrintJobType };
 export interface PrintJobOptions {
   jobType: HmsPrintJobType;
   title?: string;
+  /** Thermal roll width hint (58 or 80). Used for compact fonts, not @page size. */
+  paperWidthMm?: number;
 }
 
+const clampPaperWidthMm = (value: unknown, fallback = 80): number => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.min(120, Math.max(48, Math.round(parsed)));
+};
+
 /**
- * Thermal / small invoice printers (58mm–80mm roll).
- * Important: use continuous height (`auto`), tiny margins, and never force A4 —
- * `size: auto` alone is often treated as Letter/A4 and truncates the receipt.
+ * Invoice / thermal printers (58mm, 80mm, POS-58, etc.).
+ *
+ * Critical: do NOT set `@page { size: 58mm }` (or 80mm) when the driver already
+ * provides "Printer Paper (58 x 3276mm)". That size fight makes Chrome show a
+ * blank grey print preview. Let the selected printer paper win; fill 100% width.
  */
-const INVOICE_PAGE_CSS = `
-@page { size: 80mm auto; margin: 0; }
+const buildInvoicePageCss = (paperWidthMm: number): string => {
+  const compact = paperWidthMm <= 58;
+  // size:auto = use whatever the cashier selected (58×3276, 80mm, …). Never A4.
+  return `
+@page { size: auto; margin: 0 !important; }
 html, body {
   margin: 0 !important;
   padding: 0 !important;
-  background: #fff;
+  background: #fff !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-height: 1px !important;
   height: auto !important;
   overflow: visible !important;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
 body.hms-print-invoice {
-  width: 80mm;
-  max-width: 80mm;
-  margin: 0 auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
   font-family: Arial, "Noto Nastaliq Urdu", Helvetica, sans-serif;
-  font-size: 11px;
+  font-size: ${compact ? 10 : 11}px;
   color: #111;
+  min-height: 1px !important;
   height: auto !important;
   overflow: visible !important;
 }
+body.hms-print-invoice .receipt,
+body.hms-print-invoice section {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
 @media print {
-  @page { size: 80mm auto; margin: 0; }
+  @page { size: auto; margin: 0 !important; }
   html, body, body.hms-print-invoice {
-    width: 80mm;
-    max-width: 80mm;
+    width: 100% !important;
+    max-width: 100% !important;
     height: auto !important;
     overflow: visible !important;
   }
 }
 `;
+};
 
 const A4_PAGE_CSS = `
 @page { size: A4; margin: 12mm; }
@@ -69,15 +97,18 @@ body.hms-print-a4 {
  */
 export const wrapPrintHtml = (html: string, options: PrintJobOptions): string => {
   const jobType = options.jobType || 'a4';
+  const paperWidthMm = clampPaperWidthMm(options.paperWidthMm, 80);
   const title =
     options.title ||
-    (jobType === 'invoice' ? 'Invoice — select Invoice printer' : 'A4 Document — select A4 printer');
+    (jobType === 'invoice'
+      ? `Invoice — paper ${paperWidthMm}mm · Margins None · Headers off`
+      : 'A4 Document — select A4 printer');
   const bodyClass = jobType === 'invoice' ? 'hms-print-invoice' : 'hms-print-a4';
-  const pageCss = jobType === 'invoice' ? INVOICE_PAGE_CSS : A4_PAGE_CSS;
+  const pageCss =
+    jobType === 'invoice' ? buildInvoicePageCss(paperWidthMm) : A4_PAGE_CSS;
 
   const trimmed = String(html || '').trim();
   if (/^<!DOCTYPE/i.test(trimmed) || /<html[\s>]/i.test(trimmed)) {
-    // Inject style + body class into existing document.
     let next = trimmed;
     if (!/<body[\s>]/i.test(next)) {
       return buildShell(title, bodyClass, pageCss, trimmed);
@@ -89,31 +120,13 @@ export const wrapPrintHtml = (html: string, options: PrintJobOptions): string =>
       return `<body${attrs} class="${bodyClass}">`;
     });
 
-    // Receipt HTML already sets @page width (58/80mm). Do not override it with
-    // a second @page { size: 80mm } / size:auto — that truncates small printers.
-    const hasThermalPage =
-      jobType === 'invoice' && /@page\s*\{[^}]*size\s*:\s*\d+mm/i.test(next);
-    const injectCss = hasThermalPage
-      ? `
-html, body {
-  margin: 0 !important;
-  padding: 0 !important;
-  height: auto !important;
-  overflow: visible !important;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-body.hms-print-invoice {
-  height: auto !important;
-  overflow: visible !important;
-}
-`
-      : pageCss;
+    // Remove any @page size: NNmm that fights the driver paper size.
+    next = next.replace(/@page\s*\{[^}]*\}/gi, '@page { size: auto; margin: 0 !important; }');
 
     if (/<\/head>/i.test(next)) {
-      next = next.replace(/<\/head>/i, `<style id="hms-print-job">${injectCss}</style></head>`);
+      next = next.replace(/<\/head>/i, `<style id="hms-print-job">${pageCss}</style></head>`);
     } else if (/<html[\s>]/i.test(next)) {
-      next = next.replace(/<html([^>]*)>/i, `<html$1><head><style id="hms-print-job">${injectCss}</style></head>`);
+      next = next.replace(/<html([^>]*)>/i, `<html$1><head><style id="hms-print-job">${pageCss}</style></head>`);
     }
     if (/<title>.*?<\/title>/i.test(next)) {
       next = next.replace(/<title>.*?<\/title>/i, `<title>${escapeTitle(title)}</title>`);
@@ -145,59 +158,102 @@ const escapeTitle = (value: string): string =>
     .replace(/"/g, '&quot;');
 
 /**
- * Print HTML via hidden iframe with invoice/a4 paper hints.
+ * Print HTML via a short-lived window (more reliable than a 0-height iframe
+ * for Chrome thermal print preview).
  */
 export const printHtmlJob = (html: string, options: PrintJobOptions): boolean => {
-  if (typeof document === 'undefined') {
+  if (typeof document === 'undefined' || typeof window === 'undefined') {
     return false;
   }
 
-  const wrapped = wrapPrintHtml(html, options);
+  const paperWidthMm = clampPaperWidthMm(
+    options.paperWidthMm,
+    options.jobType === 'invoice' ? 80 : 210,
+  );
+  const wrapped = wrapPrintHtml(html, { ...options, paperWidthMm });
+
+  const printWindow = window.open(
+    '',
+    '_blank',
+    `noopener,noreferrer,width=${Math.max(360, paperWidthMm * 6)},height=780`,
+  );
+
+  if (printWindow) {
+    try {
+      printWindow.document.open();
+      printWindow.document.write(wrapped);
+      printWindow.document.close();
+      const trigger = (): void => {
+        try {
+          printWindow.focus();
+          printWindow.print();
+        } finally {
+          window.setTimeout(() => {
+            try {
+              printWindow.close();
+            } catch {
+              /* ignore */
+            }
+          }, 600);
+        }
+      };
+      // Wait a tick so layout paints before Chrome builds the preview.
+      window.setTimeout(trigger, 450);
+      return true;
+    } catch {
+      try {
+        printWindow.close();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  // Popup blocked — fallback to iframe with a real layout box.
   const iframe = document.createElement('iframe');
   iframe.setAttribute('title', options.title || 'Print');
   iframe.setAttribute('aria-hidden', 'true');
-  // Keep a real layout box. Zero-size iframes often clip thermal receipts mid-print.
   Object.assign(iframe.style, {
     border: '0',
-    height: '1px',
+    height: '900px',
     left: '-10000px',
     opacity: '0',
     overflow: 'hidden',
     pointerEvents: 'none',
     position: 'fixed',
     top: '0',
-    width: options.jobType === 'invoice' ? '80mm' : '210mm',
+    width: `${Math.max(paperWidthMm, 58)}mm`,
   });
   document.body.appendChild(iframe);
 
-  const printWindow = iframe.contentWindow;
-  const printDocument = iframe.contentDocument || printWindow?.document;
-  if (!printWindow || !printDocument) {
+  const frameWindow = iframe.contentWindow;
+  const frameDocument = iframe.contentDocument || frameWindow?.document;
+  if (!frameWindow || !frameDocument) {
     iframe.remove();
     return false;
   }
 
-  printDocument.open();
-  printDocument.write(wrapped);
-  printDocument.close();
+  frameDocument.open();
+  frameDocument.write(wrapped);
+  frameDocument.close();
 
   const trigger = (): void => {
     try {
-      printWindow.focus();
-      printWindow.print();
+      frameWindow.focus();
+      frameWindow.print();
     } finally {
       window.setTimeout(() => {
         if (iframe.parentNode) {
           iframe.parentNode.removeChild(iframe);
         }
-      }, 1000);
+      }, 1200);
     }
   };
 
-  if (printDocument.readyState === 'complete') {
-    window.setTimeout(trigger, 250);
+  if (frameDocument.readyState === 'complete') {
+    window.setTimeout(trigger, 450);
   } else {
-    iframe.onload = () => window.setTimeout(trigger, 250);
+    iframe.onload = () => window.setTimeout(trigger, 450);
   }
 
   return true;
