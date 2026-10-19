@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 
@@ -28,6 +28,7 @@ export class PharmacySalesComponent implements OnInit {
   status = '';
   fromDate = '';
   toDate = '';
+  nearExpiryOnly = false;
 
   readonly getExportHtml = () =>
     buildPharmacyReportHtml(
@@ -37,6 +38,7 @@ export class PharmacySalesComponent implements OnInit {
         { header: 'Date', key: 'saleDate' },
         { header: 'Status', key: 'status' },
         { header: 'Payment', key: 'paymentStatus' },
+        { header: 'Near-expiry lines', key: 'nearExpiry' },
         { header: 'Total', key: 'total' },
         { header: 'Paid', key: 'paidAmount' },
         { header: 'Balance', key: 'balance' },
@@ -48,11 +50,15 @@ export class PharmacySalesComponent implements OnInit {
     private backend: BackendService,
     private dialog: AppDialogService,
     private toastr: ToastrService,
+    private route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
+    this.route.queryParamMap.subscribe((params) => {
+      this.nearExpiryOnly = params.get('nearExpiryOnly') === 'true';
+      this.loadSales();
+    });
     this.loadStores();
-    this.loadSales();
   }
 
   loadStores(): void {
@@ -73,6 +79,7 @@ export class PharmacySalesComponent implements OnInit {
         limit: 100,
         storeId: this.storeId || undefined,
         status: this.status || undefined,
+        nearExpiryOnly: this.nearExpiryOnly ? 'true' : undefined,
         fromDate: this.fromDate ? new Date(`${this.fromDate}T00:00:00`).toISOString() : undefined,
         toDate: this.toDate ? new Date(`${this.toDate}T23:59:59`).toISOString() : undefined,
       })
@@ -91,7 +98,16 @@ export class PharmacySalesComponent implements OnInit {
     this.status = '';
     this.fromDate = '';
     this.toDate = '';
+    this.nearExpiryOnly = false;
     this.loadSales();
+  }
+
+  nearExpiryLineCount(sale: Sale): number {
+    return (sale.items || []).filter((item) => item.nearExpirySale).length;
+  }
+
+  hasNearExpiry(sale: Sale): boolean {
+    return this.nearExpiryLineCount(sale) > 0;
   }
 
   canCancel(sale: Sale): boolean {
@@ -181,6 +197,7 @@ export class PharmacySalesComponent implements OnInit {
       const total = Number(sale.total || 0);
       const paid = Number(sale.paidAmount || 0);
       return {
+        nearExpiry: this.nearExpiryLineCount(sale),
         invoiceNo: sale.invoiceNo,
         saleDate: this.dateTime(sale.saleDate),
         status: sale.status,

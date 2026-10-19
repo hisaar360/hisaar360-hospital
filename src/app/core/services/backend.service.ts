@@ -49,6 +49,7 @@ import {
   PatientLastVisit,
   Payment,
   ProductCatalogItem,
+  StockLot,
   Prescription,
   LabOrder,
   LabTestCatalog,
@@ -162,6 +163,10 @@ export class BackendService {
 
   private patch<T>(url: string, body: unknown): Observable<ApiResponse<T>> {
     return this.http.patch<ApiResponse<T>>(url, this.cleanBody(body));
+  }
+
+  private put<T>(url: string, body: unknown): Observable<ApiResponse<T>> {
+    return this.http.put<ApiResponse<T>>(url, this.cleanBody(body));
   }
 
   private delete<T>(url: string): Observable<ApiResponse<T>> {
@@ -1113,6 +1118,33 @@ export class BackendService {
     );
   }
 
+  getProductStockOptions(
+    productId: string,
+    params?: Record<string, unknown>,
+  ): Observable<{
+    product: ProductCatalogItem;
+    stock: {
+      storeId?: string;
+      stockQuantity?: string;
+      reservedQuantity?: string;
+      availableQuantity?: string;
+    };
+    lots: StockLot[];
+  }> {
+    return this.get<{
+      product: ProductCatalogItem;
+      stock: {
+        storeId?: string;
+        stockQuantity?: string;
+        reservedQuantity?: string;
+        availableQuantity?: string;
+      };
+      lots: StockLot[];
+    }>(`${CONFIG.products}/${productId}/stock-options`, params).pipe(
+      map((response) => this.unwrapData(response)),
+    );
+  }
+
   getPrescriptionProductSuggestions(params?: Record<string, unknown>): Observable<ListResult<ProductCatalogItem>> {
     return this.get<PaginatedResponse<ProductCatalogItem>>(`${CONFIG.products}/prescription-suggestions`, params).pipe(
       map((response) => this.unwrapListResult<ProductCatalogItem>(response))
@@ -1250,6 +1282,12 @@ export class BackendService {
 
   getStockMovementsReport(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
     return this.get<Record<string, unknown>>(CONFIG.reports.stockMovements, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getMedicinePerformanceReport(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(CONFIG.reports.medicinePerformance, params).pipe(
       map((response) => this.unwrapData(response))
     );
   }
@@ -1509,6 +1547,30 @@ export class BackendService {
 
   getWardHomeSummary(): Observable<Record<string, unknown>> {
     return this.get<Record<string, unknown>>(`${CONFIG.ward}/home-summary`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listHospitalForms(): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(CONFIG.hospitalForms).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getHospitalForm(formKey: string): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.hospitalForms}/${formKey}`).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  updateHospitalForm(formKey: string, payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.put<Record<string, unknown>>(`${CONFIG.hospitalForms}/${formKey}`, payload).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  resetHospitalForm(formKey: string): Observable<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.hospitalForms}/${formKey}/reset`, {}).pipe(
       map((response) => this.unwrapData(response))
     );
   }
@@ -2475,8 +2537,8 @@ export class BackendService {
     return this.post<Record<string, unknown>>(`${CONFIG.purchases}/${id}/receive`, payload);
   }
 
-  getPharmacyDashboard(): Observable<Record<string, unknown>> {
-    return this.get<Record<string, unknown>>(`${CONFIG.sales}/dashboard`).pipe(
+  getPharmacyDashboard(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.sales}/dashboard`, params).pipe(
       map((response) => this.unwrapData(response))
     );
   }

@@ -306,7 +306,12 @@
                 <i class="fa fa-folder-open-o" aria-hidden="true"></i>
                 <span>Open Chart</span>
               </button>
-              <button type="button" class="ward-action-btn ward-action-btn--primary" (click)="assignNurse(patient)">
+              <button
+                type="button"
+                class="ward-action-btn ward-action-btn--primary"
+                *ngIf="showAssignNurse"
+                (click)="assignNurse(patient)"
+              >
                 <i class="fa fa-user-md" aria-hidden="true"></i>
                 <span>Assign Nurse</span>
               </button>
@@ -522,7 +527,12 @@
           <i class="fa fa-tint" aria-hidden="true"></i>
           <span>View Drips</span>
         </button>
-        <button type="button" class="ward-qp-btn ward-qp-btn--primary ward-qp-btn--wide" (click)="assignNurse(patient)">
+        <button
+          type="button"
+          class="ward-qp-btn ward-qp-btn--primary ward-qp-btn--wide"
+          *ngIf="showAssignNurse"
+          (click)="assignNurse(patient)"
+        >
           <i class="fa fa-user-plus" aria-hidden="true"></i>
           <span>Assign Nurse</span>
         </button>

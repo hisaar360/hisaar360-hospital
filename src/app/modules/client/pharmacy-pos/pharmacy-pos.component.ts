@@ -44,6 +44,11 @@ import {
 } from '../../../shared/models/hospital.model';
 
 import { prescriptionDispenseQty } from './prescription-dispense-qty';
+import {
+  getPharmacyExpiryTone,
+  pharmacyExpiryBadgeClass,
+  pharmacyExpiryLabel,
+} from '../pharmacy-expiry.util';
 
 const POS_CATALOG_LIMIT = 200;
 const POS_SEARCH_LIMIT = 25;
@@ -105,7 +110,7 @@ const POS_TUTORIAL_STEPS: Array<{
   {
     target: 'pos-reports',
     title: 'Reports',
-    text: 'Quick access to pharmacy sales and stock reports.',
+    text: 'Open Pharmacy Reports for Today / Week / Month sales, medicine In/Out, and Medicine Performance charts. Dashboard KPIs deep-link here with the right period.',
     place: 'below',
   },
   {
@@ -2973,15 +2978,32 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   productBatchExpiryLabel(product: ProductCatalogItem): string {
+    const expiry = product.earliestLotExpiry || product.expiryDate;
+    const batch = product.nearestLotNumber || product.batchNumber;
     const parts = [
-      product.batchNumber ? `Batch ${product.batchNumber}` : '',
+      batch ? `Batch ${batch}` : '',
       product.mfdDate ? `MFD ${this.formatProductDate(product.mfdDate)}` : '',
-      product.expiryDate
-        ? `Exp ${this.formatProductDate(product.expiryDate)}`
-        : '',
+      expiry ? `Exp ${this.formatProductDate(expiry)}` : '',
     ];
 
     return parts.filter(Boolean).join(' · ');
+  }
+
+  productExpiryTone(product: ProductCatalogItem): string {
+    return getPharmacyExpiryTone(product.earliestLotExpiry || product.expiryDate);
+  }
+
+  productExpiryBadgeClass(product: ProductCatalogItem): string {
+    return pharmacyExpiryBadgeClass(getPharmacyExpiryTone(product.earliestLotExpiry || product.expiryDate));
+  }
+
+  productExpiryLabel(product: ProductCatalogItem): string {
+    return pharmacyExpiryLabel(getPharmacyExpiryTone(product.earliestLotExpiry || product.expiryDate));
+  }
+
+  isNearExpiryProduct(product: ProductCatalogItem): boolean {
+    const tone = this.productExpiryTone(product);
+    return tone === 'near' || tone === 'expired';
   }
 
   private buildReceiptFromCurrentCart(): ReceiptPreviewData {
@@ -3165,6 +3187,20 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     const footerTitle = this.receiptFooterTitle(receipt);
     const footerLines = this.receiptFooterLines(receipt);
     const logoUrl = this.receiptLogoUrl(receipt);
+    const lh = this.activeReceiptLetterhead(receipt);
+    const paperMm = Number(lh?.paperWidthMm) || 80;
+    const borderStyle = lh?.borderStyle || 'dashed';
+    const border =
+      borderStyle === 'none' ? 'none' : `1px ${borderStyle} #9ca3af`;
+    const logoScale = Number(lh?.logoScale) || 1;
+    const logoPx = Math.round(58 * logoScale);
+    const fontHeader = Number(lh?.fontSizeHeader) || 18;
+    const fontBody = Number(lh?.fontSizeBody) || 11;
+    const fontFooter = Number(lh?.fontSizeFooter) || 10;
+    const weightHeader = lh?.fontWeightHeader === 'normal' ? 'normal' : 'bold';
+    const weightBody = lh?.fontWeightBody === 'bold' ? 'bold' : 'normal';
+    const weightFooter = lh?.fontWeightFooter === 'bold' ? 'bold' : 'normal';
+    const termsText = this.resolveReceiptTermsText(lh?.termsText);
     const rows = receipt.items
       .map(
         (item) => `
@@ -3174,8 +3210,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             <small>${this.escapeHtml(item.sku)}</small>
           </td>
           <td>${item.qty}</td>
-          <td>${this.escapeHtml(item.discountLabel)}</td>
           <td>${this.formatCurrency(item.unitPrice)}</td>
+          <td>${this.escapeHtml(this.receiptDiscountCell(item))}</td>
           <td>${this.formatCurrency(item.total)}</td>
         </tr>
       `,
@@ -3188,28 +3224,28 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         <head>
           <title>${this.escapeHtml(receipt.reference)}</title>
           <style>
-            @page { margin: 8mm; size: 80mm auto; }
+            @page { margin: 8mm; size: ${paperMm}mm auto; }
             * { box-sizing: border-box; }
-            body { color: #111827; font-family: Arial, sans-serif; font-size: 11px; margin: 0; }
-            .receipt { margin: 0 auto; max-width: 320px; padding: 8px; }
+            body { color: #111827; font-family: Arial, "Noto Nastaliq Urdu", "Segoe UI", sans-serif; font-size: ${fontBody}px; font-weight: ${weightBody}; margin: 0; }
+            .receipt { margin: 0 auto; max-width: ${Math.round(paperMm * 4)}px; padding: 8px; }
             .center { text-align: center; }
-            .logo { display: block; height: 58px; margin: 0 auto 8px; max-width: 58px; object-fit: contain; }
-            h1 { font-size: 18px; margin: 0 0 4px; }
+            .logo { display: block; height: ${logoPx}px; margin: 0 auto 8px; max-width: ${logoPx}px; object-fit: contain; }
+            h1 { font-size: ${fontHeader}px; font-weight: ${weightHeader}; margin: 0 0 4px; }
             p { margin: 2px 0; }
-            .meta { border-bottom: 1px dashed #9ca3af; border-top: 1px dashed #9ca3af; margin: 10px 0; padding: 8px 0; }
+            .meta { border-bottom: ${border}; border-top: ${border}; margin: 10px 0; padding: 8px 0; }
             .meta div, .totals div { display: flex; justify-content: space-between; gap: 10px; }
             table { border-collapse: collapse; table-layout: fixed; width: 100%; }
-            th, td { border-bottom: 1px solid #e5e7eb; font-size: 9px; line-height: 1.2; padding: 4px 1px; text-align: left; vertical-align: top; word-break: break-word; }
-            th:first-child, td:first-child { width: 38%; }
-            th:nth-child(2), td:nth-child(2) { width: 10%; }
-            th:nth-child(3), td:nth-child(3) { width: 15%; }
-            th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) { width: 18.5%; }
-            th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) { text-align: center; }
-            th:nth-child(4), th:nth-child(5), td:nth-child(4), td:nth-child(5) { text-align: right; }
+            th, td { border-bottom: 1px solid #e5e7eb; font-size: ${Math.max(8, fontBody - 2)}px; line-height: 1.2; padding: 4px 1px; text-align: left; vertical-align: top; word-break: break-word; }
+            th:first-child, td:first-child { width: 36%; }
+            th:nth-child(2), td:nth-child(2) { width: 10%; text-align: center; }
+            th:nth-child(3), td:nth-child(3),
+            th:nth-child(4), td:nth-child(4),
+            th:nth-child(5), td:nth-child(5) { width: 18%; text-align: right; }
             small { color: #6b7280; display: block; font-size: 8px; margin-top: 2px; }
-            .totals { border-top: 1px dashed #9ca3af; margin-top: 8px; padding-top: 8px; }
-            .grand { font-size: 15px; font-weight: 800; }
-            .foot { border-top: 1px dashed #9ca3af; margin-top: 12px; padding-top: 8px; text-align: center; }
+            .totals { border-top: ${border}; margin-top: 8px; padding-top: 8px; }
+            .grand { font-size: ${fontBody + 4}px; font-weight: 800; }
+            .foot { border-top: ${border}; margin-top: 12px; padding-top: 8px; text-align: center; font-size: ${fontFooter}px; font-weight: ${weightFooter}; }
+            .terms { margin-top: 8px; text-align: right; white-space: pre-wrap; font-size: ${fontFooter}px; font-weight: ${weightFooter}; unicode-bidi: plaintext; direction: rtl; line-height: 1.55; }
           </style>
         </head>
         <body>
@@ -3228,7 +3264,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             </div>
             <table>
               <thead>
-                <tr><th>Item</th><th>Qty</th><th>Discount</th><th>Rate</th><th>Total</th></tr>
+                <tr><th>Item</th><th>Qty</th><th>Price</th><th>Discount</th><th>Total</th></tr>
               </thead>
               <tbody>${rows}</tbody>
             </table>
@@ -3243,6 +3279,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             <div class="foot">
               <p><strong>${this.escapeHtml(footerTitle)}</strong></p>
               ${footerLines.map((line) => `<p>${this.escapeHtml(line)}</p>`).join('')}
+              ${termsText ? `<div class="terms" dir="rtl" lang="ur">${this.escapeHtml(termsText)}</div>` : ''}
             </div>
           </section>
         </body>
@@ -4042,13 +4079,32 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   private receiptLineDiscountLabel(line: PharmacyBillLine): string {
-    if (Number(line.discount || 0) <= 0) {
-      return '-';
+    const amount = Number(line.discount || 0);
+    if (amount <= 0) {
+      return this.formatCurrency(0);
     }
 
-    return line.discountType === 'percentage'
-      ? `${this.formatNumber(line.discountInput)}%`
-      : this.formatCurrency(line.discount);
+    if (line.discountType === 'percentage' && Number(line.discountInput || 0) > 0) {
+      return `${this.formatCurrency(amount)} (${this.formatNumber(line.discountInput)}%)`;
+    }
+
+    return this.formatCurrency(amount);
+  }
+
+  private receiptDiscountCell(item: ReceiptPreviewLine): string {
+    const amount = Number(item.discount || 0);
+    if (amount <= 0) {
+      return this.formatCurrency(0);
+    }
+
+    const label = String(item.discountLabel || '').trim();
+    if (label && label !== '-' && label.includes('%')) {
+      return label.startsWith(this.formatCurrency(amount))
+        ? label
+        : `${this.formatCurrency(amount)} (${label})`;
+    }
+
+    return this.formatCurrency(amount);
   }
 
   private saleItemDiscountLabel(
@@ -4056,15 +4112,11 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     index: number,
   ): string {
     const currentLine = this.billLines[index];
-    if (
-      currentLine?.product._id === item.productId &&
-      Number(currentLine.discount || 0) > 0
-    ) {
+    if (currentLine?.product._id === item.productId) {
       return this.receiptLineDiscountLabel(currentLine);
     }
 
-    const discount = Number(item.discount || 0);
-    return discount > 0 ? this.formatCurrency(discount) : '-';
+    return this.formatCurrency(Number(item.discount || 0));
   }
 
   refreshPaidAmount(): void {
@@ -4200,6 +4252,26 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       .join(', ');
   }
 
+  private readonly defaultReceiptTerms = [
+    '۱۔ فریج آئٹم واپس نہیں ہوگی۔',
+    '۲۔ کھلی ہوئی دوا واپس نہیں ہوگی۔',
+    '۳۔ خریدی ہوئی دوا بل کے ساتھ ۷ دن کے اندر واپس کی جا سکتی ہے۔',
+  ].join('\n');
+
+  private readonly legacyDefaultReceiptTerms = [
+    '1. No return or exchange on medicines.',
+    '2. Keep your invoice for warranty claims.',
+    '3. Prices are subject to change without notice.',
+  ].join('\n');
+
+  private resolveReceiptTermsText(value?: string | null): string {
+    const trimmed = String(value || '').trim();
+    if (!trimmed || trimmed === this.legacyDefaultReceiptTerms) {
+      return this.defaultReceiptTerms;
+    }
+    return trimmed;
+  }
+
   private receiptLetterheadSnapshot(): ReceiptLetterheadSettings {
     const settings = this.companyProfile?.receiptLetterhead;
 
@@ -4216,6 +4288,16 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       ),
       footerTitle: settings?.footerTitle?.trim() || null,
       footerLines: this.uniqueReceiptLines(settings?.footerLines || []),
+      termsText: this.resolveReceiptTermsText(settings?.termsText),
+      paperWidthMm: Number(settings?.paperWidthMm) || 80,
+      borderStyle: settings?.borderStyle || 'dashed',
+      logoScale: Number(settings?.logoScale) || 1,
+      fontSizeHeader: Number(settings?.fontSizeHeader) || 18,
+      fontSizeBody: Number(settings?.fontSizeBody) || 11,
+      fontSizeFooter: Number(settings?.fontSizeFooter) || 10,
+      fontWeightHeader: settings?.fontWeightHeader === 'normal' ? 'normal' : 'bold',
+      fontWeightBody: settings?.fontWeightBody === 'bold' ? 'bold' : 'normal',
+      fontWeightFooter: settings?.fontWeightFooter === 'bold' ? 'bold' : 'normal',
     };
   }
 

@@ -1,10 +1,12 @@
 /**
- * Role-based Ward & Nursing navigation model. Backend RBAC stays authoritative —
- * this only decides which links a role is shown, so it is a pure function we can test.
+ * Role-based Ward navigation. Backend RBAC stays authoritative —
+ * this only decides which links a role is shown (pure function, unit-tested).
+ *
+ * Product intent: Ward Admin–centric IPD desk. Nurses do not log in to chart;
+ * clinical entry is done by Ward Admin (or custom roles with permissions).
  */
 import {
   isDoctorRole,
-  isNurseRole,
   isWardAdminRole,
   isWardAttendantRole,
   isWardReceptionRole,
@@ -40,25 +42,16 @@ export interface WardNavContext {
 }
 
 const WARD_HOME: WardNavItem = { label: 'Ward Home', route: '/ward/home' };
-const MY_PATIENTS: WardNavItem = { label: 'My Patients', route: '/ward/patient-list' };
 const PATIENTS: WardNavItem = { label: 'Patients', route: '/ward/patient-list' };
 const ADMISSIONS: WardNavItem = { label: 'Admissions', route: '/ward/admissions' };
 const BEDS: WardNavItem = { label: 'Beds', route: '/ward/bed-management' };
-const MY_WORK: WardNavItem = { label: 'My Work', route: '/ward/my-work' };
-const SHIFT_HANDOVER: WardNavItem = { label: 'Shift Handover', route: '/ward/shift-handover' };
+const DUTY_ROSTER: WardNavItem = { label: 'Duty Roster', route: '/ward/duty-roster' };
 
 const primary = (items: WardNavItem[]): WardNavSection => ({
   key: 'primary',
   label: '',
   collapsible: false,
   items,
-});
-
-const tasksAndHandover = (): WardNavSection => ({
-  key: 'tasks',
-  label: 'Tasks & Handover',
-  collapsible: false,
-  items: [MY_WORK, SHIFT_HANDOVER],
 });
 
 const maternity = (): WardNavSection => ({
@@ -79,18 +72,17 @@ const management = (context: WardNavContext): WardNavSection => ({
     { label: 'Dashboard', route: '/ward/dashboard' },
     BEDS,
     ...(context.canViewOperations ? [{ label: 'Operation Calendar', route: '/operations' }] : []),
-    ...(context.canViewRoster ? [{ label: 'Duty Roster', route: '/ward/duty-roster' }] : []),
     { label: 'Ward Inventory', route: '/ward/inventory' },
-    { label: 'Nurses & Staff', route: '/ward/nurses-staff' },
+    { label: 'Staff Directory', route: '/ward/nurses-staff' },
     { label: 'Reports', route: '/ward/reports' },
+    { label: 'Forms & Charts', route: '/hospital-forms' },
     { label: 'Ward Notes', route: '/ward-admin' },
   ],
 });
 
 /**
  * Builds the ward menu for the current role. Clinical charting pages (vitals, MAR,
- * drips, I/O, orders, nursing care) are intentionally absent — they stay reachable
- * from the patient workspace.
+ * drips, I/O, orders) stay reachable from the patient workspace, not the sidebar.
  */
 export function buildWardNavSections(context: WardNavContext): WardNavSection[] {
   if (!context.canViewWard) {
@@ -98,7 +90,8 @@ export function buildWardNavSections(context: WardNavContext): WardNavSection[] 
   }
 
   const { role, permissions } = context;
-  const isWardAdmin = Boolean(context.canViewAllRoutes) || isWardAdminRole(role) || Boolean(context.showWardOpsMenu);
+  const isWardAdmin =
+    Boolean(context.canViewAllRoutes) || isWardAdminRole(role) || Boolean(context.showWardOpsMenu);
 
   if (isWardAttendantRole(role) && !isWardAdmin) {
     return [primary([{ label: 'My Tasks', route: '/ward/tasks' }])];
@@ -110,20 +103,31 @@ export function buildWardNavSections(context: WardNavContext): WardNavSection[] 
 
   const sections: WardNavSection[] = [];
 
-  if (isNurseRole(role) && !isWardAdmin) {
-    sections.push(primary([WARD_HOME, MY_PATIENTS]), tasksAndHandover());
-  } else if (isWardAdmin) {
-    sections.push(primary([WARD_HOME, ADMISSIONS, PATIENTS]), tasksAndHandover());
+  if (isWardAdmin) {
+    const adminPrimary: WardNavItem[] = [WARD_HOME, ADMISSIONS, PATIENTS];
+    if (context.canViewRoster) {
+      adminPrimary.push(DUTY_ROSTER);
+    }
+    sections.push(primary(adminPrimary));
     if (context.canViewManagement) {
       sections.push(management(context));
     }
   } else if (isWardReceptionRole(role, permissions)) {
     sections.push(primary([ADMISSIONS, PATIENTS, BEDS]));
   } else {
-    sections.push(
-      primary([WARD_HOME, PATIENTS, ...(context.canViewAdmissions ? [ADMISSIONS] : [])]),
-      tasksAndHandover()
-    );
+    // Default / legacy Nurse & other ward.read users: same admin-style desk, no My Work.
+    const defaultPrimary: WardNavItem[] = [
+      WARD_HOME,
+      PATIENTS,
+      ...(context.canViewAdmissions ? [ADMISSIONS] : []),
+    ];
+    if (context.canViewRoster) {
+      defaultPrimary.push(DUTY_ROSTER);
+    }
+    sections.push(primary(defaultPrimary));
+    if (context.canViewManagement) {
+      sections.push(management(context));
+    }
   }
 
   if (context.canViewMaternity) {

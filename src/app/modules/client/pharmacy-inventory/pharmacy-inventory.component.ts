@@ -1,15 +1,20 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 
 import { BackendService } from '../../../core/services/backend.service';
 import { downloadExcelWorkbook } from '../../../core/utils/excel-export.util';
 import { HmsDocumentToolbarComponent } from '../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
-import { ProductCatalogItem, Store } from '../../../shared/models/hospital.model';
+import { ProductCatalogItem, StockLot, Store } from '../../../shared/models/hospital.model';
 import { formatCurrency, normalizeText, readAssignedStoreId } from '../pharmacy-admin.utils';
+import {
+  getPharmacyExpiryTone,
+  pharmacyExpiryBadgeClass,
+  pharmacyExpiryLabel,
+} from '../pharmacy-expiry.util';
 import { buildPharmacyReportHtml } from '../pharmacy-export.util';
 
 @Component({
@@ -28,11 +33,19 @@ export class PharmacyInventoryComponent implements OnInit {
   search = '';
   storeId = readAssignedStoreId();
   lowStockOnly = false;
+  outOfStockOnly = false;
+  expiryFilter: '' | 'expired' | 'near_expiry' | 'valid' = '';
   adjustModalOpen = false;
   adjustProduct: ProductCatalogItem | null = null;
+  adjustLot: StockLot | null = null;
   adjustType: 'INCREASE' | 'DECREASE' | 'SET' = 'INCREASE';
   adjustQty = 0;
   adjustNote = '';
+  adjustReason: 'MANUAL_ADJUSTMENT' | 'WRITE_OFF' | 'EXPIRED' | 'DAMAGE' = 'MANUAL_ADJUSTMENT';
+  expandedProductId = '';
+  lotsByProductId: Record<string, StockLot[]> = {};
+  lotsLoadingId = '';
+  writingOffLotId = '';
 
   readonly getExportHtml = () =>
     buildPharmacyReportHtml(
@@ -55,9 +68,26 @@ export class PharmacyInventoryComponent implements OnInit {
   constructor(
     private backend: BackendService,
     private toastr: ToastrService,
+    private route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
+    this.route.queryParamMap.subscribe((params) => {
+      const expiryStatus = params.get('expiryStatus');
+      if (
+        expiryStatus === 'expired' ||
+        expiryStatus === 'near_expiry' ||
+        expiryStatus === 'valid'
+      ) {
+        this.expiryFilter = expiryStatus;
+      }
+      if (params.get('lowStock') === 'true' || params.get('lowStock') === '1') {
+        this.lowStockOnly = true;
+      }
+      if (params.get('outOfStock') === 'true' || params.get('outOfStock') === '1') {
+        this.outOfStockOnly = true;
+      }
+    });
     this.loadStores();
   }
 
@@ -75,6 +105,22 @@ export class PharmacyInventoryComponent implements OnInit {
 
   get lowStockCount(): number {
     return this.filteredProducts.filter((product) => this.isLowStock(product)).length;
+  }
+
+  get inventoryMode(): 'all' | 'low' | 'out' {
+    if (this.outOfStockOnly) {
+      return 'out';
+    }
+    if (this.lowStockOnly) {
+      return 'low';
+    }
+    return 'all';
+  }
+
+  onInventoryModeChange(mode: 'all' | 'low' | 'out'): void {
+    this.lowStockOnly = mode === 'low';
+    this.outOfStockOnly = mode === 'out';
+    this.applyFilters();
   }
 
   isLowStock(product: ProductCatalogItem): boolean {
@@ -104,10 +150,13 @@ export class PharmacyInventoryComponent implements OnInit {
 
   loadInventory(): void {
     this.loading = true;
+    this.lotsByProductId = {};
+    this.expandedProductId = '';
     this.backend.getProducts({
-      limit: 100,
+      limit: 500,
       isActive: true,
       storeId: this.storeId || undefined,
+      ...(this.expiryFilter ? { expiryStatus: this.expiryFilter } : {}),
     })
       .pipe(finalize(() => (this.loading = false)))
       .subscribe({
@@ -133,10 +182,13 @@ export class PharmacyInventoryComponent implements OnInit {
           product.sku,
           product.barcode,
           product.batchNumber,
+          product.nearestLotNumber,
           product.brand,
         ].join(' ')).includes(query);
-      const matchesStock = !this.lowStockOnly || this.qty(product) <= this.reorder(product);
-      return matchesSearch && matchesStock;
+      const qty = this.qty(product);
+      const matchesLowStock = !this.lowStockOnly || qty <= this.reorder(product);
+      const matchesOutOfStock = !this.outOfStockOnly || qty <= 0;
+      return matchesSearch && matchesLowStock && matchesOutOfStock;
     });
   }
 
@@ -158,6 +210,67 @@ export class PharmacyInventoryComponent implements OnInit {
 
   currency(value: number | string | null | undefined): string {
     return formatCurrency(value);
+  }
+
+  productExpiryValue(product: ProductCatalogItem): string | null {
+    return product.earliestLotExpiry || product.expiryDate || null;
+  }
+
+  expiryLabel(product: ProductCatalogItem): string {
+    return pharmacyExpiryLabel(getPharmacyExpiryTone(this.productExpiryValue(product)));
+  }
+
+  expiryBadgeClass(product: ProductCatalogItem): string {
+    return pharmacyExpiryBadgeClass(getPharmacyExpiryTone(this.productExpiryValue(product)));
+  }
+
+  lotExpiryLabel(lot: StockLot): string {
+    return pharmacyExpiryLabel(getPharmacyExpiryTone(lot.expiryDate));
+  }
+
+  lotExpiryBadgeClass(lot: StockLot): string {
+    return pharmacyExpiryBadgeClass(getPharmacyExpiryTone(lot.expiryDate));
+  }
+
+  lotQty(lot: StockLot): number {
+    return Number(lot.availableQuantity ?? lot.quantity ?? 0) || 0;
+  }
+
+  formatDate(value?: string | null): string {
+    if (!value) {
+      return '-';
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+    return parsed.toLocaleDateString();
+  }
+
+  toggleLots(product: ProductCatalogItem): void {
+    if (this.expandedProductId === product._id) {
+      this.expandedProductId = '';
+      return;
+    }
+
+    this.expandedProductId = product._id;
+    if (this.lotsByProductId[product._id] || !this.storeId) {
+      return;
+    }
+
+    this.lotsLoadingId = product._id;
+    this.backend
+      .getProductStockOptions(product._id, { storeId: this.storeId })
+      .pipe(finalize(() => (this.lotsLoadingId = '')))
+      .subscribe({
+        next: (result) => {
+          this.lotsByProductId[product._id] = result.lots || [];
+        },
+        error: (err) => {
+          this.lotsByProductId[product._id] = [];
+          this.toastr.error(err?.error?.message || 'Unable to load batches.');
+        },
+      });
   }
 
   exportExcel(): void {
@@ -186,8 +299,8 @@ export class PharmacyInventoryComponent implements OnInit {
       name: product.name,
       sku: product.sku || '',
       brand: product.brand || '',
-      batchNumber: product.batchNumber || '-',
-      expiryDate: product.expiryDate || '-',
+      batchNumber: product.nearestLotNumber || product.batchNumber || '-',
+      expiryDate: this.productExpiryValue(product) || '-',
       available: this.qty(product),
       status: this.isLowStock(product) ? 'Low Stock' : 'In Stock',
       cost: this.currency(product.costPrice),
@@ -200,18 +313,58 @@ export class PharmacyInventoryComponent implements OnInit {
     return this.backend.hasPermission('inventory.adjust') && Boolean(this.storeId);
   }
 
-  openAdjust(product: ProductCatalogItem): void {
+  openAdjust(product: ProductCatalogItem, lot: StockLot | null = null): void {
     this.adjustProduct = product;
-    this.adjustType = 'INCREASE';
-    this.adjustQty = 0;
-    this.adjustNote = '';
+    this.adjustLot = lot;
+    this.adjustType = lot ? 'DECREASE' : 'INCREASE';
+    this.adjustQty = lot ? this.lotQty(lot) : 0;
+    this.adjustNote = lot ? `Write-off batch ${lot.lotNumber || lot._id}` : '';
+    this.adjustReason = lot ? 'WRITE_OFF' : 'MANUAL_ADJUSTMENT';
     this.adjustModalOpen = true;
+  }
+
+  writeOffLot(product: ProductCatalogItem, lot: StockLot): void {
+    if (!this.storeId) {
+      this.toastr.error('Select a store before writing off a batch.');
+      return;
+    }
+
+    const quantity = this.lotQty(lot);
+    if (quantity <= 0) {
+      this.toastr.error('This batch has no available quantity.');
+      return;
+    }
+
+    this.writingOffLotId = lot._id;
+    this.backend
+      .adjustInventory({
+        productId: product._id,
+        locationType: 'store',
+        locationId: this.storeId,
+        adjustmentType: 'DECREASE',
+        quantity,
+        reason: getPharmacyExpiryTone(lot.expiryDate) === 'expired' ? 'EXPIRED' : 'WRITE_OFF',
+        lotId: lot._id,
+        lotNumber: lot.lotNumber || undefined,
+        expiryDate: lot.expiryDate || undefined,
+        note: `Write-off batch ${lot.lotNumber || lot._id}`,
+      })
+      .pipe(finalize(() => (this.writingOffLotId = '')))
+      .subscribe({
+        next: () => {
+          this.toastr.success('Batch written off.');
+          delete this.lotsByProductId[product._id];
+          this.loadInventory();
+        },
+        error: (err) => this.toastr.error(err?.error?.message || 'Unable to write off batch.'),
+      });
   }
 
   dismissAdjust(): void {
     if (!this.savingAdjust) {
       this.adjustModalOpen = false;
       this.adjustProduct = null;
+      this.adjustLot = null;
     }
   }
 
@@ -235,15 +388,26 @@ export class PharmacyInventoryComponent implements OnInit {
         locationId: this.storeId,
         adjustmentType: this.adjustType,
         quantity,
-        reason: 'MANUAL_ADJUSTMENT',
+        reason: this.adjustReason,
         note: this.adjustNote.trim() || undefined,
+        ...(this.adjustLot
+          ? {
+              lotId: this.adjustLot._id,
+              lotNumber: this.adjustLot.lotNumber || undefined,
+              expiryDate: this.adjustLot.expiryDate || undefined,
+            }
+          : {}),
       })
       .pipe(finalize(() => (this.savingAdjust = false)))
       .subscribe({
         next: () => {
-          this.toastr.success('Stock adjusted.');
+          this.toastr.success(this.adjustLot ? 'Batch adjusted.' : 'Stock adjusted.');
           this.adjustModalOpen = false;
+          if (this.adjustProduct) {
+            delete this.lotsByProductId[this.adjustProduct._id];
+          }
           this.adjustProduct = null;
+          this.adjustLot = null;
           this.loadInventory();
         },
         error: (err) => this.toastr.error(err?.error?.message || 'Unable to adjust stock.'),

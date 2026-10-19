@@ -2,6 +2,17 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import {
+  ApexAxisChartSeries,
+  ApexChart,
+  ApexDataLabels,
+  ApexLegend,
+  ApexPlotOptions,
+  ApexStroke,
+  ApexXAxis,
+  ApexYAxis,
+  NgApexchartsModule,
+} from 'ng-apexcharts';
 import { finalize, forkJoin, map, Observable, of } from 'rxjs';
 
 import { formatActiveCurrency } from '../../../core/services/currency.service';
@@ -22,8 +33,11 @@ type ReportKey =
   | 'inventory'
   | 'profit-loss'
   | 'stock-movements'
+  | 'medicine-performance'
   | 'payments'
   | 'expenses';
+
+type PeriodKey = 'today' | 'week' | 'month' | 'custom';
 
 interface ReportDefinition {
   key: ReportKey;
@@ -32,10 +46,22 @@ interface ReportDefinition {
   icon: string;
 }
 
+type MedicinePerfChartOptions = {
+  series: ApexAxisChartSeries;
+  chart: ApexChart;
+  xaxis: ApexXAxis;
+  yaxis: ApexYAxis;
+  colors: string[];
+  plotOptions: ApexPlotOptions;
+  dataLabels: ApexDataLabels;
+  stroke: ApexStroke;
+  legend: ApexLegend;
+};
+
 @Component({
   selector: 'app-pos-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, HmsDocumentToolbarComponent],
+  imports: [CommonModule, FormsModule, HmsDocumentToolbarComponent, NgApexchartsModule],
   templateUrl: './pos-reports.component.html',
   styleUrl: './pos-reports.component.scss',
 })
@@ -62,8 +88,14 @@ export class PosReportsComponent implements OnInit {
     {
       key: 'stock-movements',
       title: 'Stock Movements',
-      description: 'Audit trail of pharmacy stock changes.',
+      description: 'Medicine In / Out totals and audit trail of stock changes.',
       icon: 'fa-exchange',
+    },
+    {
+      key: 'medicine-performance',
+      title: 'Medicine Performance',
+      description: 'Sold, returned, and purchased quantities by medicine.',
+      icon: 'fa-bar-chart',
     },
     {
       key: 'payments',
@@ -79,7 +111,15 @@ export class PosReportsComponent implements OnInit {
     },
   ];
 
+  readonly periodChips: Array<{ key: PeriodKey; label: string }> = [
+    { key: 'today', label: 'Today' },
+    { key: 'week', label: 'This Week' },
+    { key: 'month', label: 'This Month' },
+    { key: 'custom', label: 'Custom' },
+  ];
+
   activeReport: ReportKey = 'sales';
+  activePeriod: PeriodKey = 'custom';
   reportData: unknown[] | Record<string, unknown> | null = null;
   stores: Store[] = [];
   loading = false;
@@ -90,6 +130,7 @@ export class PosReportsComponent implements OnInit {
   storeId = '';
   lowStockOnly = false;
   localFallbackMode = false;
+  medicineChart: MedicinePerfChartOptions = this.emptyMedicineChart();
 
   readonly getExportHtml = () =>
     buildPharmacyReportHtml(
@@ -104,12 +145,38 @@ export class PosReportsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.setDefaultDateRange();
     this.applyAssignedStore();
-    const requestedStoreId = this.route.snapshot.queryParamMap.get('storeId');
+    const params = this.route.snapshot.queryParamMap;
+    const requestedStoreId = params.get('storeId');
     if (requestedStoreId) {
       this.storeId = requestedStoreId;
     }
+
+    const reportParam = params.get('report');
+    if (reportParam && this.reports.some((report) => report.key === reportParam)) {
+      this.activeReport = reportParam as ReportKey;
+    }
+
+    const fromDateParam = params.get('fromDate');
+    const toDateParam = params.get('toDate');
+    const periodParam = params.get('period');
+
+    if (fromDateParam && toDateParam) {
+      this.fromDate = fromDateParam.slice(0, 10);
+      this.toDate = toDateParam.slice(0, 10);
+      this.activePeriod =
+        periodParam === 'today' || periodParam === 'week' || periodParam === 'month'
+          ? periodParam
+          : 'custom';
+    } else if (periodParam === 'today' || periodParam === 'week' || periodParam === 'month') {
+      this.applyPeriod(periodParam, false);
+    } else if (this.activeReport === 'medicine-performance') {
+      this.applyPeriod('month', false);
+    } else {
+      this.setDefaultDateRange();
+      this.activePeriod = 'custom';
+    }
+
     this.loadStores();
     this.loadReport();
   }
@@ -120,6 +187,14 @@ export class PosReportsComponent implements OnInit {
 
   get supportsLowStockFilter(): boolean {
     return this.activeReport === 'inventory';
+  }
+
+  get supportsDateFilter(): boolean {
+    return this.activeReport !== 'inventory';
+  }
+
+  get showMedicineChart(): boolean {
+    return this.activeReport === 'medicine-performance' && this.items.length > 0;
   }
 
   get canChooseStore(): boolean {
@@ -140,9 +215,29 @@ export class PosReportsComponent implements OnInit {
       return [];
     }
 
-    return Object.entries(this.reportData)
-      .filter(([key]) => key !== 'items')
+    const preferred =
+      this.activeReport === 'stock-movements'
+        ? ['totalIn', 'totalOut', 'count']
+        : this.activeReport === 'medicine-performance'
+          ? ['totals']
+          : [];
+
+    const entries = Object.entries(this.reportData)
+      .filter(([key]) => key !== 'items' && key !== 'fromDate' && key !== 'toDate')
       .map(([key, value]) => ({ key, value }));
+
+    if (!preferred.length) {
+      return entries;
+    }
+
+    const preferredSet = new Set(preferred);
+    const ranked = [
+      ...preferred
+        .map((key) => entries.find((entry) => entry.key === key))
+        .filter((entry): entry is { key: string; value: unknown } => Boolean(entry)),
+      ...entries.filter((entry) => !preferredSet.has(entry.key)),
+    ];
+    return ranked;
   }
 
   get tableColumns(): string[] {
@@ -166,10 +261,16 @@ export class PosReportsComponent implements OnInit {
       'product',
       'name',
       'sku',
+      'sold',
+      'returned',
+      'purchased',
       'availableQuantity',
       'reservedQuantity',
       'reorderLevel',
       'valuation',
+      'movementType',
+      'quantityChange',
+      'createdAt',
     ];
     return [...preferred.filter((key) => keys.includes(key)), ...keys.filter((key) => !preferred.includes(key))];
   }
@@ -184,15 +285,28 @@ export class PosReportsComponent implements OnInit {
     if (!this.supportsLowStockFilter) {
       this.lowStockOnly = false;
     }
+    if (reportKey === 'medicine-performance' && this.activePeriod === 'custom') {
+      this.applyPeriod('month', false);
+    }
     this.loadReport();
   }
 
+  selectPeriod(period: PeriodKey): void {
+    this.applyPeriod(period, true);
+  }
+
   applyFilters(): void {
+    this.activePeriod = 'custom';
     this.loadReport();
   }
 
   resetFilters(): void {
-    this.setDefaultDateRange();
+    if (this.activeReport === 'medicine-performance') {
+      this.applyPeriod('month', false);
+    } else {
+      this.setDefaultDateRange();
+      this.activePeriod = 'custom';
+    }
     this.applyAssignedStore();
     this.lowStockOnly = false;
     this.errorMessage = '';
@@ -256,6 +370,15 @@ export class PosReportsComponent implements OnInit {
       reservedQuantity: 'Reserved quantity',
       reorderLevel: 'Reorder level',
       valuation: 'Valuation',
+      totalIn: 'Medicine In',
+      totalOut: 'Medicine Out',
+      sold: 'Sold',
+      returned: 'Returned',
+      purchased: 'Purchased',
+      totals: 'Totals',
+      count: 'Movements',
+      sku: 'SKU',
+      name: 'Medicine',
     };
     if (labels[key]) {
       return labels[key];
@@ -346,6 +469,8 @@ export class PosReportsComponent implements OnInit {
         return this.backend.getProfitLossReport(params);
       case 'stock-movements':
         return this.backend.getStockMovementsReport(params);
+      case 'medicine-performance':
+        return this.backend.getMedicinePerformanceReport(params);
       case 'payments':
         return this.backend.getPaymentsReport(params);
       case 'expenses':
@@ -353,6 +478,90 @@ export class PosReportsComponent implements OnInit {
       default:
         return this.backend.getSalesReport(params);
     }
+  }
+
+  private applyPeriod(period: PeriodKey, reload: boolean): void {
+    this.activePeriod = period;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (period === 'today') {
+      this.fromDate = this.toDateInputValue(today);
+      this.toDate = this.toDateInputValue(today);
+    } else if (period === 'week') {
+      const weekStart = new Date(today);
+      const day = weekStart.getDay();
+      const mondayOffset = day === 0 ? -6 : 1 - day;
+      weekStart.setDate(weekStart.getDate() + mondayOffset);
+      this.fromDate = this.toDateInputValue(weekStart);
+      this.toDate = this.toDateInputValue(today);
+    } else if (period === 'month') {
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      this.fromDate = this.toDateInputValue(monthStart);
+      this.toDate = this.toDateInputValue(monthEnd);
+    }
+
+    if (reload) {
+      this.loadReport();
+    }
+  }
+
+  private refreshMedicineChart(): void {
+    if (this.activeReport !== 'medicine-performance') {
+      this.medicineChart = this.emptyMedicineChart();
+      return;
+    }
+
+    const top = this.items.slice(0, 12);
+    this.medicineChart = {
+      series: [
+        { name: 'Sold', data: top.map((row) => Number(row['sold'] || 0)) },
+        { name: 'Returned', data: top.map((row) => Number(row['returned'] || 0)) },
+        { name: 'Purchased', data: top.map((row) => Number(row['purchased'] || 0)) },
+      ],
+      chart: {
+        type: 'bar',
+        height: 360,
+        toolbar: { show: false },
+        stacked: false,
+      },
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          columnWidth: '55%',
+          borderRadius: 4,
+        },
+      },
+      colors: ['#0f766e', '#b45309', '#1d4ed8'],
+      dataLabels: { enabled: false },
+      stroke: { show: true, width: 2, colors: ['transparent'] },
+      xaxis: {
+        categories: top.map((row) => String(row['name'] || row['sku'] || 'Medicine')),
+        labels: { rotate: -35, trim: true, hideOverlappingLabels: true },
+      },
+      yaxis: {
+        title: { text: 'Quantity' },
+        labels: {
+          formatter: (value: number) => String(Math.round(value)),
+        },
+      },
+      legend: { position: 'top', horizontalAlign: 'left' },
+    };
+  }
+
+  private emptyMedicineChart(): MedicinePerfChartOptions {
+    return {
+      series: [],
+      chart: { type: 'bar', height: 320, toolbar: { show: false } },
+      plotOptions: { bar: { horizontal: false, columnWidth: '55%' } },
+      colors: ['#0f766e', '#b45309', '#1d4ed8'],
+      dataLabels: { enabled: false },
+      stroke: { show: true, width: 2, colors: ['transparent'] },
+      xaxis: { categories: [] },
+      yaxis: {},
+      legend: { position: 'top' },
+    };
   }
 
   private buildReportParams(): Record<string, unknown> {
@@ -476,6 +685,7 @@ export class PosReportsComponent implements OnInit {
         next: (data) => {
           this.loading = false;
           this.reportData = data;
+          this.refreshMedicineChart();
         },
         error: () => {
           this.loading = false;
@@ -522,6 +732,7 @@ export class PosReportsComponent implements OnInit {
       .subscribe({
         next: ({ sales, products, register }) => {
           this.reportData = this.buildFallbackReportData(sales, products, register);
+          this.refreshMedicineChart();
 
           if (!this.reportData) {
             this.errorMessage =
@@ -549,6 +760,8 @@ export class PosReportsComponent implements OnInit {
         return this.buildFallbackProfitLossReport(sales, products);
       case 'stock-movements':
         return this.buildFallbackStockMovementsReport(products);
+      case 'medicine-performance':
+        return this.buildFallbackMedicinePerformanceReport(sales, products);
       case 'payments':
         return this.buildFallbackPaymentsReport(sales, register);
       case 'expenses':
@@ -556,6 +769,59 @@ export class PosReportsComponent implements OnInit {
       default:
         return this.buildFallbackSalesReport(sales);
     }
+  }
+
+  private buildFallbackMedicinePerformanceReport(
+    sales: Sale[],
+    products: ProductCatalogItem[]
+  ): Record<string, unknown> {
+    const byProduct = new Map<
+      string,
+      { productId: string; name: string; sku: string; sold: number; returned: number; purchased: number }
+    >();
+
+    sales.forEach((sale) => {
+      (sale.items || []).forEach((item) => {
+        const key = String(item.productId);
+        const current = byProduct.get(key) || {
+          productId: key,
+          name: item.name || '',
+          sku: item.sku || '',
+          sold: 0,
+          returned: 0,
+          purchased: 0,
+        };
+        current.sold += Number(item.qty || 0);
+        byProduct.set(key, current);
+      });
+    });
+
+    products.forEach((product) => {
+      const key = String(product._id);
+      if (!byProduct.has(key)) {
+        return;
+      }
+      const current = byProduct.get(key)!;
+      current.name = current.name || product.name;
+      current.sku = current.sku || product.sku || '';
+    });
+
+    const items = Array.from(byProduct.values()).sort((a, b) => b.sold - a.sold);
+    const totals = items.reduce(
+      (acc, row) => {
+        acc.sold += row.sold;
+        acc.returned += row.returned;
+        acc.purchased += row.purchased;
+        return acc;
+      },
+      { sold: 0, returned: 0, purchased: 0 }
+    );
+
+    return {
+      mode: 'Local POS fallback (sold only)',
+      totals,
+      items,
+    };
   }
 
   private buildFallbackSalesReport(sales: Sale[]): Record<string, unknown> {

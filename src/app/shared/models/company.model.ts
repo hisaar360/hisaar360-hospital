@@ -9,6 +9,16 @@ export interface ReceiptLetterheadSettings {
   extraHeaderLines: string[];
   footerTitle?: string | null;
   footerLines: string[];
+  termsText?: string | null;
+  paperWidthMm?: number;
+  borderStyle?: 'dashed' | 'solid' | 'none';
+  logoScale?: number;
+  fontSizeHeader?: number;
+  fontSizeBody?: number;
+  fontSizeFooter?: number;
+  fontWeightHeader?: 'normal' | 'bold';
+  fontWeightBody?: 'normal' | 'bold';
+  fontWeightFooter?: 'normal' | 'bold';
 }
 
 export interface CompanyProfile {

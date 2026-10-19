@@ -45,19 +45,31 @@
       </div>
 
       <div class="pharmacy-filter-body">
+        <div class="period-chips" *ngIf="supportsDateFilter" role="group" aria-label="Date period">
+          <button
+            type="button"
+            *ngFor="let chip of periodChips"
+            class="period-chip"
+            [class.active]="activePeriod === chip.key"
+            (click)="selectPeriod(chip.key)"
+          >
+            {{ chip.label }}
+          </button>
+        </div>
+
         <div class="pharmacy-filter-grid report-filter-grid">
-          <label class="pharmacy-field">
+          <label class="pharmacy-field" *ngIf="supportsDateFilter">
             <span>From Date</span>
             <div class="pharmacy-input-wrap">
-              <input type="date" class="form-control" [(ngModel)]="fromDate" />
+              <input type="date" class="form-control" [(ngModel)]="fromDate" (ngModelChange)="activePeriod = 'custom'" />
               <i class="fa fa-calendar" aria-hidden="true"></i>
             </div>
           </label>
 
-          <label class="pharmacy-field">
+          <label class="pharmacy-field" *ngIf="supportsDateFilter">
             <span>To Date</span>
             <div class="pharmacy-input-wrap">
-              <input type="date" class="form-control" [(ngModel)]="toDate" />
+              <input type="date" class="form-control" [(ngModel)]="toDate" (ngModelChange)="activePeriod = 'custom'" />
               <i class="fa fa-calendar" aria-hidden="true"></i>
             </div>
           </label>
@@ -109,7 +121,22 @@
     <ng-container *ngIf="!loading">
       <section class="ph-highlights" *ngIf="summaryEntries.length" aria-label="Report summary">
         <article class="ph-stat" *ngFor="let entry of summaryEntries; trackBy: trackByKey">
-          <div class="ph-stat-icon blue"><i class="fa fa-line-chart"></i></div>
+          <div
+            class="ph-stat-icon"
+            [ngClass]="{
+              blue: entry.key !== 'totalOut' && entry.key !== 'returned',
+              amber: entry.key === 'totalOut' || entry.key === 'returned'
+            }"
+          >
+            <i
+              class="fa"
+              [ngClass]="{
+                'fa-arrow-down': entry.key === 'totalIn',
+                'fa-arrow-up': entry.key === 'totalOut',
+                'fa-line-chart': entry.key !== 'totalIn' && entry.key !== 'totalOut'
+              }"
+            ></i>
+          </div>
           <div>
             <span>{{ labelFor(entry.key) }}</span>
             <ng-container *ngIf="!isPlainObject(entry.value); else nestedSummary">
@@ -125,6 +152,24 @@
             </ng-template>
           </div>
         </article>
+      </section>
+
+      <section class="medicine-perf-chart" *ngIf="showMedicineChart" aria-label="Medicine performance chart">
+        <header>
+          <h2>Sold / Returned / Purchased</h2>
+          <p>Top medicines in the selected date range (defaults to current month).</p>
+        </header>
+        <apx-chart
+          [series]="medicineChart.series"
+          [chart]="medicineChart.chart"
+          [xaxis]="medicineChart.xaxis"
+          [yaxis]="medicineChart.yaxis"
+          [plotOptions]="medicineChart.plotOptions"
+          [dataLabels]="medicineChart.dataLabels"
+          [stroke]="medicineChart.stroke"
+          [colors]="medicineChart.colors"
+          [legend]="medicineChart.legend"
+        ></apx-chart>
       </section>
 
       <div class="pharmacy-table-card report-table-card">

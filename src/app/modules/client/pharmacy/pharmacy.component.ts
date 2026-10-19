@@ -123,10 +123,31 @@ export class PharmacyComponent implements OnInit {
     hint: string;
     icon: string;
     tone: 'green' | 'blue' | 'amber' | 'red' | 'teal' | 'navy';
+    group?: 'period' | 'stock';
     mobile?: boolean;
+    link?: string;
+    queryParams?: Record<string, string>;
+    fragment?: string;
   }> = [];
   dashboardDateLabel = '';
+  dashboardPeriod: 'today' | 'week' | 'month' | 'custom' = 'today';
+  dashboardFromDate = '';
+  dashboardToDate = '';
+  dashboardLoading = false;
+  readonly dashboardPeriodChips: Array<{ key: 'today' | 'week' | 'month' | 'custom'; label: string }> = [
+    { key: 'today', label: 'Today' },
+    { key: 'week', label: 'This Week' },
+    { key: 'month', label: 'This Month' },
+    { key: 'custom', label: 'Custom' },
+  ];
   mobileMoreOpen = false;
+  recentActivity: Array<{
+    title: string;
+    detail: string;
+    when: string;
+    tone: 'green' | 'blue' | 'amber' | 'navy';
+    icon: string;
+  }> = [];
   private readonly requiredPosPermissions = [
     'sales.create',
     'sales.read',
@@ -164,7 +185,102 @@ export class PharmacyComponent implements OnInit {
     this.loadPatients();
     this.loadDoctors();
     this.refreshCurrentUser();
+    this.applyDashboardPeriod('today', false);
     this.loadPharmacyDashboard();
+    this.loadRecentActivity();
+  }
+
+  get periodKpiCards() {
+    return this.pharmacyKpiCards.filter((card) => card.group === 'period');
+  }
+
+  get stockKpiCards() {
+    return this.pharmacyKpiCards.filter((card) => card.group === 'stock');
+  }
+
+  get mobilePeriodKpiCards() {
+    return this.periodKpiCards.filter((card) => card.key !== 'returns').slice(0, 4);
+  }
+
+  get mobileStockKpiCards() {
+    return this.stockKpiCards.filter((card) => card.key !== 'out').slice(0, 4);
+  }
+
+  get periodShortLabel(): string {
+    if (this.dashboardPeriod === 'today') return 'Today';
+    if (this.dashboardPeriod === 'week') return 'This week';
+    if (this.dashboardPeriod === 'month') return 'This month';
+    return 'Custom';
+  }
+
+  get reportsDeepLinkParams(): Record<string, string> {
+    return this.reportDateParams('sales');
+  }
+
+  selectDashboardPeriod(period: 'today' | 'week' | 'month' | 'custom'): void {
+    this.applyDashboardPeriod(period, true);
+  }
+
+  applyDashboardDates(): void {
+    this.dashboardPeriod = 'custom';
+    this.loadPharmacyDashboard();
+  }
+
+  shiftDashboardDay(delta: number): void {
+    const base = this.dashboardFromDate
+      ? new Date(`${this.dashboardFromDate}T00:00:00`)
+      : new Date();
+    base.setDate(base.getDate() + delta);
+    const next = this.toDateInputValue(base);
+    this.dashboardFromDate = next;
+    this.dashboardToDate = next;
+    this.dashboardPeriod = 'today';
+    this.loadPharmacyDashboard();
+  }
+
+  private loadRecentActivity(): void {
+    if (!this.backend.hasPermission('sales.read')) {
+      this.recentActivity = [];
+      return;
+    }
+
+    this.backend.getSales({ limit: 4, page: 1 }).subscribe({
+      next: (result) => {
+        const items = result.items || [];
+        this.recentActivity = items.map((sale) => ({
+          title: 'Sale Completed',
+          detail: `Invoice #${sale.invoiceNo || '—'} · ${this.currency.format(Number(sale.total || 0))}`,
+          when: this.formatActivityWhen(sale.saleDate),
+          tone: 'green' as const,
+          icon: 'fa-check-circle',
+        }));
+      },
+      error: () => {
+        this.recentActivity = [];
+      },
+    });
+  }
+
+  private formatActivityWhen(value?: string | Date | null): string {
+    if (!value) {
+      return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(date);
+    target.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((today.getTime() - target.getTime()) / 86400000);
+    if (diffDays === 0) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    if (diffDays === 1) {
+      return 'Yesterday';
+    }
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   }
 
   get canViewProducts(): boolean {
@@ -202,113 +318,248 @@ export class PharmacyComponent implements OnInit {
   }
 
   loadPharmacyDashboard(): void {
-    this.dashboardDateLabel = new Intl.DateTimeFormat('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }).format(new Date());
+    this.dashboardDateLabel = this.formatDashboardRangeLabel();
+    this.dashboardLoading = true;
 
-    this.backend.getPharmacyDashboard().subscribe({
+    const params = {
+      fromDate: this.dashboardFromDate
+        ? new Date(`${this.dashboardFromDate}T00:00:00`).toISOString()
+        : undefined,
+      toDate: this.dashboardToDate
+        ? new Date(`${this.dashboardToDate}T23:59:59`).toISOString()
+        : undefined,
+    };
+
+    this.backend.getPharmacyDashboard(params).subscribe({
       next: (data) => {
+        this.dashboardLoading = false;
         this.dashboard = data;
-        const money = (value: unknown) =>
-          typeof value === 'number' ? value.toLocaleString() : String(value ?? 0);
-        const openRegister = Boolean(data['openRegister']);
-        this.pharmacyKpiCards = [
-          {
-            key: 'sales',
-            label: "Today's Sales",
-            value: money(data['todaySales']),
-            hint: 'vs yesterday',
-            icon: 'fa-shopping-cart',
-            tone: 'green',
-            mobile: true,
-          },
-          {
-            key: 'cash',
-            label: 'Cash Collection',
-            value: money(data['todayCashCollection']),
-            hint: 'vs yesterday',
-            icon: 'fa-money',
-            tone: 'blue',
-            mobile: true,
-          },
-          {
-            key: 'returns',
-            label: "Today's Returns",
-            value: money(data['todayReturns']),
-            hint: 'vs yesterday',
-            icon: 'fa-undo',
-            tone: 'amber',
-          },
-          {
-            key: 'receivable',
-            label: 'Counter Receivable',
-            value: money(data['outstandingCounterReceivable']),
-            hint: 'Outstanding counter balance',
-            icon: 'fa-file-text-o',
-            tone: 'navy',
-          },
-          {
-            key: 'low',
-            label: 'Low Stock',
-            value: Number(data['lowStock'] ?? 0),
-            hint: 'Items below threshold',
-            icon: 'fa-exclamation-triangle',
-            tone: 'amber',
-            mobile: true,
-          },
-          {
-            key: 'expiring',
-            label: 'Expiring Soon',
-            value: Number(data['expiringSoon'] ?? 0),
-            hint: 'Within 30 days',
-            icon: 'fa-calendar',
-            tone: 'red',
-          },
-          {
-            key: 'out',
-            label: 'Out of Stock',
-            value: Number(data['outOfStock'] ?? 0),
-            hint: 'Currently unavailable',
-            icon: 'fa-times-circle',
-            tone: 'red',
-          },
-          {
-            key: 'rx',
-            label: 'Pending RX',
-            value: Number(data['pendingPrescriptions'] ?? 0),
-            hint: 'Prescriptions to fulfill',
-            icon: 'fa-medkit',
-            tone: 'blue',
-            mobile: true,
-          },
-          {
-            key: 'register',
-            label: 'Open Register',
-            value: openRegister ? 'Yes' : 'No',
-            hint: openRegister ? 'POS register is open' : 'No open register session',
-            icon: 'fa-calculator',
-            tone: openRegister ? 'green' : 'amber',
-            mobile: true,
-          },
-          {
-            key: 'purchases',
-            label: 'Purchases Today',
-            value: Number(data['purchasesToday'] ?? 0),
-            hint: 'New purchases',
-            icon: 'fa-truck',
-            tone: 'teal',
-            mobile: true,
-          },
-        ];
+        this.pharmacyKpiCards = this.buildDashboardCards(data);
       },
       error: () => {
+        this.dashboardLoading = false;
         this.dashboard = null;
         this.pharmacyKpiCards = [];
       },
     });
+  }
+
+  private applyDashboardPeriod(
+    period: 'today' | 'week' | 'month' | 'custom',
+    reload: boolean
+  ): void {
+    this.dashboardPeriod = period;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (period === 'today') {
+      this.dashboardFromDate = this.toDateInputValue(today);
+      this.dashboardToDate = this.toDateInputValue(today);
+    } else if (period === 'week') {
+      const weekStart = new Date(today);
+      const day = weekStart.getDay();
+      weekStart.setDate(weekStart.getDate() + (day === 0 ? -6 : 1 - day));
+      this.dashboardFromDate = this.toDateInputValue(weekStart);
+      this.dashboardToDate = this.toDateInputValue(today);
+    } else if (period === 'month') {
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      this.dashboardFromDate = this.toDateInputValue(monthStart);
+      this.dashboardToDate = this.toDateInputValue(monthEnd);
+    }
+
+    if (reload) {
+      this.loadPharmacyDashboard();
+    }
+  }
+
+  private formatDashboardRangeLabel(): string {
+    if (!this.dashboardFromDate || !this.dashboardToDate) {
+      return new Intl.DateTimeFormat('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(new Date());
+    }
+
+    if (this.dashboardFromDate === this.dashboardToDate) {
+      return new Intl.DateTimeFormat('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(new Date(`${this.dashboardFromDate}T00:00:00`));
+    }
+
+    const from = new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+    }).format(new Date(`${this.dashboardFromDate}T00:00:00`));
+    const to = new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(new Date(`${this.dashboardToDate}T00:00:00`));
+    return `${from} – ${to}`;
+  }
+
+  private reportDateParams(report: string): Record<string, string> {
+    const params: Record<string, string> = {
+      report,
+      fromDate: this.dashboardFromDate,
+      toDate: this.dashboardToDate,
+    };
+    if (this.dashboardPeriod !== 'custom') {
+      params['period'] = this.dashboardPeriod;
+    }
+    return params;
+  }
+
+  private buildDashboardCards(data: Record<string, unknown>): Array<{
+    key: string;
+    label: string;
+    value: string | number;
+    hint: string;
+    icon: string;
+    tone: 'green' | 'blue' | 'amber' | 'red' | 'teal' | 'navy';
+    group?: 'period' | 'stock';
+    mobile?: boolean;
+    link?: string;
+    queryParams?: Record<string, string>;
+    fragment?: string;
+  }> {
+    const money = (value: unknown) =>
+      typeof value === 'number' ? value.toLocaleString() : String(value ?? 0);
+    const periodHint =
+      this.dashboardPeriod === 'today'
+        ? 'Selected: today'
+        : this.dashboardPeriod === 'week'
+          ? 'Selected: this week'
+          : this.dashboardPeriod === 'month'
+            ? 'Selected: this month'
+            : 'Selected date range';
+
+    return [
+      {
+        key: 'sales',
+        label: 'Sales',
+        value: money(data['periodSales'] ?? data['todaySales']),
+        hint: periodHint,
+        icon: 'fa-shopping-cart',
+        tone: 'green' as const,
+        group: 'period' as const,
+        mobile: true,
+        link: '/pharmacy/reports',
+        queryParams: this.reportDateParams('sales'),
+      },
+      {
+        key: 'medicineIn',
+        label: 'Medicine In',
+        value: Number(data['medicineIn'] ?? data['todayMedicineIn'] ?? 0).toLocaleString(),
+        hint: periodHint,
+        icon: 'fa-arrow-down',
+        tone: 'blue' as const,
+        group: 'period' as const,
+        mobile: true,
+        link: '/pharmacy/reports',
+        queryParams: this.reportDateParams('stock-movements'),
+      },
+      {
+        key: 'medicineOut',
+        label: 'Medicine Out',
+        value: Number(data['medicineOut'] ?? data['todayMedicineOut'] ?? 0).toLocaleString(),
+        hint: periodHint,
+        icon: 'fa-arrow-up',
+        tone: 'amber' as const,
+        group: 'period' as const,
+        mobile: true,
+        link: '/pharmacy/reports',
+        queryParams: this.reportDateParams('stock-movements'),
+      },
+      {
+        key: 'cash',
+        label: 'Cash Collection',
+        value: money(data['periodCashCollection'] ?? data['todayCashCollection']),
+        hint: periodHint,
+        icon: 'fa-money',
+        tone: 'blue' as const,
+        group: 'period' as const,
+        mobile: true,
+        link: '/pharmacy/reports',
+        queryParams: this.reportDateParams('payments'),
+      },
+      {
+        key: 'returns',
+        label: 'Returns',
+        value: money(data['periodReturns'] ?? data['todayReturns']),
+        hint: periodHint,
+        icon: 'fa-undo',
+        tone: 'amber' as const,
+        group: 'period' as const,
+        mobile: true,
+        link: '/pharmacy/returns/sales',
+      },
+      {
+        key: 'totalStock',
+        label: 'Total Stock',
+        value: Number(data['totalStockUnits'] ?? 0).toLocaleString(),
+        hint: `Value ${money(data['totalStockValue'])}`,
+        icon: 'fa-cubes',
+        tone: 'teal' as const,
+        group: 'stock' as const,
+        mobile: true,
+        link: '/pharmacy/inventory',
+      },
+      {
+        key: 'low',
+        label: 'Low Stock',
+        value: Number(data['lowStock'] ?? 0),
+        hint: 'Tap to open inventory',
+        icon: 'fa-exclamation-triangle',
+        tone: 'amber' as const,
+        group: 'stock' as const,
+        mobile: true,
+        link: '/pharmacy/inventory',
+        queryParams: { lowStock: 'true' },
+      },
+      {
+        key: 'nearExpiry',
+        label: 'Near Expiry',
+        value: Number(data['nearExpiry6m'] ?? 0),
+        hint: 'Within 6 months — tap for list',
+        icon: 'fa-clock-o',
+        tone: 'red' as const,
+        group: 'stock' as const,
+        mobile: true,
+        link: '/pharmacy/inventory',
+        queryParams: { expiryStatus: 'near_expiry' },
+      },
+      {
+        key: 'expired',
+        label: 'Expired Stock',
+        value: Number(data['expiredStock'] ?? 0),
+        hint: 'Tap to open expired list',
+        icon: 'fa-ban',
+        tone: 'red' as const,
+        group: 'stock' as const,
+        mobile: true,
+        link: '/pharmacy/inventory',
+        queryParams: { expiryStatus: 'expired' },
+      },
+      {
+        key: 'out',
+        label: 'Out of Stock',
+        value: Number(data['outOfStock'] ?? 0),
+        hint: 'Tap to open inventory',
+        icon: 'fa-times-circle',
+        tone: 'red' as const,
+        group: 'stock' as const,
+        mobile: true,
+        link: '/pharmacy/inventory',
+        queryParams: { outOfStock: 'true' },
+      },
+    ];
   }
 
   get mobileKpiCards() {
@@ -1016,9 +1267,19 @@ export class PharmacyComponent implements OnInit {
     return Number.isFinite(numeric) && numeric > 0 && Math.abs(numeric * 2 - Math.round(numeric * 2)) < 0.000001;
   }
 
-  private toDateInputValue(value?: string | null): string {
+  private toDateInputValue(value?: string | Date | null): string {
     if (!value) {
       return '';
+    }
+
+    if (value instanceof Date) {
+      if (Number.isNaN(value.getTime())) {
+        return '';
+      }
+      const year = value.getFullYear();
+      const month = String(value.getMonth() + 1).padStart(2, '0');
+      const day = String(value.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     }
 
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {

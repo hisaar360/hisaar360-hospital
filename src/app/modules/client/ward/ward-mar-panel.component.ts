@@ -42,6 +42,7 @@ export class WardMarPanelComponent implements OnChanges {
     administeredAt: '',
     dose: '',
     notes: '',
+    medicineSource: 'pharmacy' as 'pharmacy' | 'patient_own' | 'ward_stock',
   };
 
   get dueNowCount(): number {
@@ -128,6 +129,7 @@ export class WardMarPanelComponent implements OnChanges {
       administeredAt: new Date().toISOString().slice(0, 16),
       dose: card.dose,
       notes: '',
+      medicineSource: 'pharmacy',
     };
     this.recordOpen = true;
   }
@@ -155,6 +157,7 @@ export class WardMarPanelComponent implements OnChanges {
         administeredAt: this.recordForm.administeredAt
           ? new Date(this.recordForm.administeredAt).toISOString()
           : undefined,
+        medicineSource: this.recordForm.medicineSource,
       })
       .subscribe({
         next: () => {

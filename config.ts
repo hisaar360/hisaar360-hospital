@@ -33,6 +33,7 @@ export const CONFIG = {
   },
 
   hospitals: API_BASE_URL + '/hospitals',
+  hospitalForms: API_BASE_URL + '/hospital-forms',
   companies: API_BASE_URL + '/companies',
   departments: API_BASE_URL + '/departments',
   treatmentCatalog: API_BASE_URL + '/treatment-catalog',
@@ -76,6 +77,7 @@ export const CONFIG = {
     inventory: API_BASE_URL + '/reports/inventory',
     profitLoss: API_BASE_URL + '/reports/profit-loss',
     stockMovements: API_BASE_URL + '/reports/stock-movements',
+    medicinePerformance: API_BASE_URL + '/reports/medicine-performance',
     payments: API_BASE_URL + '/reports/payments',
     expenses: API_BASE_URL + '/reports/expenses',
   },

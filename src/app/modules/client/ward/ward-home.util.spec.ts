@@ -55,20 +55,40 @@ describe('ward-home.util bed status mapping', () => {
         beds: { total: 20, occupied: 10, available: 6, reserved: 1, cleaning: 2, unavailable: 1 },
         admissions: { pendingRecommendations: 3, activeAdmissions: 10, dischargeReady: 2 },
         work: { overdue: 1, dueNow: 2, upcoming: 5 },
+        missingUpdateCount: 4,
       })
     );
 
     expect(tiles.map((tile) => tile.key)).toEqual([
       'occupied',
       'available',
-      'reserved',
+      'missingRecords',
       'unavailable',
       'pendingAdmissions',
       'dischargeReady',
     ]);
+    expect(tiles[2].value).toBe(4);
     expect(tiles[3].value).toBe(3);
     expect(tiles[4].value).toBe(3);
     expect(tiles[5].value).toBe(2);
+  });
+
+  it('normalizes missing care-record reminders', () => {
+    const summary = normalizeWardHomeSummary({
+      missingUpdates: [
+        {
+          admissionId: 'a1',
+          patientName: 'Ali',
+          bedLabel: '12',
+          shiftKey: 'morning',
+          shiftLabel: 'Morning',
+          message: 'Morning care record missing',
+        },
+      ],
+    });
+    expect(summary.missingUpdateCount).toBe(1);
+    expect(summary.missingUpdates[0].patientName).toBe('Ali');
+    expect(summary.missingUpdates[0].shiftLabel).toBe('Morning');
   });
 });
 

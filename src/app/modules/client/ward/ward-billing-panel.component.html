@@ -323,8 +323,15 @@
         <div class="ward-billing-form__row">
           <input [(ngModel)]="medicineForm.productId" placeholder="Product ID" />
           <input type="number" [(ngModel)]="medicineForm.requestedQty" placeholder="Qty" />
+          <select [(ngModel)]="medicineForm.medicineSource" title="Medicine source">
+            <option value="pharmacy">Pharmacy</option>
+            <option value="ward_stock">Ward stock</option>
+            <option value="patient_own">Patient own</option>
+          </select>
           <input [(ngModel)]="medicineForm.notes" placeholder="Notes" />
-          <button type="button" class="btn btn-primary btn-sm" (click)="createMedicineRequest()">Request</button>
+          <button type="button" class="btn btn-primary btn-sm" (click)="createMedicineRequest()">
+            {{ medicineForm.medicineSource === 'patient_own' ? 'Log' : 'Request' }}
+          </button>
         </div>
       </div>
       <div class="table-responsive">

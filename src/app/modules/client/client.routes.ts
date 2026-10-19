@@ -332,6 +332,13 @@ export const clientRoutes: Routes = [
         canActivate: [roleGuard(HOSPITAL_SETUP_ACCESS)],
       },
       {
+        path: 'hospital-forms',
+        loadComponent: () =>
+          import('./hospital-forms/hospital-forms.component').then((m) => m.HospitalFormsComponent),
+        data: { title: 'Hisaar360 Hospital Management System | Forms & Charts' },
+        canActivate: [roleGuard({ any: ['hospitals.read', 'ward.read', '*'] })],
+      },
+      {
         path: 'hospital-setup/treatments-procedures',
         loadComponent: () =>
           import('./treatments-procedures/treatments-procedures.component').then(
@@ -858,6 +865,15 @@ export const clientRoutes: Routes = [
           import('./pos-reports/pos-reports.component').then((m) => m.PosReportsComponent),
         data: { title: 'Hisaar360 Hospital Management System | POS Reports' },
         canActivate: [roleGuard(REPORT_ACCESS)],
+      },
+      {
+        path: 'pharmacy/invoice-settings',
+        loadComponent: () =>
+          import('./pharmacy/pharmacy-invoice-settings.component').then(
+            (m) => m.PharmacyInvoiceSettingsComponent
+          ),
+        data: { title: 'Hisaar360 Hospital Management System | Pharmacy Invoice Settings' },
+        canActivate: [roleGuard({ any: ['products.read', 'company.manage', '*'] })],
       },
       {
         path: 'pharmacy',

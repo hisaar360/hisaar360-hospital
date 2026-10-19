@@ -95,6 +95,7 @@
                     </button>
                     <ul class="nav-dropdown" *ngIf="!PharmacyCollapsed">
                         <li *ngIf="canViewPharmacy"><a [routerLink]="['/pharmacy']">Pharmacy Dashboard</a></li>
+                        <li *ngIf="canViewPharmacyInvoiceSettings"><a [routerLink]="['/pharmacy/invoice-settings']">Invoice / Print Bill</a></li>
                         <li *ngIf="canViewPharmacy"><a [routerLink]="['/pharmacy/products']">Medicine Catalog</a></li>
                         <li *ngIf="canViewPharmacyCustomers"><a [routerLink]="['/pharmacy/customers']">Customers</a></li>
                         <li *ngIf="canViewPharmacySuppliers"><a [routerLink]="['/pharmacy/suppliers']">Suppliers</a></li>
@@ -133,7 +134,7 @@
                 <li *ngIf="canViewWardAdmin" data-tour="shell-ward">
                     <button type="button" (click)="toggleSection('ward', $event)"
                         [attr.aria-expanded]="!WardCollapsed" class="has-arrow">
-                        <i class="fa fa-heartbeat"></i><span>Ward & Nursing</span>
+                        <i class="fa fa-heartbeat"></i><span>Ward & IPD</span>
                     </button>
                     <ul class="nav-dropdown" *ngIf="!WardCollapsed">
                         <ng-container *ngFor="let section of wardNavSections; trackBy: trackWardSection">
@@ -194,6 +195,7 @@
                     <ul class="nav-dropdown" *ngIf="!SetupCollapsed">
                         <li><a [routerLink]="['/hospital-setup']" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Setup Overview</a></li>
                         <li *ngIf="canViewTreatments"><a [routerLink]="['/hospital-setup/treatments-procedures']" routerLinkActive="active">Treatments &amp; Procedures</a></li>
+                        <li *ngIf="canViewHospitalForms"><a [routerLink]="['/hospital-forms']" routerLinkActive="active">Forms &amp; Charts</a></li>
                     </ul>
                 </li>
 

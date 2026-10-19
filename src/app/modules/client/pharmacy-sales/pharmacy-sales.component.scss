@@ -1,5 +1,9 @@
 @use '../pharmacy-shared.scss';
 
+.is-near-expiry-sale {
+  background: #fff7f8;
+}
+
 .ph-list .pharmacy-hero-main h1,
 .ph-list .pharmacy-filter-head h2 {
   align-items: center;

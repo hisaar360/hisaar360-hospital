@@ -400,13 +400,15 @@
                         [attr.data-kb-product-index]="i"
                         [class.keyboard-active]="keyboardZone === 'products' && selectedProductIndex === i"
                         [class.is-out-of-stock]="isOutOfStock(product)"
+                        [class.is-near-expiry]="isNearExpiryProduct(product)"
                         (focus)="setKeyboardZone('products', i)" (click)="addProduct(product)">
                         <span><i class="fa fa-medkit"></i></span>
                         <div>
                             <strong>{{ productDisplay(product) }}</strong>
                         <span>{{ product.sku }} · {{ product.unit || 'unit' }}</span>
-                            <small *ngIf="productBatchExpiryLabel(product)">
+                            <small *ngIf="productBatchExpiryLabel(product)" [class.is-near-expiry-text]="isNearExpiryProduct(product)">
                             {{ productBatchExpiryLabel(product) }}
+                            <em class="storepos-expiry-badge" [ngClass]="productExpiryBadgeClass(product)">{{ productExpiryLabel(product) }}</em>
                             </small>
                             <small [class.stock-out]="isOutOfStock(product)">Stock {{ stockLabel(product) }}</small>
                             <small>
@@ -884,8 +886,8 @@
                         <tr>
                             <th>Item</th>
                             <th>Qty</th>
+                            <th>Price</th>
                             <th>Discount</th>
-                            <th>Rate</th>
                             <th>Total</th>
                         </tr>
                     </thead>
@@ -896,8 +898,8 @@
                                 <small>{{ item.sku }}</small>
                             </td>
                             <td>{{ item.qty }}</td>
-                            <td>{{ item.discountLabel }}</td>
                             <td>{{ formatCurrency(item.unitPrice) }}</td>
+                            <td>{{ item.discountLabel || formatCurrency(item.discount || 0) }}</td>
                             <td>{{ formatCurrency(item.total) }}</td>
                         </tr>
                     </tbody>
@@ -914,6 +916,12 @@
                 <div class="receipt-preview-foot">
                     <strong>{{ receiptFooterTitle(receipt) }}</strong>
                     <p *ngFor="let line of receiptFooterLines(receipt)">{{ line }}</p>
+                    <div
+                      class="receipt-preview-terms"
+                      dir="rtl"
+                      lang="ur"
+                      *ngIf="receipt.receiptLetterhead?.termsText as terms"
+                    >{{ terms }}</div>
                 </div>
             </section>
 

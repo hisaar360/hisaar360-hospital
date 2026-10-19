@@ -55,6 +55,7 @@
           <label><span>Diastolic</span><input type="number" [(ngModel)]="form['diastolic']" /></label>
           <label><span>Glucose</span><input type="number" [(ngModel)]="form['bloodGlucose']" /></label>
         </div>
+        <label><span>Recorded At</span><input type="datetime-local" [(ngModel)]="form['recordedAt']" /></label>
         <label><span>Notes</span><textarea [(ngModel)]="form['notes']" rows="2"></textarea></label>
       </ng-container>
 

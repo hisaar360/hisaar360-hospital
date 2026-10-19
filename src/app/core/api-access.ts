@@ -67,6 +67,11 @@ const RULES: AccessRule[] = [
   { methods: ['PATCH'], pattern: /^\/hospitals\//, any: ['hospitals.update'] },
   { methods: ['DELETE'], pattern: /^\/hospitals\//, any: ['hospitals.delete'] },
 
+  { methods: ['GET'], pattern: /^\/hospital-forms$/, any: ['hospitals.read', 'ward.read'], empty: LIST },
+  { methods: ['GET'], pattern: /^\/hospital-forms\//, any: ['hospitals.read', 'ward.read'], empty: NONE },
+  { methods: ['PUT'], pattern: /^\/hospital-forms\//, any: ['hospitals.update', 'ward.management.read'] },
+  { methods: ['POST'], pattern: /^\/hospital-forms\/[^/]+\/reset$/, any: ['hospitals.update', 'ward.management.read'] },
+
   { methods: ['GET'], pattern: /^\/doctors\/[^/]+\/patients$/, any: ['patients.read'], empty: LIST },
   { methods: ['GET'], pattern: /^\/doctors\/[^/]+\/appointments$/, any: ['appointments.read'], empty: LIST },
   { methods: ['GET'], pattern: /^\/doctors$/, any: ['doctors.read'], empty: LIST },

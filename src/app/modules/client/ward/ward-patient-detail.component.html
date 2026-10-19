@@ -77,17 +77,19 @@
     </div>
 
     <section class="ward-chart-actions-card ward-chart-actions-card--sticky" *ngIf="patient && quickActions.length">
-      <div class="ward-chart-actions ward-chart-actions--primary">
+      <div class="ward-chart-actions ward-chart-actions--toolbar">
         <button
           *ngFor="let action of quickActions"
           type="button"
-          class="ward-chart-action ward-chart-action--primary"
-          [class.is-active]="action.tab && activeTab === action.tab"
+          class="hms-btn hms-btn-sm"
+          [class.hms-btn-primary]="isQuickActionFocused(action) || (!!action.tab && activeTab === action.tab)"
+          [class.hms-btn-secondary]="!(isQuickActionFocused(action) || (!!action.tab && activeTab === action.tab))"
           [class.is-keyboard-focus]="isQuickActionFocused(action)"
           [attr.data-testid]="'ward-quick-action-' + action.id"
           (click)="runQuickAction(action)"
         >
-          <i class="fa" [ngClass]="action.icon" aria-hidden="true"></i><span>{{ action.label }}</span>
+          <i class="fa" [ngClass]="action.icon" aria-hidden="true"></i>
+          <span>{{ action.label }}</span>
         </button>
       </div>
     </section>

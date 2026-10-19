@@ -34,7 +34,12 @@ export class WardBillingPanelComponent implements OnChanges {
   paymentForm = { amount: 0, method: 'cash', type: 'final', note: '' };
   securityForm = { amount: 0, method: 'cash', note: '' };
   visitForm = { doctorId: '', visitType: 'regular_round', fee: 0, chargeable: true, clinicalNote: '' };
-  medicineForm = { productId: '', requestedQty: 1, notes: '' };
+  medicineForm = {
+    productId: '',
+    requestedQty: 1,
+    notes: '',
+    medicineSource: 'pharmacy' as 'pharmacy' | 'patient_own' | 'ward_stock',
+  };
   procedureForm = { procedureName: '', procedureType: '', doctorId: '', rate: 0, qty: 1, notes: '' };
   operationForm = { operationName: '', surgeonId: '', baseCharge: 0, otRoom: '', clinicalNote: '' };
   doctorVisits: Array<Record<string, unknown>> = [];
@@ -440,12 +445,17 @@ export class WardBillingPanelComponent implements OnChanges {
       .createWardMedicineRequest({
         roomAllotmentId: this.admissionId,
         notes: this.medicineForm.notes,
+        medicineSource: this.medicineForm.medicineSource,
         items: [{ productId: this.medicineForm.productId, requestedQty: this.medicineForm.requestedQty }],
       })
       .subscribe({
         next: () => {
-          this.toastr.success('Medicine request created');
-          this.medicineForm = { productId: '', requestedQty: 1, notes: '' };
+          this.toastr.success(
+            this.medicineForm.medicineSource === 'patient_own'
+              ? 'Patient-own medicine logged (no pharmacy charge)'
+              : 'Medicine request created'
+          );
+          this.medicineForm = { productId: '', requestedQty: 1, notes: '', medicineSource: 'pharmacy' };
           this.load();
         },
         error: (err) => this.toastr.error(err?.error?.message || 'Unable to create medicine request'),

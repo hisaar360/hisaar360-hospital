@@ -12,7 +12,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { hasRouteAccess, isDoctorRole, isNurseRole, readStoredPermissions, readStoredRole } from '../../auth/access-control';
+import { hasRouteAccess, isDoctorRole, readStoredPermissions, readStoredRole } from '../../auth/access-control';
 import { User } from '../../../shared/models/hospital.model';
 import {
   PatientStatus,
@@ -90,14 +90,14 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
 
   pickPatientHint = false;
   private nextChartTab = '';
+  /** Assign-nurse is hidden — Ward Admin enters care logs; nurses do not log in. */
+  readonly showAssignNurse = false;
   readonly pageTitle = isDoctorRole(readStoredRole())
     ? 'My Inpatients'
-    : isNurseRole(readStoredRole())
-      ? 'My Patients'
-      : 'Patients';
+    : 'Patients';
   readonly pageSubtitle = isDoctorRole(readStoredRole())
     ? 'Your currently admitted patients — open a card to review, order, or recommend discharge.'
-    : 'Find admitted patients by MRN, name, or bed — then open the chart for drip, medicine, and discharge.';
+    : 'Find admitted patients by room or MRN — open the chart to enter vitals, medicines, treatment, and discharge.';
 
   constructor(
     private router: Router,

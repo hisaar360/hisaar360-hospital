@@ -89,9 +89,24 @@
 
           <label class="pharmacy-field">
             <span>Inventory Mode</span>
-            <select class="form-select" [(ngModel)]="lowStockOnly" (ngModelChange)="applyFilters()">
-              <option [ngValue]="false">All stock lines</option>
-              <option [ngValue]="true">Low stock only</option>
+            <select
+              class="form-select"
+              [ngModel]="inventoryMode"
+              (ngModelChange)="onInventoryModeChange($event)"
+            >
+              <option value="all">All stock lines</option>
+              <option value="low">Low stock only</option>
+              <option value="out">Out of stock only</option>
+            </select>
+          </label>
+
+          <label class="pharmacy-field">
+            <span>Expiry</span>
+            <select class="form-select" [(ngModel)]="expiryFilter" (ngModelChange)="loadInventory()">
+              <option value="">All</option>
+              <option value="near_expiry">Near expiry (6 mo)</option>
+              <option value="expired">Expired</option>
+              <option value="valid">Valid</option>
             </select>
           </label>
         </div>
@@ -101,7 +116,7 @@
             <i class="fa fa-filter"></i>
             <span>Apply Filters</span>
           </button>
-          <button class="ph-btn ghost" type="button" (click)="search=''; lowStockOnly=false; applyFilters()">
+          <button class="ph-btn ghost" type="button" (click)="search=''; lowStockOnly=false; outOfStockOnly=false; expiryFilter=''; loadInventory()">
             <i class="fa fa-refresh"></i>
             <span>Reset</span>
           </button>
@@ -137,31 +152,62 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let product of filteredProducts">
-                <td>
-                  <div class="fw-semibold">{{ product.name }}</div>
-                  <small class="text-muted">{{ product.sku }}{{ product.brand ? ' · ' + product.brand : '' }}</small>
-                </td>
-                <td>{{ product.batchNumber || '-' }}</td>
-                <td>{{ product.expiryDate || '-' }}</td>
-                <td>{{ qty(product) }}</td>
-                <td>
-                  <span
-                    class="pharmacy-status-pill"
-                    [class.status-in-stock]="!isLowStock(product)"
-                    [class.status-low-stock]="isLowStock(product)">
-                    {{ isLowStock(product) ? 'Low Stock' : 'In Stock' }}
-                  </span>
-                </td>
-                <td>{{ currency(product.costPrice) }}</td>
-                <td>{{ currency(product.sellingPrice) }}</td>
-                <td>{{ currency(qty(product) * price(product)) }}</td>
-                <td class="text-end" *ngIf="canAdjust()">
-                    <button class="ph-icon-btn" type="button" title="Adjust" (click)="openAdjust(product)">
-                      <i class="fa fa-wrench"></i>
+              <ng-container *ngFor="let product of filteredProducts">
+                <tr>
+                  <td>
+                    <button type="button" class="ph-icon-btn me-1" (click)="toggleLots(product)" [attr.aria-expanded]="expandedProductId === product._id" title="Show batches">
+                      <i class="fa" [ngClass]="expandedProductId === product._id ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
                     </button>
-                </td>
-              </tr>
+                    <div class="d-inline-block align-middle">
+                      <div class="fw-semibold">{{ product.name }}</div>
+                      <small class="text-muted">{{ product.sku }}{{ product.brand ? ' · ' + product.brand : '' }}{{ product.lotCount ? ' · ' + product.lotCount + ' batches' : '' }}</small>
+                    </div>
+                  </td>
+                  <td>{{ product.nearestLotNumber || product.batchNumber || '-' }}</td>
+                  <td>
+                    {{ formatDate(productExpiryValue(product)) }}
+                    <span class="pharmacy-expiry-badge" [ngClass]="expiryBadgeClass(product)">{{ expiryLabel(product) }}</span>
+                  </td>
+                  <td>{{ qty(product) }}</td>
+                  <td>
+                    <span
+                      class="pharmacy-status-pill"
+                      [class.status-in-stock]="!isLowStock(product)"
+                      [class.status-low-stock]="isLowStock(product)">
+                      {{ isLowStock(product) ? 'Low Stock' : 'In Stock' }}
+                    </span>
+                  </td>
+                  <td>{{ currency(product.costPrice) }}</td>
+                  <td>{{ currency(product.sellingPrice) }}</td>
+                  <td>{{ currency(qty(product) * price(product)) }}</td>
+                  <td class="text-end" *ngIf="canAdjust()">
+                      <button class="ph-icon-btn" type="button" title="Adjust" (click)="openAdjust(product)">
+                        <i class="fa fa-wrench"></i>
+                      </button>
+                  </td>
+                </tr>
+                <tr *ngIf="expandedProductId === product._id" class="pharmacy-lot-detail-row">
+                  <td [attr.colspan]="canAdjust() ? 9 : 8">
+                    <div *ngIf="lotsLoadingId === product._id" class="text-muted">Loading batches...</div>
+                    <div *ngIf="lotsLoadingId !== product._id && !(lotsByProductId[product._id] || []).length" class="text-muted">No active batches.</div>
+                    <div class="pharmacy-lot-list" *ngIf="(lotsByProductId[product._id] || []).length">
+                      <div class="pharmacy-lot-item" *ngFor="let lot of lotsByProductId[product._id]">
+                        <div>
+                          <strong>{{ lot.lotNumber || 'No batch #' }}</strong>
+                          <small>Exp {{ formatDate(lot.expiryDate) }} · Qty {{ lotQty(lot) }}</small>
+                          <span class="pharmacy-expiry-badge" [ngClass]="lotExpiryBadgeClass(lot)">{{ lotExpiryLabel(lot) }}</span>
+                        </div>
+                        <div class="pharmacy-lot-actions" *ngIf="canAdjust()">
+                          <button class="ph-btn ghost" type="button" (click)="openAdjust(product, lot)">Adjust</button>
+                          <button class="ph-btn ghost" type="button" [disabled]="writingOffLotId === lot._id" (click)="writeOffLot(product, lot)">
+                            {{ writingOffLotId === lot._id ? 'Writing off...' : 'Write off' }}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </ng-container>
             </tbody>
           </table>
         </div>
@@ -207,11 +253,19 @@
         <i class="fa fa-times"></i>
       </button>
     </div>
+    <p class="text-muted" *ngIf="adjustLot as lot">Batch {{ lot.lotNumber || lot._id }} · available {{ lotQty(lot) }}</p>
     <label class="field-label" for="adjust-type">Adjustment Type</label>
     <select id="adjust-type" class="form-select" [(ngModel)]="adjustType">
       <option value="INCREASE">Increase</option>
       <option value="DECREASE">Decrease</option>
       <option value="SET">Set Exact Quantity</option>
+    </select>
+    <label class="field-label mt-2" for="adjust-reason">Reason</label>
+    <select id="adjust-reason" class="form-select" [(ngModel)]="adjustReason">
+      <option value="MANUAL_ADJUSTMENT">Manual adjustment</option>
+      <option value="WRITE_OFF">Write off</option>
+      <option value="EXPIRED">Expired</option>
+      <option value="DAMAGE">Damage</option>
     </select>
     <label class="field-label mt-2" for="adjust-qty">Quantity</label>
     <input id="adjust-qty" class="form-control" type="number" min="0" step="1" [(ngModel)]="adjustQty" />
