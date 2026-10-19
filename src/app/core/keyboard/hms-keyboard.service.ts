@@ -92,6 +92,14 @@ export class HmsKeyboardService {
       }
     }
 
+    // Page handlers first (POS cart Enter advance, arrow focus, etc.).
+    // Generic number/select helpers only run when the page did not claim the event.
+    const handled = ctx.onKeydown(event);
+    if (handled) {
+      event.preventDefault();
+      return;
+    }
+
     // Make native <select> keyboard-friendly (Enter rarely opens the menu by default).
     if (openFocusedSelectMenu(event)) {
       event.preventDefault();
@@ -106,12 +114,6 @@ export class HmsKeyboardService {
 
     // Enter on simple inputs selects value for overwrite (pages can opt out).
     if (selectFocusedFieldOnEnter(event)) {
-      event.preventDefault();
-      return;
-    }
-
-    const handled = ctx.onKeydown(event);
-    if (handled) {
       event.preventDefault();
     }
   }

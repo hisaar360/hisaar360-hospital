@@ -495,13 +495,13 @@
 
             <div class="dock-actions">
                 <ng-container *ngIf="registerOpened; else openRegisterDock">
-                    <button type="button" class="pay-btn" data-kb-dock-index="3"
+                    <button type="button" class="pay-btn" data-kb-dock-index="3" data-kb-dock-action="confirm"
                         [class.keyboard-active]="keyboardZone === 'actions' && selectedDockIndex === 3"
                         (focus)="setKeyboardZone('actions', 3)" [disabled]="!canCheckout" (click)="confirmBilling()">
                         <i class="fa fa-spinner fa-spin" *ngIf="saleSaving"></i>
                         Confirm Sale
                     </button>
-                    <button type="button" class="pay-btn" data-kb-dock-index="4"
+                    <button type="button" class="pay-btn" data-kb-dock-index="4" data-kb-dock-action="credit"
                         [class.keyboard-active]="keyboardZone === 'actions' && selectedDockIndex === 4"
                         (focus)="setKeyboardZone('actions', 4)" [disabled]="!canCheckout" (click)="checkoutCredit()">
                         Credit

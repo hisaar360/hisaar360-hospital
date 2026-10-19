@@ -62,7 +62,7 @@ const POS_TUTORIAL_STEPS: Array<{
   {
     target: 'pos-search',
     title: 'Search & barcode scan',
-    text: 'Type medicine name / SKU or scan. Enter adds it and jumps to Qty → Price → Discount, then back to search. Empty search + Enter twice opens Confirm Sale. Use arrow keys to move focus without the mouse.',
+    text: 'Type medicine name / SKU or scan. Enter adds it and jumps to Qty → Price → Discount, then back to search. Empty search + Enter twice confirms a cash sale. Arrow keys move through cart, payment, Confirm Sale, Credit, and other dock controls.',
     place: 'below',
   },
   {
@@ -283,9 +283,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   isFullScreen = false;
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private searchRequestSeq = 0;
-  /** Double-Enter on empty search focuses Confirm Sale. */
+  /** Double-Enter on empty search confirms cash sale. */
   private lastEmptySearchEnterAt = 0;
-  private readonly emptySearchDoubleEnterMs = 500;
+  private readonly emptySearchDoubleEnterMs = 650;
   /** Prevents two browser print dialogs from the same sale/print action. */
   private lastReceiptPrintAt = 0;
   paymentMethod: PharmacyPosPaymentMethod = 'cash';
@@ -434,6 +434,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       id: 'pharmacy-pos',
       onKeydown: (event) => {
         this.handleKeyboardShortcuts(event);
+        // Prefer explicit preventDefault from POS handlers over generic number/select helpers.
         return event.defaultPrevented;
       },
       onEscape: () => {
@@ -1538,7 +1539,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Empty search: first Enter arms checkout, second Enter focuses Confirm Sale. */
+  /** Empty search: first Enter arms checkout, second Enter confirms cash sale. */
   private handleEmptySearchEnter(): void {
     if (!this.billLines.length) {
       this.lastEmptySearchEnterAt = 0;
@@ -1556,14 +1557,15 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         this.toastr.warning('Sale is not ready to confirm yet.');
         return;
       }
-      this.focusActionDockButton(3);
-      this.toastr.info('Confirm Sale focused — press Enter to complete.', '', {
-        timeOut: 1800,
-      });
+      // Always cash Confirm Sale — never Credit on double-Enter.
+      this.checkoutWith('cash');
       return;
     }
 
     this.lastEmptySearchEnterAt = now;
+    this.toastr.info('Press Enter again to Confirm Sale (cash).', '', {
+      timeOut: 1600,
+    });
   }
 
   filteredProducts(): ProductCatalogItem[] {
@@ -4674,6 +4676,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         return true;
       case 'ArrowDown':
         event.preventDefault();
+        if (currentPosition >= cartIndexes.length - 1) {
+          this.focusCheckoutDock();
+          return true;
+        }
         this.focusCartRow(
           cartIndexes[Math.min(currentPosition + 1, cartIndexes.length - 1)],
           true,
@@ -4787,7 +4793,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   private advanceCartFieldAfterEnter(lineIndex: number): void {
     const editable = this.cartEditableCellIndexes(lineIndex);
     if (!editable.length) {
-      this.focusProductSearch(true);
+      this.focusProductSearch(true, true);
       return;
     }
 
@@ -4801,8 +4807,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Last field on the line → back to product search for the next medicine.
-    this.focusProductSearch(true);
+    // Last field on the line → clear search box for the next medicine.
+    this.focusProductSearch(true, true);
   }
 
   private moveCartEditableFocus(
@@ -4829,7 +4835,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         const nextEditable = this.cartEditableCellIndexes(nextLine);
         this.focusCartRow(nextLine, true, nextEditable[0] ?? this.cartQtyCellIndex());
       } else {
-        this.focusProductSearch(true);
+        // Last cart field via arrows → checkout dock (Confirm / Credit / payment).
+        this.focusCheckoutDock();
       }
       return;
     }
@@ -4876,6 +4883,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         return true;
       case 'Enter':
       case ' ':
+        // Native <select> — let shared showPicker helper open the menu.
+        if ((event.target as HTMLElement | null)?.tagName === 'SELECT') {
+          return false;
+        }
         event.preventDefault();
         this.triggerActiveActionDockButton();
         return true;
@@ -4903,18 +4914,27 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     element?.focus();
   }
 
-  private focusProductSearch(selectText = false): void {
+  private focusProductSearch(selectText = false, clearQuery = false): void {
     this.keyboardZone = 'search';
+    if (clearQuery) {
+      this.productSearch = '';
+      this.searchResults = null;
+      this.showSearchDropdown = false;
+      this.selectedProductIndex = 0;
+    }
     this.clampKeyboardNavigationState();
     window.setTimeout(() => {
       const input = document.querySelector(
         '.storepos-search-box input[type="search"]',
       ) as HTMLInputElement | null;
-      input?.focus();
-      if (selectText) {
-        input?.select();
+      if (!input) {
+        return;
       }
-    });
+      input.focus();
+      if (selectText || clearQuery) {
+        input.select();
+      }
+    }, 0);
   }
 
   private schedulePrintSearchFocus(): void {
@@ -5130,12 +5150,49 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
 
     window.setTimeout(() => {
-      const element = document.querySelector(
-        `[data-kb-dock-index="${resolvedIndex}"]`,
-      ) as HTMLElement | null;
+      const element = this.resolveDockElement(resolvedIndex);
       element?.focus();
       element?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     });
+  }
+
+  /** Prefer Confirm Sale, else first enabled dock control (payment / Credit / …). */
+  private focusCheckoutDock(): void {
+    const dockIndexes = this.availableActionDockIndexes();
+    if (!dockIndexes.length) {
+      return;
+    }
+    if (dockIndexes.includes(3)) {
+      this.focusActionDockButton(3);
+      return;
+    }
+    if (dockIndexes.includes(4)) {
+      this.focusActionDockButton(4);
+      return;
+    }
+    this.focusActionDockButton(dockIndexes[0]);
+  }
+
+  private resolveDockElement(index: number): HTMLElement | null {
+    if (index === 3) {
+      const confirm = document.querySelector(
+        '[data-kb-dock-action="confirm"]',
+      ) as HTMLElement | null;
+      if (confirm && !confirm.hasAttribute('disabled')) {
+        return confirm;
+      }
+    }
+    if (index === 4) {
+      const credit = document.querySelector(
+        '[data-kb-dock-action="credit"]',
+      ) as HTMLElement | null;
+      if (credit && !credit.hasAttribute('disabled')) {
+        return credit;
+      }
+    }
+    return document.querySelector(
+      `[data-kb-dock-index="${index}"]`,
+    ) as HTMLElement | null;
   }
 
   setKeyboardZone(zone: PosKeyboardZone, index?: number): void {
@@ -5216,9 +5273,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   private triggerActiveActionDockButton(): void {
-    const element = document.querySelector(
-      `[data-kb-dock-index="${this.selectedDockIndex}"]`,
-    ) as HTMLElement | null;
+    const element = this.resolveDockElement(this.selectedDockIndex);
     element?.click();
   }
 
@@ -5446,7 +5501,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return true;
     }
 
-    // Dock payment fields: Enter moves toward Confirm Sale.
+    // Dock payment fields: Enter moves toward Confirm Sale (then Credit).
     if (
       event.key === 'Enter' &&
       this.isDockEditableTarget(event.target) &&
@@ -5461,9 +5516,30 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       if (position >= 0 && position < dockIndexes.length - 1) {
         this.focusActionDockButton(dockIndexes[position + 1]);
       } else {
-        this.focusActionDockButton(3);
+        this.focusCheckoutDock();
       }
       return true;
+    }
+
+    // Dock payment/select: plain arrows move between dock controls (not spin values).
+    if (
+      (event.key === 'ArrowLeft' ||
+        event.key === 'ArrowRight' ||
+        event.key === 'ArrowUp' ||
+        event.key === 'ArrowDown') &&
+      !event.shiftKey &&
+      (this.isDockEditableTarget(event.target) ||
+        (event.target as HTMLElement | null)?.closest?.('[data-kb-dock-index]'))
+    ) {
+      this.keyboardZone = 'actions';
+      const current = Number(
+        ((event.target as HTMLElement).closest('[data-kb-dock-index]') as HTMLElement | null)
+          ?.getAttribute('data-kb-dock-index') || this.selectedDockIndex,
+      );
+      if (Number.isFinite(current) && current >= 0) {
+        this.selectedDockIndex = current;
+      }
+      return this.handleActionsZoneNavigation(event);
     }
 
     if (
