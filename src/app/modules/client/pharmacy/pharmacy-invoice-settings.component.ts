@@ -167,7 +167,7 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
         brandSubtitle: this.form.brandSubtitle?.trim() || '',
         headerNote: this.form.headerNote?.trim() || '',
         contactLine: this.form.contactLine?.trim() || '',
-        footerTitle: this.form.footerTitle?.trim() || 'Thank you',
+        footerTitle: this.form.footerTitle?.trim() || '',
         termsText: resolveReceiptTermsText(this.form.termsText),
         logoUrl: this.form.logoUrl?.trim() || '',
       },
@@ -214,9 +214,14 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
       fontSizeHeader: 18,
       fontSizeBody: 11,
       fontSizeFooter: 10,
+      fontSizeMedicine: 11,
+      fontSizeAmount: 13,
+      lineGap: 2,
       fontWeightHeader: 'bold',
       fontWeightBody: 'normal',
       fontWeightFooter: 'normal',
+      fontWeightMedicine: 'bold',
+      fontWeightAmount: 'bold',
     };
   }
 
@@ -240,8 +245,8 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
       extraHeaderLines: lh?.extraHeaderLines?.length
         ? lh.extraHeaderLines
         : defaults.extraHeaderLines,
-      footerTitle: lh?.footerTitle || defaults.footerTitle,
-      footerLines: lh?.footerLines?.length ? lh.footerLines : defaults.footerLines,
+      footerTitle: lh ? String(lh.footerTitle || '') : defaults.footerTitle || '',
+      footerLines: lh && Array.isArray(lh.footerLines) ? lh.footerLines : defaults.footerLines,
       termsText: resolveReceiptTermsText(lh?.termsText),
       paperWidthMm: lh?.paperWidthMm || 80,
       borderStyle: lh?.borderStyle || 'dashed',
@@ -249,9 +254,14 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
       fontSizeHeader: lh?.fontSizeHeader || 18,
       fontSizeBody: lh?.fontSizeBody || 11,
       fontSizeFooter: lh?.fontSizeFooter || 10,
+      fontSizeMedicine: lh?.fontSizeMedicine || lh?.fontSizeBody || 11,
+      fontSizeAmount: lh?.fontSizeAmount || (Number(lh?.fontSizeBody) || 11) + 2,
+      lineGap: Number.isFinite(Number(lh?.lineGap)) ? Number(lh?.lineGap) : 2,
       fontWeightHeader: lh?.fontWeightHeader === 'normal' ? 'normal' : 'bold',
       fontWeightBody: lh?.fontWeightBody === 'bold' ? 'bold' : 'normal',
       fontWeightFooter: lh?.fontWeightFooter === 'bold' ? 'bold' : 'normal',
+      fontWeightMedicine: lh?.fontWeightMedicine === 'normal' ? 'normal' : 'bold',
+      fontWeightAmount: lh?.fontWeightAmount === 'normal' ? 'normal' : 'bold',
     };
   }
 
@@ -295,9 +305,14 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
     const headerSize = Number(f.fontSizeHeader) || 18;
     const bodySize = Number(f.fontSizeBody) || 11;
     const footerSize = Number(f.fontSizeFooter) || 10;
+    const medicineSize = Number(f.fontSizeMedicine) || bodySize;
+    const amountSize = Number(f.fontSizeAmount) || bodySize + 2;
+    const gap = Number.isFinite(Number(f.lineGap)) ? Number(f.lineGap) : 2;
     const headerWeight = f.fontWeightHeader === 'normal' ? 'normal' : 'bold';
     const bodyWeight = f.fontWeightBody === 'bold' ? 'bold' : 'normal';
     const footerWeight = f.fontWeightFooter === 'bold' ? 'bold' : 'normal';
+    const medicineWeight = f.fontWeightMedicine === 'normal' ? 'normal' : 'bold';
+    const amountWeight = f.fontWeightAmount === 'normal' ? 'normal' : 'bold';
     const brand = f.brandTitle || this.company?.name || 'Pharmacy';
     const logo = f.showLogo && f.logoUrl ? resolveAssetUrl(f.logoUrl) : '';
     const headerLines = [
@@ -306,6 +321,7 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
       f.contactLine,
       ...this.splitLines(this.extraHeaderText),
     ].filter(Boolean);
+    const footerTitle = String(f.footerTitle || '').trim();
     const footerLines = this.splitLines(this.footerLinesText);
     const terms = resolveReceiptTermsText(f.termsText);
     const maxWidth = isA4 ? 640 : Math.round(width * 3.78);
@@ -320,20 +336,21 @@ body{margin:0;color:#111827;font-family:Arial,"Noto Nastaliq Urdu","Segoe UI",sa
   linear-gradient(135deg,#fff 33%,transparent 33%) -6px 0/12px 12px,
   linear-gradient(225deg,#fff 33%,transparent 33%) -6px 0/12px 12px;background-color:transparent}
 .center{text-align:center}
-.logo{display:block;height:${logoPx}px;margin:0 auto 8px;max-width:${Math.max(logoPx, 120)}px;object-fit:contain}
-h1{font-size:${headerSize}px;font-weight:${headerWeight};margin:0 0 4px;letter-spacing:-.02em}
-p{margin:2px 0}
-.meta{border-bottom:${border};border-top:${border};margin:10px 0;padding:8px 0}
+.logo{display:block;height:${logoPx}px;margin:0 auto ${gap * 2}px;max-width:${Math.max(logoPx, 120)}px;object-fit:contain}
+h1{font-size:${headerSize}px;font-weight:${headerWeight};margin:0 0 ${gap}px;letter-spacing:-.02em}
+p{margin:${gap}px 0}
+.meta{border-bottom:${border};border-top:${border};margin:${gap * 3}px 0;padding:${gap * 2}px 0}
 .meta div,.totals div{display:flex;justify-content:space-between;gap:10px}
 table{border-collapse:collapse;table-layout:fixed;width:100%}
-th,td{border-bottom:1px solid #e5e7eb;font-size:${Math.max(8, bodySize - 2)}px;padding:4px 1px;text-align:left;vertical-align:top;word-break:break-word}
+th,td{border-bottom:1px solid #e5e7eb;font-size:${Math.max(7, bodySize - 1)}px;padding:${gap}px 1px;text-align:left;vertical-align:top;word-break:break-word}
+.item-name{font-size:${medicineSize}px;font-weight:${medicineWeight};line-height:1.15}
 th:first-child,td:first-child{width:34%}
 th:nth-child(2),td:nth-child(2){width:10%;text-align:center}
 th:nth-child(3),td:nth-child(3),th:nth-child(4),td:nth-child(4),th:nth-child(5),td:nth-child(5){width:18%;text-align:right}
-.totals{border-top:${border};margin-top:8px;padding-top:8px}
-.grand{font-size:${bodySize + 4}px;font-weight:800}
-.foot{border-top:${border};margin-top:12px;padding-top:8px;text-align:center;font-size:${footerSize}px;font-weight:${footerWeight}}
-.terms{margin-top:8px;text-align:right;font-size:${footerSize}px;font-weight:${footerWeight};white-space:pre-wrap;unicode-bidi:plaintext;direction:rtl;line-height:1.55}
+.totals{border-top:${border};margin-top:${gap * 2}px;padding-top:${gap * 2}px;font-size:${amountSize}px;font-weight:${amountWeight}}
+.grand{font-size:${amountSize}px;font-weight:${amountWeight}}
+.foot{border-top:${border};margin-top:${gap * 3}px;padding-top:${gap * 2}px;text-align:center;font-size:${footerSize}px;font-weight:${footerWeight}}
+.terms{margin-top:${gap * 2}px;text-align:right;font-size:${footerSize}px;font-weight:${footerWeight};white-space:pre-wrap;unicode-bidi:plaintext;direction:rtl;line-height:1.35}
 </style></head><body><div class="wrap"><section class="receipt"><div class="center">
 ${logo ? `<img class="logo" src="${this.escAttr(logo)}" alt=""/>` : ''}
 <h1>${this.esc(brand)}</h1>
@@ -346,15 +363,15 @@ ${headerLines.map((l) => `<p>${this.esc(String(l))}</p>`).join('')}
 </div>
 <table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Discount</th><th>Total</th></tr></thead>
 <tbody>
-<tr><td><strong>Sample Medicine</strong><br/><small>SKU-001</small></td><td>2</td><td>Rs. 120</td><td>Rs. 20</td><td>Rs. 220</td></tr>
-<tr><td><strong>Vitamin Syrup</strong><br/><small>SKU-014</small></td><td>1</td><td>Rs. 350</td><td>Rs. 0</td><td>Rs. 350</td></tr>
+<tr><td><strong class="item-name">Sample Medicine</strong><br/><small>SKU-001</small></td><td>2</td><td>Rs. 120</td><td>Rs. 20</td><td>Rs. 220</td></tr>
+<tr><td><strong class="item-name">Vitamin Syrup</strong><br/><small>SKU-014</small></td><td>1</td><td>Rs. 350</td><td>Rs. 0</td><td>Rs. 350</td></tr>
 </tbody></table>
 <div class="totals">
 <div><span>Subtotal</span><strong>Rs. 590</strong></div>
 <div><span>Total Discount</span><strong>Rs. 20</strong></div>
 <div class="grand"><span>Total</span><strong>Rs. 570</strong></div>
 </div>
-<div class="foot"><p><strong>${this.esc(f.footerTitle || 'Thank you')}</strong></p>
+<div class="foot">${footerTitle ? `<p><strong>${this.esc(footerTitle)}</strong></p>` : ''}
 ${footerLines.map((l) => `<p>${this.esc(l)}</p>`).join('')}
 <div class="terms" dir="rtl" lang="ur">${this.esc(terms)}</div>
 </div></section></div></body></html>`;

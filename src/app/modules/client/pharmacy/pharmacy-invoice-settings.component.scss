@@ -505,10 +505,93 @@
   }
 }
 
-.pis-type-grid {
+.pis-type-table {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.pis-type-table__head,
+.pis-type-row {
+  align-items: center;
   display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+  grid-template-columns: minmax(110px, 1.2fr) 92px minmax(96px, 0.8fr);
+  padding: 6px 10px;
+}
+
+.pis-type-table__head {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pis-type-row {
+  border-top: 1px solid #e2e8f0;
+
+  > span:first-child {
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 700;
+  }
+}
+
+.pis-type-row__note {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pis-mini {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dbe3ee;
+  border-radius: 7px;
+  display: flex;
+  height: 30px;
+  min-width: 0;
+  padding: 0 6px 0 8px;
+
+  input {
+    appearance: textfield;
+    background: transparent;
+    border: 0;
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 700;
+    height: 28px;
+    min-height: 0;
+    padding: 0;
+    width: 100%;
+
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      appearance: none;
+      margin: 0;
+    }
+  }
+
+  em {
+    color: #94a3b8;
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 800;
+  }
+}
+
+.pis-type-row select {
+  background: #fff;
+  border: 1px solid #dbe3ee;
+  border-radius: 7px;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
+  height: 30px;
+  min-height: 0;
+  padding: 0 8px;
 }
 
 .pis-type-card {
@@ -635,17 +718,26 @@
     grid-template-columns: 1fr;
   }
 
-  .pis-type-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .pis-type-card__fields {
-    grid-template-columns: minmax(100px, 0.75fr) minmax(140px, 1.25fr);
+  .pis-type-table__head,
+  .pis-type-row {
+    grid-template-columns: minmax(88px, 1fr) 84px minmax(88px, 0.9fr);
   }
 }
 
 @media (max-width: 420px) {
-  .pis-type-card__fields {
-    grid-template-columns: 1fr;
+  .pis-type-table__head {
+    display: none;
+  }
+
+  .pis-type-row {
+    grid-template-columns: 1fr 78px;
+  }
+
+  .pis-type-row__note {
+    display: none;
+  }
+
+  .pis-type-row select {
+    grid-column: 1 / -1;
   }
 }

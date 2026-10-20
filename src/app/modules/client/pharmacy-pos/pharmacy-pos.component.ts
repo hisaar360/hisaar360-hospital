@@ -1045,23 +1045,13 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   receiptFooterTitle(receipt: ReceiptPreviewData | null | undefined): string {
-    const letterhead = this.activeReceiptLetterhead(receipt);
-    return (
-      letterhead?.footerTitle?.trim() ||
-      `Thank you for trusting ${receipt?.companyName || 'Hisaar360 Pharmacy'}.`
-    );
+    return this.activeReceiptLetterhead(receipt)?.footerTitle?.trim() || '';
   }
 
   receiptFooterLines(receipt: ReceiptPreviewData | null | undefined): string[] {
-    const configuredLines = (
-      this.activeReceiptLetterhead(receipt)?.footerLines || []
-    )
+    return (this.activeReceiptLetterhead(receipt)?.footerLines || [])
       .map((line) => String(line || '').trim())
       .filter(Boolean);
-
-    return configuredLines.length
-      ? configuredLines
-      : ['Please check your items before leaving the pharmacy counter.'];
   }
 
   receiptLogoUrl(receipt: ReceiptPreviewData | null | undefined): string {
@@ -3308,16 +3298,21 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     const fontHeader = Number(lh?.fontSizeHeader) || 18;
     const fontBody = Number(lh?.fontSizeBody) || 11;
     const fontFooter = Number(lh?.fontSizeFooter) || 10;
+    const fontMedicine = Number(lh?.fontSizeMedicine) || fontBody;
+    const fontAmount = Number(lh?.fontSizeAmount) || fontBody + 2;
+    const lineGap = Number.isFinite(Number(lh?.lineGap)) ? Number(lh?.lineGap) : 2;
     const weightHeader = lh?.fontWeightHeader === 'normal' ? 'normal' : 'bold';
     const weightBody = lh?.fontWeightBody === 'bold' ? 'bold' : 'normal';
     const weightFooter = lh?.fontWeightFooter === 'bold' ? 'bold' : 'normal';
+    const weightMedicine = lh?.fontWeightMedicine === 'normal' ? 'normal' : 'bold';
+    const weightAmount = lh?.fontWeightAmount === 'normal' ? 'normal' : 'bold';
     const termsText = this.resolveReceiptTermsText(lh?.termsText);
     const rows = receipt.items
       .map(
         (item) => `
         <tr>
           <td>
-            <strong>${this.escapeHtml(item.name)}</strong>
+            <strong class="item-name">${this.escapeHtml(item.name)}</strong>
             <small>${this.escapeHtml(item.sku)}</small>
           </td>
           <td>${item.qty}</td>
@@ -3336,6 +3331,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     const headerPx = compact ? Math.min(fontHeader, 14) : fontHeader;
     const bodyPx = compact ? Math.min(fontBody, 10) : fontBody;
     const footerPx = compact ? Math.min(fontFooter, 9) : fontFooter;
+    const medicinePx = compact ? Math.min(fontMedicine, 9) : fontMedicine;
+    const amountPx = compact ? Math.min(fontAmount, 11) : fontAmount;
+    const gap = compact ? Math.min(lineGap, 2) : lineGap;
     const logoPrintPx = compact ? Math.min(logoPx, 40) : logoPx;
 
     return `
@@ -3373,39 +3371,40 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               overflow: visible;
             }
             .center { text-align: center; }
-            .logo { display: block; height: ${logoPrintPx}px; margin: 0 auto 6px; max-width: 100%; object-fit: contain; }
-            h1 { font-size: ${headerPx}px; font-weight: ${weightHeader}; margin: 0 0 4px; word-break: break-word; }
-            p { margin: 2px 0; word-break: break-word; }
-            .meta { border-bottom: ${border}; border-top: ${border}; margin: 8px 0; padding: 6px 0; }
+            .logo { display: block; height: ${logoPrintPx}px; margin: 0 auto ${gap * 2}px; max-width: 100%; object-fit: contain; }
+            h1 { font-size: ${headerPx}px; font-weight: ${weightHeader}; margin: 0 0 ${gap}px; word-break: break-word; }
+            p { margin: ${gap}px 0; word-break: break-word; }
+            .meta { border-bottom: ${border}; border-top: ${border}; margin: ${gap * 2}px 0; padding: ${gap * 2}px 0; }
             .meta div, .totals div { display: flex; justify-content: space-between; gap: 4px; }
             table { border-collapse: collapse; table-layout: fixed; width: 100%; }
             th, td {
               border-bottom: 1px solid #e5e7eb;
               font-size: ${Math.max(7, bodyPx - 1)}px;
-              line-height: 1.25;
-              padding: 2px 1px;
+              line-height: 1.2;
+              padding: ${gap}px 1px;
               text-align: left;
               vertical-align: top;
               word-break: break-word;
             }
+            .item-name { font-size: ${medicinePx}px; font-weight: ${weightMedicine}; line-height: 1.15; }
             th:first-child, td:first-child { width: 34%; }
             th:nth-child(2), td:nth-child(2) { width: 10%; text-align: center; }
             th:nth-child(3), td:nth-child(3),
             th:nth-child(4), td:nth-child(4),
             th:nth-child(5), td:nth-child(5) { width: 18%; text-align: right; }
             small { color: #6b7280; display: block; font-size: 7px; margin-top: 1px; }
-            .totals { border-top: ${border}; margin-top: 6px; padding-top: 6px; }
-            .grand { font-size: ${bodyPx + 2}px; font-weight: 800; }
+            .totals { border-top: ${border}; margin-top: ${gap * 2}px; padding-top: ${gap * 2}px; font-size: ${amountPx}px; font-weight: ${weightAmount}; }
+            .grand { font-size: ${amountPx}px; font-weight: ${weightAmount}; }
             .foot {
               border-top: ${border};
-              margin-top: 10px;
-              padding-top: 6px;
+              margin-top: ${gap * 3}px;
+              padding-top: ${gap * 2}px;
               text-align: center;
               font-size: ${footerPx}px;
               font-weight: ${weightFooter};
             }
             .terms {
-              margin-top: 6px;
+              margin-top: ${gap * 2}px;
               text-align: right;
               white-space: pre-wrap;
               font-size: ${footerPx}px;
@@ -3456,7 +3455,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               <div><span>Status</span><strong>${this.escapeHtml(receipt.paymentStatus)}</strong></div>
             </div>
             <div class="foot">
-              <p><strong>${this.escapeHtml(footerTitle)}</strong></p>
+              ${footerTitle ? `<p><strong>${this.escapeHtml(footerTitle)}</strong></p>` : ''}
               ${footerLines.map((line) => `<p>${this.escapeHtml(line)}</p>`).join('')}
               ${termsText ? `<div class="terms" dir="rtl" lang="ur">${this.escapeHtml(termsText)}</div>` : ''}
             </div>
@@ -4480,6 +4479,11 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       fontSizeHeader: Number(settings?.fontSizeHeader) || 18,
       fontSizeBody: Number(settings?.fontSizeBody) || 11,
       fontSizeFooter: Number(settings?.fontSizeFooter) || 10,
+      fontSizeMedicine: Number(settings?.fontSizeMedicine) || Number(settings?.fontSizeBody) || 11,
+      fontSizeAmount: Number(settings?.fontSizeAmount) || (Number(settings?.fontSizeBody) || 11) + 2,
+      lineGap: Number.isFinite(Number(settings?.lineGap)) ? Number(settings?.lineGap) : 2,
+      fontWeightMedicine: settings?.fontWeightMedicine === 'normal' ? 'normal' : 'bold',
+      fontWeightAmount: settings?.fontWeightAmount === 'normal' ? 'normal' : 'bold',
       fontWeightHeader: settings?.fontWeightHeader === 'normal' ? 'normal' : 'bold',
       fontWeightBody: settings?.fontWeightBody === 'bold' ? 'bold' : 'normal',
       fontWeightFooter: settings?.fontWeightFooter === 'bold' ? 'bold' : 'normal',

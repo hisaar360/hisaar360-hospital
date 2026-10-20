@@ -909,7 +909,7 @@
                     <div><span>Status</span><strong>{{ receipt.paymentStatus }}</strong></div>
                 </div>
                 <div class="receipt-preview-foot">
-                    <strong>{{ receiptFooterTitle(receipt) }}</strong>
+                    <strong *ngIf="receiptFooterTitle(receipt)">{{ receiptFooterTitle(receipt) }}</strong>
                     <p *ngFor="let line of receiptFooterLines(receipt)">{{ line }}</p>
                     <div
                       class="receipt-preview-terms"

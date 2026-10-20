@@ -9,13 +9,11 @@
         <p>Add, review, and manage pharmacy medicines for the assigned store.</p>
       </div>
       <div class="pharmacy-hero-actions">
+        <button type="button" class="btn product-btn product-btn--primary product-add-btn" data-add-medicine="single" (click)="openProductModal()"><i class="fa fa-plus"></i> Add Medicine</button>
         <a class="btn product-btn product-btn--light product-queue-btn" [routerLink]="['/pharmacy']"><i class="fa fa-arrow-left"></i> Pharmacy Queue</a>
-        <a class="btn product-btn product-btn--pos" [routerLink]="['/pharmacy/pos']"><i class="fa fa-shopping-cart"></i> Open POS</a>
         <a class="btn product-btn product-btn--teal-outline" *ngIf="canCreateProducts" routerLink="/pharmacy/products/bulk" [queryParams]="currentStoreId() ? { storeId: currentStoreId() } : null" data-tour="bulk-add-medicines"><i class="fa fa-table"></i> Bulk Medicine Upload</a>
         <button type="button" class="btn product-btn product-btn--light" *ngIf="canCreateProducts" (click)="downloadMedicineTemplate()" title="Quick Excel: Name, Strength, Price, Expiry"><i class="fa fa-bolt"></i> Quick Template</button>
         <button type="button" class="btn product-btn product-btn--light" *ngIf="canCreateProducts" (click)="downloadFullMedicineTemplate()" title="Full Excel with all columns"><i class="fa fa-download"></i> Full Template</button>
-        <a class="btn product-btn product-btn--light" *ngIf="canCreateCustomers" routerLink="/pharmacy/customers" [queryParams]="{ create: '1' }"><i class="fa fa-user-plus"></i> Create Customer</a>
-        <button type="button" class="btn product-btn product-btn--primary" *ngIf="canCreateProducts" (click)="openProductModal()"><i class="fa fa-plus"></i> Add Medicine</button>
       </div>
     </header>
 
@@ -67,7 +65,10 @@
           </select>
         </div>
       </label>
-      <button type="button" class="btn product-btn product-btn--light product-refresh-btn" (click)="loadProducts()" [disabled]="productsLoading"><i class="fa fa-refresh" [class.fa-spin]="productsLoading"></i> Refresh</button>
+      <div class="product-toolbar-actions">
+        <button type="button" class="btn product-btn product-btn--primary product-add-btn" (click)="openProductModal()"><i class="fa fa-plus"></i> Add Medicine</button>
+        <button type="button" class="btn product-btn product-btn--light product-refresh-btn" (click)="loadProducts()" [disabled]="productsLoading"><i class="fa fa-refresh" [class.fa-spin]="productsLoading"></i> Refresh</button>
+      </div>
     </section>
 
     <section class="product-summary-grid" aria-label="Product overview">
@@ -90,7 +91,13 @@
     </section>
 
     <section class="product-card">
-      <header class="product-card__header"><div><h2>Medicines &amp; Products</h2><p>Manage your pharmacy inventory, pricing and stock levels.</p></div></header>
+      <header class="product-card__header">
+        <div>
+          <h2>Medicines &amp; Products</h2>
+          <p>Manage your pharmacy inventory, pricing and stock levels.</p>
+        </div>
+        <button type="button" class="btn product-btn product-btn--primary product-add-btn" (click)="openProductModal()"><i class="fa fa-plus"></i> Add Medicine</button>
+      </header>
       <div class="product-empty" *ngIf="productsLoading"><i class="fa fa-spinner fa-spin"></i> Loading products...</div>
       <div class="product-empty" *ngIf="!productsLoading && !canViewProducts">This role needs <code>products.read</code> to view product management.</div>
       <div class="product-empty" *ngIf="!productsLoading && canViewProducts && filteredProducts.length === 0">

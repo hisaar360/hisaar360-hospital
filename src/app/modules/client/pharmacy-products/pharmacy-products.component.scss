@@ -13,6 +13,16 @@
 .product-hero {
   align-items: center;
   margin: 2px 0 16px;
+
+  .pharmacy-hero-main {
+    flex: 1 1 220px;
+    min-width: 0;
+  }
+
+  .pharmacy-hero-actions {
+    flex: 1 1 280px;
+    max-width: 100%;
+  }
 }
 
 .product-title-line {
@@ -116,10 +126,11 @@
 }
 
 .product-btn--primary {
-  background: linear-gradient(135deg, #08aaa6, #00a283);
-  border: 0;
-  box-shadow: 0 7px 16px rgba(0, 157, 142, 0.2);
-  color: #fff;
+  background-color: #047857 !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: #fff !important;
 }
 
 .product-toolbar {
@@ -292,8 +303,29 @@
 }
 
 .product-card__header {
+  align-items: center;
   border-bottom: 1px solid var(--product-line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
   padding: 13px 15px;
+}
+
+.product-toolbar-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.product-add-btn {
+  background: #047857 !important;
+  border: 0 !important;
+  color: #fff !important;
+  display: inline-flex !important;
+  visibility: visible !important;
 }
 
 .product-card__header h2 {
@@ -550,8 +582,10 @@
   display: flex;
   inset: 0;
   justify-content: center;
+  overscroll-behavior: none;
   padding: 18px;
   position: fixed;
+  touch-action: none;
   z-index: 1600;
 }
 
@@ -624,7 +658,9 @@
   display: grid;
   gap: 10px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 12px 16px;
+  touch-action: pan-y;
 }
 
 .product-form-section {

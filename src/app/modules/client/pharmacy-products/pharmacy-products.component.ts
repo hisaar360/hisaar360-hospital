@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize, map, Observable, of, switchMap, throwError } from 'rxjs';
@@ -54,7 +54,7 @@ type ProductFormSection = 'basic' | 'pricing' | 'batch' | 'optional';
   templateUrl: './pharmacy-products.component.html',
   styleUrl: './pharmacy-products.component.scss',
 })
-export class PharmacyProductsComponent implements OnInit {
+export class PharmacyProductsComponent implements OnInit, OnDestroy {
   products: ProductCatalogItem[] = [];
   productsTotal = 0;
   productsTotalPages = 1;
@@ -132,6 +132,9 @@ export class PharmacyProductsComponent implements OnInit {
     private readonly medicineCatalog: MedicineCatalogCacheService,
   ) {}
 
+  private lockedScrollY = 0;
+  private pageScrollLocked = false;
+
   ngOnInit(): void {
     this.route.queryParamMap.subscribe((params) => {
       if (params.get('productModal') === '1') {
@@ -157,6 +160,10 @@ export class PharmacyProductsComponent implements OnInit {
     if (typeof localStorage !== 'undefined' && !localStorage.getItem(this.bulkTipStorageKey)) {
       this.showBulkTip = true;
     }
+  }
+
+  ngOnDestroy(): void {
+    this.unlockPageScroll();
   }
 
   dismissBulkTip(): void {
@@ -192,10 +199,6 @@ export class PharmacyProductsComponent implements OnInit {
 
   get canDeleteProducts(): boolean {
     return this.backend.hasPermission('products.delete');
-  }
-
-  get canCreateCustomers(): boolean {
-    return this.backend.hasPermission('customers.create');
   }
 
   get canCreateCategories(): boolean {
@@ -460,6 +463,7 @@ export class PharmacyProductsComponent implements OnInit {
     this.resetProductSections();
 
     this.productModalOpen = true;
+    this.lockPageScroll();
   }
 
   openEditProduct(product: ProductCatalogItem): void {
@@ -501,6 +505,7 @@ export class PharmacyProductsComponent implements OnInit {
     };
     this.resetProductSections();
     this.productModalOpen = true;
+    this.lockPageScroll();
   }
 
   toggleProductSection(section: ProductFormSection): void {
@@ -516,6 +521,36 @@ export class PharmacyProductsComponent implements OnInit {
     };
   }
 
+  private lockPageScroll(): void {
+    if (this.pageScrollLocked) {
+      return;
+    }
+    this.pageScrollLocked = true;
+    this.lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    document.documentElement.style.setProperty('overflow', 'hidden', 'important');
+    document.body.style.setProperty('overflow', 'hidden', 'important');
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${this.lockedScrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+  }
+
+  private unlockPageScroll(): void {
+    if (!this.pageScrollLocked) {
+      return;
+    }
+    this.pageScrollLocked = false;
+    document.documentElement.style.removeProperty('overflow');
+    document.body.style.removeProperty('overflow');
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    window.scrollTo(0, this.lockedScrollY);
+  }
+
   closeProductModal(): void {
     if (this.savingProduct) {
       return;
@@ -523,6 +558,7 @@ export class PharmacyProductsComponent implements OnInit {
 
     const storeId = this.currentStoreId();
     this.productModalOpen = false;
+    this.unlockPageScroll();
     this.editingProductId = '';
     this.editingOriginalStock = '';
     this.clearDuplicateWarnings();
@@ -759,6 +795,7 @@ export class PharmacyProductsComponent implements OnInit {
               : 'Medicine/product added to pharmacy store.',
           );
           this.productModalOpen = false;
+          this.unlockPageScroll();
           this.editingProductId = '';
           this.editingOriginalStock = '';
           this.clearDuplicateWarnings();

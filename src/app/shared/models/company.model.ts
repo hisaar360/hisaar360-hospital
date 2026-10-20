@@ -16,9 +16,14 @@ export interface ReceiptLetterheadSettings {
   fontSizeHeader?: number;
   fontSizeBody?: number;
   fontSizeFooter?: number;
+  fontSizeMedicine?: number;
+  fontSizeAmount?: number;
+  lineGap?: number;
   fontWeightHeader?: 'normal' | 'bold';
   fontWeightBody?: 'normal' | 'bold';
   fontWeightFooter?: 'normal' | 'bold';
+  fontWeightMedicine?: 'normal' | 'bold';
+  fontWeightAmount?: 'normal' | 'bold';
 }
 
 export interface CompanyProfile {
