@@ -132,61 +132,121 @@
             </div>
           </header>
 
-          <div class="pis-grid pis-grid--3">
-            <label class="pis-field">
-              <span>Paper Width (mm)</span>
-              <div class="pis-paper-presets">
-                <button type="button" class="pis-preset" [class.active]="form.paperWidthMm === 58" (click)="setPaperWidth(58)" [disabled]="!canEdit">58mm POS mini</button>
-                <button type="button" class="pis-preset" [class.active]="form.paperWidthMm === 80" (click)="setPaperWidth(80)" [disabled]="!canEdit">80mm roll</button>
+          <div class="pis-layout-section">
+            <div class="pis-section-label">
+              <strong>Receipt frame</strong>
+              <span>Choose the paper and border appearance.</span>
+            </div>
+
+            <div class="pis-grid pis-grid--3 pis-grid--layout-controls">
+              <div class="pis-field pis-field--paper">
+                <span id="paper-width-label">Paper Width</span>
+                <div class="pis-paper-controls">
+                  <div class="pis-paper-presets" role="group" aria-label="Paper width presets">
+                    <button type="button" class="pis-preset" [class.active]="form.paperWidthMm === 58" [attr.aria-pressed]="form.paperWidthMm === 58" (click)="setPaperWidth(58)" [disabled]="!canEdit">58mm</button>
+                    <button type="button" class="pis-preset" [class.active]="form.paperWidthMm === 80" [attr.aria-pressed]="form.paperWidthMm === 80" (click)="setPaperWidth(80)" [disabled]="!canEdit">80mm</button>
+                  </div>
+                  <div class="pis-input-suffix">
+                    <input
+                      type="number"
+                      min="58"
+                      max="120"
+                      aria-labelledby="paper-width-label"
+                      [(ngModel)]="form.paperWidthMm"
+                      (ngModelChange)="onFormChange()"
+                      [disabled]="!canEdit"
+                    />
+                    <span>mm</span>
+                  </div>
+                </div>
               </div>
-              <input type="number" min="58" max="120" [(ngModel)]="form.paperWidthMm" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
-              <small>Invoice printers only (not A4). Chrome: paper = 58×3276 / 80mm, Margins = <strong>None</strong>, Scale = <strong>100</strong>, Headers and footers = <strong>off</strong>.</small>
-            </label>
-            <label class="pis-field">
-              <span>Border Style</span>
-              <select [(ngModel)]="form.borderStyle" (ngModelChange)="onFormChange()" [disabled]="!canEdit">
-                <option value="dashed">Dashed</option>
-                <option value="solid">Solid</option>
-                <option value="none">None</option>
-              </select>
-            </label>
-            <label class="pis-field">
-              <span>Logo Scale</span>
-              <input type="number" min="0.5" max="2" step="0.1" [(ngModel)]="form.logoScale" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
-            </label>
-            <label class="pis-field">
-              <span>Header font (px)</span>
-              <input type="number" min="12" max="28" [(ngModel)]="form.fontSizeHeader" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
-            </label>
-            <label class="pis-field">
-              <span>Body font (px)</span>
-              <input type="number" min="8" max="16" [(ngModel)]="form.fontSizeBody" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
-            </label>
-            <label class="pis-field">
-              <span>Footer font (px)</span>
-              <input type="number" min="8" max="14" [(ngModel)]="form.fontSizeFooter" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
-            </label>
-            <label class="pis-field">
-              <span>Header weight</span>
-              <select [(ngModel)]="form.fontWeightHeader" (ngModelChange)="onFormChange()" [disabled]="!canEdit">
-                <option value="bold">Bold</option>
-                <option value="normal">Normal</option>
-              </select>
-            </label>
-            <label class="pis-field">
-              <span>Body weight</span>
-              <select [(ngModel)]="form.fontWeightBody" (ngModelChange)="onFormChange()" [disabled]="!canEdit">
-                <option value="normal">Normal</option>
-                <option value="bold">Bold</option>
-              </select>
-            </label>
-            <label class="pis-field">
-              <span>Footer weight</span>
-              <select [(ngModel)]="form.fontWeightFooter" (ngModelChange)="onFormChange()" [disabled]="!canEdit">
-                <option value="normal">Normal</option>
-                <option value="bold">Bold</option>
-              </select>
-            </label>
+              <label class="pis-field">
+                <span>Border Style</span>
+                <select [(ngModel)]="form.borderStyle" (ngModelChange)="onFormChange()" [disabled]="!canEdit">
+                  <option value="dashed">Dashed</option>
+                  <option value="solid">Solid</option>
+                  <option value="none">None</option>
+                </select>
+              </label>
+              <label class="pis-field">
+                <span>Logo Scale</span>
+                <input type="number" min="0.5" max="2" step="0.1" [(ngModel)]="form.logoScale" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
+              </label>
+            </div>
+
+            <div class="pis-print-tip">
+              <i class="fa fa-info-circle" aria-hidden="true"></i>
+              <span><strong>POS printer setup:</strong> Use 58×3276 or 80mm paper, no margins, 100% scale, and turn browser headers and footers off.</span>
+            </div>
+          </div>
+
+          <div class="pis-layout-section pis-layout-section--typography">
+            <div class="pis-section-label">
+              <strong>Typography</strong>
+              <span>Set size and weight for each receipt area.</span>
+            </div>
+
+            <div class="pis-type-grid">
+              <div class="pis-type-card">
+                <strong class="pis-type-card__title">Header</strong>
+                <div class="pis-type-card__fields">
+                  <label class="pis-field">
+                    <span>Size</span>
+                    <div class="pis-input-suffix">
+                      <input type="number" min="12" max="28" [(ngModel)]="form.fontSizeHeader" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
+                      <span>px</span>
+                    </div>
+                  </label>
+                  <label class="pis-field">
+                    <span>Weight</span>
+                    <select [(ngModel)]="form.fontWeightHeader" (ngModelChange)="onFormChange()" [disabled]="!canEdit">
+                      <option value="bold">Bold</option>
+                      <option value="normal">Normal</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div class="pis-type-card">
+                <strong class="pis-type-card__title">Body</strong>
+                <div class="pis-type-card__fields">
+                  <label class="pis-field">
+                    <span>Size</span>
+                    <div class="pis-input-suffix">
+                      <input type="number" min="8" max="16" [(ngModel)]="form.fontSizeBody" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
+                      <span>px</span>
+                    </div>
+                  </label>
+                  <label class="pis-field">
+                    <span>Weight</span>
+                    <select [(ngModel)]="form.fontWeightBody" (ngModelChange)="onFormChange()" [disabled]="!canEdit">
+                      <option value="normal">Normal</option>
+                      <option value="bold">Bold</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div class="pis-type-card">
+                <strong class="pis-type-card__title">Footer</strong>
+                <div class="pis-type-card__fields">
+                  <label class="pis-field">
+                    <span>Size</span>
+                    <div class="pis-input-suffix">
+                      <input type="number" min="8" max="14" [(ngModel)]="form.fontSizeFooter" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
+                      <span>px</span>
+                    </div>
+                  </label>
+                  <label class="pis-field">
+                    <span>Weight</span>
+                    <select [(ngModel)]="form.fontWeightFooter" (ngModelChange)="onFormChange()" [disabled]="!canEdit">
+                      <option value="normal">Normal</option>
+                      <option value="bold">Bold</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 

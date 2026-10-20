@@ -15,10 +15,11 @@ type RouteAccess = {
 
 const DEFAULT_ROUTE_ACCESS: RouteAccess[] = [
   { path: '/dashboard', access: ['hospital_dashboard.read'] },
+  // Pharmacy before Accounts — Company Owner often has both; prefer Pharmacy hub.
+  { path: '/pharmacy', access: ['products.read', 'sales.read', 'purchases.read', 'reports.read'] },
   { path: '/accounts/dashboard', access: ['accounts.read', 'accounts.reports.read'] },
   { path: '/laboratory', access: ['lab_orders.read'] },
   { path: '/laboratory/catalog', access: ['lab_tests.read'] },
-  { path: '/pharmacy', access: ['products.read'] },
   { path: '/appointments', access: ['appointments.read'] },
   { path: '/patients/all-patients', access: ['patients.read'] },
   {
@@ -170,6 +171,18 @@ export const isWardAttendantRole = (role: string): boolean => {
 export const isReceptionRole = (role: string): boolean => {
   const normalized = normalizeAccessKey(role);
   return normalized === 'receptionist' || normalized === 'reception';
+};
+
+/** Company Owner / business owner — full ops; prefer Pharmacy over Accounts when pharmacy is on. */
+export const isCompanyOwnerRole = (role: string): boolean => {
+  const normalized = normalizeAccessKey(role);
+  return (
+    normalized === 'owner' ||
+    normalized === 'companyowner' ||
+    normalized === 'businessadmin' ||
+    normalized === 'businessowner' ||
+    normalized === 'hospitaladmin'
+  );
 };
 
 export const sanitizePermissions = (permissions: unknown): string[] => {
@@ -414,11 +427,17 @@ export const resolveDefaultRoute = (
     return '/appointments';
   }
 
-  // Pharmacy-capable users land on Pharmacy hub before Accounts (Owner often has both).
-  if (
-    isPharmacyModuleEnabled() &&
-    (hasRouteAccess(['products.read'], permissions) || permissions.includes('*'))
-  ) {
+  const pharmacyOn = isPharmacyModuleEnabled();
+  const canOpenPharmacy =
+    pharmacyOn &&
+    (permissions.includes('*') ||
+      hasRouteAccess(
+        ['products.read', 'sales.read', 'purchases.read', 'reports.read'],
+        permissions,
+      ));
+
+  // Pharmacy hub before Accounts — Company Owner usually has both modules' perms.
+  if (canOpenPharmacy || (isCompanyOwnerRole(role) && pharmacyOn)) {
     return '/pharmacy';
   }
 

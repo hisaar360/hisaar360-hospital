@@ -827,6 +827,27 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     document.querySelector('.overlay')?.classList.remove('open');
   }
 
+  /** Pharmacy parent: open Pharmacy Dashboard (not Accounts) and expand the submenu. */
+  openPharmacySection(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.PharmacyCollapsed = false;
+    if (this.canViewPharmacy) {
+      void this.router.navigate(['/pharmacy']);
+      this.closeSidebarOnMobile();
+      return;
+    }
+    if (this.canOpenPharmacyPos) {
+      void this.router.navigate(['/pharmacy/pos']);
+      this.closeSidebarOnMobile();
+      return;
+    }
+    if (this.canViewPosReports) {
+      void this.router.navigate(['/pharmacy/reports']);
+      this.closeSidebarOnMobile();
+    }
+  }
+
   /** Expand/collapse sidebar sections — used by all `has-arrow` parents. */
   toggleSection(section: SidebarSectionKey, event?: Event): void {
     event?.preventDefault();

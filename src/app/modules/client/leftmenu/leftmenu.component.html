@@ -89,7 +89,7 @@
                 </li>
 
                 <li *ngIf="canViewPharmacy || canOpenPharmacyPos || canViewPosReports" data-tour="shell-pharmacy">
-                    <button type="button" (click)="toggleSection('pharmacy', $event)"
+                    <button type="button" (click)="openPharmacySection($event)"
                         [attr.aria-expanded]="!PharmacyCollapsed" class="has-arrow">
                         <i class="fa fa-medkit"></i><span>Pharmacy</span>
                     </button>
