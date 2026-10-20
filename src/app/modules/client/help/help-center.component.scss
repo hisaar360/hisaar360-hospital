@@ -795,6 +795,39 @@
   border-color: #fde68a;
 }
 
+.help-admin-notes {
+  summary {
+    cursor: pointer;
+    font-weight: 700;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::after {
+      content: ' ▾';
+      font-weight: 400;
+      color: var(--help-muted);
+    }
+  }
+
+  &[open] summary::after {
+    content: ' ▴';
+  }
+
+  ul {
+    margin: 10px 0 0;
+    padding-left: 18px;
+  }
+
+  li {
+    margin-bottom: 6px;
+    color: var(--help-muted);
+    font-size: 13px;
+  }
+}
+
 .help-nav-path {
   font-weight: 700;
   margin-bottom: 8px !important;

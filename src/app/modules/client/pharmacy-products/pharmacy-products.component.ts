@@ -78,6 +78,9 @@ export class PharmacyProductsComponent implements OnInit {
   savingProduct = false;
   editingProductId = '';
   expandedProductId = '';
+  confirmSimilarDuplicates = false;
+  exactDuplicate: ProductCatalogItem | null = null;
+  similarCandidates: ProductCatalogItem[] = [];
   lotsByProductId: Record<string, StockLot[]> = {};
   lotsLoadingId = '';
 
@@ -522,8 +525,28 @@ export class PharmacyProductsComponent implements OnInit {
     this.productModalOpen = false;
     this.editingProductId = '';
     this.editingOriginalStock = '';
+    this.clearDuplicateWarnings();
     this.productForm = this.getEmptyProductForm();
     this.productForm.storeId = storeId;
+  }
+
+  clearDuplicateWarnings(): void {
+    this.confirmSimilarDuplicates = false;
+    this.exactDuplicate = null;
+    this.similarCandidates = [];
+  }
+
+  onProductIdentityChange(): void {
+    this.confirmSimilarDuplicates = false;
+    this.exactDuplicate = null;
+    this.similarCandidates = [];
+  }
+
+  productStrengthLabel(product: ProductCatalogItem | null | undefined): string {
+    if (!product) {
+      return '';
+    }
+    return [product.strengthValue, product.strengthUnit].filter(Boolean).join(' ').trim();
   }
 
   saveProduct(): void {
@@ -624,9 +647,49 @@ export class PharmacyProductsComponent implements OnInit {
     ]
       .filter(Boolean)
       .join(' ');
+    const strengthValue = this.productForm.strengthValue.trim();
+    const strengthUnit = this.productForm.strengthUnit || '';
 
-    this.resolveProductCategoryId(!isEditing)
+    this.backend
+      .checkProductDuplicates({
+        name,
+        strengthValue: strengthValue || undefined,
+        strengthUnit: strengthUnit || undefined,
+        excludeProductId: isEditing ? this.editingProductId : undefined,
+      })
       .pipe(
+        switchMap((checkResponse) => {
+          const check = checkResponse.data;
+          if (check?.hasExactDuplicate && check.exactDuplicate) {
+            this.exactDuplicate = check.exactDuplicate;
+            this.similarCandidates = [];
+            this.confirmSimilarDuplicates = false;
+            return throwError(() => ({
+              error: {
+                message: `Same medicine already exists (SKU ${check.exactDuplicate?.sku}). Open that medicine and add a new batch/stock — do not create a duplicate.`,
+                errorCode: 'PRODUCT_NAME_STRENGTH_EXISTS',
+              },
+            }));
+          }
+
+          this.exactDuplicate = null;
+          this.similarCandidates = check?.similarCandidates || [];
+          if (
+            check?.hasSimilarDuplicates &&
+            this.similarCandidates.length &&
+            !this.confirmSimilarDuplicates
+          ) {
+            return throwError(() => ({
+              error: {
+                message:
+                  'Similar medicines found. Review the list below and tick Confirm if you still want to save.',
+                errorCode: 'PRODUCT_SIMILAR_NAME_EXISTS',
+              },
+            }));
+          }
+
+          return this.resolveProductCategoryId(!isEditing);
+        }),
         switchMap((categoryId) => {
           const payload = {
             ...(categoryId ? { categoryId } : {}),
@@ -642,8 +705,8 @@ export class PharmacyProductsComponent implements OnInit {
               undefined,
             brand: this.productForm.brand.trim() || undefined,
             unit: this.productForm.unit || 'pcs',
-            strengthValue: this.productForm.strengthValue.trim() || undefined,
-            strengthUnit: this.productForm.strengthUnit || undefined,
+            strengthValue: strengthValue || undefined,
+            strengthUnit: strengthUnit || undefined,
             description: strengthDescription || undefined,
             costPrice: this.productForm.costPrice || '0',
             sellingPrice: this.productForm.sellingPrice || '0',
@@ -658,6 +721,7 @@ export class PharmacyProductsComponent implements OnInit {
                 : undefined,
             taxRate: '0',
             isActive: true,
+            confirmSimilarDuplicates: this.confirmSimilarDuplicates || undefined,
           };
 
           return isEditing
@@ -697,12 +761,21 @@ export class PharmacyProductsComponent implements OnInit {
           this.productModalOpen = false;
           this.editingProductId = '';
           this.editingOriginalStock = '';
+          this.clearDuplicateWarnings();
           this.productForm = this.getEmptyProductForm();
           this.productForm.storeId = storeId;
           this.loadProducts();
           void this.medicineCatalog.refresh();
         },
         error: (err) => {
+          const code = err?.error?.errorCode || err?.error?.code;
+          const details = err?.error?.details;
+          if (code === 'PRODUCT_SIMILAR_NAME_EXISTS' && details?.similarCandidates) {
+            this.similarCandidates = details.similarCandidates;
+          }
+          if (code === 'PRODUCT_NAME_STRENGTH_EXISTS' && details?.existingProduct) {
+            this.exactDuplicate = details.existingProduct;
+          }
           this.toastr.error(
             err?.error?.message ||
               err?.message ||

@@ -120,6 +120,7 @@ export class HelpCenterComponent implements OnInit, OnDestroy {
   guideCards: HelpGuideCardView[] = [];
   searchGuideCards: HelpGuideCardView[] = [];
   showMobileWorkflow = false;
+  showWorkflowDetails = false;
 
   private permissions = readStoredPermissions();
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -341,6 +342,11 @@ export class HelpCenterComponent implements OnInit, OnDestroy {
       queryParams: { role: this.selectedRole || null },
       queryParamsHandling: 'merge',
     });
+    this.cdr.markForCheck();
+  }
+
+  toggleWorkflowDetails(): void {
+    this.showWorkflowDetails = !this.showWorkflowDetails;
     this.cdr.markForCheck();
   }
 

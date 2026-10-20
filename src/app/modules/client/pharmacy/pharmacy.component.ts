@@ -871,9 +871,40 @@ export class PharmacyComponent implements OnInit {
     ]
       .filter(Boolean)
       .join(' ');
+    const strengthValue = this.productForm.strengthValue.trim();
+    const strengthUnit = this.productForm.strengthUnit || '';
 
-    this.resolveProductCategoryId()
+    this.backend
+      .checkProductDuplicates({
+        name,
+        strengthValue: strengthValue || undefined,
+        strengthUnit: strengthUnit || undefined,
+      })
       .pipe(
+        switchMap((checkResponse) => {
+          const check = checkResponse.data;
+          if (check?.hasExactDuplicate && check.exactDuplicate) {
+            return throwError(() => ({
+              error: {
+                message: `Same medicine already exists (SKU ${check.exactDuplicate?.sku}). Add stock/batch on that medicine instead.`,
+              },
+            }));
+          }
+          if (check?.hasSimilarDuplicates && check.similarCandidates?.length) {
+            const names = check.similarCandidates
+              .map((item) => `${item.name} (${item.sku})`)
+              .join(', ');
+            const ok = window.confirm(
+              `Similar medicines found: ${names}.\n\nCreate this as a new medicine anyway?`,
+            );
+            if (!ok) {
+              return throwError(() => ({
+                error: { message: 'Save cancelled. Review similar medicines first.' },
+              }));
+            }
+          }
+          return this.resolveProductCategoryId();
+        }),
         switchMap((categoryId) =>
           this.backend.createProduct({
             categoryId,
@@ -885,6 +916,8 @@ export class PharmacyComponent implements OnInit {
             mfdDate: this.normalizeDateForPayload(this.productForm.mfdDate) || undefined,
             brand: this.productForm.brand.trim() || undefined,
             unit: this.productForm.unit || 'pcs',
+            strengthValue: strengthValue || undefined,
+            strengthUnit: strengthUnit || undefined,
             description: strengthDescription || undefined,
             costPrice: this.productForm.costPrice || '0',
             sellingPrice: this.productForm.sellingPrice || '0',
@@ -896,6 +929,7 @@ export class PharmacyComponent implements OnInit {
                 : undefined,
             taxRate: '0',
             isActive: true,
+            confirmSimilarDuplicates: true,
           })
         ),
         switchMap((response) => this.applyOpeningStock(response.data, storeId)),

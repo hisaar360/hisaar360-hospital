@@ -1155,6 +1155,24 @@ export class BackendService {
     return this.post<ProductCatalogItem>(CONFIG.products, payload);
   }
 
+  checkProductDuplicates(payload: {
+    name: string;
+    strengthValue?: string;
+    strengthUnit?: string;
+    excludeProductId?: string;
+  }): Observable<
+    ApiResponse<{
+      hasExactDuplicate: boolean;
+      exactDuplicate: ProductCatalogItem | null;
+      similarCandidates: ProductCatalogItem[];
+      hasSimilarDuplicates: boolean;
+    }>
+  > {
+    return this.post(`${CONFIG.products}/check-duplicate`, payload, {
+      'X-Skip-Loader': '1',
+    });
+  }
+
   bulkCreateProducts(payload: Record<string, unknown>): Observable<ApiResponse<{
     createdCount: number;
     products: Array<{ _id: string; name: string; sku: string; storeId?: string; openingStock?: number }>;

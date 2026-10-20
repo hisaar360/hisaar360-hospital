@@ -112,6 +112,8 @@ describe('help-search.util', () => {
     expect(topSlug('bulk medicine')).toBe('bulk-add-medicines');
     expect(topSlug('excel medicine')).toBe('bulk-add-medicines');
     expect(topSlug('medicine import')).toBe('bulk-add-medicines');
+    expect(topSlug('duplicate medicine')).toBe('avoid-duplicate-medicines');
+    expect(topSlug('sell medicine')).toBe('pharmacy-pos-sale');
   });
 
   it('boosts duty roster for owner/admin role', () => {

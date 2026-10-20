@@ -4,7 +4,7 @@
       <header class="help-page-header">
         <div class="help-page-header__copy">
           <h1>Help Center</h1>
-          <p class="help-subtitle">Step-by-step tutorials for modules enabled at your hospital.</p>
+          <p class="help-subtitle">What do you want to do? Search or pick a task below.</p>
         </div>
         <div class="help-page-header__actions">
           <button
@@ -28,7 +28,7 @@
             [(ngModel)]="searchQuery"
             (ngModelChange)="onSearchInputChange()"
             (keyup.enter)="onSearch(true)"
-            placeholder="Search for guides, tasks, modules... (e.g. admit patient, medicine dose, payment)"
+            placeholder="e.g. sell medicine, add stock, print bill"
             aria-label="Search help guides"
           />
           <button class="hms-btn hms-btn-secondary help-clear-btn" type="button" *ngIf="isSearchActive" (click)="clearSearch()">
@@ -116,7 +116,8 @@
 
       <section class="help-section hms-card" *ngIf="!isSearchActive">
         <div class="help-section__head">
-          <h2>Quick Tasks</h2>
+          <h2>Common tasks</h2>
+          <p class="help-section__note">Tap a task for short steps. No technical jargon.</p>
         </div>
         <div class="help-quick-grid">
           <button
@@ -235,12 +236,17 @@
       </section>
 
       <section class="help-section hms-card help-workflow-section" *ngIf="!isSearchActive">
-        <div class="help-section__head">
-          <h2>{{ activeWorkflow.title }}</h2>
-          <p class="help-section__note">{{ activeWorkflow.description }}</p>
+        <div class="help-section__head help-section__head--split">
+          <div>
+            <h2>{{ activeWorkflow.title }}</h2>
+            <p class="help-section__note">{{ activeWorkflow.description }}</p>
+          </div>
+          <button type="button" class="hms-btn hms-btn-secondary hms-btn-sm" (click)="toggleWorkflowDetails()">
+            {{ showWorkflowDetails ? 'Hide flowchart' : 'Show full flowchart' }}
+          </button>
         </div>
 
-        <div class="help-workflow help-workflow--desktop" *ngIf="!showMobileWorkflow">
+        <div class="help-workflow help-workflow--desktop" *ngIf="showWorkflowDetails && !showMobileWorkflow">
           <ng-container *ngFor="let block of activeWorkflow.desktopBlocks">
             <h3 *ngIf="block.type === 'heading'" class="help-workflow__heading">{{ block.text }}</h3>
             <p *ngIf="block.type === 'note'" class="help-workflow__note">{{ block.text }}</p>
@@ -294,7 +300,7 @@
           </ng-container>
         </div>
 
-        <div class="help-workflow help-workflow--mobile" *ngIf="showMobileWorkflow">
+        <div class="help-workflow help-workflow--mobile" *ngIf="showWorkflowDetails && showMobileWorkflow">
           <ng-container *ngFor="let step of activeWorkflow.mobileSteps; let last = last">
             <p *ngIf="!step.number && step.muted" class="help-flow-step__note">{{ step.label }}</p>
             <h3 *ngIf="!step.number && step.accent && !step.muted" class="help-flow-step__heading">{{ step.label }}</h3>
@@ -466,6 +472,13 @@
               <h3>Tip</h3>
               <p>{{ article.tip }}</p>
             </section>
+
+            <details class="help-context-card help-admin-notes" *ngIf="article.adminNotes?.length">
+              <summary>For admins</summary>
+              <ul>
+                <li *ngFor="let note of article.adminNotes">{{ note }}</li>
+              </ul>
+            </details>
           </aside>
 
           <main class="help-article-main">
