@@ -3,31 +3,77 @@ import { Injectable } from '@angular/core';
 import { finalize } from 'rxjs/operators';
 import { LoadingService } from './services/loading.service';
 
-const shouldSkipLoader = (req: HttpRequest<unknown>): boolean => {
-  const url = req.url || '';
+const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+const shouldSkipByUrl = (url: string): boolean => {
+  const path = (url || '').toLowerCase();
 
   if (/\.(svg|png|jpe?g|gif|webp|ico|woff2?|ttf|css|js)(\?|$)/i.test(url)) {
     return true;
   }
 
-  // Explicit opt-out for background work.
+  // Birth certificate fetch uses a local spinner; global overlay can stick above the modal.
+  if (/\/birth-records\/certificates\//i.test(path)) {
+    return true;
+  }
+
+  // Notification / health polling must never block the UI.
+  if (
+    /\/notifications(\?|$|\/)/i.test(path) ||
+    /\/auth\/(refresh|me|logout)/i.test(path) ||
+    /\/health(\?|$|\/)/i.test(path)
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+const defaultMessage = (method: string, url: string): { title: string; message: string } => {
+  const path = (url || '').toLowerCase();
+
+  if (/\/auth\/|\/sso|\/login/i.test(path)) {
+    return { title: 'Signing you in…', message: 'Please wait' };
+  }
+  if (/\/payment|\/refund|\/collect/i.test(path)) {
+    return { title: 'Processing payment…', message: 'Updating billing records' };
+  }
+  if (/\/invoice|\/print|\/statement/i.test(path)) {
+    return { title: 'Preparing document…', message: 'Almost ready' };
+  }
+  if (/\/ward|\/admission|\/bed|\/discharge/i.test(path)) {
+    return {
+      title: method === 'DELETE' ? 'Updating ward…' : 'Saving ward changes…',
+      message: 'Please wait',
+    };
+  }
+  if (/\/lab|\/pharmacy|\/ot|\/operation/i.test(path)) {
+    return { title: 'Saving changes…', message: 'Updating clinical records' };
+  }
+  if (method === 'DELETE') {
+    return { title: 'Removing…', message: 'Please wait' };
+  }
+  if (MUTATING.has(method)) {
+    return { title: 'Saving changes…', message: 'Please wait' };
+  }
+  return { title: 'Loading…', message: 'Please wait' };
+};
+
+const shouldSkipLoader = (req: HttpRequest<unknown>): boolean => {
   if (req.headers.has('X-Skip-Loader')) {
     return true;
   }
 
-  // Birth certificate fetch uses a local spinner; global overlay can stick above the modal.
-  if (/\/birth-records\/certificates\//i.test(url)) {
+  if (shouldSkipByUrl(req.url || '')) {
     return true;
   }
 
-  // Notification polling must never block the UI.
-  if (/\/notifications(\?|$|\/)/i.test(url)) {
-    return true;
-  }
-
-  // Full-screen overlay blocks clicks (file pickers, nav). Only show it for mutations.
   const method = (req.method || 'GET').toUpperCase();
+  // Full-screen overlay blocks clicks on list GETs — track mutations (and forced GETs).
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+    if (req.headers.has('X-Force-Loader')) {
+      return false;
+    }
     return true;
   }
 
@@ -43,7 +89,9 @@ export class LoadingInterceptor implements HttpInterceptor {
       return next.handle(req);
     }
 
-    this.loading.show();
+    const method = (req.method || 'GET').toUpperCase();
+    const { title, message } = defaultMessage(method, req.url || '');
+    this.loading.show({ title, message });
 
     return next.handle(req).pipe(finalize(() => this.loading.hide()));
   }

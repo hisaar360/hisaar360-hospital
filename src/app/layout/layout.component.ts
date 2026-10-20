@@ -134,6 +134,8 @@ export class LayoutComponent implements OnInit, OnDestroy {
     const onPos = this.router.url.startsWith('/pharmacy/pos');
     if (hasUser && !alreadySeen && !onPos) {
       this.showProductHelpOffer = true;
+      // Persist immediately so refresh / next login never re-prompts.
+      localStorage.setItem(PRODUCT_HELP_OFFER_STORAGE, '1');
     }
     this.maybeStartTourFromQuery(this.router.url);
     // Fresh medicine catalog once per login session (IndexedDB + memory).
@@ -230,7 +232,16 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
     const pathOnly = url.split('?')[0] || '';
     // Pages that own their interactive tour — do not steal ?tutorial=1 for the shell tour.
-    const ownedTourRoutes = ['/pharmacy/pos', '/pharmacy/products/bulk', '/ward/duty-roster'];
+    const ownedTourRoutes = [
+      '/pharmacy/pos',
+      '/pharmacy/products/bulk',
+      '/ward/duty-roster',
+      '/ward/home',
+      '/ward/admissions',
+      '/ward/bed-management',
+      '/ward/patient-list',
+      '/ward/patient-detail',
+    ];
     if (ownedTourRoutes.some((route) => pathOnly.startsWith(route))) {
       return;
     }

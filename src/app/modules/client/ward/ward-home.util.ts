@@ -242,37 +242,24 @@ export function normalizeWardHomeSummary(raw: unknown): WardHomeSummary {
 }
 
 export function buildWardHomeSummaryTiles(summary: WardHomeSummary): WardHomeSummaryTile[] {
+  // Keep the desk lean — bed board below carries the detail.
   return [
-    { key: 'occupied', label: 'Occupied', value: summary.beds.occupied, icon: 'fa-user', tone: 'blue' },
-    { key: 'available', label: 'Available', value: summary.beds.available, icon: 'fa-check-circle', tone: 'green' },
+    { key: 'occupied', label: 'Occupied beds', value: summary.beds.occupied, icon: 'fa-user', tone: 'blue', route: '/ward/patient-list' },
+    { key: 'available', label: 'Free beds', value: summary.beds.available, icon: 'fa-check-circle', tone: 'green', route: '/ward/bed-management' },
     {
       key: 'missingRecords',
-      label: 'Missing Care Records',
+      label: 'Care pending',
       value: summary.missingUpdateCount,
       icon: 'fa-exclamation-triangle',
       tone: 'amber',
-    },
-    {
-      key: 'unavailable',
-      label: 'Cleaning / Unavailable',
-      value: summary.beds.cleaning + summary.beds.unavailable,
-      icon: 'fa-ban',
-      tone: 'purple',
+      route: '/ward/patient-list',
     },
     {
       key: 'pendingAdmissions',
-      label: 'Pending Admissions',
+      label: 'Pending admit',
       value: summary.admissions.pendingRecommendations,
       icon: 'fa-user-plus',
       tone: 'teal',
-      route: '/ward/admissions',
-    },
-    {
-      key: 'dischargeReady',
-      label: 'Discharge Ready',
-      value: summary.admissions.dischargeReady,
-      icon: 'fa-sign-out',
-      tone: 'red',
       route: '/ward/admissions',
     },
   ];

@@ -43,8 +43,7 @@
   margin: 4px 0 0;
 }
 
-.pharmacy-badge,
-.pharmacy-back-link {
+.pharmacy-badge {
   color: var(--pharmacy-navy);
   display: inline-block;
   font-size: 11px;
@@ -55,8 +54,30 @@
   text-transform: uppercase;
 }
 
+.pharmacy-back-link {
+  -webkit-appearance: none;
+  appearance: none;
+  align-items: center;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  color: #0f766e;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  letter-spacing: 0;
+  margin-bottom: 8px;
+  min-height: 30px;
+  padding: 0 12px;
+  text-decoration: none;
+  text-transform: none;
+}
+
 .pharmacy-back-link:hover {
-  color: var(--pharmacy-teal);
+  background: #ccfbf1;
+  border-color: #5eead4;
+  color: #115e59;
 }
 
 .pharmacy-hero-actions {

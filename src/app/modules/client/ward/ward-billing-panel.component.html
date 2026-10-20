@@ -33,7 +33,7 @@
         <div class="ward-billing-form__row">
           <input [(ngModel)]="chargeForm.title" placeholder="Charge description" />
           <input type="number" [(ngModel)]="chargeForm.rate" placeholder="Rate" />
-          <button type="button" class="btn btn-primary btn-sm" (click)="addCharge()">Add Charge</button>
+          <button type="button" class="btn btn-primary btn-sm" *ngIf="canAddCharge" (click)="addCharge()">Add Charge</button>
         </div>
       </div>
 
@@ -166,7 +166,7 @@
                 <span>Note (Optional)</span>
                 <input type="text" [(ngModel)]="paymentForm.note" placeholder="Add a note..." />
               </label>
-              <button type="button" class="ward-pay-btn ward-pay-btn--primary" (click)="collectPayment()">
+              <button type="button" class="ward-pay-btn ward-pay-btn--primary" *ngIf="canCollectPayment" (click)="collectPayment()">
                 <i class="fa fa-money" aria-hidden="true"></i> Collect Payment
               </button>
             </div>
@@ -194,7 +194,7 @@
                 <span>Note (Optional)</span>
                 <input type="text" [(ngModel)]="securityForm.note" placeholder="Admission security deposit" />
               </label>
-              <button type="button" class="ward-pay-btn ward-pay-btn--outline" (click)="collectSecurity()">
+              <button type="button" class="ward-pay-btn ward-pay-btn--outline" *ngIf="canCollectPayment" (click)="collectSecurity()">
                 <i class="fa fa-shield" aria-hidden="true"></i> Collect Security
               </button>
             </div>
@@ -420,7 +420,7 @@
             <span>Rate ({{ currencyLabel }})</span>
             <input type="number" min="0" [(ngModel)]="procedureForm.rate" />
           </label>
-          <button type="button" class="wcs-btn wcs-btn--primary" (click)="createProcedure()">
+          <button type="button" class="wcs-btn wcs-btn--primary" *ngIf="canManageProcedures" (click)="createProcedure()">
             <i class="fa fa-calendar-plus-o" aria-hidden="true"></i> Schedule Procedure
           </button>
         </div>
@@ -455,8 +455,8 @@
                 <td>{{ money(row['rate'] || row['amount']) }}</td>
                 <td><span class="wcs-badge" [ngClass]="procedureStatusClass(row['status'])">{{ procedureStatusLabel(row['status']) }}</span></td>
                 <td>
-                  <button *ngIf="row['status'] === 'SCHEDULED' || row['status'] === 'PLANNED'" type="button" class="wcs-btn wcs-btn--ghost" (click)="completeProcedure(asId(row['_id']))">Complete</button>
-                  <button *ngIf="row['status'] === 'SCHEDULED' || row['status'] === 'PLANNED'" type="button" class="wcs-btn wcs-btn--ghost" (click)="cancelProcedure(asId(row['_id']))">Cancel</button>
+                  <button *ngIf="canManageProcedures && (row['status'] === 'SCHEDULED' || row['status'] === 'PLANNED')" type="button" class="wcs-btn wcs-btn--ghost" (click)="completeProcedure(asId(row['_id']))">Complete</button>
+                  <button *ngIf="canManageProcedures && (row['status'] === 'SCHEDULED' || row['status'] === 'PLANNED')" type="button" class="wcs-btn wcs-btn--ghost" (click)="cancelProcedure(asId(row['_id']))">Cancel</button>
                 </td>
               </tr>
               <tr *ngIf="procedures.length === 0"><td colspan="8" class="text-muted">No procedures scheduled.</td></tr>
@@ -473,7 +473,13 @@
           <input [(ngModel)]="operationForm.operationName" placeholder="Operation name" />
           <input [(ngModel)]="operationForm.otRoom" placeholder="OT Room" />
           <input type="number" [(ngModel)]="operationForm.baseCharge" placeholder="Base charge" />
-          <button type="button" class="btn btn-primary btn-sm" (click)="createOperation()">Schedule</button>
+          <button type="button" class="btn btn-primary btn-sm" *ngIf="canManageWardOperations" (click)="createOperation()">Schedule</button>
+          <a
+            *ngIf="canOpenOtCalendar"
+            class="btn btn-outline-primary btn-sm"
+            [routerLink]="['/operations']"
+            [queryParams]="{ admissionId: admissionId }"
+          >Open OT calendar</a>
         </div>
       </div>
       <div class="table-responsive">
@@ -486,8 +492,24 @@
               <td>{{ money(row['totalCharge']) }}</td>
               <td>{{ row['status'] }}</td>
               <td>
-                <button *ngIf="row['status'] === 'SCHEDULED'" class="btn btn-sm btn-outline-primary" (click)="completeOperation(asId(row['_id']))">Complete</button>
-                <button *ngIf="row['status'] === 'SCHEDULED'" class="btn btn-sm btn-outline-secondary" (click)="cancelOperation(asId(row['_id']))">Cancel</button>
+                <button
+                  *ngIf="canManageWardOperations && (row['status'] === 'SCHEDULED' || row['status'] === 'IN_PROGRESS')"
+                  type="button"
+                  class="btn btn-sm btn-outline-primary"
+                  (click)="completeOperation(asId(row['_id']))"
+                >Complete</button>
+                <button
+                  *ngIf="canManageWardOperations && (row['status'] === 'SCHEDULED' || row['status'] === 'IN_PROGRESS')"
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  (click)="cancelOperation(asId(row['_id']))"
+                >Cancel</button>
+                <a
+                  *ngIf="canOpenOtCalendar"
+                  class="btn btn-sm btn-outline-primary"
+                  [routerLink]="['/operations']"
+                  [queryParams]="{ admissionId: admissionId }"
+                >OT calendar</a>
               </td>
             </tr>
           </tbody>
@@ -495,106 +517,123 @@
       </div>
     </div>
 
-    <div *ngSwitchCase="'discharge'" class="ward-discharge">
-      <section class="ward-discharge-checklist" aria-label="Discharge checklist">
-        <div class="ward-discharge-checklist__head">
-          <h3>Discharge checklist</h3>
-          <p>Clear each item on this chart. Do not leave to Admissions.</p>
+    <div *ngSwitchCase="'discharge'" class="ward-discharge ward-discharge--simple">
+      <header class="ward-dx-hero" [class.is-ready]="canConfirmDischarge">
+        <div>
+          <p class="ward-dx-hero__eyebrow">Discharge</p>
+          <h3>{{ canConfirmDischarge ? 'Ready to discharge' : 'Clear these items first' }}</h3>
+          <p class="ward-dx-hero__status">{{ billingInsight }}</p>
         </div>
-        <ul class="ward-discharge-checklist__list">
-          <li [class.is-done]="dischargeWardBalanceClear">
-            <i class="fa" [ngClass]="dischargeWardBalanceClear ? 'fa-check-circle' : 'fa-circle-o'" aria-hidden="true"></i>
-            <div>
-              <strong>Ward balance paid</strong>
-              <span *ngIf="!dischargeWardBalanceClear">Outstanding {{ money(outstandingAmount) }} — collect under Payment.</span>
-              <span *ngIf="dischargeWardBalanceClear">Ward dues are clear.</span>
-            </div>
-            <button *ngIf="!dischargeWardBalanceClear" type="button" class="btn btn-sm btn-outline-primary" (click)="goToPaymentsFromDischarge()">Pay ward bill</button>
-          </li>
-          <li [class.is-done]="dischargePharmacyClear">
-            <i class="fa" [ngClass]="dischargePharmacyClear ? 'fa-check-circle' : 'fa-circle-o'" aria-hidden="true"></i>
-            <div>
-              <strong>Pharmacy medicines paid</strong>
-              <span *ngIf="!dischargePharmacyClear">Unpaid {{ money(pharmacyUnpaidAmount) }} — patient pays at Pharmacy → Ward Settlements.</span>
-              <span *ngIf="dischargePharmacyClear">Pharmacy settlement is clear.</span>
-            </div>
-            <a *ngIf="!dischargePharmacyClear" class="btn btn-sm btn-outline-primary" routerLink="/pharmacy/ward-settlements">Open pharmacy</a>
-          </li>
-          <li [class.is-done]="dischargeOperationsClear">
-            <i class="fa" [ngClass]="dischargeOperationsClear ? 'fa-check-circle' : 'fa-circle-o'" aria-hidden="true"></i>
-            <div>
-              <strong>Scheduled operations completed</strong>
-              <span *ngIf="!dischargeOperationsClear">{{ scheduledOperationsCount }} operation(s) still scheduled.</span>
-              <span *ngIf="dischargeOperationsClear">No open scheduled operations.</span>
-            </div>
-          </li>
-        </ul>
-        <div class="ward-discharge-checklist__actions">
-          <p class="ward-discharge-checklist__status" [class.is-ready]="canConfirmDischarge">{{ billingInsight }}</p>
+        <button
+          type="button"
+          class="hms-btn hms-btn-primary"
+          data-testid="confirm-discharge-button"
+          *ngIf="canAttemptDischarge"
+          [disabled]="!canConfirmDischarge || discharging"
+          (click)="askConfirmDischarge()"
+        >
+          {{ discharging ? 'Discharging…' : 'Confirm Discharge' }}
+        </button>
+        <p class="ward-detail-note" *ngIf="!canAttemptDischarge">No discharge permission on this role.</p>
+      </header>
+
+      <ul class="ward-dx-checks" aria-label="Discharge checklist">
+        <li [class.is-done]="dischargeWardBalanceClear">
+          <i class="fa" [ngClass]="dischargeWardBalanceClear ? 'fa-check-circle' : 'fa-circle-o'" aria-hidden="true"></i>
+          <div>
+            <strong>Ward bill</strong>
+            <span *ngIf="dischargeWardBalanceClear">Paid</span>
+            <span *ngIf="!dischargeWardBalanceClear">Due {{ money(outstandingAmount) }}</span>
+          </div>
           <button
+            *ngIf="!dischargeWardBalanceClear && canCollectPayment"
             type="button"
-            class="btn btn-primary"
-            data-testid="confirm-discharge-button"
-            [disabled]="!canConfirmDischarge || discharging"
-            (click)="confirmDischarge()"
-          >
-            {{ discharging ? 'Discharging...' : 'Confirm Discharge' }}
-          </button>
+            class="hms-btn hms-btn-sm hms-btn-secondary"
+            (click)="goToPaymentsFromDischarge()"
+          >Collect</button>
+        </li>
+        <li [class.is-done]="dischargePharmacyClear">
+          <i class="fa" [ngClass]="dischargePharmacyClear ? 'fa-check-circle' : 'fa-circle-o'" aria-hidden="true"></i>
+          <div>
+            <strong>Pharmacy</strong>
+            <span *ngIf="dischargePharmacyClear">Cleared</span>
+            <span *ngIf="!dischargePharmacyClear">Unpaid {{ money(pharmacyUnpaidAmount) }}</span>
+          </div>
+          <a
+            *ngIf="!dischargePharmacyClear"
+            class="hms-btn hms-btn-sm hms-btn-secondary"
+            routerLink="/pharmacy/ward-settlements"
+          >Pharmacy</a>
+        </li>
+        <li [class.is-done]="dischargeOperationsClear">
+          <i class="fa" [ngClass]="dischargeOperationsClear ? 'fa-check-circle' : 'fa-circle-o'" aria-hidden="true"></i>
+          <div>
+            <strong>Operations</strong>
+            <span *ngIf="dischargeOperationsClear">None open</span>
+            <span *ngIf="!dischargeOperationsClear">{{ scheduledOperationsCount }} still scheduled</span>
+          </div>
+        </li>
+      </ul>
+
+      <section class="ward-dx-money" aria-label="Bill summary">
+        <div>
+          <span>Total</span>
+          <strong>{{ money(summary['netPayable'] ?? dischargeStatement['netCharges']) }}</strong>
+        </div>
+        <div>
+          <span>Paid</span>
+          <strong>{{ money(summary['totalPaid'] ?? dischargeStatement['previousPayments']) }}</strong>
+        </div>
+        <div [class.is-due]="!dischargeWardBalanceClear">
+          <span>Due</span>
+          <strong>{{ money(outstandingAmount) }}</strong>
+        </div>
+        <div>
+          <span>Pharmacy unpaid</span>
+          <strong>{{ money(pharmacyUnpaidAmount) }}</strong>
         </div>
       </section>
 
-      <header class="ward-discharge__head">
-        <div>
-          <h3>Final Discharge Statement</h3>
-          <p>{{ hospitalName() }} · System generated discharge summary</p>
+      <section class="ward-dx-collect" *ngIf="showDischargeCollect && !dischargeWardBalanceClear && canCollectPayment">
+        <header>
+          <h4>Collect ward payment</h4>
+          <button type="button" class="hms-btn hms-btn-sm hms-btn--ghost" (click)="showDischargeCollect = false">Hide</button>
+        </header>
+        <div class="ward-dx-collect__row">
+          <label>
+            <span>Amount</span>
+            <input type="number" min="0" [(ngModel)]="paymentForm.amount" />
+          </label>
+          <label>
+            <span>Method</span>
+            <select [(ngModel)]="paymentForm.method">
+              <option value="cash">Cash</option>
+              <option value="bank">Bank</option>
+              <option value="card">Card</option>
+              <option value="jazzcash">JazzCash</option>
+              <option value="easypaisa">Easypaisa</option>
+            </select>
+          </label>
+          <button type="button" class="hms-btn hms-btn-primary" (click)="collectPayment()">Collect</button>
         </div>
+      </section>
+
+      <div class="ward-dx-tools">
+        <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" (click)="showDischargeDetails = !showDischargeDetails">
+          {{ showDischargeDetails ? 'Hide statement' : 'View statement' }}
+        </button>
         <app-hms-document-toolbar
           [title]="'Discharge Statement'"
           filename="discharge-statement.pdf"
           [getHtml]="buildDischargeDocument"
         ></app-hms-document-toolbar>
-      </header>
+      </div>
 
-      <section class="ward-discharge-patient">
-        <div class="ward-discharge-patient__main">
-          <div class="ward-discharge-avatar" aria-hidden="true">{{ dischargePatientInitial() }}</div>
-          <div>
-            <span class="ward-discharge-patient__label">Patient Name</span>
-            <strong class="ward-discharge-patient__name">{{ dischargePatientName() }}</strong>
-            <div class="ward-discharge-patient__facts">
-              <span>{{ dischargePatientGender() }}</span>
-              <span>{{ dischargePatientAge() }}</span>
-              <span>{{ dischargePatientBloodGroup() }}</span>
-            </div>
-          </div>
-        </div>
-        <dl class="ward-discharge-meta">
-          <div><dt>MRN</dt><dd>{{ dischargePatientMrn() }}</dd></div>
-          <div><dt>Admission No</dt><dd>{{ dischargeAdmissionNo() }}</dd></div>
-          <div><dt>Ward / Room</dt><dd>{{ dischargeWardRoom() }}</dd></div>
-          <div><dt>Consultant</dt><dd>{{ dischargeConsultant() }}</dd></div>
-        </dl>
-      </section>
-
-      <section class="ward-discharge-stay">
-        <article>
-          <span>Admission Date &amp; Time</span>
-          <strong>{{ dischargeAdmittedAt() }}</strong>
-        </article>
-        <article>
-          <span>Discharge Date &amp; Time</span>
-          <strong>{{ dischargeDischargedAt() }}</strong>
-        </article>
-        <article>
-          <span>Length of Stay</span>
-          <strong>{{ dischargeLengthOfStay() }}</strong>
-        </article>
-      </section>
-
-      <section class="ward-discharge-charges">
-        <div class="ward-discharge-charges__head">
-          <i class="fa fa-file-text-o" aria-hidden="true"></i>
-          <h4>Charges Summary</h4>
+      <section class="ward-dx-statement" *ngIf="showDischargeDetails">
+        <div class="ward-dx-statement__patient">
+          <strong>{{ dischargePatientName() }}</strong>
+          <span>{{ dischargePatientMrn() }} · {{ dischargeWardRoom() }} · {{ dischargeLengthOfStay() }}</span>
+          <span>{{ dischargeAdmittedAt() }} → {{ dischargeDischargedAt() }}</span>
         </div>
         <div class="table-responsive">
           <table class="ward-discharge-table">
@@ -602,7 +641,7 @@
               <tr>
                 <th>#</th>
                 <th>Description</th>
-                <th class="text-right">Amount ({{ currencyLabel }})</th>
+                <th class="text-right">Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -612,55 +651,32 @@
                 <td class="text-right is-amount">{{ money(row.amount) }}</td>
               </tr>
               <tr *ngIf="dischargeChargeRows.length === 0">
-                <td colspan="3" class="text-center text-muted">No charge breakdown available.</td>
+                <td colspan="3" class="text-center text-muted">No charge lines.</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="ward-discharge-totals">
-          <div><span>Gross Charges</span><strong>{{ money(dischargeStatement['grossCharges']) }}</strong></div>
-          <div><span>Discount</span><strong>{{ money(dischargeStatement['totalDiscount']) }}</strong></div>
-          <div class="is-net"><span>Net Payable</span><strong>{{ money(dischargeStatement['netCharges']) }}</strong></div>
+        <dl class="ward-dx-statement__totals">
+          <div><dt>Gross</dt><dd>{{ money(dischargeStatement['grossCharges']) }}</dd></div>
+          <div><dt>Discount</dt><dd>{{ money(dischargeStatement['totalDiscount']) }}</dd></div>
+          <div><dt>Net</dt><dd>{{ money(dischargeStatement['netCharges']) }}</dd></div>
+          <div><dt>Security</dt><dd>{{ money(dischargeStatement['securityAvailable']) }}</dd></div>
+        </dl>
+      </section>
+
+      <div class="ward-dx-confirm-backdrop" *ngIf="dischargeConfirmOpen" (click)="cancelConfirmDischarge()">
+        <div class="ward-dx-confirm" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+          <h4>Confirm discharge?</h4>
+          <p>
+            {{ dischargePatientName() }} will be discharged. The bed becomes free and this chart closes.
+          </p>
+          <div class="ward-dx-confirm__actions">
+            <button type="button" class="hms-btn hms-btn-secondary" (click)="cancelConfirmDischarge()">Cancel</button>
+            <button type="button" class="hms-btn hms-btn-primary" [disabled]="discharging" (click)="confirmDischarge()">
+              {{ discharging ? 'Discharging…' : 'Yes, discharge' }}
+            </button>
+          </div>
         </div>
-      </section>
-
-      <section class="ward-discharge-payment">
-        <article>
-          <span>Amount Paid</span>
-          <strong>{{ money(dischargeStatement['previousPayments']) }}</strong>
-        </article>
-        <article>
-          <span>Amount Due</span>
-          <strong>{{ money(dischargeStatement['balanceDue']) }}</strong>
-        </article>
-      </section>
-
-      <section class="ward-discharge-extras">
-        <article>
-          <span>Advance Credit</span>
-          <strong>{{ money(dischargeStatement['advanceCreditBalance']) }}</strong>
-        </article>
-        <article>
-          <span>Security Held</span>
-          <strong>{{ money(dischargeStatement['securityAvailable']) }}</strong>
-        </article>
-        <article>
-          <span>Refund Due</span>
-          <strong>{{ money(dischargeStatement['patientRefundDue']) }}</strong>
-        </article>
-        <article>
-          <span>Pharmacy Settlement</span>
-          <strong>
-            {{ money(pharmacySettlement()['pharmacyCharges']) }}
-            · P {{ pharmacySettlement()['pendingCount'] || 0 }}
-            · S {{ pharmacySettlement()['settledCount'] || 0 }}
-          </strong>
-        </article>
-      </section>
-
-      <div class="ward-discharge-thanks">
-        <i class="fa fa-heart" aria-hidden="true"></i>
-        <span>Thank you for choosing {{ hospitalName() }}. We wish you a speedy recovery.</span>
       </div>
     </div>
 

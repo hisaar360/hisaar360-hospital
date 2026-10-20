@@ -6,6 +6,7 @@ import {
   HostListener,
   OnDestroy,
   OnInit,
+  ViewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -27,18 +28,33 @@ import { WardVitalsTrendsComponent } from './ward-vitals-trends.component';
 import { WardDataService } from './services/ward-data.service';
 import { WARD_PATIENT_SHIFT_OPTIONS } from './ward-patient-list.mock';
 import { HmsActionMenuComponent, HmsActionMenuItem } from '../../../shared/components/hms-action-menu/hms-action-menu.component';
+import { HmsSpotlightTutorialComponent } from '../../../shared/components/hms-spotlight-tutorial/hms-spotlight-tutorial.component';
+import { HmsSpotlightTutorialStep } from '../../../shared/components/hms-spotlight-tutorial/hms-spotlight-tutorial.models';
 import { HmsDocumentService } from '../../../core/services/hms-document.service';
 import { buildHmsStandardDocumentHtml, buildHmsTableHtml } from '../../../core/utils/hms-document-template.util';
 import { readCurrentUserName, readStoredHospitalDocumentInfo } from '../../../core/utils/hms-document-context.util';
+import {
+  WARD_ADMISSIONS_TUTORIAL_STEPS,
+  WARD_ADMISSIONS_TUTORIAL_STORAGE,
+} from './ward-tutorials.data';
 
 @Component({
   selector: 'app-ward-module-page',
-  imports: [CommonModule, FormsModule, WardActionModalComponent, WardDripActionModalComponent, WardVitalsTrendsComponent, HmsActionMenuComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    WardActionModalComponent,
+    WardDripActionModalComponent,
+    WardVitalsTrendsComponent,
+    HmsActionMenuComponent,
+    HmsSpotlightTutorialComponent,
+  ],
   templateUrl: './ward-module-page.component.html',
   styleUrl: './ward-module-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WardModulePageComponent implements OnInit, OnDestroy {
+  @ViewChild(HmsSpotlightTutorialComponent) tutorial?: HmsSpotlightTutorialComponent;
   config!: WardModulePageConfig;
   loading = false;
   rows: WardModuleRow[] = [];
@@ -78,6 +94,25 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
   private pendingDripPatch: { rowId: string; status: 'planned' | 'running' | 'completed' } | null = null;
   private querySub: Subscription | null = null;
   private openedRecommendationId = '';
+
+  readonly admissionsTutorialSteps = WARD_ADMISSIONS_TUTORIAL_STEPS;
+  readonly admissionsTutorialStorage = WARD_ADMISSIONS_TUTORIAL_STORAGE;
+
+  get showModuleTutorial(): boolean {
+    return this.config?.key === 'admissions';
+  }
+
+  get moduleTutorialSteps(): HmsSpotlightTutorialStep[] {
+    return this.admissionsTutorialSteps;
+  }
+
+  get moduleTutorialStorage(): string {
+    return this.admissionsTutorialStorage;
+  }
+
+  startTutorial(): void {
+    this.tutorial?.start();
+  }
 
   constructor(
     private route: ActivatedRoute,
@@ -620,30 +655,36 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
 
   private careRouteToChartTab(path: string): string | null {
     if (path.includes('/ward/mar')) return 'medicines';
-    if (path.includes('/ward/drips-iv')) return 'drips';
-    if (path.includes('/ward/vitals')) return 'vitals';
-    if (path.includes('/ward/nursing-care')) return 'nursing';
-    if (path.includes('/ward/io-chart')) return 'io';
+    if (path.includes('/ward/drips-iv')) return 'care';
+    if (path.includes('/ward/vitals')) return 'care';
+    if (path.includes('/ward/nursing-care')) return 'care';
+    if (path.includes('/ward/io-chart')) return 'care';
     if (path.includes('/ward/orders-services')) return 'orders';
     return null;
   }
 
-  /** Care modules belong on the patient chart — redirect instead of orphan list pages. */
+  /**
+   * Extra / legacy ward list pages redirect into the slim desk:
+   * patient chart when an admission is in context, otherwise Patients list.
+   */
   private redirectOrphanCareRouteToChart(moduleKey: string): boolean {
     const chartTabs: Record<string, string> = {
       mar: 'medicines',
-      'drips-iv': 'drips',
-      vitals: 'vitals',
-      'nursing-care': 'nursing',
-      'io-chart': 'io',
+      'drips-iv': 'care',
+      vitals: 'care',
+      'nursing-care': 'care',
+      'io-chart': 'care',
       'orders-services': 'orders',
+      'shift-handover': 'care',
+      inventory: '',
+      reports: '',
     };
-    const tab = chartTabs[moduleKey];
-    if (!tab) {
+    if (!(moduleKey in chartTabs)) {
       return false;
     }
+    const tab = chartTabs[moduleKey];
 
-    if (this.contextAdmissionId) {
+    if (this.contextAdmissionId && tab) {
       void this.router.navigate(['/ward/patient-detail', this.contextAdmissionId], {
         queryParams: { tab },
         replaceUrl: true,
@@ -651,10 +692,15 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
       return true;
     }
 
+    if (moduleKey === 'inventory' || moduleKey === 'reports' || moduleKey === 'shift-handover') {
+      void this.router.navigate(['/ward/home'], { replaceUrl: true });
+      return true;
+    }
+
     void this.router.navigate(['/ward/patient-list'], {
       queryParams: {
         pickPatient: '1',
-        nextTab: tab,
+        nextTab: tab || 'overview',
         patientId: this.contextPatientId || undefined,
       },
       replaceUrl: true,
@@ -773,6 +819,13 @@ export class WardModulePageComponent implements OnInit, OnDestroy {
   primaryAction(): void {
     if (this.config.layout === 'reports') {
       this.toastr.info('Report summary loaded from live ward data.', this.config.title);
+      return;
+    }
+    // Walk-in / manual admit: room + bed allotment (same path as Review & Admit).
+    if (this.config.key === 'admissions') {
+      void this.router.navigate(['/room-allotment/add-alloted-rooms'], {
+        queryParams: { source: 'ward-manual' },
+      });
       return;
     }
     this.actionPreset = this.buildActionPreset();

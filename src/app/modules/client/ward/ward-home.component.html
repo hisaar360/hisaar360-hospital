@@ -3,9 +3,27 @@
     <header class="ward-page-header ward-page-header--compact">
       <div class="ward-page-header__copy">
         <h1>Ward Home</h1>
-        <p>Rooms, admitted patients, and pending shift care records for Ward Admin to enter.</p>
+        <p>See beds, open a patient, then add care, medicine, or discharge from their profile.</p>
       </div>
-      <div class="ward-page-header__actions">
+      <div class="ward-page-header__actions ward-home-header-actions">
+        <button
+          type="button"
+          class="hms-btn hms-btn-sm hms-btn-secondary"
+          data-tour="ward-tutorial-btn"
+          aria-label="Start Ward Home tutorial"
+          (click)="startTutorial()"
+        >
+          <i class="fa fa-graduation-cap" aria-hidden="true"></i> Tutorial
+        </button>
+        <a
+          class="hms-btn hms-btn-sm hms-btn-primary"
+          data-tour="manual-admit"
+          routerLink="/room-allotment/add-alloted-rooms"
+          [queryParams]="{ source: 'ward-manual' }"
+        >Manual Admit</a>
+        <a class="hms-btn hms-btn-sm hms-btn-secondary" data-tour="admissions" routerLink="/ward/admissions">Admissions</a>
+        <a class="hms-btn hms-btn-sm hms-btn-secondary" data-tour="patients" routerLink="/ward/patient-list">Patients</a>
+        <a class="hms-btn hms-btn-sm hms-btn-secondary" data-tour="beds" routerLink="/ward/bed-management">Beds</a>
         <button type="button" class="btn btn-sm ward-refresh-btn" (click)="loadSummary(); loadBoard()"
           [disabled]="summaryLoading || boardLoading" aria-label="Refresh ward home">
           <i class="fa" [ngClass]="summaryLoading || boardLoading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
@@ -14,7 +32,7 @@
     </header>
 
     <!-- Summary strip -->
-    <section class="ward-kpi-grid ward-home-summary" *ngIf="!summaryLoading && !summaryError">
+    <section class="ward-kpi-grid ward-home-summary" data-tour="summary" *ngIf="!summaryLoading && !summaryError">
       <article class="ward-kpi-card ward-home-tile" *ngFor="let tile of summaryTiles"
         [ngClass]="'ward-kpi-card--' + tile.tone">
         <span class="ward-kpi-card__icon"><i class="fa" [ngClass]="tile.icon"></i></span>
@@ -26,8 +44,8 @@
       </article>
     </section>
 
-    <section class="ward-kpi-grid ward-home-summary" *ngIf="summaryLoading">
-      <article class="ward-kpi-card ward-home-skeleton-tile" *ngFor="let row of [1,2,3,4,5,6]"></article>
+    <section class="ward-kpi-grid ward-home-summary" data-tour="summary" *ngIf="summaryLoading">
+      <article class="ward-kpi-card ward-home-skeleton-tile" *ngFor="let row of [1,2,3,4]"></article>
     </section>
 
     <section class="ward-home-widget-error" *ngIf="summaryError && !summaryLoading" role="alert">
@@ -35,8 +53,13 @@
       <button type="button" class="btn btn-sm ward-home-btn ward-home-btn--primary" (click)="loadSummary()">Retry</button>
     </section>
 
-    <!-- Missing shift care records -->
-    <section class="ward-home-missing" *ngIf="!summaryLoading && summary.missingUpdates.length" aria-label="Missing care records">
+    <!-- Missing shift care records (tour target always present for A→Z walkthrough) -->
+    <div data-tour="care-pending">
+    <section
+      class="ward-home-missing"
+      *ngIf="!summaryLoading && summary.missingUpdates.length"
+      aria-label="Missing care records"
+    >
       <header class="ward-home-missing__header">
         <h2><i class="fa fa-bell" aria-hidden="true"></i> Care records pending</h2>
         <span>{{ summary.missingUpdateCount }} reminder{{ summary.missingUpdateCount === 1 ? '' : 's' }}</span>
@@ -51,9 +74,13 @@
         </li>
       </ul>
     </section>
+    <p class="ward-detail-note ward-home-care-hint" *ngIf="!summaryLoading && !summary.missingUpdates.length">
+      Care reminders appear here when Morning / Afternoon / Night records are missing.
+    </p>
+    </div>
 
     <!-- Filters -->
-    <section class="ward-home-filters" aria-label="Bed board filters">
+    <section class="ward-home-filters" data-tour="filters" aria-label="Bed board filters">
       <button type="button" class="ward-home-chip" *ngFor="let filter of filters"
         [class.ward-home-chip--active]="activeFilter === filter.key" [attr.aria-pressed]="activeFilter === filter.key"
         (click)="setFilter(filter.key)">
@@ -63,7 +90,7 @@
     </section>
 
     <!-- Bed board -->
-    <section class="ward-home-board" *ngIf="boardLoading">
+    <section class="ward-home-board" data-tour="board" *ngIf="boardLoading">
       <div class="ward-home-card ward-home-skeleton-card" *ngFor="let row of skeletonRows"></div>
     </section>
 
@@ -73,6 +100,7 @@
     </section>
 
     <ng-container *ngIf="!boardLoading && !boardError">
+      <div data-tour="board">
       <section class="ward-home-ward-group" *ngFor="let group of groups">
         <header class="ward-home-ward-group__header">
           <h2>{{ group.wardName }}</h2>
@@ -134,6 +162,14 @@
         <h3>{{ emptyBoardMessage() }}</h3>
         <p *ngIf="!summary.admissions.pendingRecommendations">No pending admissions.</p>
       </div>
+      </div>
     </ng-container>
+
+    <app-hms-spotlight-tutorial
+      [steps]="tutorialSteps"
+      [storageKey]="tutorialStorageKey"
+      offerTitle="Welcome to Ward Home"
+      offerText="Take the Ward A→Z walkthrough: Manual Admit, Admissions, Patients, Beds, care reminders, and opening a chart from the bed board. Replay anytime from Tutorial."
+    ></app-hms-spotlight-tutorial>
   </div>
 </div>

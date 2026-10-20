@@ -1,0 +1,145 @@
+.hms-tour-offer {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 95;
+}
+
+.hms-tour-offer__card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+  max-width: 420px;
+  padding: 1.25rem 1.35rem;
+  width: calc(100vw - 32px);
+}
+
+.hms-tour-offer__card h3 {
+  color: #0f172a;
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem;
+}
+
+.hms-tour-offer__card p {
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin: 0 0 1rem;
+}
+
+.hms-tour-offer__actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: flex-end;
+}
+
+.hms-tour-offer__actions button,
+.hms-tour__actions button {
+  background: #fff;
+  border: 1px solid #dbe4e4;
+  border-radius: 10px;
+  color: #334155;
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+.hms-tour-offer__actions .is-ghost {
+  background: transparent;
+}
+
+.hms-tour-offer__actions .is-primary,
+.hms-tour__actions .is-primary {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+}
+
+.hms-tour__dim {
+  background: transparent;
+  inset: 0;
+  position: fixed;
+  z-index: 90;
+}
+
+.hms-tour__spot {
+  border: 2px solid #0f766e;
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 9999px rgba(15, 23, 42, 0.55),
+    0 0 0 4px rgba(15, 118, 110, 0.25);
+  pointer-events: none;
+  position: fixed;
+  z-index: 91;
+}
+
+.hms-tour__card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22);
+  padding: 14px 16px;
+  position: fixed;
+  z-index: 92;
+}
+
+.hms-tour__meta {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.hms-tour__meta span {
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hms-tour__close {
+  align-items: center;
+  background: #f1f5f9;
+  border: 0;
+  border-radius: 8px;
+  color: #475569;
+  cursor: pointer;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.hms-tour__card h3 {
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0 0 6px;
+}
+
+.hms-tour__card p {
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.hms-tour__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.hms-tour__actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}

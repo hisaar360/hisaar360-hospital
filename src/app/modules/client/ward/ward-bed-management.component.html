@@ -3,7 +3,7 @@
     <nav class="bed-mgmt-breadcrumb" aria-label="Breadcrumb">
       <a routerLink="/dashboard">Home</a>
       <span>/</span>
-      <a routerLink="/ward/dashboard">Ward &amp; Nursing</a>
+      <a routerLink="/ward/home">Ward Home</a>
       <span>/</span>
       <strong>Bed Management</strong>
     </nav>
@@ -14,22 +14,34 @@
         <p>Manage ward rooms, beds, occupancy and availability across your hospital.</p>
       </div>
       <div class="ward-page-header__actions bed-mgmt-actions">
-        <button type="button" class="bed-action-btn bed-action-btn--outline" (click)="openAddWard()">
+        <button
+          type="button"
+          class="bed-action-btn bed-action-btn--outline"
+          data-tour="ward-tutorial-btn"
+          aria-label="Start Beds tutorial"
+          (click)="startTutorial()"
+        >
+          <i class="fa fa-graduation-cap" aria-hidden="true"></i> Tutorial
+        </button>
+        <span class="bed-refresh-chip" *ngIf="refreshing" aria-live="polite">
+          <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Updating…
+        </span>
+        <button type="button" class="bed-action-btn bed-action-btn--outline" data-tour="add-ward" (click)="openAddWard()" [disabled]="loading">
           <i class="fa fa-hospital-o" aria-hidden="true"></i> Add Ward
         </button>
-        <button type="button" class="bed-action-btn bed-action-btn--outline" (click)="openAddFloor()" [disabled]="!canAddFloor">
+        <button type="button" class="bed-action-btn bed-action-btn--outline" data-tour="add-floor" (click)="openAddFloor()" [disabled]="loading || !canAddFloor">
           <i class="fa fa-building-o" aria-hidden="true"></i> Add Floor
         </button>
-        <button type="button" class="bed-action-btn bed-action-btn--outline-teal" (click)="openAddRoom()" [disabled]="!canAddRoom">
+        <button type="button" class="bed-action-btn bed-action-btn--outline-teal" data-tour="add-room" (click)="openAddRoom()" [disabled]="loading || !canAddRoom">
           <i class="fa fa-plus" aria-hidden="true"></i> Add Room
         </button>
-        <button type="button" class="bed-action-btn bed-action-btn--primary" (click)="openAddBed()" [disabled]="!rooms.length">
+        <button type="button" class="bed-action-btn bed-action-btn--primary" data-tour="add-bed" (click)="openAddBed()" [disabled]="loading || !rooms.length">
           <i class="fa fa-plus" aria-hidden="true"></i> Add Bed
         </button>
       </div>
     </header>
 
-    <section class="bed-kpi-grid" *ngIf="hasWardSetup">
+    <section class="bed-kpi-grid" data-tour="bed-kpis" *ngIf="!loading && hasWardSetup">
       <article class="bed-kpi bed-kpi--total">
         <span class="bed-kpi__icon"><i class="fa fa-bed" aria-hidden="true"></i></span>
         <span class="bed-kpi__copy">
@@ -71,7 +83,7 @@
       </article>
     </section>
 
-    <section class="bed-filter-panel" [class.is-open]="filtersExpanded">
+    <section class="bed-filter-panel" *ngIf="!loading" [class.is-open]="filtersExpanded">
       <button type="button" class="bed-filter-panel__toggle" (click)="toggleFilters()">
         <span><i class="fa fa-filter" aria-hidden="true"></i> Filters</span>
         <i class="fa" [ngClass]="filtersExpanded ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
@@ -128,7 +140,7 @@
       <span>Click Add Ward to create a ward, then Add Floor, Add Room, and Add Bed.</span>
     </div>
 
-    <div class="bed-mgmt-layout" *ngIf="hasWardSetup">
+    <div class="bed-mgmt-layout" data-tour="bed-board" *ngIf="!loading && hasWardSetup">
       <aside class="ward-panel bed-ward-list-panel">
         <div class="ward-panel__head">
           <h2>Wards &amp; Floors</h2>
@@ -361,6 +373,13 @@
         <p class="empty-copy">No recent bed activity to show.</p>
       </ng-template>
     </section>
+
+    <app-hms-spotlight-tutorial
+      [steps]="tutorialSteps"
+      [storageKey]="tutorialStorageKey"
+      offerTitle="Welcome to Bed Management"
+      offerText="Learn how to add wards, floors, rooms, and beds, and how occupancy feeds Manual Admit. Replay anytime from Tutorial."
+    ></app-hms-spotlight-tutorial>
   </div>
 </div>
 

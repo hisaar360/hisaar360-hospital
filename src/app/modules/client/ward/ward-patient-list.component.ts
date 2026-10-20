@@ -6,6 +6,7 @@ import {
   HostListener,
   OnDestroy,
   OnInit,
+  ViewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -24,16 +25,28 @@ import {
 import { WARD_PATIENT_SHIFT_OPTIONS } from './ward-patient-list.mock';
 import { WardDataService } from './services/ward-data.service';
 import { getWardOptionsFromRooms, mapAllotmentToWardPatient } from './services/ward-api.mapper';
+import { LoadingService } from '../../../core/services/loading.service';
 import { HmsActionMenuComponent, HmsActionMenuItem } from '../../../shared/components/hms-action-menu/hms-action-menu.component';
+import { HmsSpotlightTutorialComponent } from '../../../shared/components/hms-spotlight-tutorial/hms-spotlight-tutorial.component';
+import { WARD_PATIENTS_TUTORIAL_STEPS, WARD_PATIENTS_TUTORIAL_STORAGE } from './ward-tutorials.data';
 
 @Component({
   selector: 'app-ward-patient-list',
-  imports: [CommonModule, FormsModule, RouterLink, HmsActionMenuComponent],
+  imports: [CommonModule, FormsModule, RouterLink, HmsActionMenuComponent, HmsSpotlightTutorialComponent],
   templateUrl: './ward-patient-list.component.html',
   styleUrl: './ward-patient-list.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WardPatientListComponent implements OnInit, OnDestroy {
+  @ViewChild(HmsSpotlightTutorialComponent) tutorial?: HmsSpotlightTutorialComponent;
+
+  readonly tutorialSteps = WARD_PATIENTS_TUTORIAL_STEPS;
+  readonly tutorialStorageKey = WARD_PATIENTS_TUTORIAL_STORAGE;
+
+  startTutorial(): void {
+    this.tutorial?.start();
+  }
+
   loading = false;
   patients: WardPatient[] = [];
   wardPatientsList: WardPatient[] = [];
@@ -99,12 +112,15 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
     ? 'Your currently admitted patients — open a card to review, order, or recommend discharge.'
     : 'Find admitted patients by room or MRN — open the chart to enter vitals, medicines, treatment, and discharge.';
 
+  private pageLoaderActive = false;
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
     private toastr: ToastrService,
     private cdr: ChangeDetectorRef,
-    private wardData: WardDataService
+    private wardData: WardDataService,
+    private loadingService: LoadingService
   ) {}
 
   ngOnInit(): void {
@@ -160,6 +176,13 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
 
   loadPatients(): void {
     this.loading = true;
+    if (!this.pageLoaderActive) {
+      this.pageLoaderActive = true;
+      this.loadingService.show({
+        title: 'Loading patients…',
+        message: 'Fetching admitted patients for this ward',
+      });
+    }
     this.wardData.loadClinicalBundle().subscribe({
       next: (bundle) => {
         this.wardOptions = getWardOptionsFromRooms(bundle.rooms, bundle.hospitalWards);
@@ -186,15 +209,25 @@ export class WardPatientListComponent implements OnInit, OnDestroy {
           );
         this.currentPage = 1;
         this.loading = false;
+        this.hidePageLoader();
         this.recomputeViewState();
       },
       error: () => {
         this.patients = [];
         this.loading = false;
+        this.hidePageLoader();
         this.toastr.error('Failed to load ward patients.', 'Patient List');
         this.recomputeViewState();
       },
     });
+  }
+
+  private hidePageLoader(): void {
+    if (!this.pageLoaderActive) {
+      return;
+    }
+    this.pageLoaderActive = false;
+    this.loadingService.hide();
   }
 
   refresh(): void {

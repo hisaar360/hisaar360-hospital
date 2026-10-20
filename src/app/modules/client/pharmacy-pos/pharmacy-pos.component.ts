@@ -280,6 +280,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   tutorialRect: { top: number; left: number; width: number; height: number } | null = null;
   tutorialCardStyle: Record<string, string> = {};
   readonly tutorialSteps = POS_TUTORIAL_STEPS;
+  /** Ensures first-visit offer is evaluated once (queryParamMap re-emits often). */
+  private tutorialOfferChecked = false;
   isFullScreen = false;
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private searchRequestSeq = 0;
@@ -461,13 +463,18 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
       if (params.get('tutorial') === '1') {
         this.tutorialOffer = false;
+        this.markTutorialSeen();
         setTimeout(() => this.startTutorial(), 350);
         return;
       }
 
-      // First visit only: offer popup (do not force-start every time).
-      if (typeof localStorage !== 'undefined' && !localStorage.getItem(POS_TUTORIAL_STORAGE)) {
-        this.tutorialOffer = true;
+      // First visit only — evaluate once (queryParamMap re-emits on every param change).
+      if (!this.tutorialOfferChecked) {
+        this.tutorialOfferChecked = true;
+        if (typeof localStorage !== 'undefined' && !localStorage.getItem(POS_TUTORIAL_STORAGE)) {
+          this.tutorialOffer = true;
+          this.markTutorialSeen();
+        }
       }
     });
 
@@ -497,6 +504,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.tutorialOffer = false;
     this.tutorialActive = true;
     this.tutorialStep = 0;
+    this.markTutorialSeen();
     this.positionTutorial();
   }
 

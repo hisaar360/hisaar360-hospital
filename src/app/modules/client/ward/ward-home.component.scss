@@ -288,6 +288,12 @@
   }
 }
 
+.ward-home-care-hint {
+  color: #64748b;
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+
 @media (max-width: 767px) {
   .ward-home-board {
     grid-template-columns: 1fr;

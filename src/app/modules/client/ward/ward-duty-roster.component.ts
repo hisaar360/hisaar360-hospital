@@ -67,13 +67,20 @@ interface BulkPreviewRow {
 }
 
 const TUTORIAL_STEPS = [
+  {
+    target: 'ward-tutorial-btn',
+    text: 'Replay this Duty Roster walkthrough anytime from the Tutorial button (or Help → Duty Roster).',
+  },
   { target: 'date', text: 'Choose the day or week you want to schedule.' },
   { target: 'tree', text: 'Select a Ward, Room, Department, OPD area, Laboratory or Pharmacy.' },
-  { target: 'coverage', text: 'Required shows how many staff you need. Assigned shows how many are scheduled. Open shows what is still missing.' },
+  {
+    target: 'coverage',
+    text: 'Required = staff needed. Assigned = already scheduled. Open = still missing for that shift.',
+  },
   { target: 'open-position', text: 'Click an open position or Set Coverage if this shift has no requirement yet.' },
   { target: 'staff', text: 'Available staff are shown first. Conflicting assignments are clearly marked.' },
-  { target: 'draft', text: 'Save changes while you continue building the roster.' },
-  { target: 'publish', text: 'Publish the roster when it is ready for staff.' },
+  { target: 'draft', text: 'Save Draft while you keep building — nothing goes live yet.' },
+  { target: 'publish', text: 'Publish when the roster is ready for staff to see.' },
 ];
 
 const TUTORIAL_STORAGE = 'hms-duty-roster-tutorial-seen';
@@ -236,6 +243,7 @@ export class WardDutyRosterComponent implements OnInit, OnDestroy {
     const tutorialRequested = this.route.snapshot.queryParamMap.get('tutorial') === '1';
     if (tutorialRequested) {
       this.tutorialOffer = false;
+      localStorage.setItem(TUTORIAL_STORAGE, '1');
       setTimeout(() => this.startTutorial(), 350);
       void this.router.navigate([], {
         relativeTo: this.route,
@@ -244,7 +252,9 @@ export class WardDutyRosterComponent implements OnInit, OnDestroy {
         replaceUrl: true,
       });
     } else if (this.canCreate && !localStorage.getItem(TUTORIAL_STORAGE)) {
+      // Show once, then persist so module reopen / login never re-prompts.
       this.tutorialOffer = true;
+      localStorage.setItem(TUTORIAL_STORAGE, '1');
     }
   }
 

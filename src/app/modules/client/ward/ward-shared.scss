@@ -33,6 +33,13 @@
   margin: 2px 0 0;
 }
 
+.ward-home-header-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .ward-page-header__actions {
   align-items: end;
   display: flex;
@@ -247,9 +254,12 @@
 }
 
 .ward-status-tab {
+  -webkit-appearance: none;
+  appearance: none;
   background: #f8fafc;
   border: 1px solid var(--ward-border);
   border-radius: 999px;
+  box-shadow: none;
   color: #475569;
   font-size: 11px;
   font-weight: 700;
@@ -257,9 +267,82 @@
 }
 
 .ward-status-tab--active {
-  background: var(--ward-blue-soft);
-  border-color: #93c5fd;
-  color: var(--ward-blue);
+  background: #f0fdfa;
+  border-color: #99f6e4;
+  color: #0f766e;
+}
+
+/* Care / chart subtabs — modern pill group (not native bevel buttons) */
+.ward-subtabs {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+}
+
+.ward-subtab {
+  -webkit-appearance: none;
+  appearance: none;
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  box-shadow: none;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  line-height: 1.2;
+  min-height: 34px;
+  padding: 0 12px;
+  text-shadow: none;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.ward-subtab:hover {
+  background: #fff;
+  color: #0f766e;
+}
+
+.ward-subtab.is-active {
+  background: #fff;
+  border-color: #99f6e4;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  color: #0f766e;
+}
+
+.ward-subtab .fa {
+  font-size: 12px;
+}
+
+.ward-filter-chip {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  box-shadow: none;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  min-height: 30px;
+  padding: 0 12px;
+}
+
+.ward-filter-chip.is-active,
+.ward-filter-chip:hover {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+  color: #0f766e;
 }
 
 .ward-data-table-wrap {

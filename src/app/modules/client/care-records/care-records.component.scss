@@ -320,6 +320,218 @@
     margin: 0 0 8px;
   }
 
+  .ward-record-action-cell {
+    text-align: right;
+    width: 74px;
+  }
+
+  .ward-record-action-trigger {
+    align-items: center;
+    background: #fff;
+    border: 1px solid #d8e3e8;
+    border-radius: 9px;
+    color: #33445f;
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 16px;
+    height: 38px;
+    justify-content: center;
+    transition: 0.18s ease;
+    width: 42px;
+  }
+
+  .ward-record-action-trigger:hover,
+  .ward-record-action-trigger:focus-visible {
+    background: #e9fbf9;
+    border-color: #55c9c3;
+    color: #078d89;
+    outline: none;
+  }
+
+  .hms-mobile-card__actions .ward-record-action-trigger {
+    margin-left: auto;
+  }
+
+  .ward-record-actions-modal {
+    align-items: center;
+    backdrop-filter: blur(3px);
+    background: rgba(15, 23, 42, 0.46);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: 20px;
+    position: fixed;
+    z-index: 1400;
+  }
+
+  .ward-record-actions-dialog {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    box-shadow: 0 28px 70px rgba(15, 23, 42, 0.24);
+    max-width: 440px;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .ward-record-actions-dialog__head {
+    align-items: flex-start;
+    border-bottom: 1px solid #e8eef3;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: auto 1fr auto;
+    padding: 18px;
+  }
+
+  .ward-record-actions-dialog__icon {
+    align-items: center;
+    background: #ddf8f5;
+    border-radius: 11px;
+    color: #079c97;
+    display: inline-flex;
+    font-size: 17px;
+    height: 42px;
+    justify-content: center;
+    width: 42px;
+  }
+
+  .ward-record-actions-dialog__head small {
+    color: #0a9995;
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .ward-record-actions-dialog__head h3 {
+    color: #0f1838;
+    font-size: 17px;
+    font-weight: 800;
+    margin: 2px 0;
+  }
+
+  .ward-record-actions-dialog__head p {
+    color: #6b7890;
+    font-size: 12px;
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  .ward-record-actions-dialog__close {
+    align-items: center;
+    background: #f3f6f8;
+    border: 0;
+    border-radius: 9px;
+    color: #64748b;
+    cursor: pointer;
+    display: inline-flex;
+    height: 34px;
+    justify-content: center;
+    width: 34px;
+  }
+
+  .ward-record-actions-dialog__options {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px 8px;
+  }
+
+  .ward-record-option {
+    align-items: center;
+    appearance: none;
+    background: #fff;
+    border: 1px solid #e1e9ef;
+    border-radius: 12px;
+    color: #24324d;
+    cursor: pointer;
+    display: grid;
+    font: inherit;
+    gap: 11px;
+    grid-template-columns: auto 1fr auto;
+    min-height: 62px;
+    padding: 9px 11px;
+    text-align: left;
+    text-decoration: none;
+    transition: 0.18s ease;
+    width: 100%;
+  }
+
+  .ward-record-option:hover,
+  .ward-record-option:focus-visible {
+    border-color: #67d0ca;
+    box-shadow: 0 7px 16px rgba(7, 141, 137, 0.08);
+    outline: none;
+    transform: translateY(-1px);
+  }
+
+  .ward-record-option > span {
+    align-items: center;
+    background: #e5f7ff;
+    border-radius: 10px;
+    color: #1682d4;
+    display: inline-flex;
+    font-size: 15px;
+    height: 40px;
+    justify-content: center;
+    width: 40px;
+  }
+
+  .ward-record-option--edit > span {
+    background: #ecfdf5;
+    color: #079669;
+  }
+
+  .ward-record-option--delete > span {
+    background: #fff0f0;
+    color: #dc3545;
+  }
+
+  .ward-record-option > div {
+    min-width: 0;
+  }
+
+  .ward-record-option strong,
+  .ward-record-option small {
+    display: block;
+  }
+
+  .ward-record-option strong {
+    color: #15213f;
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  .ward-record-option small {
+    color: #758198;
+    font-size: 11px;
+    line-height: 1.35;
+    margin-top: 2px;
+  }
+
+  .ward-record-option > .fa-angle-right {
+    color: #8da0b5;
+    font-size: 14px;
+  }
+
+  .ward-record-option--delete strong,
+  .ward-record-option--delete > .fa-angle-right {
+    color: #bd2737;
+  }
+
+  .ward-record-actions-dialog__cancel {
+    background: #f7f9fb;
+    border: 0;
+    border-radius: 10px;
+    color: #475569;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    margin: 4px 16px 16px;
+    min-height: 42px;
+    width: calc(100% - 32px);
+  }
+
   .ward-badge--watch {
     background: #fff7ed;
     border: 1px solid #fdba74;
@@ -368,5 +580,19 @@
 
   .care-records-page--ward .ward-notes-kpi {
     padding: 12px;
+  }
+
+  .care-records-page--ward .ward-record-actions-modal {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .care-records-page--ward .ward-record-actions-dialog {
+    border-radius: 20px 20px 0 0;
+    max-width: none;
+  }
+
+  .care-records-page--ward .ward-record-actions-dialog__head {
+    padding: 16px;
   }
 }

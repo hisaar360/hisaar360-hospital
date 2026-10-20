@@ -10,6 +10,7 @@ import { WardModuleRow } from './ward-module.models';
 
 export type WardWorkspaceTabKey =
   | 'overview'
+  | 'care'
   | 'vitals'
   | 'medicines'
   | 'drips'
@@ -33,27 +34,26 @@ export interface WardWorkspaceTab {
   group: WardWorkspaceTabGroup;
 }
 
-/** Sub-tabs inside the consolidated "IV / I-O" tab. */
+/** Sub-tabs inside the consolidated Care tab. */
+export type WardCareSubTab = 'vitals' | 'notes' | 'iv';
+
+/** Sub-tabs inside Care → IV / I-O. */
 export type WardIvSubTab = 'iv' | 'io';
 
 /**
- * Seven primary tabs carry routine inpatient care; everything else stays
- * reachable through the "More" group so older deep links keep resolving.
+ * Five primary tabs for the simple patient profile. Rare tools (history, lab,
+ * documents, admit plan, standalone billing) stay under More.
  */
 export const WARD_WORKSPACE_TABS: readonly WardWorkspaceTab[] = [
   { key: 'overview', label: 'Overview', icon: 'fa-id-card-o', group: 'primary' },
-  { key: 'vitals', label: 'Vitals', icon: 'fa-heartbeat', group: 'primary' },
-  { key: 'medicines', label: 'Medications', icon: 'fa-medkit', group: 'primary' },
-  { key: 'drips', label: 'IV / I-O', icon: 'fa-tint', group: 'primary' },
-  { key: 'orders', label: 'Orders', icon: 'fa-list-ul', group: 'primary' },
-  { key: 'notes', label: 'Notes', icon: 'fa-sticky-note-o', group: 'primary' },
-  { key: 'history', label: 'History', icon: 'fa-history', group: 'primary' },
+  { key: 'care', label: 'Care', icon: 'fa-heartbeat', group: 'primary' },
+  { key: 'medicines', label: 'Medicines', icon: 'fa-medkit', group: 'primary' },
+  { key: 'procedures', label: 'Treatments', icon: 'fa-scissors', group: 'primary' },
+  { key: 'discharge', label: 'Discharge', icon: 'fa-sign-out', group: 'primary' },
+  { key: 'history', label: 'History', icon: 'fa-history', group: 'secondary' },
+  { key: 'orders', label: 'Orders', icon: 'fa-list-ul', group: 'secondary' },
   { key: 'admission-plan', label: 'Admit / Plan', icon: 'fa-clipboard', group: 'secondary' },
-  { key: 'procedures', label: 'Treatments', icon: 'fa-scissors', group: 'secondary' },
   { key: 'lab', label: 'Lab', icon: 'fa-flask', group: 'secondary' },
-  { key: 'billing', label: 'Billing', icon: 'fa-file-text-o', group: 'secondary' },
-  { key: 'payments', label: 'Payments', icon: 'fa-money', group: 'secondary' },
-  { key: 'discharge', label: 'Discharge', icon: 'fa-sign-out', group: 'secondary' },
   { key: 'documents', label: 'Documents', icon: 'fa-print', group: 'secondary' },
 ];
 
@@ -66,25 +66,32 @@ export const WARD_WORKSPACE_SECONDARY_TABS: readonly WardWorkspaceTab[] = WARD_W
 );
 
 /**
- * Tab keys that existed before the workspace consolidation. `nursing` became the
- * Notes tab and `io` became a sub-tab of IV / I-O, so both must still resolve.
+ * Legacy `?tab=` / module keys → canonical slim tabs.
+ * Vitals / notes / IV fold into Care; billing / payments fold into Discharge.
  */
 const WARD_WORKSPACE_TAB_ALIASES: Record<string, WardWorkspaceTabKey> = {
-  nursing: 'notes',
-  'nursing-care': 'notes',
-  'nursing-notes': 'notes',
-  notes: 'notes',
-  io: 'drips',
-  'io-chart': 'drips',
-  'drips-iv': 'drips',
-  iv: 'drips',
+  vitals: 'care',
+  notes: 'care',
+  nursing: 'care',
+  'nursing-care': 'care',
+  'nursing-notes': 'care',
+  drips: 'care',
+  'drips-iv': 'care',
+  iv: 'care',
+  io: 'care',
+  'io-chart': 'care',
   mar: 'medicines',
   medications: 'medicines',
+  medicine: 'medicines',
   imaging: 'orders',
   'orders-services': 'orders',
   'admission-plan': 'admission-plan',
   admit: 'admission-plan',
   treatments: 'procedures',
+  treatment: 'procedures',
+  billing: 'discharge',
+  payments: 'discharge',
+  payment: 'discharge',
 };
 
 const WARD_WORKSPACE_TAB_KEYS = new Set<string>(WARD_WORKSPACE_TABS.map((tab) => tab.key));
@@ -95,13 +102,39 @@ export function resolveWardWorkspaceTab(raw: unknown): WardWorkspaceTabKey {
   if (!value) {
     return 'overview';
   }
+  if (WARD_WORKSPACE_TAB_ALIASES[value]) {
+    return WARD_WORKSPACE_TAB_ALIASES[value];
+  }
   if (WARD_WORKSPACE_TAB_KEYS.has(value)) {
     return value as WardWorkspaceTabKey;
   }
-  return WARD_WORKSPACE_TAB_ALIASES[value] || 'overview';
+  return 'overview';
 }
 
-/** `?tab=io` (and the legacy I/O chart module) opens IV / I-O on the Input / Output sub-tab. */
+/** Which Care chip to open for a legacy deep link (or default vitals). */
+export function resolveWardCareSubTab(raw: unknown): WardCareSubTab {
+  const value = String(raw ?? '').trim().toLowerCase();
+  if (
+    value === 'notes' ||
+    value === 'nursing' ||
+    value === 'nursing-care' ||
+    value === 'nursing-notes'
+  ) {
+    return 'notes';
+  }
+  if (
+    value === 'drips' ||
+    value === 'drips-iv' ||
+    value === 'iv' ||
+    value === 'io' ||
+    value === 'io-chart'
+  ) {
+    return 'iv';
+  }
+  return 'vitals';
+}
+
+/** `?tab=io` (and the legacy I/O chart module) opens Care → IV on Input / Output. */
 export function resolveWardIvSubTab(raw: unknown): WardIvSubTab {
   const value = String(raw ?? '').trim().toLowerCase();
   return value === 'io' || value === 'io-chart' ? 'io' : 'iv';
@@ -120,12 +153,12 @@ export function isSecondaryWardWorkspaceTab(key: string): boolean {
  * patient row on an old list page lands on the right section of the chart.
  */
 export const WARD_MODULE_TO_WORKSPACE_TAB: Readonly<Record<string, WardWorkspaceTabKey>> = {
-  vitals: 'vitals',
+  vitals: 'care',
   mar: 'medicines',
-  'drips-iv': 'drips',
-  'io-chart': 'drips',
+  'drips-iv': 'care',
+  'io-chart': 'care',
   'orders-services': 'orders',
-  'nursing-care': 'notes',
+  'nursing-care': 'care',
 };
 
 /** Returns the workspace tab for a ward module key, or '' for modules that own their own page. */
@@ -548,6 +581,7 @@ export type WardQuickActionIntent =
   | 'record-dose'
   | 'update-io'
   | 'add-nursing-note'
+  | 'add-treatment'
   | 'round-note'
   | 'new-order'
   | 'medicine-lab'
@@ -599,17 +633,17 @@ export function buildWardQuickActions(context: WardQuickActionContext): WardQuic
   const canNurseChart = wardEnabled && grantsAny(permissions, ['ward.create', 'ward.update']);
   if (canNurseChart) {
     actions.push(
-      { id: 'record-vitals', label: 'Record Vitals', icon: 'fa-heartbeat', role: 'nurse', tab: 'vitals' },
+      { id: 'record-vitals', label: 'Add vitals', icon: 'fa-heartbeat', role: 'nurse', tab: 'vitals' },
       {
         id: 'record-dose',
-        label: 'Medication Administration',
+        label: 'Give medicine',
         icon: 'fa-medkit',
         role: 'nurse',
         tab: 'medicines',
       },
       {
         id: 'update-io',
-        label: 'Update IV / I-O',
+        label: 'IV / I-O',
         icon: 'fa-tint',
         role: 'nurse',
         tab: 'drips',
@@ -617,10 +651,17 @@ export function buildWardQuickActions(context: WardQuickActionContext): WardQuic
       },
       {
         id: 'add-nursing-note',
-        label: 'Add Nursing Note',
+        label: 'Add note',
         icon: 'fa-sticky-note-o',
         role: 'nurse',
         tab: 'notes',
+      },
+      {
+        id: 'add-treatment',
+        label: 'Add treatment',
+        icon: 'fa-scissors',
+        role: 'nurse',
+        tab: 'procedures',
       }
     );
   }
@@ -628,7 +669,7 @@ export function buildWardQuickActions(context: WardQuickActionContext): WardQuic
   if (grants(permissions, 'prescriptions.create')) {
     actions.push({
       id: 'round-note',
-      label: 'Round Note',
+      label: 'Round note',
       icon: 'fa-stethoscope',
       role: 'doctor',
       tab: 'notes',

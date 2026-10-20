@@ -2,8 +2,10 @@
  * Role-based Ward navigation. Backend RBAC stays authoritative —
  * this only decides which links a role is shown (pure function, unit-tested).
  *
- * Product intent: Ward Admin–centric IPD desk. Nurses do not log in to chart;
- * clinical entry is done by Ward Admin (or custom roles with permissions).
+ * Product intent: simple IPD desk — Home, Admissions, Patients, Beds.
+ * Nursery / Birth Records stay when maternity is enabled.
+ * Clinical entry lives on the patient profile. Roster / management stay
+ * reachable by URL but are not shown in the menu.
  */
 import {
   isDoctorRole,
@@ -33,11 +35,12 @@ export interface WardNavContext {
   canViewAllRoutes?: boolean;
   /** Full ward admin / operations surface. */
   showWardOpsMenu?: boolean;
-  /** Management collapsible — ward.management.read / Ward Admin / *. */
+  /** Kept for callers; Management block is no longer shown in the slim menu. */
   canViewManagement?: boolean;
   canViewAdmissions?: boolean;
   canViewRoster?: boolean;
   canViewOperations?: boolean;
+  /** When true, show Nursery / Birth Records under Ward. */
   canViewMaternity?: boolean;
 }
 
@@ -45,7 +48,8 @@ const WARD_HOME: WardNavItem = { label: 'Ward Home', route: '/ward/home' };
 const PATIENTS: WardNavItem = { label: 'Patients', route: '/ward/patient-list' };
 const ADMISSIONS: WardNavItem = { label: 'Admissions', route: '/ward/admissions' };
 const BEDS: WardNavItem = { label: 'Beds', route: '/ward/bed-management' };
-const DUTY_ROSTER: WardNavItem = { label: 'Duty Roster', route: '/ward/duty-roster' };
+
+const CORE_DESK: WardNavItem[] = [WARD_HOME, ADMISSIONS, PATIENTS, BEDS];
 
 const primary = (items: WardNavItem[]): WardNavSection => ({
   key: 'primary',
@@ -64,25 +68,9 @@ const maternity = (): WardNavSection => ({
   ],
 });
 
-const management = (context: WardNavContext): WardNavSection => ({
-  key: 'management',
-  label: 'Management',
-  collapsible: true,
-  items: [
-    { label: 'Dashboard', route: '/ward/dashboard' },
-    BEDS,
-    ...(context.canViewOperations ? [{ label: 'Operation Calendar', route: '/operations' }] : []),
-    { label: 'Ward Inventory', route: '/ward/inventory' },
-    { label: 'Staff Directory', route: '/ward/nurses-staff' },
-    { label: 'Reports', route: '/ward/reports' },
-    { label: 'Forms & Charts', route: '/hospital-forms' },
-    { label: 'Ward Notes', route: '/ward-admin' },
-  ],
-});
-
 /**
- * Builds the ward menu for the current role. Clinical charting pages (vitals, MAR,
- * drips, I/O, orders) stay reachable from the patient workspace, not the sidebar.
+ * Builds the slim ward menu for the current role. Clinical charting pages stay
+ * reachable from the patient workspace, not the sidebar.
  */
 export function buildWardNavSections(context: WardNavContext): WardNavSection[] {
   if (!context.canViewWard) {
@@ -103,31 +91,19 @@ export function buildWardNavSections(context: WardNavContext): WardNavSection[] 
 
   const sections: WardNavSection[] = [];
 
-  if (isWardAdmin) {
-    const adminPrimary: WardNavItem[] = [WARD_HOME, ADMISSIONS, PATIENTS];
-    if (context.canViewRoster) {
-      adminPrimary.push(DUTY_ROSTER);
-    }
-    sections.push(primary(adminPrimary));
-    if (context.canViewManagement) {
-      sections.push(management(context));
-    }
-  } else if (isWardReceptionRole(role, permissions)) {
+  if (isWardReceptionRole(role, permissions)) {
     sections.push(primary([ADMISSIONS, PATIENTS, BEDS]));
+  } else if (isWardAdmin) {
+    sections.push(primary(CORE_DESK));
   } else {
-    // Default / legacy Nurse & other ward.read users: same admin-style desk, no My Work.
+    // Default / legacy Nurse & other ward.read users: same core desk.
     const defaultPrimary: WardNavItem[] = [
       WARD_HOME,
-      PATIENTS,
       ...(context.canViewAdmissions ? [ADMISSIONS] : []),
+      PATIENTS,
+      BEDS,
     ];
-    if (context.canViewRoster) {
-      defaultPrimary.push(DUTY_ROSTER);
-    }
     sections.push(primary(defaultPrimary));
-    if (context.canViewManagement) {
-      sections.push(management(context));
-    }
   }
 
   if (context.canViewMaternity) {

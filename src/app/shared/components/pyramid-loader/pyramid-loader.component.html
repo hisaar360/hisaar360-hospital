@@ -1,12 +1,18 @@
-@if (loadingService.loading()) {
-  <div class="app-loader-overlay" aria-live="polite" aria-busy="true" role="status">
-    <div class="pyramid-loader">
-      <div class="wrapper">
-        <span class="side side1"></span>
-        <span class="side side2"></span>
-        <span class="side side3"></span>
-        <span class="side side4"></span>
-        <span class="shadow"></span>
+@if (isLoading()) {
+  <div class="app-loader" role="alertdialog" aria-busy="true" aria-live="assertive" aria-modal="true">
+    <div class="app-loader__backdrop" aria-hidden="true"></div>
+    <div class="app-loader__card">
+      <div class="app-loader__mark">
+        <span class="app-loader__ring" aria-hidden="true"></span>
+        <span class="app-loader__ring app-loader__ring--soft" aria-hidden="true"></span>
+        <img class="app-loader__logo" [src]="logoUrl" alt="" width="72" height="72" />
+      </div>
+      <p class="app-loader__message">{{ loadingService.title() }}</p>
+      <p class="app-loader__hint">{{ loadingService.message() }}</p>
+      <div class="app-loader__dots" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
       </div>
     </div>
   </div>

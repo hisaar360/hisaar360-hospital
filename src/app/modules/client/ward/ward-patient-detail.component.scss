@@ -1,4 +1,5 @@
 @use './ward-shared.scss';
+@use './ward-modal-shared.scss';
 
 .ward-patient-detail-page {
   .ward-detail-layout {
@@ -49,18 +50,23 @@
     margin: 0;
   }
 
+  .ward-detail-main {
+    background: #fff;
+    border: 1px solid #e5ecec;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+  }
+
   .ward-detail-content {
-    padding: 12px 14px;
+    background: #f8fafc;
+    padding: 14px;
   }
 
   .ward-detail-content h3 {
     font-size: 14px;
     font-weight: 800;
     margin: 0 0 10px;
-  }
-
-  .ward-summary-kpis {
-    margin-top: 12px;
   }
 
   .ward-detail-note {
@@ -136,6 +142,13 @@
   font-size: 1.35rem;
   font-weight: 800;
   margin: 0;
+}
+
+.ward-chart-hero__tools {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
 }
 
 .ward-chart-hero__ids {
@@ -344,4 +357,321 @@
 .ward-handover-snapshot dd {
   font-size: 13px;
   margin: 2px 0 0;
+}
+
+.ward-id-chip--bed {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+  font-weight: 700;
+}
+
+/* ── Overview (card grid — was missing, caused unstyled wall of text) ── */
+.ward-overview {
+  display: grid;
+  gap: 12px;
+}
+
+.ward-overview-alerts {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ward-overview-alerts li {
+  align-items: center;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  color: #9a3412;
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.ward-overview-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ward-overview-card {
+  background: #fff;
+  border: 1px solid #e5ecec;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px;
+}
+
+.ward-overview-card h3 {
+  align-items: center;
+  color: #0f172a;
+  display: flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 8px;
+  margin: 0;
+}
+
+.ward-overview-card h3 .fa {
+  color: #0f766e;
+}
+
+.ward-overview-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.ward-overview-list > div {
+  align-items: baseline;
+  border-bottom: 1px solid #f1f5f9;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(96px, 120px) minmax(0, 1fr);
+  padding: 8px 0;
+}
+
+.ward-overview-list > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.ward-overview-list > div:first-child {
+  padding-top: 0;
+}
+
+.ward-overview-list dt {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.ward-overview-list dd {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 650;
+  margin: 0;
+  word-break: break-word;
+}
+
+.ward-overview-list--inline {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ward-overview-list--inline > div {
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+  border-bottom: 1px solid #eef2f7;
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 1fr;
+  padding: 10px;
+  text-align: center;
+}
+
+.ward-overview-list--inline dt {
+  justify-self: center;
+}
+
+.ward-overview-list--inline dd {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.ward-overview-note {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.ward-overview-card .ward-detail-note {
+  margin-bottom: 0;
+}
+
+.ward-overview-card > .hms-btn,
+.ward-overview-card > button.hms-btn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.ward-overview-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ward-summary-kpis.hms-kpi-grid {
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.ward-kpi-button {
+  cursor: pointer;
+  flex-direction: column;
+  gap: 2px;
+  justify-content: center;
+  min-height: 64px;
+  padding: 10px;
+  text-align: center;
+}
+
+.ward-kpi-button strong {
+  color: #0f172a;
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.ward-kpi-button small {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ward-alert-banner {
+  align-items: center;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #991b1b;
+  display: flex;
+  font-size: 12px;
+  font-weight: 650;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 6px 10px;
+}
+
+.ward-alert-banner--muted {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+  color: #0f766e;
+}
+
+.ward-note-form {
+  display: grid;
+  gap: 10px;
+}
+
+.ward-note-form__row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ward-note-form label,
+.ward-note-form__text {
+  display: grid;
+  gap: 4px;
+}
+
+.ward-note-form label span,
+.ward-note-form__text span {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ward-note-form input,
+.ward-note-form select,
+.ward-note-form textarea {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  min-height: 36px;
+  padding: 6px 10px;
+}
+
+.ward-note-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ward-tab-lead {
+  margin-bottom: 14px !important;
+}
+
+@media (max-width: 960px) {
+  .ward-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 575px) {
+  .ward-overview-list--inline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ward-note-form__row {
+    grid-template-columns: 1fr;
+  }
+
+  .ward-summary-kpis.hms-kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.ward-care-tab .ward-subtabs {
+  margin-bottom: 12px;
+}
+
+.ward-subtabs--nested {
+  margin-bottom: 10px;
+  margin-top: 4px;
+}
+
+.ward-confirm-modal {
+  max-width: 420px;
+  width: min(94vw, 420px);
+}
+
+.ward-confirm-modal .hms-modal__body p {
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.ward-discharge-tab {
+  max-width: 760px;
+}
+
+.ward-treatments-ot {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+
+  h3 {
+    font-size: 1rem;
+    margin: 0 0 0.35rem;
+  }
+}
+
+.ward-treatments-tab .ward-tab-lead {
+  max-width: 42rem;
 }

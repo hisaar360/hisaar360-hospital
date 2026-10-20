@@ -68,13 +68,37 @@
 
 .hms-back-link,
 .ward-back-link {
+  -webkit-appearance: none;
+  appearance: none;
   align-items: center;
-  color: var(--hms-blue);
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  box-shadow: none;
+  color: #0f766e;
+  cursor: pointer;
   display: inline-flex;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   gap: 6px;
-  margin-bottom: 6px;
+  line-height: 1.2;
+  margin-bottom: 8px;
+  min-height: 30px;
+  padding: 0 12px;
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.hms-back-link:hover,
+.ward-back-link:hover,
+.hms-back-link:focus,
+.ward-back-link:focus {
+  background: #ccfbf1;
+  border-color: #5eead4;
+  color: #115e59;
   text-decoration: none;
 }
 
@@ -246,9 +270,14 @@
 .hms-btn-primary,
 .hms-btn-secondary,
 .hms-btn-danger,
-.hms-btn-sm {
+.hms-btn-sm,
+.hms-btn--ghost {
+  -webkit-appearance: none;
+  appearance: none;
   align-items: center;
-  border-radius: var(--hms-radius-sm);
+  background-image: none;
+  border-radius: 10px;
+  box-shadow: none;
   cursor: pointer;
   display: inline-flex;
   font-size: 13px;
@@ -259,15 +288,27 @@
   min-height: var(--hms-btn-h);
   padding: 0 14px;
   text-decoration: none;
+  text-shadow: none;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
   white-space: nowrap;
 
   &:disabled {
     cursor: not-allowed;
     opacity: 0.65;
   }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 3px rgba(1, 156, 157, 0.22);
+    outline: none;
+  }
 }
 
 .hms-btn-sm {
+  border-radius: 8px;
   font-size: 12px;
   min-height: var(--hms-btn-h-sm);
   padding: 0 12px;
@@ -295,6 +336,7 @@
 }
 
 .hms-btn-secondary:hover {
+  background: #f0fdfa;
   border-color: rgba(1, 156, 157, 0.45);
   color: var(--hms-teal);
 }
@@ -303,6 +345,25 @@
   background: #fff;
   border: 1px solid #fecaca;
   color: #b91c1c;
+}
+
+.hms-btn-danger:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.hms-btn--ghost,
+.btn.hms-btn--ghost {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+.hms-btn--ghost:hover:not(:disabled),
+.btn.hms-btn--ghost:hover:not(:disabled) {
+  background: #f0fdfa;
+  border-color: rgba(1, 156, 157, 0.35);
+  color: var(--hms-teal);
 }
 
 /* ── Tables ── */

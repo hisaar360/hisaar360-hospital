@@ -291,6 +291,32 @@ ul li a:hover {
 }
 
 @media (max-width: 767px) {
+  .hms-header .navbar-btn {
+    align-items: center;
+    border-right: 0;
+    display: flex;
+    gap: 9px;
+  }
+
+  .hms-header .navbar-btn .btn-toggle-offcanvas {
+    align-items: center;
+    background: #f6f9fc;
+    border: 1px solid #edf2f6;
+    border-radius: 11px;
+    color: #4b607c;
+    display: inline-flex;
+    font-size: 20px;
+    height: 42px;
+    justify-content: center;
+    width: 42px;
+  }
+
+  .hms-header .navbar-btn .logo {
+    height: 40px;
+    margin: 0;
+    width: 112px;
+  }
+
   .hms-notification-drawer {
     display: none;
   }

@@ -546,11 +546,10 @@ export const clientRoutes: Routes = [
         redirectTo: 'ward/patient-detail/:admissionId',
       },
       {
+        // Slim desk: one Ward Home only — old dashboard bookmarks land there.
         path: 'ward/dashboard',
-        loadComponent: () =>
-          import('./ward/ward-dashboard.component').then((m) => m.WardDashboardComponent),
-        data: { title: 'Hisaar360 Hospital Management System | Ward Admin Dashboard' },
-        canActivate: [roleGuard(WARD_ADMIN_ACCESS)],
+        redirectTo: 'ward/home',
+        pathMatch: 'full',
       },
       {
         path: 'ward/patient-detail/:admissionId',

@@ -58,7 +58,11 @@ const RULES: AccessRule[] = [
   { methods: ['POST'], pattern: /^\/operation-schedules$/, any: ['operations.create'] },
   { methods: ['PATCH'], pattern: /^\/operation-schedules\//, any: ['operations.update', 'operations.assign', 'ward.admissions.recommend'] },
   { methods: ['POST'], pattern: /^\/operation-schedules\/[^/]+\/status$/, any: ['operations.update', 'operations.assign', 'ward.admissions.recommend'] },
-  { methods: ['POST'], pattern: /^\/operation-schedules\/[^/]+\/complete$/, any: ['operations.complete'] },
+  {
+    methods: ['POST'],
+    pattern: /^\/operation-schedules\/[^/]+\/complete$/,
+    any: ['operations.complete', 'operations.update', 'operations.assign'],
+  },
   { methods: ['POST'], pattern: /^\/operation-schedules\/[^/]+\/cancel$/, any: ['operations.cancel'] },
 
   { methods: ['GET'], pattern: /^\/hospitals$/, any: ['hospitals.read'], empty: LIST },

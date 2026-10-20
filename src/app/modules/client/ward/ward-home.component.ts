@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs/operators';
 import { hasRouteAccess, readStoredPermissions } from '../../auth/access-control';
+import { LoadingService } from '../../../core/services/loading.service';
+import { HmsSpotlightTutorialComponent } from '../../../shared/components/hms-spotlight-tutorial/hms-spotlight-tutorial.component';
 import { WardDataService } from './services/ward-data.service';
 import {
   buildWardHomeSummaryTiles,
@@ -12,18 +14,23 @@ import {
   WardBedCard,
   WardBedGroup,
   WardHomeFilter,
-  WardHomeMissingUpdate,
   WardHomeSummary,
   WardHomeSummaryTile,
 } from './ward-home.util';
+import {
+  WARD_HOME_TUTORIAL_STEPS,
+  WARD_HOME_TUTORIAL_STORAGE,
+} from './ward-tutorials.data';
 
 @Component({
   selector: 'app-ward-home',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, HmsSpotlightTutorialComponent],
   templateUrl: './ward-home.component.html',
   styleUrl: './ward-home.component.scss',
 })
 export class WardHomeComponent implements OnInit {
+  @ViewChild(HmsSpotlightTutorialComponent) tutorial?: HmsSpotlightTutorialComponent;
+
   summary: WardHomeSummary = EMPTY_WARD_HOME_SUMMARY;
   summaryLoading = false;
   summaryError = false;
@@ -51,15 +58,40 @@ export class WardHomeComponent implements OnInit {
   );
 
   readonly skeletonRows = [1, 2, 3, 4, 5, 6];
+  private pageLoaderActive = false;
+
+  readonly tutorialSteps = WARD_HOME_TUTORIAL_STEPS;
+  readonly tutorialStorageKey = WARD_HOME_TUTORIAL_STORAGE;
 
   constructor(
     private wardData: WardDataService,
-    private router: Router
+    private router: Router,
+    private loadingService: LoadingService
   ) {}
 
   ngOnInit(): void {
+    this.pageLoaderActive = true;
+    this.loadingService.show({
+      title: 'Loading Ward Home…',
+      message: 'Fetching beds and care reminders',
+    });
     this.loadSummary();
     this.loadBoard();
+  }
+
+  startTutorial(): void {
+    this.tutorial?.start();
+  }
+
+  private maybeHidePageLoader(): void {
+    if (!this.pageLoaderActive) {
+      return;
+    }
+    if (this.summaryLoading || this.boardLoading) {
+      return;
+    }
+    this.pageLoaderActive = false;
+    this.loadingService.hide();
   }
 
   get summaryTiles(): WardHomeSummaryTile[] {
@@ -79,7 +111,12 @@ export class WardHomeComponent implements OnInit {
     this.summaryError = false;
     this.wardData
       .loadWardHomeSummary()
-      .pipe(finalize(() => (this.summaryLoading = false)))
+      .pipe(
+        finalize(() => {
+          this.summaryLoading = false;
+          this.maybeHidePageLoader();
+        })
+      )
       .subscribe({
         next: (summary) => (this.summary = summary),
         error: () => {
@@ -94,7 +131,12 @@ export class WardHomeComponent implements OnInit {
     this.boardError = false;
     this.wardData
       .loadWardBedBoard()
-      .pipe(finalize(() => (this.boardLoading = false)))
+      .pipe(
+        finalize(() => {
+          this.boardLoading = false;
+          this.maybeHidePageLoader();
+        })
+      )
       .subscribe({
         next: (cards) => {
           this.allCards = cards;
@@ -123,7 +165,7 @@ export class WardHomeComponent implements OnInit {
     this.router.navigate(['/ward/patient-detail', card.admissionId]);
   }
 
-  openMissing(item: WardHomeMissingUpdate): void {
+  openMissing(item: { admissionId?: string }): void {
     if (!item.admissionId) {
       return;
     }

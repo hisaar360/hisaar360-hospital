@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
+import { HmsSpotlightTutorialComponent } from '../../../shared/components/hms-spotlight-tutorial/hms-spotlight-tutorial.component';
+import { WARD_CHART_TUTORIAL_STEPS, WARD_CHART_TUTORIAL_STORAGE } from './ward-tutorials.data';
 import {
   HMS_KEYBOARD_STANDARDS,
   HmsKeyboardDirective,
@@ -42,12 +44,14 @@ import {
   buildWardHistoryEntries,
   buildWardQuickActions,
   filterWardHistoryEntries,
+  resolveWardCareSubTab,
   resolveWardIvSubTab,
   resolveWardWorkspaceTab,
   WARD_HISTORY_FILTERS,
   WARD_WORKSPACE_PRIMARY_TABS,
   WARD_WORKSPACE_SECONDARY_TABS,
   WardAdmissionHistoryItem,
+  WardCareSubTab,
   WardHandoverSnapshotLine,
   WardHistoryEntry,
   WardHistoryFilter,
@@ -118,16 +122,28 @@ const OPERATION_STATUS_LABELS: Record<string, string> = {
     WardDripPanelComponent,
     HmsDocumentToolbarComponent,
     HmsKeyboardDirective,
+    HmsSpotlightTutorialComponent,
   ],
   templateUrl: './ward-patient-detail.component.html',
   styleUrl: './ward-patient-detail.component.scss',
 })
 export class WardPatientDetailComponent implements OnInit, OnDestroy {
+  @ViewChild(HmsSpotlightTutorialComponent) tutorial?: HmsSpotlightTutorialComponent;
+
+  readonly tutorialSteps = WARD_CHART_TUTORIAL_STEPS;
+  readonly tutorialStorageKey = WARD_CHART_TUTORIAL_STORAGE;
+
+  startTutorial(): void {
+    void this.setTab('overview').then(() => {
+      setTimeout(() => this.tutorial?.start(), 50);
+    });
+  }
   loading = false;
   loadFailed = false;
   patient: WardPatient | null = null;
   allotment: RoomAllotment | null = null;
   activeTab: WardWorkspaceTabKey = 'overview';
+  careSubTab: WardCareSubTab = 'vitals';
   ivSubTab: WardIvSubTab = 'iv';
   moreTabsOpen = false;
   stickyActionIndex = 0;
@@ -156,6 +172,20 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
   doctors: Doctor[] = [];
   doctorOrderOpen = false;
   ioEntryOpen = false;
+
+  confirmModal: {
+    open: boolean;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    resolve: ((ok: boolean) => void) | null;
+  } = {
+    open: false,
+    title: 'Please confirm',
+    message: '',
+    confirmLabel: 'Continue',
+    resolve: null,
+  };
 
   /** Per-widget states so one failing panel never blanks the workspace. */
   readonly updatesState: WardWidgetState = { loading: false, failed: false };
@@ -210,6 +240,7 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     const tabParam = this.route.snapshot.queryParamMap.get('tab');
     this.activeTab = resolveWardWorkspaceTab(tabParam);
+    this.careSubTab = resolveWardCareSubTab(tabParam);
     this.ivSubTab = resolveWardIvSubTab(tabParam);
     this.loadedTabs.add(this.activeTab);
     this.loadWorkspace();
@@ -297,8 +328,10 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
    */
   private ensureTabData(tab: WardWorkspaceTabKey): void {
     switch (tab) {
-      case 'notes':
-        this.loadPatientUpdates();
+      case 'care':
+        if (this.careSubTab === 'notes') {
+          this.loadPatientUpdates();
+        }
         break;
       case 'history':
         this.loadPatientUpdates();
@@ -309,6 +342,7 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
       case 'orders':
       case 'lab':
       case 'procedures':
+      case 'discharge':
         this.ensureDoctors();
         break;
       default:
@@ -391,7 +425,105 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Operation detail stays in the operations module — this is a read-only pointer. */
+  operationActionBusy = false;
+
+  get canManageWardOt(): boolean {
+    return (
+      this.hasPerm('ward.operations.create') ||
+      this.hasPerm('ward.operations.update') ||
+      this.hasPerm('operations.create') ||
+      this.hasPerm('operations.update') ||
+      this.hasPerm('operations.complete') ||
+      this.hasPerm('*')
+    );
+  }
+
+  get canOpenOtCalendar(): boolean {
+    return (
+      this.hasPerm('operations.read') ||
+      this.hasPerm('operations.read_all') ||
+      this.hasPerm('operations.update') ||
+      this.hasPerm('operations.create') ||
+      this.hasPerm('*')
+    );
+  }
+
+  get canStartLinkedOt(): boolean {
+    if (!this.operation || !this.canManageWardOt) {
+      return false;
+    }
+    const status = String(this.operation.status || '').toLowerCase();
+    return ['scheduled', 'confirmed', 'requested'].includes(status);
+  }
+
+  get canCompleteLinkedOt(): boolean {
+    if (!this.operation) {
+      return false;
+    }
+    const status = String(this.operation.status || '').toLowerCase();
+    const canComplete =
+      this.hasPerm('operations.complete') ||
+      this.hasPerm('operations.update') ||
+      this.hasPerm('operations.assign') ||
+      this.hasPerm('ward.operations.update') ||
+      this.hasPerm('*');
+    return canComplete && ['scheduled', 'confirmed', 'in_progress'].includes(status);
+  }
+
+  openOtSchedule(): void {
+    if (!this.patient) {
+      return;
+    }
+    void this.router.navigate(['/operations'], {
+      queryParams: {
+        admissionId: this.admissionId,
+        patientId: this.patient.patientId,
+        patientName: this.patient.patientName,
+      },
+    });
+  }
+
+  startLinkedOperation(): void {
+    if (!this.operation?.id || this.operationActionBusy) {
+      return;
+    }
+    this.operationActionBusy = true;
+    this.backend.updateOperationScheduleStatus(this.operation.id, 'in_progress').subscribe({
+      next: () => {
+        this.toastr.success('Operation started');
+        this.operationActionBusy = false;
+        if (this.patient?.patientId) {
+          this.loadOperation(this.patient.patientId);
+        }
+      },
+      error: (err) => {
+        this.operationActionBusy = false;
+        this.toastr.error(err?.error?.message || 'Unable to start operation');
+      },
+    });
+  }
+
+  completeLinkedOperation(): void {
+    if (!this.operation?.id || this.operationActionBusy) {
+      return;
+    }
+    this.operationActionBusy = true;
+    this.backend.completeOperationSchedule(this.operation.id).subscribe({
+      next: () => {
+        this.toastr.success('Operation completed');
+        this.operationActionBusy = false;
+        if (this.patient?.patientId) {
+          this.loadOperation(this.patient.patientId);
+        }
+      },
+      error: (err) => {
+        this.operationActionBusy = false;
+        this.toastr.error(err?.error?.message || 'Unable to complete operation');
+      },
+    });
+  }
+
+  /** Linked OT calendar schedule for this admission (start/end from chart when permitted). */
   loadOperation(patientId: string): void {
     if (!patientId || this.operationState.loading) {
       return;
@@ -499,15 +631,22 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
     return this.visibleSecondaryTabs.some((tab) => tab.key === this.activeTab);
   }
 
-  setTab(tab: string, subTab?: WardIvSubTab): void {
+  async setTab(tab: string, subTab?: WardIvSubTab): Promise<void> {
     const next = resolveWardWorkspaceTab(tab);
-    if (next !== this.activeTab && !this.confirmLeavingNote()) {
+    if (next !== this.activeTab && !(await this.confirmLeavingNote())) {
       return;
+    }
+
+    if (next === 'care') {
+      this.careSubTab = resolveWardCareSubTab(tab);
     }
 
     if (subTab) {
       this.ivSubTab = subTab;
-    } else if (next !== this.activeTab) {
+      if (next === 'care') {
+        this.careSubTab = 'iv';
+      }
+    } else if (next === 'care') {
       this.ivSubTab = resolveWardIvSubTab(tab);
     }
 
@@ -515,8 +654,8 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
     this.moreTabsOpen = false;
     if (!this.loadedTabs.has(next)) {
       this.loadedTabs.add(next);
-      this.ensureTabData(next);
     }
+    this.ensureTabData(next);
 
     void this.router.navigate([], {
       relativeTo: this.route,
@@ -524,6 +663,16 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
+  }
+
+  async setCareSubTab(subTab: WardCareSubTab): Promise<void> {
+    if (this.careSubTab === 'notes' && subTab !== 'notes' && !(await this.confirmLeavingNote())) {
+      return;
+    }
+    this.careSubTab = subTab;
+    if (subTab === 'notes') {
+      this.loadPatientUpdates();
+    }
   }
 
   setIvSubTab(subTab: WardIvSubTab): void {
@@ -546,8 +695,8 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
     this.setTab('overview');
   }
 
-  leaveWorkspace(): void {
-    if (!this.confirmLeavingNote()) {
+  async leaveWorkspace(): Promise<void> {
+    if (!(await this.confirmLeavingNote())) {
       return;
     }
     void this.router.navigate(['/ward/patient-list']);
@@ -568,8 +717,15 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
     return this.quickActions[this.stickyActionIndex]?.id === action.id;
   }
 
-  runQuickAction(action: WardQuickAction): void {
-    if (action.confirm && !this.confirmAction(action)) {
+  isQuickActionTabActive(action: WardQuickAction): boolean {
+    if (!action.tab) {
+      return false;
+    }
+    return this.activeTab === resolveWardWorkspaceTab(action.tab);
+  }
+
+  async runQuickAction(action: WardQuickAction): Promise<void> {
+    if (action.confirm && !(await this.confirmAction(action))) {
       return;
     }
 
@@ -589,27 +745,31 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
         return;
       case 'round-note':
         this.noteKind = 'round';
-        this.setTab('notes');
+        void this.setTab('notes');
         return;
       case 'add-nursing-note':
         this.noteKind = 'nursing';
-        this.setTab('notes');
+        void this.setTab('notes');
         return;
       default:
         break;
     }
 
     if (action.tab) {
-      this.setTab(action.tab, action.subTab);
+      void this.setTab(action.tab, action.subTab);
     }
   }
 
-  private confirmAction(action: WardQuickAction): boolean {
+  private confirmAction(action: WardQuickAction): Promise<boolean> {
     const messages: Partial<Record<WardQuickAction['id'], string>> = {
       'discharge-recommendation': 'Start the discharge recommendation for this patient?',
       'transfer-bed': 'Move to bed management to transfer this patient?',
     };
-    return this.confirmMessage(messages[action.id] || 'Continue?');
+    const titles: Partial<Record<WardQuickAction['id'], string>> = {
+      'discharge-recommendation': 'Discharge recommendation',
+      'transfer-bed': 'Transfer patient',
+    };
+    return this.confirmMessage(messages[action.id] || 'Continue?', titles[action.id] || 'Please confirm');
   }
 
   /* -------------------------------------------------------------- overview */
@@ -887,8 +1047,8 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
       });
   }
 
-  discardNote(): void {
-    if (!this.noteDirty || this.confirmMessage('Discard this unsaved note?')) {
+  async discardNote(): Promise<void> {
+    if (!this.noteDirty || (await this.confirmMessage('Discard this unsaved note?', 'Discard note', 'Discard'))) {
       this.noteText = '';
     }
   }
@@ -970,6 +1130,10 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
   };
 
   readonly onPageEscape = (): boolean => {
+    if (this.confirmModal.open) {
+      this.resolveConfirmModal(false);
+      return true;
+    }
     if (this.keyboardHintOpen) {
       this.keyboardHintOpen = false;
       return true;
@@ -1109,8 +1273,8 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
     };
   }
 
-  navigateAction(path: string): void {
-    if (!this.confirmLeavingNote()) {
+  async navigateAction(path: string): Promise<void> {
+    if (!(await this.confirmLeavingNote())) {
       return;
     }
     if (path.startsWith('/')) {
@@ -1201,21 +1365,49 @@ export class WardPatientDetailComponent implements OnInit, OnDestroy {
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
-  private confirmLeavingNote(): boolean {
+  private async confirmLeavingNote(): Promise<boolean> {
     if (this.noteDirty) {
-      return this.confirmMessage('You have an unsaved note. Leave without saving?');
+      return this.confirmMessage('You have an unsaved note. Leave without saving?', 'Unsaved note', 'Leave');
     }
     if (this.attendantDirty) {
-      return this.confirmMessage('You have an unsaved attendant task. Leave without saving?');
+      return this.confirmMessage(
+        'You have an unsaved attendant task. Leave without saving?',
+        'Unsaved task',
+        'Leave'
+      );
     }
     return true;
   }
 
-  private confirmMessage(message: string): boolean {
-    if (typeof window === 'undefined' || typeof window.confirm !== 'function') {
-      return true;
+  private confirmMessage(
+    message: string,
+    title = 'Please confirm',
+    confirmLabel = 'Continue'
+  ): Promise<boolean> {
+    if (this.confirmModal.open && this.confirmModal.resolve) {
+      this.confirmModal.resolve(false);
     }
-    return window.confirm(message);
+    return new Promise<boolean>((resolve) => {
+      this.confirmModal = {
+        open: true,
+        title,
+        message,
+        confirmLabel,
+        resolve,
+      };
+    });
+  }
+
+  resolveConfirmModal(ok: boolean): void {
+    const resolve = this.confirmModal.resolve;
+    this.confirmModal = {
+      open: false,
+      title: 'Please confirm',
+      message: '',
+      confirmLabel: 'Continue',
+      resolve: null,
+    };
+    resolve?.(ok);
   }
 
   /* ------------------------------------------------------------- documents */

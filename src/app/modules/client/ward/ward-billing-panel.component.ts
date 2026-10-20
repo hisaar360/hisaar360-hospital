@@ -27,6 +27,9 @@ export class WardBillingPanelComponent implements OnChanges {
 
   loading = false;
   discharging = false;
+  showDischargeDetails = false;
+  showDischargeCollect = false;
+  dischargeConfirmOpen = false;
   billData: Record<string, unknown> = {};
   dischargeData: Record<string, unknown> = {};
   now = new Date();
@@ -140,23 +143,89 @@ export class WardBillingPanelComponent implements OnChanges {
     return this.scheduledOperationsCount === 0;
   }
 
+  get canAddCharge(): boolean {
+    return hasPermission('ward.billing.create') || hasPermission('*');
+  }
+
+  get canCollectPayment(): boolean {
+    return (
+      hasPermission('ward.payments.collect') ||
+      hasPermission('ledger_payments.create') ||
+      hasPermission('*')
+    );
+  }
+
+  get canManageProcedures(): boolean {
+    return (
+      hasPermission('ward.procedures.create') ||
+      hasPermission('ward.procedures.update') ||
+      hasPermission('*')
+    );
+  }
+
+  get canManageWardOperations(): boolean {
+    return (
+      hasPermission('ward.operations.create') ||
+      hasPermission('ward.operations.update') ||
+      hasPermission('operations.create') ||
+      hasPermission('operations.update') ||
+      hasPermission('operations.complete') ||
+      hasPermission('operations.assign') ||
+      hasPermission('*')
+    );
+  }
+
+  get canOpenOtCalendar(): boolean {
+    return (
+      hasPermission('operations.read') ||
+      hasPermission('operations.read_all') ||
+      hasPermission('operations.create') ||
+      hasPermission('operations.update') ||
+      hasPermission('ward.operations.read') ||
+      hasPermission('*')
+    );
+  }
+
   get canConfirmDischarge(): boolean {
     return (
       this.dischargeWardBalanceClear &&
       this.dischargePharmacyClear &&
       this.dischargeOperationsClear &&
-      (hasPermission('ward.discharge.create') || hasPermission('room_allotments.update'))
+      (hasPermission('ward.discharge.create') || hasPermission('room_allotments.update') || hasPermission('*'))
+    );
+  }
+
+  get canAttemptDischarge(): boolean {
+    return (
+      hasPermission('ward.discharge.create') ||
+      hasPermission('room_allotments.update') ||
+      hasPermission('*')
     );
   }
 
   goToPaymentsFromDischarge(): void {
-    this.requestTab.emit('payments');
+    this.showDischargeCollect = true;
+    if (this.outstandingAmount > 0 && !this.paymentForm.amount) {
+      this.paymentForm.amount = Math.round(this.outstandingAmount);
+    }
+  }
+
+  askConfirmDischarge(): void {
+    if (!this.admissionId || !this.canConfirmDischarge || this.discharging) {
+      return;
+    }
+    this.dischargeConfirmOpen = true;
+  }
+
+  cancelConfirmDischarge(): void {
+    this.dischargeConfirmOpen = false;
   }
 
   confirmDischarge(): void {
     if (!this.admissionId || !this.canConfirmDischarge || this.discharging) {
       return;
     }
+    this.dischargeConfirmOpen = false;
     this.discharging = true;
     this.backend.dischargeRoomAllotment(this.admissionId, {}).subscribe({
       next: () => {
@@ -347,6 +416,7 @@ export class WardBillingPanelComponent implements OnChanges {
       next: () => {
         this.toastr.success('Payment collected');
         this.paymentForm = { amount: 0, method: 'cash', type: 'final', note: '' };
+        this.showDischargeCollect = false;
         this.load();
       },
       error: (err) => this.toastr.error(err?.error?.message || 'Unable to collect payment'),

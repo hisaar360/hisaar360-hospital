@@ -297,22 +297,17 @@
                     <td>{{ record.title || '—' }}</td>
                     <td>{{ record.diagnosis || '—' }}</td>
                     <td>{{ record.createdAt | date: 'mediumDate' }}</td>
-                    <td>
-                      <div class="table-actions care-record-actions">
-                        <a
-                          class="hms-btn hms-btn-sm hms-btn-secondary"
-                          [routerLink]="['/patients/patient-profile', record.patientId]"
-                          title="View"
-                        >
-                          <i class="fa fa-eye" aria-hidden="true"></i> View
-                        </a>
-                        <button type="button" class="hms-btn hms-btn-sm hms-btn-edit" *ngIf="canUpdate" (click)="editRecord(record)">
-                          <i class="fa fa-pencil" aria-hidden="true"></i> Edit
-                        </button>
-                        <button type="button" class="hms-btn hms-btn-sm hms-btn-danger" *ngIf="canDelete" (click)="deleteRecord(record)">
-                          <i class="fa fa-ellipsis-h" aria-hidden="true"></i>
-                        </button>
-                      </div>
+                    <td class="ward-record-action-cell">
+                      <button
+                        type="button"
+                        class="ward-record-action-trigger"
+                        (click)="openRecordActions(record)"
+                        aria-haspopup="dialog"
+                        [attr.aria-label]="'Actions for ' + patientName(record.patient)"
+                        title="Record actions"
+                      >
+                        <i class="fa fa-ellipsis-h" aria-hidden="true"></i>
+                      </button>
                     </td>
                   </tr>
                   <tr *ngIf="!loading && filteredRecords.length === 0">
@@ -342,13 +337,13 @@
                 </p>
                 <p class="ward-notes-record-card__snippet">— {{ record.title || record.notes || 'Ward update' }}</p>
                 <div class="hms-mobile-card__actions care-record-actions">
-                  <a class="hms-btn hms-btn-sm hms-btn-secondary" [routerLink]="['/patients/patient-profile', record.patientId]">
-                    <i class="fa fa-eye" aria-hidden="true"></i> View
-                  </a>
-                  <button type="button" class="hms-btn hms-btn-sm hms-btn-edit" *ngIf="canUpdate" (click)="editRecord(record)">
-                    <i class="fa fa-pencil" aria-hidden="true"></i> Edit
-                  </button>
-                  <button type="button" class="hms-btn hms-btn-sm hms-btn-secondary" *ngIf="canDelete" (click)="deleteRecord(record)">
+                  <button
+                    type="button"
+                    class="ward-record-action-trigger"
+                    (click)="openRecordActions(record)"
+                    aria-haspopup="dialog"
+                    [attr.aria-label]="'Actions for ' + patientName(record.patient)"
+                  >
                     <i class="fa fa-ellipsis-h" aria-hidden="true"></i>
                   </button>
                 </div>
@@ -375,6 +370,57 @@
                 Next
               </button>
             </div>
+          </section>
+        </div>
+
+        <div
+          class="ward-record-actions-modal"
+          *ngIf="recordActionTarget as actionRecord"
+          role="presentation"
+          (click)="closeRecordActions()"
+        >
+          <section
+            class="ward-record-actions-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ward-record-actions-title"
+            (click)="$event.stopPropagation()"
+          >
+            <header class="ward-record-actions-dialog__head">
+              <span class="ward-record-actions-dialog__icon"><i class="fa fa-file-text-o"></i></span>
+              <div>
+                <small>Ward record</small>
+                <h3 id="ward-record-actions-title">{{ patientName(actionRecord.patient) }}</h3>
+                <p>{{ actionRecord.title || actionRecord.diagnosis || 'Ward update' }} · {{ actionRecord.createdAt | date: 'mediumDate' }}</p>
+              </div>
+              <button type="button" class="ward-record-actions-dialog__close" (click)="closeRecordActions()" aria-label="Close actions">
+                <i class="fa fa-times"></i>
+              </button>
+            </header>
+
+            <div class="ward-record-actions-dialog__options">
+              <a
+                class="ward-record-option ward-record-option--view"
+                [routerLink]="['/patients/patient-profile', actionRecord.patientId]"
+                (click)="closeRecordActions()"
+              >
+                <span><i class="fa fa-eye"></i></span>
+                <div><strong>View</strong><small>Open patient profile and complete record history</small></div>
+                <i class="fa fa-angle-right"></i>
+              </a>
+              <button type="button" class="ward-record-option ward-record-option--edit" *ngIf="canUpdate" (click)="editSelectedRecord()">
+                <span><i class="fa fa-pencil"></i></span>
+                <div><strong>Edit</strong><small>Update this ward note or treatment record</small></div>
+                <i class="fa fa-angle-right"></i>
+              </button>
+              <button type="button" class="ward-record-option ward-record-option--delete" *ngIf="canDelete" (click)="deleteSelectedRecord()">
+                <span><i class="fa fa-trash"></i></span>
+                <div><strong>Delete</strong><small>Permanently remove this record</small></div>
+                <i class="fa fa-angle-right"></i>
+              </button>
+            </div>
+
+            <button type="button" class="ward-record-actions-dialog__cancel" (click)="closeRecordActions()">Cancel</button>
           </section>
         </div>
       </ng-container>

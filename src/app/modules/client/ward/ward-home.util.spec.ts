@@ -49,7 +49,7 @@ describe('ward-home.util bed status mapping', () => {
     expect(summary.admissions.pendingRecommendations).toBe(0);
   });
 
-  it('builds the six summary tiles and merges cleaning with unavailable', () => {
+  it('builds four lean summary tiles for the simple desk', () => {
     const tiles = buildWardHomeSummaryTiles(
       normalizeWardHomeSummary({
         beds: { total: 20, occupied: 10, available: 6, reserved: 1, cleaning: 2, unavailable: 1 },
@@ -63,14 +63,12 @@ describe('ward-home.util bed status mapping', () => {
       'occupied',
       'available',
       'missingRecords',
-      'unavailable',
       'pendingAdmissions',
-      'dischargeReady',
     ]);
+    expect(tiles[0].value).toBe(10);
+    expect(tiles[1].value).toBe(6);
     expect(tiles[2].value).toBe(4);
     expect(tiles[3].value).toBe(3);
-    expect(tiles[4].value).toBe(3);
-    expect(tiles[5].value).toBe(2);
   });
 
   it('normalizes missing care-record reminders', () => {

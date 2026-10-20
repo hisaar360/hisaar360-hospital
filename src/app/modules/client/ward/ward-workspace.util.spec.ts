@@ -6,6 +6,7 @@ import {
   containsSensitiveClinicalDetail,
   countWardHistoryEntries,
   filterWardHistoryEntries,
+  resolveWardCareSubTab,
   resolveWardIvSubTab,
   resolveWardWorkspaceTab,
   sanitizeWardSummaryText,
@@ -20,46 +21,59 @@ import {
 const row = (id: string, cells: Record<string, string>): WardModuleRow => ({ id, cells });
 
 describe('ward-workspace.util tab model', () => {
-  it('keeps seven primary tabs in care order', () => {
+  it('keeps five primary tabs for the simple patient profile', () => {
     expect(WARD_WORKSPACE_PRIMARY_TABS.map((tab) => tab.key)).toEqual([
       'overview',
-      'vitals',
+      'care',
       'medicines',
-      'drips',
-      'orders',
-      'notes',
-      'history',
+      'procedures',
+      'discharge',
     ]);
   });
 
-  it('labels the consolidated medication and IV tabs', () => {
-    expect(WARD_WORKSPACE_PRIMARY_TABS.find((tab) => tab.key === 'medicines')?.label).toBe('Medications');
-    expect(WARD_WORKSPACE_PRIMARY_TABS.find((tab) => tab.key === 'drips')?.label).toBe('IV / I-O');
+  it('labels the primary care and medicine tabs', () => {
+    expect(WARD_WORKSPACE_PRIMARY_TABS.find((tab) => tab.key === 'care')?.label).toBe('Care');
+    expect(WARD_WORKSPACE_PRIMARY_TABS.find((tab) => tab.key === 'medicines')?.label).toBe('Medicines');
+    expect(WARD_WORKSPACE_PRIMARY_TABS.find((tab) => tab.key === 'procedures')?.label).toBe('Treatments');
   });
 
-  it('keeps every legacy tab reachable in the More group', () => {
+  it('keeps rare tools in More without duplicating Care/Discharge', () => {
     const secondary = WARD_WORKSPACE_SECONDARY_TABS.map((tab) => tab.key);
-    (['admission-plan', 'procedures', 'billing', 'payments', 'lab', 'discharge'] as const).forEach((key) => {
+    (['admission-plan', 'lab', 'documents', 'history', 'orders'] as const).forEach((key) => {
       expect(secondary).toContain(key);
     });
+    expect(secondary).not.toContain('vitals');
+    expect(secondary).not.toContain('billing');
+    expect(secondary).not.toContain('procedures');
+    expect(secondary).not.toContain('discharge');
   });
 
-  it('resolves every legacy ?tab= deep link', () => {
+  it('resolves every legacy ?tab= deep link into the slim model', () => {
     expect(resolveWardWorkspaceTab('overview')).toBe('overview');
-    expect(resolveWardWorkspaceTab('vitals')).toBe('vitals');
+    expect(resolveWardWorkspaceTab('care')).toBe('care');
+    expect(resolveWardWorkspaceTab('vitals')).toBe('care');
     expect(resolveWardWorkspaceTab('medicines')).toBe('medicines');
     expect(resolveWardWorkspaceTab('mar')).toBe('medicines');
-    expect(resolveWardWorkspaceTab('drips')).toBe('drips');
-    expect(resolveWardWorkspaceTab('io')).toBe('drips');
-    expect(resolveWardWorkspaceTab('nursing')).toBe('notes');
+    expect(resolveWardWorkspaceTab('drips')).toBe('care');
+    expect(resolveWardWorkspaceTab('io')).toBe('care');
+    expect(resolveWardWorkspaceTab('nursing')).toBe('care');
+    expect(resolveWardWorkspaceTab('notes')).toBe('care');
     expect(resolveWardWorkspaceTab('imaging')).toBe('orders');
     expect(resolveWardWorkspaceTab('admission-plan')).toBe('admission-plan');
     expect(resolveWardWorkspaceTab('procedures')).toBe('procedures');
-    expect(resolveWardWorkspaceTab('billing')).toBe('billing');
-    expect(resolveWardWorkspaceTab('payments')).toBe('payments');
+    expect(resolveWardWorkspaceTab('billing')).toBe('discharge');
+    expect(resolveWardWorkspaceTab('payments')).toBe('discharge');
     expect(resolveWardWorkspaceTab('lab')).toBe('lab');
     expect(resolveWardWorkspaceTab('discharge')).toBe('discharge');
     expect(resolveWardWorkspaceTab('documents')).toBe('documents');
+  });
+
+  it('maps care sub-tabs from legacy deep links', () => {
+    expect(resolveWardCareSubTab('vitals')).toBe('vitals');
+    expect(resolveWardCareSubTab('notes')).toBe('notes');
+    expect(resolveWardCareSubTab('nursing')).toBe('notes');
+    expect(resolveWardCareSubTab('drips')).toBe('iv');
+    expect(resolveWardCareSubTab('io')).toBe('iv');
   });
 
   it('falls back to Overview for blank or unknown tabs', () => {
@@ -79,12 +93,12 @@ describe('ward-workspace.util tab model', () => {
 describe('ward-workspace.util legacy module map', () => {
   it('maps each legacy care module to its workspace tab', () => {
     expect(WARD_MODULE_TO_WORKSPACE_TAB).toEqual({
-      vitals: 'vitals',
+      vitals: 'care',
       mar: 'medicines',
-      'drips-iv': 'drips',
-      'io-chart': 'drips',
+      'drips-iv': 'care',
+      'io-chart': 'care',
       'orders-services': 'orders',
-      'nursing-care': 'notes',
+      'nursing-care': 'care',
     });
   });
 
@@ -97,13 +111,13 @@ describe('ward-workspace.util legacy module map', () => {
 
   it('builds a workspace route with the matching tab', () => {
     expect(wardWorkspaceRoute('adm-1', wardModuleWorkspaceTab('nursing-care'))).toBe(
-      '/ward/patient-detail/adm-1?tab=notes'
+      '/ward/patient-detail/adm-1?tab=care'
     );
     expect(wardWorkspaceRoute('adm-1', wardModuleWorkspaceTab('io-chart'))).toBe(
-      '/ward/patient-detail/adm-1?tab=drips'
+      '/ward/patient-detail/adm-1?tab=care'
     );
     expect(wardWorkspaceRoute('adm-1', 'overview')).toBe('/ward/patient-detail/adm-1');
-    expect(wardWorkspaceRoute('', 'vitals')).toBe('');
+    expect(wardWorkspaceRoute('', 'care')).toBe('');
   });
 });
 
@@ -271,12 +285,13 @@ describe('ward-workspace.util quick-action gating', () => {
     expect(buildWardQuickActions({ permissions: [] })).toEqual([]);
   });
 
-  it('gives a nurse the four charting actions', () => {
+  it('gives a nurse the simple charting actions', () => {
     expect(idsFor(['ward.read', 'ward.create'])).toEqual([
       'record-vitals',
       'record-dose',
       'update-io',
       'add-nursing-note',
+      'add-treatment',
     ]);
     expect(idsFor(['ward.update'])).toContain('record-vitals');
   });

@@ -4,8 +4,8 @@ export const WARD_MODULE_PAGE_CONFIGS: Record<string, WardModulePageConfig> = {
   admissions: {
     key: 'admissions',
     title: 'Admissions',
-    subtitle: 'Ward admission requests and active admissions',
-    primaryActionLabel: 'New Admission',
+    subtitle: 'Review doctor orders or manually admit a walk-in patient to a bed',
+    primaryActionLabel: 'Manual Admit',
     searchPlaceholder: 'Search patient, MRN, bed, doctor...',
     layout: 'table',
     kpis: [

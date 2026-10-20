@@ -13,8 +13,8 @@
         <p class="duty-roster-breadcrumb">{{ breadcrumb.join(' > ') }}</p>
       </div>
       <div class="duty-roster-toolbar-actions" *ngIf="!myDutyOnly">
-        <button type="button" class="hms-btn hms-btn-secondary" (click)="startTutorial()">
-          <i class="fa fa-question-circle" aria-hidden="true"></i> Help
+        <button type="button" class="hms-btn hms-btn-secondary" data-tour="ward-tutorial-btn" (click)="startTutorial()">
+          <i class="fa fa-graduation-cap" aria-hidden="true"></i> Tutorial
         </button>
         <app-hms-document-toolbar
           [title]="rosterDocTitle"

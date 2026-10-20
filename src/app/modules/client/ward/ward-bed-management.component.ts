@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -16,12 +16,15 @@ import {
 import { HospitalWard, WardFloor } from '../../../shared/models/hospital.model';
 import { WardDataService } from './services/ward-data.service';
 import { CurrencyService, formatActiveCurrency } from '../../../core/services/currency.service';
+import { LoadingService } from '../../../core/services/loading.service';
+import { HmsSpotlightTutorialComponent } from '../../../shared/components/hms-spotlight-tutorial/hms-spotlight-tutorial.component';
 import {
   buildFloorOptions,
   isPersistedWardBedId,
   normalizeHospitalWardRecord,
   normalizeWardFloorRecord,
 } from './services/ward-api.mapper';
+import { WARD_BEDS_TUTORIAL_STEPS, WARD_BEDS_TUTORIAL_STORAGE } from './ward-tutorials.data';
 
 type ActiveModal = 'ward' | 'floor' | 'room' | 'bed' | 'status' | 'viewBed' | 'transfer' | null;
 type DetailTab = 'rooms' | 'beds' | 'occupancy' | 'analytics';
@@ -65,12 +68,25 @@ interface BedActivityRow {
 
 @Component({
   selector: 'app-ward-bed-management',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, HmsSpotlightTutorialComponent],
   templateUrl: './ward-bed-management.component.html',
   styleUrl: './ward-bed-management.component.scss',
 })
 export class WardBedManagementComponent implements OnInit, OnDestroy {
-  loading = false;
+  @ViewChild(HmsSpotlightTutorialComponent) tutorial?: HmsSpotlightTutorialComponent;
+
+  readonly tutorialSteps = WARD_BEDS_TUTORIAL_STEPS;
+  readonly tutorialStorageKey = WARD_BEDS_TUTORIAL_STORAGE;
+
+  startTutorial(): void {
+    this.tutorial?.start();
+  }
+
+  /** True until the first bed board payload finishes (shows full-page loader). */
+  loading = true;
+  /** True on later refreshes — keep existing UI, show a light status chip. */
+  refreshing = false;
+  private hasLoadedOnce = false;
   rooms: WardRoomRecord[] = [];
   beds: WardBedRecord[] = [];
   selectedRoomId = '';
@@ -152,7 +168,8 @@ export class WardBedManagementComponent implements OnInit, OnDestroy {
     private router: Router,
     private toastr: ToastrService,
     private wardData: WardDataService,
-    private currency: CurrencyService
+    private currency: CurrencyService,
+    private loadingService: LoadingService
   ) {
     this.roomForm = this.fb.group({
       wardId: ['', Validators.required],
@@ -866,7 +883,15 @@ export class WardBedManagementComponent implements OnInit, OnDestroy {
     const previousWards = this.hospitalWards;
     const previousFloors = this.wardFloors;
     const previousWardFilter = this.filters.ward;
-    this.loading = true;
+    if (this.hasLoadedOnce) {
+      this.refreshing = true;
+    } else {
+      this.loading = true;
+      this.loadingService.show({
+        title: 'Loading beds…',
+        message: 'Fetching wards, rooms and occupancy',
+      });
+    }
     this.wardData.loadBedManagement(this.filters.ward).subscribe({
       next: (data) => {
         const loadedWards = this.mergeHospitalWards(data.hospitalWards || [], previousWards);
@@ -900,7 +925,7 @@ export class WardBedManagementComponent implements OnInit, OnDestroy {
             this.refreshGalleryForSelectedWard();
             this.refreshActionState();
             this.selectedRoomId = this.filteredRooms[0]?.id || '';
-            this.loading = false;
+            this.finishLoading();
             this.openPendingTransfer();
             this.openPendingBedDetail();
           });
@@ -910,17 +935,27 @@ export class WardBedManagementComponent implements OnInit, OnDestroy {
         this.refreshGalleryForSelectedWard();
         this.refreshActionState();
         this.selectedRoomId = this.filteredRooms[0]?.id || '';
-        this.loading = false;
+        this.finishLoading();
         this.openPendingTransfer();
         this.openPendingBedDetail();
       },
       error: () => {
         this.rooms = [];
         this.beds = [];
-        this.loading = false;
+        this.finishLoading();
         this.toastr.error('Failed to load bed management data.');
       },
     });
+  }
+
+  private finishLoading(): void {
+    const wasInitial = !this.hasLoadedOnce;
+    this.loading = false;
+    this.refreshing = false;
+    this.hasLoadedOnce = true;
+    if (wasInitial) {
+      this.loadingService.hide();
+    }
   }
 
   onWardFilterChange(): void {

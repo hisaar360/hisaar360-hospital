@@ -208,8 +208,11 @@ export class BulkProductImportComponent implements OnInit, OnDestroy {
 
     const tutorialRequested = this.route.snapshot.queryParamMap.get('tutorial') === '1';
     if (tutorialRequested) {
+      this.markTutorialSeen();
       setTimeout(() => this.startTutorial(), 250);
     } else if (typeof localStorage !== 'undefined' && !localStorage.getItem(TUTORIAL_STORAGE)) {
+      // First visit only — mark immediately so reopen never auto-starts again.
+      this.markTutorialSeen();
       this.startTutorial();
     }
   }
@@ -816,6 +819,7 @@ export class BulkProductImportComponent implements OnInit, OnDestroy {
   startTutorial(): void {
     this.tutorialActive = true;
     this.tutorialStep = 0;
+    this.markTutorialSeen();
     this.positionTutorial();
   }
 
@@ -841,10 +845,16 @@ export class BulkProductImportComponent implements OnInit, OnDestroy {
   finishTutorial(markSeen: boolean): void {
     this.tutorialActive = false;
     this.clearTutorialLayout();
-    if (markSeen && typeof localStorage !== 'undefined') {
-      localStorage.setItem(TUTORIAL_STORAGE, '1');
+    if (markSeen) {
+      this.markTutorialSeen();
     }
     this.cdr.markForCheck();
+  }
+
+  private markTutorialSeen(): void {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(TUTORIAL_STORAGE, '1');
+    }
   }
 
   get activeTutorialStep() {

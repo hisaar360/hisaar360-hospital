@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import {
   FormBuilder,
   FormGroup,
@@ -60,6 +60,7 @@ export class CareRecordsComponent implements OnInit, OnDestroy {
   admittedSearch = '';
   recordsDateFilter: 'all' | 'today' | '7d' = 'all';
   showAllAdmitted = false;
+  recordActionTarget: PatientHistory | null = null;
 
   private readonly destroy$ = new Subject<void>();
 
@@ -109,8 +110,14 @@ export class CareRecordsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.closeRecordActions();
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.closeRecordActions();
   }
 
   get canCreate(): boolean {
@@ -389,6 +396,34 @@ export class CareRecordsComponent implements OnInit, OnDestroy {
       weight: record.vitals?.['weight'] || '',
       height: record.vitals?.['height'] || '',
     });
+  }
+
+  openRecordActions(record: PatientHistory): void {
+    this.recordActionTarget = record;
+  }
+
+  closeRecordActions(): void {
+    this.recordActionTarget = null;
+  }
+
+  editSelectedRecord(): void {
+    const record = this.recordActionTarget;
+    this.closeRecordActions();
+    if (!record) {
+      return;
+    }
+    this.editRecord(record);
+    setTimeout(() => {
+      document.querySelector('.care-records-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  deleteSelectedRecord(): void {
+    const record = this.recordActionTarget;
+    this.closeRecordActions();
+    if (record) {
+      void this.deleteRecord(record);
+    }
   }
 
   async deleteRecord(record: PatientHistory): Promise<void> {

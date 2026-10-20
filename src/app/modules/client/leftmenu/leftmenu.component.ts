@@ -827,10 +827,20 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     document.querySelector('.overlay')?.classList.remove('open');
   }
 
-  /** Pharmacy parent: open Pharmacy Dashboard (not Accounts) and expand the submenu. */
+  /**
+   * Pharmacy parent: toggle submenu like other sections.
+   * When expanding, land on Pharmacy Dashboard (not Accounts).
+   */
   openPharmacySection(event?: Event): void {
     event?.preventDefault();
     event?.stopPropagation();
+
+    // Already open → collapse only (same as Laboratory / Ward toggles).
+    if (!this.PharmacyCollapsed) {
+      this.PharmacyCollapsed = true;
+      return;
+    }
+
     this.PharmacyCollapsed = false;
     if (this.canViewPharmacy) {
       void this.router.navigate(['/pharmacy']);

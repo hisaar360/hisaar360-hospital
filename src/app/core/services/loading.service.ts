@@ -1,5 +1,10 @@
 import { Injectable, NgZone, inject, signal } from '@angular/core';
 
+export interface LoadingShowOptions {
+  title?: string;
+  message?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class LoadingService {
   private readonly zone = inject(NgZone);
@@ -13,9 +18,25 @@ export class LoadingService {
   private readonly maxDurationMs = 12_000;
 
   private readonly loadingState = signal(false);
-  readonly loading = this.loadingState.asReadonly();
+  private readonly titleState = signal('Loading…');
+  private readonly messageState = signal('Please wait');
 
-  show(): void {
+  readonly loading = this.loadingState.asReadonly();
+  readonly title = this.titleState.asReadonly();
+  readonly message = this.messageState.asReadonly();
+
+  show(options?: LoadingShowOptions): void {
+    if (options?.title) {
+      this.titleState.set(options.title);
+    } else if (this.activeRequests === 0) {
+      this.titleState.set('Loading…');
+    }
+    if (options?.message) {
+      this.messageState.set(options.message);
+    } else if (this.activeRequests === 0) {
+      this.messageState.set('Please wait');
+    }
+
     this.activeRequests += 1;
 
     if (this.activeRequests !== 1) {
@@ -47,6 +68,8 @@ export class LoadingService {
         this.hideTimer = null;
         if (this.activeRequests === 0) {
           this.loadingState.set(false);
+          this.titleState.set('Loading…');
+          this.messageState.set('Please wait');
           this.clearStuckWatchdog();
         }
       });
@@ -61,7 +84,11 @@ export class LoadingService {
       this.hideTimer = null;
     }
     this.clearStuckWatchdog();
-    this.zone.run(() => this.loadingState.set(false));
+    this.zone.run(() => {
+      this.loadingState.set(false);
+      this.titleState.set('Loading…');
+      this.messageState.set('Please wait');
+    });
   }
 
   private armStuckWatchdog(): void {

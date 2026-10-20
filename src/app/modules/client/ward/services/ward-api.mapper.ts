@@ -755,12 +755,12 @@ export function buildDashboardAlerts(
   ).length;
 
   return [
-    { label: 'Medicine due', value: medicinesDue, route: '/ward/mar', tone: 'amber' },
-    { label: 'Vitals overdue', value: vitalsOverdue, route: '/ward/vitals', tone: 'red' },
-    { label: 'Lab report pending', value: labPending, route: '/ward/orders-services', tone: 'purple' },
+    { label: 'Medicine due', value: medicinesDue, route: '/ward/patient-list', tone: 'amber' },
+    { label: 'Vitals overdue', value: vitalsOverdue, route: '/ward/patient-list', tone: 'red' },
+    { label: 'Lab report pending', value: labPending, route: '/ward/patient-list', tone: 'purple' },
     { label: 'Critical vitals', value: criticalCount, route: '/ward/patient-list', tone: 'red' },
     { label: 'Discharge pending', value: dischargePending, route: '/ward/admissions', tone: 'purple' },
-    { label: 'Drips running', value: dripsRunning, route: '/ward/drips-iv', tone: 'green' },
+    { label: 'Drips running', value: dripsRunning, route: '/ward/patient-list', tone: 'green' },
   ];
 }
 

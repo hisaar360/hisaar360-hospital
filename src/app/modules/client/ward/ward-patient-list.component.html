@@ -15,6 +15,15 @@
         <p *ngIf="pickPatientHint" class="ward-pick-hint">Select a patient to continue on their chart.</p>
       </div>
       <div class="ward-page-header__actions">
+        <button
+          type="button"
+          class="btn btn-sm ward-btn-outline-teal"
+          data-tour="ward-tutorial-btn"
+          aria-label="Start Patients tutorial"
+          (click)="startTutorial()"
+        >
+          <i class="fa fa-graduation-cap" aria-hidden="true"></i> Tutorial
+        </button>
         <button type="button" class="btn btn-sm ward-btn-outline-teal" (click)="exportCsv()">
           <i class="fa fa-download"></i> Export
         </button>
@@ -29,7 +38,7 @@
       </div>
     </div>
 
-    <section class="ward-kpi-grid" aria-label="Patient status summary">
+    <section class="ward-kpi-grid" data-tour="patient-kpis" aria-label="Patient status summary">
       <button
         type="button"
         class="ward-kpi-card"
@@ -46,9 +55,9 @@
       </button>
     </section>
 
-    <section class="ward-panel ward-patient-panel">
+    <section class="ward-panel ward-patient-panel" data-tour="patient-table">
       <div class="ward-panel__head ward-panel__head--tabs">
-        <div class="ward-status-tabs" role="tablist" aria-label="Filter by status">
+        <div class="ward-status-tabs" data-tour="patient-tabs" role="tablist" aria-label="Filter by status">
           <button
             type="button"
             class="ward-status-tab"
@@ -63,7 +72,7 @@
         </div>
       </div>
 
-      <div class="ward-filter-toolbar ward-filter-toolbar--in-panel ward-patient-filters">
+      <div class="ward-filter-toolbar ward-filter-toolbar--in-panel ward-patient-filters" data-tour="patient-filters">
         <div class="ward-patient-filters__desktop">
           <div class="ward-patient-filters__row">
             <label class="ward-filter ward-filter--compact ward-filter--grow ward-filter--search">
@@ -349,6 +358,13 @@
         </div>
       </div>
     </section>
+
+    <app-hms-spotlight-tutorial
+      [steps]="tutorialSteps"
+      [storageKey]="tutorialStorageKey"
+      offerTitle="Welcome to Ward Patients"
+      offerText="Learn how to filter by status, search the list, and open a patient chart for Care, Medicines, Treatments, and Discharge. Replay anytime from Tutorial."
+    ></app-hms-spotlight-tutorial>
 
     <div class="ward-drawer-backdrop" *ngIf="previewPatient" (click)="closePreview()"></div>
     <aside

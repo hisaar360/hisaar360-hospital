@@ -9,11 +9,12 @@ import {
   ApexNonAxisChartSeries,
   ApexPlotOptions,
   ApexStroke,
-  ApexXAxis,
 } from 'ng-apexcharts';
 import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import { hasPermission, readStoredPermissions } from '../../auth/access-control';
 import {
   isClinicalModuleEnabled,
@@ -29,7 +30,9 @@ import {
   DashboardStatusBreakdown,
   DashboardSummary,
   Patient,
+  User,
 } from '../../../shared/models/hospital.model';
+import { GlobalSearchComponent } from '../header/global-search.component';
 
 type DashboardTab = 'overview' | 'appointments' | 'laboratory';
 
@@ -44,16 +47,6 @@ type DonutChartOptions = {
   plotOptions: ApexPlotOptions;
 };
 
-type BarChartOptions = {
-  series: Array<{ name: string; data: number[] }>;
-  chart: ApexChart;
-  xaxis: ApexXAxis;
-  colors: string[];
-  plotOptions: ApexPlotOptions;
-  dataLabels: ApexDataLabels;
-  stroke: ApexStroke;
-};
-
 interface DashboardKpi {
   label: string;
   value: string | number;
@@ -62,6 +55,7 @@ interface DashboardKpi {
   tone: string;
   isCurrency?: boolean;
   hidden?: boolean;
+  pulseLabel?: string;
 }
 
 interface QuickAction {
@@ -73,7 +67,7 @@ interface QuickAction {
 
 @Component({
   selector: 'app-dashboard',
-  imports: [RouterLink, CommonModule, NgApexchartsModule, DatePipe, HmsCurrencyPipe],
+  imports: [RouterLink, CommonModule, NgApexchartsModule, DatePipe, HmsCurrencyPipe, GlobalSearchComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
@@ -86,6 +80,25 @@ export class DashboardComponent implements OnInit {
     month: 'long',
     year: 'numeric',
   });
+  readonly shortDateLabel = new Date().toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  readonly revenueMonths = Array.from({ length: 6 }, (_, offset) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - (5 - offset));
+    return date.toLocaleDateString(undefined, { month: 'short' });
+  });
+  readonly revenueBars = [31, 27, 67, 43, 32, 78];
+  readonly statusLegend = [
+    { label: 'Pending', key: 'pending', color: '#f59e0b' },
+    { label: 'Confirmed', key: 'confirmed', color: '#20adc0' },
+    { label: 'Completed', key: 'completed', color: '#16b76a' },
+    { label: 'Cancelled', key: 'cancelled', color: '#f04444' },
+    { label: 'No Show', key: 'noShow', color: '#a7bdce' },
+  ] as const;
 
   readonly permissions = readStoredPermissions();
   readonly labEnabled = isLaboratoryModuleEnabled();
@@ -95,12 +108,42 @@ export class DashboardComponent implements OnInit {
   secondaryKpis: DashboardKpi[] = [];
   quickActions: QuickAction[] = [];
   todayDonut: DonutChartOptions = this.buildDonutChart(this.emptyBreakdown());
-  operationsBar: BarChartOptions = this.buildOperationsBar();
 
   constructor(
     private backend: BackendService,
-    private toastr: ToastrService
+    private toastr: ToastrService,
+    private authService: AuthService
   ) {}
+
+  get currentUser(): User | null {
+    return (this.authService.currentUser() as User | null) || null;
+  }
+
+  get hospitalName(): string {
+    return String(this.currentUser?.hospital?.name || 'Your Hospital').trim();
+  }
+
+  get hospitalLogoUrl(): string {
+    return resolveAssetUrl(this.currentUser?.hospital?.logoUrl) || 'assets/H.png';
+  }
+
+  get roleLabel(): string {
+    return String(this.currentUser?.role?.name || localStorage.getItem('role') || 'Hospital team')
+      .replace(/[_-]+/g, ' ')
+      .trim();
+  }
+
+  get todayBreakdown(): DashboardStatusBreakdown {
+    return this.summary.todayAppointmentBreakdown || this.emptyBreakdown();
+  }
+
+  get todayAppointmentTotal(): number {
+    return this.statusLegend.reduce((sum, item) => sum + this.statusValue(item.key), 0);
+  }
+
+  get reportRoute(): string {
+    return this.canSeeRevenue ? '/accounts' : '/help';
+  }
 
   ngOnInit(): void {
     this.syncDashboardState();
@@ -183,6 +226,20 @@ export class DashboardComponent implements OnInit {
     return item.summary || item.action.replace(/_/g, ' ');
   }
 
+  activityIcon(item: DashboardActivityItem): string {
+    const module = String(item.module || '').toLowerCase();
+    if (module.includes('patient')) return 'fa-user';
+    if (module.includes('appointment')) return 'fa-calendar';
+    if (module.includes('lab')) return 'fa-flask';
+    if (module.includes('invoice') || module.includes('payment')) return 'fa-file-text-o';
+    if (module.includes('ward')) return 'fa-bed';
+    return 'fa-check-circle';
+  }
+
+  statusValue(key: keyof DashboardStatusBreakdown): number {
+    return Number(this.todayBreakdown[key] || 0);
+  }
+
   get canSeeAuditLogs(): boolean {
     const permissions = this.permissions ?? [];
     return permissions.includes('*') || hasPermission('audit_logs.read', permissions);
@@ -192,12 +249,12 @@ export class DashboardComponent implements OnInit {
     const today = this.summary.todayAppointmentBreakdown || this.emptyBreakdown();
 
     this.primaryKpis = [
-      { label: 'Total Doctors', value: this.summary.totalDoctors, hint: 'Active doctors', icon: 'fa-user-md', tone: 'tone-blue' },
-      { label: 'Total Patients', value: this.summary.totalPatients, hint: 'Registered patients', icon: 'fa-users', tone: 'tone-teal' },
-      { label: "Today's Appointments", value: this.summary.todayAppointments, hint: 'Scheduled today', icon: 'fa-calendar', tone: 'tone-green' },
-      { label: 'Lab Tests Today', value: this.summary.todayLabOrders || 0, hint: 'New lab orders', icon: 'fa-flask', tone: 'tone-purple', hidden: !this.labEnabled },
-      { label: 'Prescriptions Today', value: this.summary.todayPrescriptions || 0, hint: 'Created today', icon: 'fa-file-text-o', tone: 'tone-amber', hidden: !isClinicalModuleEnabled() },
-      { label: "Today's Revenue", value: this.summary.todayRevenue || 0, hint: 'GL posted today', icon: 'fa-money', tone: 'tone-navy', isCurrency: true, hidden: !this.canSeeRevenue },
+      { label: 'Total Doctors', value: this.summary.totalDoctors, hint: 'Active doctors', icon: 'fa-user-md', tone: 'tone-blue', pulseLabel: 'Active' },
+      { label: 'Total Patients', value: this.summary.totalPatients, hint: 'Registered patients', icon: 'fa-users', tone: 'tone-teal', pulseLabel: 'Updated' },
+      { label: "Today's Appointments", value: this.summary.todayAppointments, hint: 'Scheduled today', icon: 'fa-calendar', tone: 'tone-green', pulseLabel: 'Today' },
+      { label: 'Lab Tests Today', value: this.summary.todayLabOrders || 0, hint: 'New lab orders', icon: 'fa-flask', tone: 'tone-purple', hidden: !this.labEnabled, pulseLabel: 'Today' },
+      { label: 'Prescriptions Today', value: this.summary.todayPrescriptions || 0, hint: 'Created today', icon: 'fa-file-text-o', tone: 'tone-amber', hidden: !isClinicalModuleEnabled(), pulseLabel: 'Today' },
+      { label: "Today's Revenue", value: this.summary.todayRevenue || 0, hint: 'GL posted today', icon: 'fa-money', tone: 'tone-navy', isCurrency: true, hidden: !this.canSeeRevenue, pulseLabel: 'Today' },
     ].filter((item) => !item.hidden);
 
     this.secondaryKpis = [
@@ -210,7 +267,6 @@ export class DashboardComponent implements OnInit {
 
     this.quickActions = this.buildQuickActions();
     this.todayDonut = this.buildDonutChart(today);
-    this.operationsBar = this.buildOperationsBar();
   }
 
   private buildQuickActions(): QuickAction[] {
@@ -275,8 +331,8 @@ export class DashboardComponent implements OnInit {
       chart: { type: 'donut', height: 280, fontFamily: 'inherit' },
       labels: ['Pending', 'Confirmed', 'Completed', 'Cancelled', 'No Show'],
       colors: ['#f59e0b', '#0fa39e', '#16a34a', '#ef4444', '#94a3b8'],
-      legend: { position: 'bottom', fontSize: '12px' },
-      dataLabels: { enabled: true },
+      legend: { show: false },
+      dataLabels: { enabled: false },
       stroke: { width: 1 },
       plotOptions: {
         pie: {
@@ -293,35 +349,6 @@ export class DashboardComponent implements OnInit {
           },
         },
       },
-    };
-  }
-
-  private buildOperationsBar(): BarChartOptions {
-    const categories = ['Appointments', 'Prescriptions', 'Fees Collected'];
-    const data = [
-      Number(this.summary.todayAppointments || 0),
-      Number(this.summary.todayPrescriptions || 0),
-      Number(this.summary.todayFeesCollected || 0),
-    ];
-    if (this.labEnabled) {
-      categories.splice(1, 0, 'Lab Tests');
-      data.splice(1, 0, this.summary.todayLabOrders || 0);
-    }
-    if (!this.canSeeRevenue) {
-      const feeIndex = categories.indexOf('Fees Collected');
-      if (feeIndex >= 0) {
-        categories.splice(feeIndex, 1);
-        data.splice(feeIndex, 1);
-      }
-    }
-    return {
-      series: [{ name: 'Count', data }],
-      chart: { type: 'bar', height: 280, toolbar: { show: false }, fontFamily: 'inherit' },
-      xaxis: { categories },
-      colors: ['#0fa39e'],
-      plotOptions: { bar: { borderRadius: 8, columnWidth: '46%' } },
-      dataLabels: { enabled: true },
-      stroke: { show: true, width: 2, colors: ['transparent'] },
     };
   }
 

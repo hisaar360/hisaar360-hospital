@@ -6,6 +6,16 @@
         <p>{{ config.subtitle }}</p>
       </div>
       <div class="ward-page-header__actions">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-primary"
+          *ngIf="showModuleTutorial"
+          data-tour="ward-tutorial-btn"
+          aria-label="Start tutorial"
+          (click)="startTutorial()"
+        >
+          <i class="fa fa-graduation-cap" aria-hidden="true"></i> Tutorial
+        </button>
         <label class="ward-header-filter">
           <span>Ward</span>
           <select [(ngModel)]="ward" (ngModelChange)="onFilterChange()">
@@ -43,6 +53,7 @@
             <button
               type="button"
               class="btn btn-sm btn-primary"
+              data-tour="primary-action"
               *ngIf="config.primaryActionLabel && (config.key !== 'inventory' || canAddInventoryItem)"
               (click)="primaryAction()"
             >
@@ -53,7 +64,7 @@
       </div>
     </div>
 
-    <section class="ward-kpi-grid">
+    <section class="ward-kpi-grid" data-tour="kpis">
       <article class="ward-kpi-card" *ngFor="let kpi of displayKpis" [ngClass]="'ward-kpi-card--' + kpi.tone">
         <span class="ward-kpi-card__icon"><i class="fa" [ngClass]="kpi.icon"></i></span>
         <span class="ward-kpi-card__copy">
@@ -106,7 +117,7 @@
           <h2>{{ config.title }} in {{ selectedWardLabel }}</h2>
           <p>{{ config.layout === 'reports' ? reportCards.length : rows.length }} records shown</p>
         </div>
-        <div class="ward-status-tabs" *ngIf="config.tabs.length">
+        <div class="ward-status-tabs" data-tour="tabs" *ngIf="config.tabs.length">
           <button
             type="button"
             class="ward-status-tab"
@@ -119,7 +130,7 @@
         </div>
       </div>
 
-      <div class="ward-filter-toolbar ward-filter-toolbar--in-panel">
+      <div class="ward-filter-toolbar ward-filter-toolbar--in-panel" data-tour="table">
         <label class="ward-filter ward-filter--compact ward-filter--grow">
           <span>Search</span>
           <input type="search" [(ngModel)]="search" (ngModelChange)="onFilterChange()" [placeholder]="config.searchPlaceholder" />
@@ -286,6 +297,14 @@
         </div>
       </div>
     </section>
+
+    <app-hms-spotlight-tutorial
+      *ngIf="showModuleTutorial"
+      [steps]="moduleTutorialSteps"
+      [storageKey]="moduleTutorialStorage"
+      offerTitle="Welcome to Admissions"
+      offerText="Learn Manual Admit, pending doctor orders, and how admitted patients reach the ward chart. Replay anytime from Tutorial."
+    ></app-hms-spotlight-tutorial>
   </div>
 </div>
 
