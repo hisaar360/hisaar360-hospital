@@ -21,17 +21,17 @@ const MODULE_LABELS: Record<string, string> = {
   clinical: 'Clinical & OPD',
   pharmacy: 'Pharmacy',
   laboratory: 'Laboratory',
-  ward: 'Ward & Nursing',
+  ward: 'Ward & IPD',
   accounts: 'Billing / Accounts',
   nursery: 'Nursery / Newborn',
   setup: 'Hospital Setup',
 };
 
 const ROLE_LABELS: Record<string, string> = {
-  owner: 'Owner / Admin',
+  owner: 'Hospital Manager / Owner',
   doctor: 'Doctor',
   receptionist: 'Receptionist',
-  ward: 'Ward Receptionist / Nurse',
+  ward: 'Ward Admin',
   laboratory: 'Laboratory',
   pharmacy: 'Pharmacy',
   accountant: 'Accountant',

@@ -1089,6 +1089,19 @@ export interface Expense {
 
 export type ProductDiscountType = 'amount' | 'percentage';
 
+export interface StockLot {
+  _id: string;
+  companyId?: string;
+  productId?: string;
+  locationType?: 'store' | 'warehouse' | 'ward';
+  locationId?: string;
+  lotNumber?: string | null;
+  expiryDate?: string | null;
+  quantity?: string | number | null;
+  reservedQuantity?: string | number | null;
+  availableQuantity?: string | number | null;
+}
+
 export interface ProductCatalogItem {
   _id: string;
   companyId?: string;
@@ -1116,6 +1129,9 @@ export interface ProductCatalogItem {
   maxDiscountValue?: number | string | null;
   stockScopeCity?: string | null;
   stockLocationCount?: number;
+  lotCount?: number;
+  earliestLotExpiry?: string | null;
+  nearestLotNumber?: string | null;
   isActive?: boolean;
 }
 
@@ -1126,6 +1142,10 @@ export interface SaleItem {
   productId: string;
   name?: string;
   sku?: string;
+  lotId?: string | null;
+  lotNumber?: string | null;
+  expiryDate?: string | null;
+  nearExpirySale?: boolean;
   qty: string | number;
   unitPrice?: string | number;
   discount?: string | number;

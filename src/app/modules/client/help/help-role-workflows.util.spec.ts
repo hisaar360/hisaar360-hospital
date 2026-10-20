@@ -56,7 +56,7 @@ describe('help-role-workflows.util', () => {
 
   it('shows Ward Reception and Nurse branches for ward role', () => {
     const wardWorkflow = resolveRoleWorkflow('ward', allFlags);
-    expect(wardWorkflow.title).toContain('Ward Receptionist / Nurse');
+    expect(wardWorkflow.title).toContain('Ward Admin');
     expect(workflowContainsLabel(wardWorkflow, 'Pending Admissions')).toBeTrue();
     expect(workflowContainsLabel(wardWorkflow, 'MAR / Medicine')).toBeTrue();
     expect(workflowContainsLabel(wardWorkflow, 'Recommended By doctor')).toBeTrue();

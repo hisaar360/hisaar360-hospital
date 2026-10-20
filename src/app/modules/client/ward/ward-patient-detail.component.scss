@@ -207,11 +207,11 @@
 
 .ward-chart-actions-card {
   background: #fff;
-  border: 1px solid #e5ecec;
-  border-radius: 14px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--hms-border, #e5ecec);
+  border-radius: var(--hms-radius, 10px);
+  box-shadow: var(--hms-shadow, 0 1px 2px rgba(15, 23, 42, 0.04));
   margin: 10px 0;
-  padding: 12px;
+  padding: 10px 12px;
 }
 
 .ward-chart-actions-card--sticky {
@@ -221,78 +221,21 @@
 }
 
 .ward-chart-actions {
-  display: grid;
-  gap: 0.55rem;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
-.ward-chart-actions--primary {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  margin-bottom: 0.55rem;
-}
-
-.ward-chart-actions--more {
-  border-top: 1px dashed #e2e8f0;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  padding-top: 0.55rem;
-}
-
-.ward-chart-action {
-  align-items: center;
-  background: #fff;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
-  color: #334155;
-  cursor: pointer;
   display: flex;
-  flex-direction: column;
-  font-size: 0.78rem;
-  font-weight: 700;
-  gap: 6px;
-  justify-content: center;
-  min-height: 72px;
-  padding: 10px 8px;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.ward-chart-action--primary {
-  background: #f8fffe;
-  border-color: #99f6e4;
-  min-height: 64px;
+.ward-chart-actions--toolbar {
+  align-items: center;
 }
 
-.ward-chart-action--discharge {
-  background: #fff7ed;
-  border-color: #fdba74;
+.ward-chart-actions--toolbar .hms-btn {
+  flex: 0 0 auto;
 }
 
-.ward-chart-action--discharge i {
-  color: #c2410c;
-}
-
-.ward-chart-actions--more .ward-chart-action {
-  min-height: 56px;
-}
-
-.ward-chart-action i {
-  color: #0d9488;
-  font-size: 1.15rem;
-}
-
-.ward-chart-action:hover {
-  background: #f8fffe;
-  border-color: #99f6e4;
-}
-
-.ward-chart-action.is-active {
-  background: #f0fdfa;
-  border-color: #0d9488;
-  box-shadow: 0 0 0 1px #0d9488;
-  color: #0f766e;
-}
-
-.ward-chart-action.is-active i {
-  color: #0d9488;
+.ward-chart-actions--toolbar .hms-btn.is-keyboard-focus {
+  box-shadow: 0 0 0 2px rgba(1, 156, 157, 0.35);
 }
 
 .ward-chart-return {
@@ -313,17 +256,7 @@
   font-size: 13px;
 }
 
-@media (max-width: 1100px) {
-  .ward-chart-actions {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 767px) {
-  .ward-chart-actions {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .ward-chart-hero {
     align-items: flex-start;
   }
@@ -335,16 +268,11 @@
   .ward-patient-facts__sep {
     display: none !important;
   }
-}
 
-@media (max-width: 480px) {
-  .ward-chart-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .ward-chart-actions--toolbar .hms-btn {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
   }
-}
-
-.ward-chart-action.is-keyboard-focus {
-  box-shadow: 0 0 0 2px #0f766e;
 }
 
 .kb-hint-panel {

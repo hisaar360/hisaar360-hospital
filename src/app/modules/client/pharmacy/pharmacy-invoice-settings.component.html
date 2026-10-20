@@ -1,0 +1,271 @@
+<div id="main-content" class="hms-page pharmacy-invoice-settings-page">
+  <div class="container-fluid pharmacy-invoice-wrap">
+    <header class="pis-hero">
+      <div>
+        <nav class="pis-crumb" aria-label="Breadcrumb">
+          <a routerLink="/pharmacy">Pharmacy Dashboard</a>
+          <span>/</span>
+          <em>Invoice / Print Bill Settings</em>
+        </nav>
+        <h1>Invoice / Print Bill Settings</h1>
+        <p>Customize your pharmacy receipt with logo, layout, fonts, and terms.</p>
+      </div>
+      <button
+        type="button"
+        class="pis-save-btn"
+        *ngIf="canEdit"
+        [disabled]="saving || loading || uploadingLogo"
+        (click)="save()"
+      >
+        <i class="fa" [ngClass]="saving ? 'fa-spinner fa-spin' : 'fa-check'"></i>
+        {{ saving ? 'Saving…' : 'Save Settings' }}
+      </button>
+    </header>
+
+    <p class="pis-loading" *ngIf="loading"><i class="fa fa-spinner fa-spin"></i> Loading…</p>
+
+    <div class="pis-layout" *ngIf="!loading">
+      <div class="pis-form-stack">
+        <section class="pis-card">
+          <header class="pis-card__head">
+            <span class="pis-card__icon"><i class="fa fa-building"></i></span>
+            <div>
+              <h2>Branding</h2>
+              <p>Pharmacy identity shown on every printed bill.</p>
+            </div>
+          </header>
+
+          <label class="pis-switch">
+            <input type="checkbox" [(ngModel)]="form.showLogo" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
+            <span class="pis-switch__track" aria-hidden="true"></span>
+            <span class="pis-switch__copy">
+              <strong>Show logo on bill</strong>
+              <small>Display pharmacy logo at the top of receipts.</small>
+            </span>
+          </label>
+
+          <div class="pis-logo-row">
+            <div class="pis-logo-preview">
+              <img *ngIf="form.showLogo && logoPreviewUrl" [src]="logoPreviewUrl" alt="Pharmacy logo preview" />
+              <span *ngIf="!(form.showLogo && logoPreviewUrl)"><i class="fa fa-medkit"></i></span>
+            </div>
+            <div class="pis-logo-tools">
+              <label class="pis-dropzone" [class.is-disabled]="!canEdit">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
+                  (change)="onLogoSelected($event)"
+                  [disabled]="!canEdit || uploadingLogo"
+                />
+                <i class="fa fa-cloud-upload"></i>
+                <strong>{{ uploadingLogo ? 'Reading logo…' : 'Upload Pharmacy Logo' }}</strong>
+                <small>PNG, JPG, or SVG up to 2MB</small>
+                <em *ngIf="logoFileLabel">{{ logoFileLabel }}</em>
+              </label>
+              <button type="button" class="pis-remove-logo" *ngIf="form.logoUrl && canEdit" (click)="clearLogo()">
+                <i class="fa fa-trash-o"></i> Remove logo
+              </button>
+            </div>
+          </div>
+
+          <div class="pis-grid pis-grid--2">
+            <label class="pis-field">
+              <span>Pharmacy / Brand Name</span>
+              <input [(ngModel)]="form.brandTitle" (ngModelChange)="onFormChange()" [disabled]="!canEdit" placeholder="Pharmacy" />
+            </label>
+            <label class="pis-field">
+              <span>Logo URL (optional)</span>
+              <input
+                type="text"
+                [(ngModel)]="form.logoUrl"
+                (ngModelChange)="onFormChange()"
+                [disabled]="!canEdit"
+                placeholder="https://… or leave blank after upload"
+              />
+            </label>
+          </div>
+
+          <label class="pis-field">
+            <span>Subtitle (e.g. Tagline)</span>
+            <input
+              [(ngModel)]="form.brandSubtitle"
+              (ngModelChange)="onFormChange()"
+              [disabled]="!canEdit"
+              placeholder="Quality Medicines for a Healthier Life"
+            />
+          </label>
+
+          <div class="pis-grid pis-grid--2">
+            <label class="pis-field">
+              <span>Header Note (Address / Location)</span>
+              <input [(ngModel)]="form.headerNote" (ngModelChange)="onFormChange()" [disabled]="!canEdit" placeholder="Shop address" />
+            </label>
+            <label class="pis-field">
+              <span>Contact Line</span>
+              <input
+                [(ngModel)]="form.contactLine"
+                (ngModelChange)="onFormChange()"
+                [disabled]="!canEdit"
+                placeholder="Phone · Email · Website"
+              />
+            </label>
+          </div>
+
+          <label class="pis-field">
+            <span>Extra Header Lines</span>
+            <textarea
+              rows="2"
+              [(ngModel)]="extraHeaderText"
+              (ngModelChange)="onFormChange()"
+              [disabled]="!canEdit"
+              placeholder="Open 7 Days"
+            ></textarea>
+          </label>
+        </section>
+
+        <section class="pis-card">
+          <header class="pis-card__head">
+            <span class="pis-card__icon is-teal"><i class="fa fa-sliders"></i></span>
+            <div>
+              <h2>Layout &amp; Style</h2>
+              <p>Paper width, borders, logo size, and fonts.</p>
+            </div>
+          </header>
+
+          <div class="pis-grid pis-grid--3">
+            <label class="pis-field">
+              <span>Paper Width (mm)</span>
+              <div class="pis-paper-presets">
+                <button type="button" class="pis-preset" [class.active]="form.paperWidthMm === 58" (click)="setPaperWidth(58)" [disabled]="!canEdit">58mm POS mini</button>
+                <button type="button" class="pis-preset" [class.active]="form.paperWidthMm === 80" (click)="setPaperWidth(80)" [disabled]="!canEdit">80mm roll</button>
+              </div>
+              <input type="number" min="58" max="120" [(ngModel)]="form.paperWidthMm" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
+              <small>Invoice printers only (not A4). Chrome: paper = 58×3276 / 80mm, Margins = <strong>None</strong>, Scale = <strong>100</strong>, Headers and footers = <strong>off</strong>.</small>
+            </label>
+            <label class="pis-field">
+              <span>Border Style</span>
+              <select [(ngModel)]="form.borderStyle" (ngModelChange)="onFormChange()" [disabled]="!canEdit">
+                <option value="dashed">Dashed</option>
+                <option value="solid">Solid</option>
+                <option value="none">None</option>
+              </select>
+            </label>
+            <label class="pis-field">
+              <span>Logo Scale</span>
+              <input type="number" min="0.5" max="2" step="0.1" [(ngModel)]="form.logoScale" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
+            </label>
+            <label class="pis-field">
+              <span>Header font (px)</span>
+              <input type="number" min="12" max="28" [(ngModel)]="form.fontSizeHeader" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
+            </label>
+            <label class="pis-field">
+              <span>Body font (px)</span>
+              <input type="number" min="8" max="16" [(ngModel)]="form.fontSizeBody" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
+            </label>
+            <label class="pis-field">
+              <span>Footer font (px)</span>
+              <input type="number" min="8" max="14" [(ngModel)]="form.fontSizeFooter" (ngModelChange)="onFormChange()" [disabled]="!canEdit" />
+            </label>
+            <label class="pis-field">
+              <span>Header weight</span>
+              <select [(ngModel)]="form.fontWeightHeader" (ngModelChange)="onFormChange()" [disabled]="!canEdit">
+                <option value="bold">Bold</option>
+                <option value="normal">Normal</option>
+              </select>
+            </label>
+            <label class="pis-field">
+              <span>Body weight</span>
+              <select [(ngModel)]="form.fontWeightBody" (ngModelChange)="onFormChange()" [disabled]="!canEdit">
+                <option value="normal">Normal</option>
+                <option value="bold">Bold</option>
+              </select>
+            </label>
+            <label class="pis-field">
+              <span>Footer weight</span>
+              <select [(ngModel)]="form.fontWeightFooter" (ngModelChange)="onFormChange()" [disabled]="!canEdit">
+                <option value="normal">Normal</option>
+                <option value="bold">Bold</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="pis-card">
+          <header class="pis-card__head">
+            <span class="pis-card__icon is-amber"><i class="fa fa-file-text-o"></i></span>
+            <div>
+              <h2>Footer &amp; Terms</h2>
+              <p>Default terms are saved for this pharmacy — edit anytime in English or Urdu.</p>
+            </div>
+          </header>
+
+          <div class="pis-grid pis-grid--2">
+            <label class="pis-field">
+              <span>Footer Title</span>
+              <input [(ngModel)]="form.footerTitle" (ngModelChange)="onFormChange()" [disabled]="!canEdit" placeholder="Thank you" />
+            </label>
+            <label class="pis-field">
+              <span>Footer Lines</span>
+              <textarea
+                rows="2"
+                [(ngModel)]="footerLinesText"
+                (ngModelChange)="onFormChange()"
+                [disabled]="!canEdit"
+                placeholder="Visit Again"
+              ></textarea>
+            </label>
+          </div>
+
+          <label class="pis-field">
+            <span>Terms and Conditions</span>
+            <textarea
+              class="pis-terms"
+              rows="6"
+              dir="rtl"
+              lang="ur"
+              [(ngModel)]="form.termsText"
+              (ngModelChange)="onFormChange()"
+              [disabled]="!canEdit"
+              placeholder="شرائط و ضوابط اردو یا انگلش میں لکھیں…"
+            ></textarea>
+            <small class="pis-hint-inline">
+              یہ شرائط اسی فارمیسی بل پر پرنٹ ہوں گی۔ آپ انہیں کبھی بھی تبدیل کر کے سیو کر سکتے ہیں۔
+            </small>
+          </label>
+
+          <p class="pis-hint" *ngIf="!canEdit">You can preview settings. Saving requires company manage permission.</p>
+        </section>
+      </div>
+
+      <aside class="pis-preview-card">
+        <header class="pis-preview-head">
+          <div>
+            <h2>Live Preview</h2>
+            <p>Updates as you edit settings.</p>
+          </div>
+          <div class="pis-preview-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              [class.is-active]="previewMode === 'receipt'"
+              (click)="setPreviewMode('receipt')"
+            >
+              Receipt
+            </button>
+            <button
+              type="button"
+              role="tab"
+              [class.is-active]="previewMode === 'a4'"
+              (click)="setPreviewMode('a4')"
+            >
+              A4 Print
+            </button>
+          </div>
+        </header>
+        <div class="pis-preview-frame">
+          <iframe *ngIf="previewUrl" [src]="previewUrl" title="Invoice preview"></iframe>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>

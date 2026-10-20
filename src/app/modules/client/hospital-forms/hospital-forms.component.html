@@ -1,0 +1,194 @@
+<div id="main-content" class="modern-dashboard hms-page hospital-forms-page">
+  <div class="container-fluid hospital-forms-container">
+    <header class="hf-top">
+      <div class="hf-top__copy">
+        <h1>Hospital Forms &amp; Charts</h1>
+        <p>A4 printable consent forms and ward charts. Logo &amp; contact from Hospital Setup; content editable for your hospital.</p>
+      </div>
+      <div class="hf-top__actions" *ngIf="selected">
+        <button type="button" class="hf-btn hf-btn--ghost" (click)="print()">
+          <i class="fa fa-print" aria-hidden="true"></i> Print A4
+        </button>
+        <button type="button" class="hf-btn hf-btn--ghost" (click)="downloadPdf()">
+          <i class="fa fa-download" aria-hidden="true"></i> Download PDF
+        </button>
+        <button
+          type="button"
+          class="hf-btn hf-btn--primary"
+          *ngIf="canEdit"
+          [disabled]="saving || !editForm"
+          (click)="save()"
+        >
+          {{ saving ? 'Saving…' : 'Save for Hospital' }}
+        </button>
+      </div>
+    </header>
+
+    <nav class="hf-mobile-tabs" aria-label="Forms workspace">
+      <button type="button" [class.active]="workspaceTab === 'list'" (click)="setWorkspaceTab('list')">Forms</button>
+      <button type="button" [class.active]="workspaceTab === 'edit'" [disabled]="!editForm" (click)="setWorkspaceTab('edit')">
+        Edit
+      </button>
+      <button type="button" [class.active]="workspaceTab === 'preview'" [disabled]="!editForm" (click)="setWorkspaceTab('preview')">
+        A4 Preview
+      </button>
+    </nav>
+
+    <div class="hf-workspace" *ngIf="!loading; else loadingTpl" [attr.data-tab]="workspaceTab">
+      <!-- Column 1: catalog -->
+      <aside class="hf-pane hf-pane--list" [class.hf-pane--active]="workspaceTab === 'list'">
+        <div class="hf-filters">
+          <button
+            type="button"
+            class="hf-chip"
+            *ngFor="let chip of categoryFilters"
+            [class.hf-chip--active]="filterCategory === chip.key"
+            (click)="filterCategory = chip.key"
+          >
+            {{ chip.label }}
+          </button>
+        </div>
+        <label class="hf-search">
+          <i class="fa fa-search" aria-hidden="true"></i>
+          <input type="search" [(ngModel)]="formSearch" placeholder="Search forms..." />
+        </label>
+        <div class="hf-catalog-scroll">
+          <button
+            type="button"
+            class="hf-card"
+            *ngFor="let form of filteredForms"
+            [class.hf-card--active]="form.formKey === selectedKey"
+            (click)="selectForm(form.formKey)"
+          >
+            <span class="hf-card__icon" [attr.data-tone]="categoryTone(form.category)">
+              <i class="fa" [ngClass]="categoryIcon(form.category)" aria-hidden="true"></i>
+            </span>
+            <span class="hf-card__copy">
+              <strong>{{ form.title }}</strong>
+              <small>{{ formMeta(form) }}</small>
+            </span>
+          </button>
+          <p class="hf-empty-inline" *ngIf="!filteredForms.length">No forms match this filter.</p>
+        </div>
+      </aside>
+
+      <!-- Column 2: editor -->
+      <section class="hf-pane hf-pane--edit" [class.hf-pane--active]="workspaceTab === 'edit'" *ngIf="editForm as form; else emptyEdit">
+        <ng-container *ngIf="canEdit; else readOnlyNote">
+          <header class="hf-pane__head">
+            <h2>Edit form content</h2>
+            <div class="hf-lang-toggle" *ngIf="form.bilingual">
+              <button type="button" [class.active]="editLang === 'en'" (click)="setEditLang('en')">English</button>
+              <button type="button" [class.active]="editLang === 'ur'" (click)="setEditLang('ur')">Urdu</button>
+            </div>
+          </header>
+
+          <div class="hf-edit-scroll">
+            <ng-container *ngIf="editLang === 'en'; else urduEdit">
+              <label class="hf-field">
+                <span>Title (English)</span>
+                <input [(ngModel)]="form.title" (ngModelChange)="onEditChange()" />
+              </label>
+              <label class="hf-field">
+                <span>Header note (English)</span>
+                <input [(ngModel)]="form.headerNote" (ngModelChange)="onEditChange()" />
+              </label>
+              <label class="hf-field">
+                <span>Body content (English)</span>
+                <textarea rows="14" [(ngModel)]="form.bodyHtml" (ngModelChange)="onEditChange()"></textarea>
+              </label>
+            </ng-container>
+            <ng-template #urduEdit>
+              <label class="hf-field">
+                <span>Title (Urdu)</span>
+                <input class="urdu-input" dir="rtl" [(ngModel)]="form.titleUrdu" (ngModelChange)="onEditChange()" />
+              </label>
+              <label class="hf-field">
+                <span>Body content (Urdu)</span>
+                <textarea class="urdu-input" dir="rtl" rows="14" [(ngModel)]="form.bodyHtmlUrdu" (ngModelChange)="onEditChange()"></textarea>
+              </label>
+            </ng-template>
+            <label class="hf-field">
+              <span>Footer note</span>
+              <input [(ngModel)]="form.footerNote" (ngModelChange)="onEditChange()" />
+            </label>
+            <p class="hf-hint">
+              Logo &amp; hospital contact are managed in Hospital Setup and appear automatically on the A4 header.
+            </p>
+            <div class="hf-edit-actions">
+              <button type="button" class="hf-btn hf-btn--ghost hf-btn--sm" [disabled]="saving" (click)="reset()">
+                Reset to Default
+              </button>
+            </div>
+          </div>
+        </ng-container>
+
+        <ng-template #readOnlyNote>
+          <header class="hf-pane__head"><h2>{{ form.title }}</h2></header>
+          <div class="hf-edit-scroll">
+            <p class="hf-hint">You can preview, print, and download this A4 form. Editing requires Hospital Admin or Ward Admin permissions.</p>
+            <button type="button" class="hf-btn hf-btn--primary" (click)="setWorkspaceTab('preview')">Open A4 Preview</button>
+          </div>
+        </ng-template>
+      </section>
+
+      <ng-template #emptyEdit>
+        <section class="hf-pane hf-pane--edit hf-pane--placeholder" [class.hf-pane--active]="workspaceTab === 'edit'">
+          <p>Select a form from the list to edit.</p>
+        </section>
+      </ng-template>
+
+      <!-- Column 3: A4 preview -->
+      <section class="hf-pane hf-pane--preview" [class.hf-pane--active]="workspaceTab === 'preview'" *ngIf="editForm; else emptyPreview">
+        <header class="hf-preview-toolbar">
+          <div>
+            <h2>A4 Preview</h2>
+            <small>Actual print size — scroll to see full page</small>
+          </div>
+          <div class="hf-preview-toolbar__controls">
+            <div class="hf-lang-toggle" *ngIf="editForm.bilingual">
+              <button type="button" [class.active]="previewLang === 'both'" (click)="setPreviewLang('both')">Both</button>
+              <button type="button" [class.active]="previewLang === 'en'" (click)="setPreviewLang('en')">EN</button>
+              <button type="button" [class.active]="previewLang === 'ur'" (click)="setPreviewLang('ur')">UR</button>
+            </div>
+            <div class="hf-zoom">
+              <button type="button" class="hf-icon-btn" (click)="zoomOut()" aria-label="Zoom out">
+                <i class="fa fa-minus"></i>
+              </button>
+              <button type="button" class="hf-zoom__value" (click)="resetZoom()">
+                {{ (previewZoom * 100) | number:'1.0-0' }}%
+              </button>
+              <button type="button" class="hf-icon-btn" (click)="zoomIn()" aria-label="Zoom in">
+                <i class="fa fa-plus"></i>
+              </button>
+            </div>
+          </div>
+        </header>
+        <div
+          class="hf-preview-stage"
+          (wheel)="onPreviewWheel($event)"
+        >
+          <div
+            class="hf-preview-scale"
+            [style.width.px]="210 * 3.7795 * previewZoom"
+            [style.height.px]="297 * 3.7795 * previewZoom"
+          >
+            <div class="hf-preview-sheet" [style.transform]="'scale(' + previewZoom + ')'">
+              <iframe *ngIf="previewUrl" [src]="previewUrl" title="Form A4 preview"></iframe>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <ng-template #emptyPreview>
+        <section class="hf-pane hf-pane--preview hf-pane--placeholder" [class.hf-pane--active]="workspaceTab === 'preview'">
+          <p>Select a form to preview the A4 sheet.</p>
+        </section>
+      </ng-template>
+    </div>
+
+    <ng-template #loadingTpl>
+      <p class="hf-loading"><i class="fa fa-spinner fa-spin"></i> Loading forms…</p>
+    </ng-template>
+  </div>
+</div>

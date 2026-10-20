@@ -347,6 +347,9 @@ export class WardActionModalComponent implements OnChanges {
           doctorId: this.form['doctorId'] || undefined,
           notes: this.form['notes'],
           shift: this.form['shift'],
+          recordedAt: this.form['recordedAt']
+            ? new Date(String(this.form['recordedAt'])).toISOString()
+            : undefined,
           vitals: this.buildVitalsPayload(),
         };
       case 'io-chart':

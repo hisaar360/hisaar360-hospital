@@ -5,6 +5,17 @@
 
 export type WardBedSummaryKey = 'occupied' | 'available' | 'reserved' | 'cleaning' | 'unavailable';
 
+export interface WardHomeMissingUpdate {
+  admissionId: string;
+  admissionNo: string;
+  patientName: string;
+  bedLabel: string;
+  roomLabel: string;
+  shiftKey: string;
+  shiftLabel: string;
+  message: string;
+}
+
 export interface WardHomeSummary {
   beds: {
     total: number;
@@ -24,6 +35,8 @@ export interface WardHomeSummary {
     dueNow: number;
     upcoming: number;
   };
+  missingUpdates: WardHomeMissingUpdate[];
+  missingUpdateCount: number;
 }
 
 export interface WardHomeSummaryTile {
@@ -148,6 +161,8 @@ export const EMPTY_WARD_HOME_SUMMARY: WardHomeSummary = {
   beds: { total: 0, occupied: 0, available: 0, reserved: 0, cleaning: 0, unavailable: 0 },
   admissions: { pendingRecommendations: 0, activeAdmissions: 0, dischargeReady: 0 },
   work: { overdue: 0, dueNow: 0, upcoming: 0 },
+  missingUpdates: [],
+  missingUpdateCount: 0,
 };
 
 export const EMPTY_WARD_WORK_COUNTS: WardWorkCounts = {
@@ -186,6 +201,21 @@ export function normalizeWardHomeSummary(raw: unknown): WardHomeSummary {
   const beds = readRecord(source['beds']);
   const admissions = readRecord(source['admissions']);
   const work = readRecord(source['work']);
+  const missingRaw = Array.isArray(source['missingUpdates']) ? source['missingUpdates'] : [];
+
+  const missingUpdates: WardHomeMissingUpdate[] = missingRaw.map((row) => {
+    const item = readRecord(row);
+    return {
+      admissionId: readText(item['admissionId']),
+      admissionNo: readText(item['admissionNo']),
+      patientName: readText(item['patientName']),
+      bedLabel: readText(item['bedLabel']),
+      roomLabel: readText(item['roomLabel']),
+      shiftKey: readText(item['shiftKey']),
+      shiftLabel: readText(item['shiftLabel']),
+      message: readText(item['message']) || 'Care record missing',
+    };
+  });
 
   return {
     beds: {
@@ -206,6 +236,8 @@ export function normalizeWardHomeSummary(raw: unknown): WardHomeSummary {
       dueNow: readNumber(work['dueNow']),
       upcoming: readNumber(work['upcoming']),
     },
+    missingUpdates,
+    missingUpdateCount: readNumber(source['missingUpdateCount']) || missingUpdates.length,
   };
 }
 
@@ -213,7 +245,13 @@ export function buildWardHomeSummaryTiles(summary: WardHomeSummary): WardHomeSum
   return [
     { key: 'occupied', label: 'Occupied', value: summary.beds.occupied, icon: 'fa-user', tone: 'blue' },
     { key: 'available', label: 'Available', value: summary.beds.available, icon: 'fa-check-circle', tone: 'green' },
-    { key: 'reserved', label: 'Reserved', value: summary.beds.reserved, icon: 'fa-clock-o', tone: 'amber' },
+    {
+      key: 'missingRecords',
+      label: 'Missing Care Records',
+      value: summary.missingUpdateCount,
+      icon: 'fa-exclamation-triangle',
+      tone: 'amber',
+    },
     {
       key: 'unavailable',
       label: 'Cleaning / Unavailable',

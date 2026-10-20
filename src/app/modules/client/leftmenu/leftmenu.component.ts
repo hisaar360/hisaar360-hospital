@@ -287,6 +287,18 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     return this.canViewAllRoutes || this.hasPermission('products.read');
   }
 
+  get canViewPharmacyInvoiceSettings(): boolean {
+    if (this.isLaboratoryEdition || !isPharmacyModuleEnabled()) {
+      return false;
+    }
+
+    return (
+      this.canViewAllRoutes ||
+      this.hasPermission('company.manage') ||
+      this.hasPermission('products.read')
+    );
+  }
+
   get canOpenPharmacyPos(): boolean {
     if (this.isLaboratoryEdition || !isPharmacyModuleEnabled()) {
       return false;
@@ -578,6 +590,17 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
       // Hospital admins who already manage setup — rates live under Setup
       this.hasPermission('hospitals.update') ||
       this.hasPermission('departments.update')
+    );
+  }
+
+  get canViewHospitalForms(): boolean {
+    if (this.isLaboratoryEdition) {
+      return false;
+    }
+    return (
+      this.canViewAllRoutes ||
+      this.hasPermission('hospitals.read') ||
+      this.hasPermission('ward.read')
     );
   }
 

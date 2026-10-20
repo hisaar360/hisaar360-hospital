@@ -44,6 +44,11 @@ import {
 } from '../../../shared/models/hospital.model';
 
 import { prescriptionDispenseQty } from './prescription-dispense-qty';
+import {
+  getPharmacyExpiryTone,
+  pharmacyExpiryBadgeClass,
+  pharmacyExpiryLabel,
+} from '../pharmacy-expiry.util';
 
 const POS_CATALOG_LIMIT = 200;
 const POS_SEARCH_LIMIT = 25;
@@ -57,7 +62,7 @@ const POS_TUTORIAL_STEPS: Array<{
   {
     target: 'pos-search',
     title: 'Search & barcode scan',
-    text: 'Type medicine name / SKU or scan a barcode here, then press Enter to add it to the bill.',
+    text: 'Type medicine name / SKU or scan. Enter adds it and jumps to Qty → Price → Discount, then back to search. Empty search + Enter twice confirms a cash sale. Arrow keys move through cart, payment, Confirm Sale, Credit, and other dock controls.',
     place: 'below',
   },
   {
@@ -105,7 +110,7 @@ const POS_TUTORIAL_STEPS: Array<{
   {
     target: 'pos-reports',
     title: 'Reports',
-    text: 'Quick access to pharmacy sales and stock reports.',
+    text: 'Open Pharmacy Reports for Today / Week / Month sales, medicine In/Out, and Medicine Performance charts. Dashboard KPIs deep-link here with the right period.',
     place: 'below',
   },
   {
@@ -278,6 +283,11 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   isFullScreen = false;
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private searchRequestSeq = 0;
+  /** Double-Enter on empty search confirms cash sale. */
+  private lastEmptySearchEnterAt = 0;
+  private readonly emptySearchDoubleEnterMs = 650;
+  /** Prevents two browser print dialogs from the same sale/print action. */
+  private lastReceiptPrintAt = 0;
   paymentMethod: PharmacyPosPaymentMethod = 'cash';
   paidAmount = '0';
   cashReceivedAmount = '0';
@@ -424,6 +434,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       id: 'pharmacy-pos',
       onKeydown: (event) => {
         this.handleKeyboardShortcuts(event);
+        // Prefer explicit preventDefault from POS handlers over generic number/select helpers.
         return event.defaultPrevented;
       },
       onEscape: () => {
@@ -1413,18 +1424,26 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   handleProductSearchKeydown(event: KeyboardEvent): void {
     const key = event.key;
     const suggestions = this.searchSuggestions();
+    const hasQuery = Boolean(this.productSearch.trim());
 
     if (key === 'ArrowDown') {
       event.preventDefault();
       event.stopPropagation();
-      if (!suggestions.length) {
+      if (hasQuery && suggestions.length) {
+        this.showSearchDropdown = true;
+        this.selectedProductIndex = Math.min(
+          this.selectedProductIndex + 1,
+          suggestions.length - 1,
+        );
         return;
       }
-      this.showSearchDropdown = true;
-      this.selectedProductIndex = Math.min(
-        this.selectedProductIndex + 1,
-        suggestions.length - 1,
-      );
+      if (this.billLines.length) {
+        this.focusCartRow(0, true, this.cartQtyCellIndex());
+        return;
+      }
+      if (this.filteredProducts().length) {
+        this.focusProductCard(0);
+      }
       return;
     }
 
@@ -1436,6 +1455,13 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       }
       this.showSearchDropdown = true;
       this.selectedProductIndex = Math.max(this.selectedProductIndex - 1, 0);
+      return;
+    }
+
+    if (key === 'ArrowRight' && !hasQuery && this.billLines.length) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.focusCartRow(this.selectedCartIndex, true, this.cartQtyCellIndex());
       return;
     }
 
@@ -1471,7 +1497,12 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     if (this.scanResolving) return;
 
     const raw = this.productSearch.trim();
-    if (!raw) return;
+    if (!raw) {
+      this.handleEmptySearchEnter();
+      return;
+    }
+
+    this.lastEmptySearchEnterAt = 0;
 
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);
@@ -1506,6 +1537,35 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     } finally {
       this.scanResolving = false;
     }
+  }
+
+  /** Empty search: first Enter arms checkout, second Enter confirms cash sale. */
+  private handleEmptySearchEnter(): void {
+    if (!this.billLines.length) {
+      this.lastEmptySearchEnterAt = 0;
+      return;
+    }
+
+    const now = Date.now();
+    const isDouble =
+      this.lastEmptySearchEnterAt > 0 &&
+      now - this.lastEmptySearchEnterAt <= this.emptySearchDoubleEnterMs;
+
+    if (isDouble) {
+      this.lastEmptySearchEnterAt = 0;
+      if (!this.canCheckout) {
+        this.toastr.warning('Sale is not ready to confirm yet.');
+        return;
+      }
+      // Always cash Confirm Sale — never Credit on double-Enter.
+      this.checkoutWith('cash');
+      return;
+    }
+
+    this.lastEmptySearchEnterAt = now;
+    this.toastr.info('Press Enter again to Confirm Sale (cash).', '', {
+      timeOut: 1600,
+    });
   }
 
   filteredProducts(): ProductCatalogItem[] {
@@ -2293,6 +2353,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.searchLoading = false;
     this.showSearchDropdown = false;
     this.selectedProductIndex = 0;
+    this.lastEmptySearchEnterAt = 0;
 
     if (availableQty <= 0) {
       this.toastr.warning(
@@ -2316,7 +2377,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       );
       this.syncLineDiscount(existing);
       this.refreshPaidAmount();
-      this.focusProductSearch(true);
+      this.focusCartRow(existingIndex, true, this.cartQtyCellIndex());
       return;
     }
 
@@ -2333,7 +2394,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         product.maxDiscountType === 'percentage' ? 'percentage' : 'amount',
     });
     this.refreshPaidAmount();
-    this.focusProductSearch(true);
+    this.focusCartRow(this.billLines.length - 1, true, this.cartQtyCellIndex());
   }
 
   removeLine(index: number): void {
@@ -2571,15 +2632,45 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Cash/Card/etc Confirm Sale with blank Paid (0) = pay full bill, not credit.
+    // Only the Credit button / paymentMethod=credit (or intentional partial pay) uses credit.
+    if (
+      this.settlementMode !== 'ENCOUNTER' &&
+      this.paymentMethod !== 'credit' &&
+      Number(this.paidAmount || 0) <= 0
+    ) {
+      this.paidAmount = this.payableAmount;
+      this.paidAmountTouched = false;
+      if (this.paymentMethod === 'cash') {
+        this.cashReceivedAmount = String(
+          Math.max(
+            Number(this.cashReceivedAmount || 0),
+            Number(this.payableAmount || 0),
+          ),
+        );
+        this.cashReceivedTouched = false;
+      } else {
+        this.cashReceivedAmount = this.paidAmount;
+      }
+    }
+
     const paidAmount =
       this.settlementMode === 'ENCOUNTER' || this.paymentMethod === 'credit'
         ? 0
         : this.normalizeMoneyInput(this.paidAmount, this.subtotal);
 
     if (this.settlementMode !== 'ENCOUNTER') {
-      const unpaidPortion = Math.max(Number(this.payableAmount || 0) - paidAmount, 0);
+      const unpaidPortion = Math.max(
+        Number(this.payableAmount || 0) - paidAmount,
+        0,
+      );
+      // Credit path: explicit Credit, or partial pay leaving a balance.
       if (this.paymentMethod === 'credit' || unpaidPortion > 0) {
-        const creditError = this.assertCustomerCreditAllowed(unpaidPortion);
+        const creditError = this.assertCustomerCreditAllowed(
+          this.paymentMethod === 'credit'
+            ? Number(this.payableAmount || 0)
+            : unpaidPortion,
+        );
         if (creditError) {
           this.toastr.error(creditError);
           return;
@@ -2673,7 +2764,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
           this.saleInvoiceNo = response.data?.sale?.invoiceNo || '';
           const completedSale = response.data?.sale || null;
           if (completedSale) {
-            this.showReceiptPreview(this.buildReceiptFromSale(completedSale));
+            // One step only: open the browser print dialog (no preview modal first).
+            this.openReceiptPrintWindow(this.buildReceiptFromSale(completedSale));
           }
           this.showPosMessage(
             this.saleInvoiceNo
@@ -2973,15 +3065,32 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   productBatchExpiryLabel(product: ProductCatalogItem): string {
+    const expiry = product.earliestLotExpiry || product.expiryDate;
+    const batch = product.nearestLotNumber || product.batchNumber;
     const parts = [
-      product.batchNumber ? `Batch ${product.batchNumber}` : '',
+      batch ? `Batch ${batch}` : '',
       product.mfdDate ? `MFD ${this.formatProductDate(product.mfdDate)}` : '',
-      product.expiryDate
-        ? `Exp ${this.formatProductDate(product.expiryDate)}`
-        : '',
+      expiry ? `Exp ${this.formatProductDate(expiry)}` : '',
     ];
 
     return parts.filter(Boolean).join(' · ');
+  }
+
+  productExpiryTone(product: ProductCatalogItem): string {
+    return getPharmacyExpiryTone(product.earliestLotExpiry || product.expiryDate);
+  }
+
+  productExpiryBadgeClass(product: ProductCatalogItem): string {
+    return pharmacyExpiryBadgeClass(getPharmacyExpiryTone(product.earliestLotExpiry || product.expiryDate));
+  }
+
+  productExpiryLabel(product: ProductCatalogItem): string {
+    return pharmacyExpiryLabel(getPharmacyExpiryTone(product.earliestLotExpiry || product.expiryDate));
+  }
+
+  isNearExpiryProduct(product: ProductCatalogItem): boolean {
+    const tone = this.productExpiryTone(product);
+    return tone === 'near' || tone === 'expired';
   }
 
   private buildReceiptFromCurrentCart(): ReceiptPreviewData {
@@ -3139,19 +3248,35 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   private openReceiptPrintWindow(receipt: ReceiptPreviewData): void {
+    const now = Date.now();
+    if (now - this.lastReceiptPrintAt < 1200) {
+      return;
+    }
+    this.lastReceiptPrintAt = now;
+
     const html = this.receiptHtml(receipt);
+    const paperWidthMm =
+      Number(this.activeReceiptLetterhead(receipt)?.paperWidthMm) || 80;
     this.receiptPreviewOpen = false;
     this.receiptPreview = null;
 
     const printed = printHtmlJob(html, {
       jobType: 'invoice',
       title: `Invoice — ${receipt.reference}`,
+      paperWidthMm,
     });
 
     if (!printed) {
+      this.lastReceiptPrintAt = 0;
       this.toastr.error('Unable to open the print dialog.');
       return;
     }
+
+    this.toastr.info(
+      `Print: paper ${paperWidthMm}mm · Margins = None · Scale = 100 · Headers OFF`,
+      '',
+      { timeOut: 8000 },
+    );
 
     window.setTimeout(() => {
       window.focus();
@@ -3165,6 +3290,20 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     const footerTitle = this.receiptFooterTitle(receipt);
     const footerLines = this.receiptFooterLines(receipt);
     const logoUrl = this.receiptLogoUrl(receipt);
+    const lh = this.activeReceiptLetterhead(receipt);
+    const paperMm = Number(lh?.paperWidthMm) || 80;
+    const borderStyle = lh?.borderStyle || 'dashed';
+    const border =
+      borderStyle === 'none' ? 'none' : `1px ${borderStyle} #9ca3af`;
+    const logoScale = Number(lh?.logoScale) || 1;
+    const logoPx = Math.round(58 * logoScale);
+    const fontHeader = Number(lh?.fontSizeHeader) || 18;
+    const fontBody = Number(lh?.fontSizeBody) || 11;
+    const fontFooter = Number(lh?.fontSizeFooter) || 10;
+    const weightHeader = lh?.fontWeightHeader === 'normal' ? 'normal' : 'bold';
+    const weightBody = lh?.fontWeightBody === 'bold' ? 'bold' : 'normal';
+    const weightFooter = lh?.fontWeightFooter === 'bold' ? 'bold' : 'normal';
+    const termsText = this.resolveReceiptTermsText(lh?.termsText);
     const rows = receipt.items
       .map(
         (item) => `
@@ -3174,42 +3313,110 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             <small>${this.escapeHtml(item.sku)}</small>
           </td>
           <td>${item.qty}</td>
-          <td>${this.escapeHtml(item.discountLabel)}</td>
           <td>${this.formatCurrency(item.unitPrice)}</td>
+          <td>${this.escapeHtml(this.receiptDiscountCell(item))}</td>
           <td>${this.formatCurrency(item.total)}</td>
         </tr>
       `,
       )
       .join('');
 
+    // Fill whatever paper the cashier picks in Chrome (58x3276, 80mm, etc.).
+    // Never set @page { size: NNmm } — that fights the driver and blanks preview.
+    const compact = paperMm <= 58;
+    const padX = compact ? '1mm' : '2mm';
+    const headerPx = compact ? Math.min(fontHeader, 14) : fontHeader;
+    const bodyPx = compact ? Math.min(fontBody, 10) : fontBody;
+    const footerPx = compact ? Math.min(fontFooter, 9) : fontFooter;
+    const logoPrintPx = compact ? Math.min(logoPx, 40) : logoPx;
+
     return `
       <!doctype html>
       <html>
         <head>
+          <meta charset="utf-8" />
           <title>${this.escapeHtml(receipt.reference)}</title>
           <style>
-            @page { margin: 8mm; size: 80mm auto; }
+            @page { size: auto; margin: 0 !important; }
             * { box-sizing: border-box; }
-            body { color: #111827; font-family: Arial, sans-serif; font-size: 11px; margin: 0; }
-            .receipt { margin: 0 auto; max-width: 320px; padding: 8px; }
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-height: 1px !important;
+              height: auto !important;
+              overflow: visible !important;
+              background: #fff;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            body {
+              color: #111827;
+              font-family: Arial, "Noto Nastaliq Urdu", "Segoe UI", sans-serif;
+              font-size: ${bodyPx}px;
+              font-weight: ${weightBody};
+            }
+            .receipt {
+              margin: 0;
+              width: 100%;
+              max-width: 100%;
+              padding: 1mm ${padX} 12mm;
+              overflow: visible;
+            }
             .center { text-align: center; }
-            .logo { display: block; height: 58px; margin: 0 auto 8px; max-width: 58px; object-fit: contain; }
-            h1 { font-size: 18px; margin: 0 0 4px; }
-            p { margin: 2px 0; }
-            .meta { border-bottom: 1px dashed #9ca3af; border-top: 1px dashed #9ca3af; margin: 10px 0; padding: 8px 0; }
-            .meta div, .totals div { display: flex; justify-content: space-between; gap: 10px; }
+            .logo { display: block; height: ${logoPrintPx}px; margin: 0 auto 6px; max-width: 100%; object-fit: contain; }
+            h1 { font-size: ${headerPx}px; font-weight: ${weightHeader}; margin: 0 0 4px; word-break: break-word; }
+            p { margin: 2px 0; word-break: break-word; }
+            .meta { border-bottom: ${border}; border-top: ${border}; margin: 8px 0; padding: 6px 0; }
+            .meta div, .totals div { display: flex; justify-content: space-between; gap: 4px; }
             table { border-collapse: collapse; table-layout: fixed; width: 100%; }
-            th, td { border-bottom: 1px solid #e5e7eb; font-size: 9px; line-height: 1.2; padding: 4px 1px; text-align: left; vertical-align: top; word-break: break-word; }
-            th:first-child, td:first-child { width: 38%; }
-            th:nth-child(2), td:nth-child(2) { width: 10%; }
-            th:nth-child(3), td:nth-child(3) { width: 15%; }
-            th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) { width: 18.5%; }
-            th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) { text-align: center; }
-            th:nth-child(4), th:nth-child(5), td:nth-child(4), td:nth-child(5) { text-align: right; }
-            small { color: #6b7280; display: block; font-size: 8px; margin-top: 2px; }
-            .totals { border-top: 1px dashed #9ca3af; margin-top: 8px; padding-top: 8px; }
-            .grand { font-size: 15px; font-weight: 800; }
-            .foot { border-top: 1px dashed #9ca3af; margin-top: 12px; padding-top: 8px; text-align: center; }
+            th, td {
+              border-bottom: 1px solid #e5e7eb;
+              font-size: ${Math.max(7, bodyPx - 1)}px;
+              line-height: 1.25;
+              padding: 2px 1px;
+              text-align: left;
+              vertical-align: top;
+              word-break: break-word;
+            }
+            th:first-child, td:first-child { width: 34%; }
+            th:nth-child(2), td:nth-child(2) { width: 10%; text-align: center; }
+            th:nth-child(3), td:nth-child(3),
+            th:nth-child(4), td:nth-child(4),
+            th:nth-child(5), td:nth-child(5) { width: 18%; text-align: right; }
+            small { color: #6b7280; display: block; font-size: 7px; margin-top: 1px; }
+            .totals { border-top: ${border}; margin-top: 6px; padding-top: 6px; }
+            .grand { font-size: ${bodyPx + 2}px; font-weight: 800; }
+            .foot {
+              border-top: ${border};
+              margin-top: 10px;
+              padding-top: 6px;
+              text-align: center;
+              font-size: ${footerPx}px;
+              font-weight: ${weightFooter};
+            }
+            .terms {
+              margin-top: 6px;
+              text-align: right;
+              white-space: pre-wrap;
+              font-size: ${footerPx}px;
+              font-weight: ${weightFooter};
+              unicode-bidi: plaintext;
+              direction: rtl;
+              line-height: 1.45;
+              word-break: break-word;
+            }
+            .cut-spacer { height: 10mm; }
+            @media print {
+              @page { size: auto; margin: 0 !important; }
+              html, body, .receipt {
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                overflow: visible !important;
+              }
+            }
           </style>
         </head>
         <body>
@@ -3228,7 +3435,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             </div>
             <table>
               <thead>
-                <tr><th>Item</th><th>Qty</th><th>Discount</th><th>Rate</th><th>Total</th></tr>
+                <tr><th>Item</th><th>Qty</th><th>Price</th><th>Discount</th><th>Total</th></tr>
               </thead>
               <tbody>${rows}</tbody>
             </table>
@@ -3243,7 +3450,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             <div class="foot">
               <p><strong>${this.escapeHtml(footerTitle)}</strong></p>
               ${footerLines.map((line) => `<p>${this.escapeHtml(line)}</p>`).join('')}
+              ${termsText ? `<div class="terms" dir="rtl" lang="ur">${this.escapeHtml(termsText)}</div>` : ''}
             </div>
+            <div class="cut-spacer" aria-hidden="true"></div>
           </section>
         </body>
       </html>
@@ -3454,7 +3663,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
     this.recentSales = this.mergeSales([sale, ...this.recentSales]);
     this.saleInvoiceNo = invoiceNo;
-    this.showReceiptPreview(receipt);
+    this.openReceiptPrintWindow(receipt);
     this.billLines = [];
     this.unavailableMedicines = [];
     this.productSearch = '';
@@ -4042,13 +4251,32 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   private receiptLineDiscountLabel(line: PharmacyBillLine): string {
-    if (Number(line.discount || 0) <= 0) {
-      return '-';
+    const amount = Number(line.discount || 0);
+    if (amount <= 0) {
+      return this.formatCurrency(0);
     }
 
-    return line.discountType === 'percentage'
-      ? `${this.formatNumber(line.discountInput)}%`
-      : this.formatCurrency(line.discount);
+    if (line.discountType === 'percentage' && Number(line.discountInput || 0) > 0) {
+      return `${this.formatCurrency(amount)} (${this.formatNumber(line.discountInput)}%)`;
+    }
+
+    return this.formatCurrency(amount);
+  }
+
+  private receiptDiscountCell(item: ReceiptPreviewLine): string {
+    const amount = Number(item.discount || 0);
+    if (amount <= 0) {
+      return this.formatCurrency(0);
+    }
+
+    const label = String(item.discountLabel || '').trim();
+    if (label && label !== '-' && label.includes('%')) {
+      return label.startsWith(this.formatCurrency(amount))
+        ? label
+        : `${this.formatCurrency(amount)} (${label})`;
+    }
+
+    return this.formatCurrency(amount);
   }
 
   private saleItemDiscountLabel(
@@ -4056,15 +4284,11 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     index: number,
   ): string {
     const currentLine = this.billLines[index];
-    if (
-      currentLine?.product._id === item.productId &&
-      Number(currentLine.discount || 0) > 0
-    ) {
+    if (currentLine?.product._id === item.productId) {
       return this.receiptLineDiscountLabel(currentLine);
     }
 
-    const discount = Number(item.discount || 0);
-    return discount > 0 ? this.formatCurrency(discount) : '-';
+    return this.formatCurrency(Number(item.discount || 0));
   }
 
   refreshPaidAmount(): void {
@@ -4075,6 +4299,11 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       this.paidAmount = '0';
       this.cashReceivedAmount = '0';
       return;
+    }
+
+    // Stale "touched with 0" left Status=unpaid and triggered false credit errors.
+    if (this.paidAmountTouched && Number(this.paidAmount || 0) <= 0) {
+      this.paidAmountTouched = false;
     }
 
     if (!this.paidAmountTouched) {
@@ -4200,6 +4429,26 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       .join(', ');
   }
 
+  private readonly defaultReceiptTerms = [
+    '۱۔ فریج آئٹم واپس نہیں ہوگی۔',
+    '۲۔ کھلی ہوئی دوا واپس نہیں ہوگی۔',
+    '۳۔ خریدی ہوئی دوا بل کے ساتھ ۷ دن کے اندر واپس کی جا سکتی ہے۔',
+  ].join('\n');
+
+  private readonly legacyDefaultReceiptTerms = [
+    '1. No return or exchange on medicines.',
+    '2. Keep your invoice for warranty claims.',
+    '3. Prices are subject to change without notice.',
+  ].join('\n');
+
+  private resolveReceiptTermsText(value?: string | null): string {
+    const trimmed = String(value || '').trim();
+    if (!trimmed || trimmed === this.legacyDefaultReceiptTerms) {
+      return this.defaultReceiptTerms;
+    }
+    return trimmed;
+  }
+
   private receiptLetterheadSnapshot(): ReceiptLetterheadSettings {
     const settings = this.companyProfile?.receiptLetterhead;
 
@@ -4216,6 +4465,16 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       ),
       footerTitle: settings?.footerTitle?.trim() || null,
       footerLines: this.uniqueReceiptLines(settings?.footerLines || []),
+      termsText: this.resolveReceiptTermsText(settings?.termsText),
+      paperWidthMm: Number(settings?.paperWidthMm) || 80,
+      borderStyle: settings?.borderStyle || 'dashed',
+      logoScale: Number(settings?.logoScale) || 1,
+      fontSizeHeader: Number(settings?.fontSizeHeader) || 18,
+      fontSizeBody: Number(settings?.fontSizeBody) || 11,
+      fontSizeFooter: Number(settings?.fontSizeFooter) || 10,
+      fontWeightHeader: settings?.fontWeightHeader === 'normal' ? 'normal' : 'bold',
+      fontWeightBody: settings?.fontWeightBody === 'bold' ? 'bold' : 'normal',
+      fontWeightFooter: settings?.fontWeightFooter === 'bold' ? 'bold' : 'normal',
     };
   }
 
@@ -4444,27 +4703,29 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     switch (event.key) {
       case 'ArrowRight':
         event.preventDefault();
-        this.focusCartCell(
-          this.selectedCartIndex,
-          this.selectedCartCellIndex + 1,
-        );
+        this.moveCartEditableFocus(1, cartIndexes, currentPosition);
         return true;
       case 'ArrowLeft':
         event.preventDefault();
-        this.focusCartCell(
-          this.selectedCartIndex,
-          this.selectedCartCellIndex - 1,
-        );
+        this.moveCartEditableFocus(-1, cartIndexes, currentPosition);
         return true;
       case 'ArrowDown':
+        // Qty/Price/Discount inputs: ↑↓ step values (handled earlier).
         if (this.isCartNumberInputTarget(event.target)) {
           return false;
         }
         event.preventDefault();
+        if (currentPosition >= cartIndexes.length - 1) {
+          this.focusCheckoutDock();
+          return true;
+        }
         this.focusCartRow(
           cartIndexes[Math.min(currentPosition + 1, cartIndexes.length - 1)],
           true,
-          this.selectedCartCellIndex,
+          this.nearestEditableCellIndex(
+            cartIndexes[Math.min(currentPosition + 1, cartIndexes.length - 1)],
+            this.selectedCartCellIndex,
+          ),
         );
         return true;
       case 'ArrowUp':
@@ -4472,10 +4733,17 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
           return false;
         }
         event.preventDefault();
+        if (currentPosition <= 0) {
+          this.focusProductSearch(true);
+          return true;
+        }
         this.focusCartRow(
           cartIndexes[Math.max(currentPosition - 1, 0)],
           true,
-          this.selectedCartCellIndex,
+          this.nearestEditableCellIndex(
+            cartIndexes[Math.max(currentPosition - 1, 0)],
+            this.selectedCartCellIndex,
+          ),
         );
         return true;
       case '+':
@@ -4511,34 +4779,24 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               this.focusCartRow(
                 available.includes(nextIndex) ? nextIndex : available[0],
                 true,
-                this.selectedCartCellIndex,
+                this.cartQtyCellIndex(),
               );
             } else {
-              this.focusProductCard(this.selectedProductIndex || 0);
+              this.focusProductSearch(true);
             }
           });
         }
         return true;
       case 'Enter':
         event.preventDefault();
-        if (this.isCartNumberInputTarget(event.target)) {
-          this.selectFocusedInput(event.target);
-          return true;
-        }
-        this.focusCartCell(this.selectedCartIndex, this.selectedCartCellIndex);
-        window.setTimeout(() => {
-          const cell = this.cartCellElements(this.selectedCartIndex)[
-            this.selectedCartCellIndex
-          ];
-          this.selectFocusedInput(cell);
-        });
+        this.advanceCartFieldAfterEnter(this.selectedCartIndex);
         return true;
       case 'Tab':
         event.preventDefault();
         if (event.shiftKey) {
-          this.moveCartFocus(-1, cartIndexes, currentPosition);
+          this.moveCartEditableFocus(-1, cartIndexes, currentPosition);
         } else {
-          this.moveCartFocus(1, cartIndexes, currentPosition);
+          this.moveCartEditableFocus(1, cartIndexes, currentPosition);
         }
         return true;
       default:
@@ -4546,33 +4804,93 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
   }
 
-  private moveCartFocus(
+  /** Qty / Price / Discount cell indexes (skips +/- and remove buttons). */
+  private cartEditableCellIndexes(lineIndex: number): number[] {
+    const cells = this.cartCellElements(lineIndex);
+    const indexes: number[] = [];
+    cells.forEach((element, cellIndex) => {
+      if (element.tagName === 'INPUT') {
+        indexes.push(cellIndex);
+      }
+    });
+    return indexes.length ? indexes : [this.cartQtyCellIndex()];
+  }
+
+  private cartQtyCellIndex(): number {
+    return 1;
+  }
+
+  private nearestEditableCellIndex(lineIndex: number, preferred: number): number {
+    const editable = this.cartEditableCellIndexes(lineIndex);
+    if (!editable.length) {
+      return this.cartQtyCellIndex();
+    }
+    if (editable.includes(preferred)) {
+      return preferred;
+    }
+    const next = editable.find((index) => index >= preferred);
+    return next ?? editable[editable.length - 1];
+  }
+
+  private advanceCartFieldAfterEnter(lineIndex: number): void {
+    const editable = this.cartEditableCellIndexes(lineIndex);
+    if (!editable.length) {
+      this.focusProductSearch(true, true);
+      return;
+    }
+
+    const current = this.nearestEditableCellIndex(
+      lineIndex,
+      this.selectedCartCellIndex,
+    );
+    const position = editable.indexOf(current);
+    if (position >= 0 && position < editable.length - 1) {
+      this.focusCartCell(lineIndex, editable[position + 1]);
+      return;
+    }
+
+    // Last field on the line → clear search box for the next medicine.
+    this.focusProductSearch(true, true);
+  }
+
+  private moveCartEditableFocus(
     direction: 1 | -1,
     cartIndexes: number[],
     currentPosition: number,
   ): void {
-    const cells = this.cartCellElements(this.selectedCartIndex);
-    const maxCell = Math.max(cells.length - 1, 0);
-    const nextCell = this.selectedCartCellIndex + direction;
+    const editable = this.cartEditableCellIndexes(this.selectedCartIndex);
+    const current = this.nearestEditableCellIndex(
+      this.selectedCartIndex,
+      this.selectedCartCellIndex,
+    );
+    const pos = editable.indexOf(current);
+    const nextPos = pos + direction;
 
-    if (nextCell >= 0 && nextCell <= maxCell) {
-      this.focusCartCell(this.selectedCartIndex, nextCell);
+    if (nextPos >= 0 && nextPos < editable.length) {
+      this.focusCartCell(this.selectedCartIndex, editable[nextPos]);
       return;
     }
 
     if (direction > 0) {
       if (currentPosition < cartIndexes.length - 1) {
-        this.focusCartRow(cartIndexes[currentPosition + 1], true, 0);
+        const nextLine = cartIndexes[currentPosition + 1];
+        const nextEditable = this.cartEditableCellIndexes(nextLine);
+        this.focusCartRow(nextLine, true, nextEditable[0] ?? this.cartQtyCellIndex());
       } else {
-        this.focusActionDockButton(this.selectedDockIndex);
+        // Last cart field via arrows → checkout dock (Confirm / Credit / payment).
+        this.focusCheckoutDock();
       }
       return;
     }
 
     if (currentPosition > 0) {
       const prevIndex = cartIndexes[currentPosition - 1];
-      const prevCells = this.cartCellElements(prevIndex);
-      this.focusCartRow(prevIndex, true, Math.max(prevCells.length - 1, 0));
+      const prevEditable = this.cartEditableCellIndexes(prevIndex);
+      this.focusCartRow(
+        prevIndex,
+        true,
+        prevEditable[prevEditable.length - 1] ?? this.cartQtyCellIndex(),
+      );
     } else {
       this.focusProductSearch(true);
     }
@@ -4607,6 +4925,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         return true;
       case 'Enter':
       case ' ':
+        // Native <select> — let shared showPicker helper open the menu.
+        if ((event.target as HTMLElement | null)?.tagName === 'SELECT') {
+          return false;
+        }
         event.preventDefault();
         this.triggerActiveActionDockButton();
         return true;
@@ -4634,18 +4956,27 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     element?.focus();
   }
 
-  private focusProductSearch(selectText = false): void {
+  private focusProductSearch(selectText = false, clearQuery = false): void {
     this.keyboardZone = 'search';
+    if (clearQuery) {
+      this.productSearch = '';
+      this.searchResults = null;
+      this.showSearchDropdown = false;
+      this.selectedProductIndex = 0;
+    }
     this.clampKeyboardNavigationState();
     window.setTimeout(() => {
       const input = document.querySelector(
         '.storepos-search-box input[type="search"]',
       ) as HTMLInputElement | null;
-      input?.focus();
-      if (selectText) {
-        input?.select();
+      if (!input) {
+        return;
       }
-    });
+      input.focus();
+      if (selectText || clearQuery) {
+        input.select();
+      }
+    }, 0);
   }
 
   private schedulePrintSearchFocus(): void {
@@ -4719,7 +5050,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   private showReceiptPreview(receipt: ReceiptPreviewData): void {
     this.receiptPreview = receipt;
     this.receiptPreviewOpen = true;
-    this.focusOverlayControl('[data-kb-receipt-print]');
+    // Focus Close — not Print — so the Enter that confirmed the sale
+    // does not immediately open a second browser print dialog.
+    this.focusOverlayControl('[data-kb-receipt-close]');
   }
 
   private focusOverlayControl(
@@ -4859,12 +5192,49 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
 
     window.setTimeout(() => {
-      const element = document.querySelector(
-        `[data-kb-dock-index="${resolvedIndex}"]`,
-      ) as HTMLElement | null;
+      const element = this.resolveDockElement(resolvedIndex);
       element?.focus();
       element?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     });
+  }
+
+  /** Prefer Confirm Sale, else first enabled dock control (payment / Credit / …). */
+  private focusCheckoutDock(): void {
+    const dockIndexes = this.availableActionDockIndexes();
+    if (!dockIndexes.length) {
+      return;
+    }
+    if (dockIndexes.includes(3)) {
+      this.focusActionDockButton(3);
+      return;
+    }
+    if (dockIndexes.includes(4)) {
+      this.focusActionDockButton(4);
+      return;
+    }
+    this.focusActionDockButton(dockIndexes[0]);
+  }
+
+  private resolveDockElement(index: number): HTMLElement | null {
+    if (index === 3) {
+      const confirm = document.querySelector(
+        '[data-kb-dock-action="confirm"]',
+      ) as HTMLElement | null;
+      if (confirm && !confirm.hasAttribute('disabled')) {
+        return confirm;
+      }
+    }
+    if (index === 4) {
+      const credit = document.querySelector(
+        '[data-kb-dock-action="credit"]',
+      ) as HTMLElement | null;
+      if (credit && !credit.hasAttribute('disabled')) {
+        return credit;
+      }
+    }
+    return document.querySelector(
+      `[data-kb-dock-index="${index}"]`,
+    ) as HTMLElement | null;
   }
 
   setKeyboardZone(zone: PosKeyboardZone, index?: number): void {
@@ -4945,9 +5315,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   private triggerActiveActionDockButton(): void {
-    const element = document.querySelector(
-      `[data-kb-dock-index="${this.selectedDockIndex}"]`,
-    ) as HTMLElement | null;
+    const element = this.resolveDockElement(this.selectedDockIndex);
     element?.click();
   }
 
@@ -5109,7 +5477,18 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   private handleCartValueStepKeydown(event: KeyboardEvent): boolean {
+    // On Qty / Price / Discount inputs: ↑↓ change the value (not row focus).
+    // ←→ still move between fields via cart-zone navigation.
     if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') {
+      return false;
+    }
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+      return false;
+    }
+    if (
+      !this.isCartNumberInputTarget(event.target) ||
+      !this.isCartKeyboardTarget(event.target)
+    ) {
       return false;
     }
 
@@ -5119,13 +5498,17 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
 
     const direction = event.key === 'ArrowUp' ? 1 : -1;
+    const bigStep = event.shiftKey;
 
     if (this.isQtyInputTarget(event.target)) {
       event.preventDefault();
-      if (direction > 0) {
-        this.incrementLineQty(cartIndex);
-      } else {
-        this.decrementLineQty(cartIndex);
+      const steps = bigStep ? 10 : 1;
+      for (let i = 0; i < steps; i += 1) {
+        if (direction > 0) {
+          this.incrementLineQty(cartIndex);
+        } else {
+          this.decrementLineQty(cartIndex);
+        }
       }
       this.focusCartCell(cartIndex, this.selectedCartCellIndex);
       return true;
@@ -5133,14 +5516,17 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
     if (this.isUnitPriceInputTarget(event.target)) {
       event.preventDefault();
-      this.stepLineUnitPrice(cartIndex, direction);
+      this.stepLineUnitPrice(cartIndex, direction * (bigStep ? 10 : 1));
       this.focusCartCell(cartIndex, this.selectedCartCellIndex);
       return true;
     }
 
     if (this.isDiscountInputTarget(event.target)) {
       event.preventDefault();
-      this.stepLineDiscount(cartIndex, direction > 0 ? 0.5 : -0.5);
+      this.stepLineDiscount(
+        cartIndex,
+        (direction > 0 ? 0.5 : -0.5) * (bigStep ? 10 : 1),
+      );
       this.focusCartCell(cartIndex, this.selectedCartCellIndex);
       return true;
     }
@@ -5153,10 +5539,72 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return false;
     }
 
-    if (event.key === 'Enter' && this.isNumberOrTextInputTarget(event.target)) {
+    // Cart line fields: Enter advances Qty → Price → Discount → Search.
+    if (
+      event.key === 'Enter' &&
+      this.isCartNumberInputTarget(event.target) &&
+      this.isCartKeyboardTarget(event.target)
+    ) {
       event.preventDefault();
-      this.selectFocusedInput(event.target);
+      const lineIndex = this.resolveCartIndexFromTarget(event.target);
+      if (lineIndex >= 0) {
+        this.selectedCartIndex = lineIndex;
+        this.selectedCartCellIndex = this.resolveCartCellIndexFromTarget(
+          event.target,
+        );
+        this.advanceCartFieldAfterEnter(lineIndex);
+      }
       return true;
+    }
+
+    // Dock payment fields: Enter moves toward Confirm Sale (then Credit).
+    if (
+      event.key === 'Enter' &&
+      this.isDockEditableTarget(event.target) &&
+      this.isNumberOrTextInputTarget(event.target)
+    ) {
+      event.preventDefault();
+      const dockIndexes = this.availableActionDockIndexes();
+      const current = Number(
+        (event.target as HTMLElement).getAttribute('data-kb-dock-index') || -1,
+      );
+      const position = dockIndexes.indexOf(current);
+      if (position >= 0 && position < dockIndexes.length - 1) {
+        this.focusActionDockButton(dockIndexes[position + 1]);
+      } else {
+        this.focusCheckoutDock();
+      }
+      return true;
+    }
+
+    // Dock payment/select: plain arrows move between dock controls (not spin values).
+    if (
+      (event.key === 'ArrowLeft' ||
+        event.key === 'ArrowRight' ||
+        event.key === 'ArrowUp' ||
+        event.key === 'ArrowDown') &&
+      !event.shiftKey &&
+      (this.isDockEditableTarget(event.target) ||
+        (event.target as HTMLElement | null)?.closest?.('[data-kb-dock-index]'))
+    ) {
+      this.keyboardZone = 'actions';
+      const current = Number(
+        ((event.target as HTMLElement).closest('[data-kb-dock-index]') as HTMLElement | null)
+          ?.getAttribute('data-kb-dock-index') || this.selectedDockIndex,
+      );
+      if (Number.isFinite(current) && current >= 0) {
+        this.selectedDockIndex = current;
+      }
+      return this.handleActionsZoneNavigation(event);
+    }
+
+    if (
+      (event.key === 'ArrowLeft' || event.key === 'ArrowRight') &&
+      this.isCartNumberInputTarget(event.target) &&
+      this.isCartKeyboardTarget(event.target)
+    ) {
+      // ←→ move Qty → Price → Discount. ↑↓ are handled by value stepping.
+      return false;
     }
 
     if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') {
@@ -5187,6 +5635,19 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
 
     return false;
+  }
+
+  private resolveCartCellIndexFromTarget(target: EventTarget | null): number {
+    const element = target as HTMLElement | null;
+    const row = element?.closest?.('[data-kb-cart-index]') as HTMLElement | null;
+    if (!row || !element) {
+      return this.selectedCartCellIndex;
+    }
+    const cells = Array.from(
+      row.querySelectorAll<HTMLElement>('[data-kb-cart-cell]'),
+    );
+    const index = cells.indexOf(element);
+    return index >= 0 ? index : this.selectedCartCellIndex;
   }
 
   private stepLineUnitPrice(index: number, direction: number): void {

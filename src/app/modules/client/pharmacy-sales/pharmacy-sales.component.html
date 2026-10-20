@@ -104,6 +104,14 @@
               <i class="fa fa-calendar" aria-hidden="true"></i>
             </div>
           </label>
+
+          <label class="pharmacy-field">
+            <span>Near-expiry sales</span>
+            <select class="form-select" [(ngModel)]="nearExpiryOnly">
+              <option [ngValue]="false">All sales</option>
+              <option [ngValue]="true">Near-expiry lots only</option>
+            </select>
+          </label>
         </div>
 
         <div class="pharmacy-filter-actions">
@@ -138,6 +146,7 @@
                 <th>Invoice</th>
                 <th>Date</th>
                 <th>Items</th>
+                <th>Near-expiry</th>
                 <th>Total</th>
                 <th>Paid</th>
                 <th>Payment</th>
@@ -146,10 +155,16 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let sale of sales">
+              <tr *ngFor="let sale of sales" [class.is-near-expiry-sale]="hasNearExpiry(sale)">
                 <td class="fw-semibold">{{ sale.invoiceNo }}</td>
                 <td>{{ dateTime(sale.saleDate) }}</td>
                 <td>{{ sale.items.length }}</td>
+                <td>
+                  <span *ngIf="hasNearExpiry(sale); else noNearExpiry" class="pharmacy-status-pill status-unpaid">
+                    {{ nearExpiryLineCount(sale) }} line(s)
+                  </span>
+                  <ng-template #noNearExpiry><span class="text-muted">-</span></ng-template>
+                </td>
                 <td>{{ currency(sale.total) }}</td>
                 <td>{{ currency(sale.paidAmount) }}</td>
                 <td>

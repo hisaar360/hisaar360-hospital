@@ -336,15 +336,13 @@
                                 (click)="decrementLineQty(i)">-</button>
                             <input type="number" min="0" step="1" data-kb-cart-cell aria-label="Line quantity"
                                 (focus)="setCartCellFocus(i, 1)"
-                                [(ngModel)]="line.billQty" (ngModelChange)="onQtyChange(line)"
-                                (keydown.enter)="$event.preventDefault(); selectInputForEdit($event.target)" />
+                                [(ngModel)]="line.billQty" (ngModelChange)="onQtyChange(line)" />
                             <button type="button" data-kb-cart-cell (focus)="setCartCellFocus(i, 2)"
                                 (click)="incrementLineQty(i)">+</button>
                         </div>
                         <input type="number" min="0" data-kb-cart-cell aria-label="Line unit price"
                             (focus)="setCartCellFocus(i, 3)"
-                            [(ngModel)]="line.unitPrice" (ngModelChange)="onUnitPriceChange(line)"
-                            (keydown.enter)="$event.preventDefault(); selectInputForEdit($event.target)" />
+                            [(ngModel)]="line.unitPrice" (ngModelChange)="onUnitPriceChange(line)" />
                         <div class="storepos-discount-cell">
                             <ng-container *ngIf="itemDiscountEligible(i); else discountLocked">
                                 <div class="storepos-discount-entry">
@@ -352,8 +350,7 @@
                                         [value]="lineDiscountDisplayValue(i)" (focus)="setCartCellFocus(i, 4)"
                                         [max]="lineDiscountMaxValue(i)" title="Line discount"
                                         aria-label="Line discount value" (paste)="$event.preventDefault()"
-                                        (input)="updateLineDiscountInput(i, $any($event.target).value)"
-                                        (keydown.enter)="$event.preventDefault(); selectInputForEdit($event.target)" />
+                                        (input)="updateLineDiscountInput(i, $any($event.target).value)" />
                                 </div>
                             </ng-container>
                             <ng-template #discountLocked>
@@ -400,13 +397,15 @@
                         [attr.data-kb-product-index]="i"
                         [class.keyboard-active]="keyboardZone === 'products' && selectedProductIndex === i"
                         [class.is-out-of-stock]="isOutOfStock(product)"
+                        [class.is-near-expiry]="isNearExpiryProduct(product)"
                         (focus)="setKeyboardZone('products', i)" (click)="addProduct(product)">
                         <span><i class="fa fa-medkit"></i></span>
                         <div>
                             <strong>{{ productDisplay(product) }}</strong>
                         <span>{{ product.sku }} · {{ product.unit || 'unit' }}</span>
-                            <small *ngIf="productBatchExpiryLabel(product)">
+                            <small *ngIf="productBatchExpiryLabel(product)" [class.is-near-expiry-text]="isNearExpiryProduct(product)">
                             {{ productBatchExpiryLabel(product) }}
+                            <em class="storepos-expiry-badge" [ngClass]="productExpiryBadgeClass(product)">{{ productExpiryLabel(product) }}</em>
                             </small>
                             <small [class.stock-out]="isOutOfStock(product)">Stock {{ stockLabel(product) }}</small>
                             <small>
@@ -451,16 +450,14 @@
                     <input type="number" min="0" [(ngModel)]="paidAmount" (ngModelChange)="onPaidAmountChange($event)"
                         data-kb-dock-index="1"
                         [class.keyboard-active]="keyboardZone === 'actions' && selectedDockIndex === 1"
-                        (focus)="setKeyboardZone('actions', 1)"
-                        (keydown.enter)="$event.preventDefault(); selectInputForEdit($event.target)" />
+                        (focus)="setKeyboardZone('actions', 1)" />
                 </label>
                 <label *ngIf="paymentMethod === 'cash'">
                     Cash Received
                     <input type="number" min="0" [(ngModel)]="cashReceivedAmount"
                         (ngModelChange)="onCashReceivedAmountChange($event)" data-kb-dock-index="2"
                         [class.keyboard-active]="keyboardZone === 'actions' && selectedDockIndex === 2"
-                        (focus)="setKeyboardZone('actions', 2)"
-                        (keydown.enter)="$event.preventDefault(); selectInputForEdit($event.target)" />
+                        (focus)="setKeyboardZone('actions', 2)" />
                 </label>
                 <label *ngIf="paymentMethod === 'card'">
                     Card Last 4
@@ -498,13 +495,13 @@
 
             <div class="dock-actions">
                 <ng-container *ngIf="registerOpened; else openRegisterDock">
-                    <button type="button" class="pay-btn" data-kb-dock-index="3"
+                    <button type="button" class="pay-btn" data-kb-dock-index="3" data-kb-dock-action="confirm"
                         [class.keyboard-active]="keyboardZone === 'actions' && selectedDockIndex === 3"
                         (focus)="setKeyboardZone('actions', 3)" [disabled]="!canCheckout" (click)="confirmBilling()">
                         <i class="fa fa-spinner fa-spin" *ngIf="saleSaving"></i>
                         Confirm Sale
                     </button>
-                    <button type="button" class="pay-btn" data-kb-dock-index="4"
+                    <button type="button" class="pay-btn" data-kb-dock-index="4" data-kb-dock-action="credit"
                         [class.keyboard-active]="keyboardZone === 'actions' && selectedDockIndex === 4"
                         (focus)="setKeyboardZone('actions', 4)" [disabled]="!canCheckout" (click)="checkoutCredit()">
                         Credit
@@ -884,8 +881,8 @@
                         <tr>
                             <th>Item</th>
                             <th>Qty</th>
+                            <th>Price</th>
                             <th>Discount</th>
-                            <th>Rate</th>
                             <th>Total</th>
                         </tr>
                     </thead>
@@ -896,8 +893,8 @@
                                 <small>{{ item.sku }}</small>
                             </td>
                             <td>{{ item.qty }}</td>
-                            <td>{{ item.discountLabel }}</td>
                             <td>{{ formatCurrency(item.unitPrice) }}</td>
+                            <td>{{ item.discountLabel || formatCurrency(item.discount || 0) }}</td>
                             <td>{{ formatCurrency(item.total) }}</td>
                         </tr>
                     </tbody>
@@ -914,6 +911,12 @@
                 <div class="receipt-preview-foot">
                     <strong>{{ receiptFooterTitle(receipt) }}</strong>
                     <p *ngFor="let line of receiptFooterLines(receipt)">{{ line }}</p>
+                    <div
+                      class="receipt-preview-terms"
+                      dir="rtl"
+                      lang="ur"
+                      *ngIf="receipt.receiptLetterhead?.termsText as terms"
+                    >{{ terms }}</div>
                 </div>
             </section>
 

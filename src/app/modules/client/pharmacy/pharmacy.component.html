@@ -3,18 +3,18 @@
         <header class="pd-hero">
             <div class="pd-hero__copy">
                 <h1>Pharmacy Dashboard</h1>
-                <p>Today's sales, stock alerts, pending prescriptions, and POS fulfillment.</p>
+                <p class="pd-hero__desktop-sub">Switch Today / Week / Month (or custom dates) for sales &amp; medicine In/Out. Tap any card for details.</p>
+                <p class="pd-hero__mobile-sub">Manage your pharmacy all in one place.</p>
             </div>
-            <div class="pd-hero__controls">
-                <button type="button" class="pd-date" disabled>
+            <div class="pd-hero__controls pd-hero__controls--desktop">
+                <div class="pd-date is-static">
                     <i class="fa fa-calendar"></i>
                     <span>{{ dashboardDateLabel || 'Today' }}</span>
-                </button>
+                </div>
                 <div class="pd-hero__actions">
                     <a class="pd-btn pd-btn--primary" [routerLink]="['/pharmacy/products']">
                         <i class="fa fa-cube"></i>
-                        <span class="pd-btn__full">Product Management</span>
-                        <span class="pd-btn__short">Product Mgmt</span>
+                        <span>Product Management</span>
                     </a>
                     <button type="button" class="pd-btn pd-btn--teal" *ngIf="canOpenPharmacyPos" (click)="openPharmacyPos()">
                         <i class="fa fa-shopping-cart"></i>
@@ -28,31 +28,167 @@
             </div>
         </header>
 
-        <section class="pd-kpi" *ngIf="dashboard" aria-label="Pharmacy metrics">
-            <article
-              class="pd-kpi__card"
-              *ngFor="let card of pharmacyKpiCards"
-              [ngClass]="['tone-' + card.tone, card.mobile ? '' : 'is-desktop-only']"
-            >
-                <span class="pd-kpi__icon"><i class="fa" [ngClass]="card.icon"></i></span>
-                <div class="pd-kpi__body">
-                    <small>{{ card.label }}</small>
-                    <strong>{{ card.value }}</strong>
-                    <em>{{ card.hint }}</em>
+        <section class="pd-range" aria-label="Dashboard date filter">
+            <div class="pd-date-strip pd-date-strip--mobile">
+                <button type="button" class="pd-date-strip__nav" (click)="shiftDashboardDay(-1)" aria-label="Previous day">
+                    <i class="fa fa-chevron-left"></i>
+                </button>
+                <div class="pd-date-strip__label">
+                    <i class="fa fa-calendar"></i>
+                    <span>{{ dashboardDateLabel || 'Today' }}</span>
                 </div>
-            </article>
+                <button type="button" class="pd-date-strip__nav" (click)="shiftDashboardDay(1)" aria-label="Next day">
+                    <i class="fa fa-chevron-right"></i>
+                </button>
+            </div>
+
+            <div class="pd-period-chips" role="group" aria-label="Period">
+                <button
+                    type="button"
+                    *ngFor="let chip of dashboardPeriodChips"
+                    class="pd-period-chip"
+                    [class.active]="dashboardPeriod === chip.key"
+                    (click)="selectDashboardPeriod(chip.key)"
+                >
+                    {{ chip.label }}
+                </button>
+            </div>
+
+            <div class="pd-range__dates" [class.is-open]="dashboardPeriod === 'custom'">
+                <label>
+                    <span>From</span>
+                    <input
+                        type="date"
+                        [(ngModel)]="dashboardFromDate"
+                        (ngModelChange)="dashboardPeriod = 'custom'"
+                    />
+                </label>
+                <label>
+                    <span>To</span>
+                    <input
+                        type="date"
+                        [(ngModel)]="dashboardToDate"
+                        (ngModelChange)="dashboardPeriod = 'custom'"
+                    />
+                </label>
+                <button
+                    type="button"
+                    class="pd-btn pd-btn--primary"
+                    (click)="applyDashboardDates()"
+                    [disabled]="dashboardLoading"
+                >
+                    <i class="fa" [ngClass]="dashboardLoading ? 'fa-spinner fa-spin' : 'fa-filter'"></i>
+                    <span>Apply</span>
+                </button>
+            </div>
+        </section>
+
+        <section class="pd-kpi-block" *ngIf="dashboard" aria-label="Pharmacy metrics">
+            <header class="pd-kpi-block__head">
+                <div>
+                    <h2><i class="fa fa-line-chart"></i> Sales &amp; Movements</h2>
+                    <p class="pd-kpi-block__desktop-sub">Values update with the date filter. Click a card for the report.</p>
+                </div>
+                <a class="pd-kpi-block__link" [routerLink]="['/pharmacy/reports']" [queryParams]="reportsDeepLinkParams">
+                    <span class="pd-link-desktop">View detailed reports</span>
+                    <span class="pd-link-mobile">View Details</span>
+                    <i class="fa fa-angle-right"></i>
+                </a>
+            </header>
+
+            <div class="pd-kpi pd-kpi--desktop">
+                <a
+                    *ngFor="let card of periodKpiCards"
+                    class="pd-kpi__card has-spark"
+                    [routerLink]="card.link"
+                    [queryParams]="card.queryParams || {}"
+                    [ngClass]="'tone-' + card.tone"
+                >
+                    <span class="pd-kpi__icon"><i class="fa" [ngClass]="card.icon"></i></span>
+                    <div class="pd-kpi__body">
+                        <small>{{ card.label }}</small>
+                        <strong>{{ card.value }}</strong>
+                        <em>{{ card.hint }}</em>
+                    </div>
+                </a>
+            </div>
+
+            <div class="pd-kpi pd-kpi--mobile">
+                <a
+                    *ngFor="let card of mobilePeriodKpiCards"
+                    class="pd-kpi__card is-compact"
+                    [routerLink]="card.link"
+                    [queryParams]="card.queryParams || {}"
+                    [ngClass]="'tone-' + card.tone"
+                >
+                    <span class="pd-kpi__icon"><i class="fa" [ngClass]="card.icon"></i></span>
+                    <div class="pd-kpi__body">
+                        <small>{{ card.label }}</small>
+                        <strong>{{ card.value }}</strong>
+                        <em>{{ periodShortLabel }}</em>
+                    </div>
+                    <i class="fa fa-angle-right pd-kpi__chevron"></i>
+                </a>
+            </div>
+
+            <header class="pd-kpi-block__head">
+                <div>
+                    <h2><i class="fa fa-cubes"></i> Stock Alerts</h2>
+                    <p class="pd-kpi-block__desktop-sub">Live stock health — open the matching inventory list.</p>
+                </div>
+                <a class="pd-kpi-block__link" [routerLink]="['/pharmacy/inventory']">
+                    <span class="pd-link-desktop">Open inventory</span>
+                    <span class="pd-link-mobile">View All</span>
+                    <i class="fa fa-angle-right"></i>
+                </a>
+            </header>
+
+            <div class="pd-kpi pd-kpi--desktop">
+                <a
+                    *ngFor="let card of stockKpiCards"
+                    class="pd-kpi__card"
+                    [routerLink]="card.link"
+                    [queryParams]="card.queryParams || {}"
+                    [ngClass]="'tone-' + card.tone"
+                >
+                    <span class="pd-kpi__icon"><i class="fa" [ngClass]="card.icon"></i></span>
+                    <div class="pd-kpi__body">
+                        <small>{{ card.label }}</small>
+                        <strong>{{ card.value }}</strong>
+                        <em>{{ card.hint }}</em>
+                    </div>
+                </a>
+            </div>
+
+            <div class="pd-kpi pd-kpi--mobile">
+                <a
+                    *ngFor="let card of mobileStockKpiCards"
+                    class="pd-kpi__card is-compact"
+                    [routerLink]="card.link"
+                    [queryParams]="card.queryParams || {}"
+                    [ngClass]="'tone-' + card.tone"
+                >
+                    <span class="pd-kpi__icon"><i class="fa" [ngClass]="card.icon"></i></span>
+                    <div class="pd-kpi__body">
+                        <small>{{ card.label }}</small>
+                        <strong>{{ card.value }}</strong>
+                        <em>{{ card.key === 'nearExpiry' ? 'Within 6 months' : (card.key === 'totalStock' ? card.hint : 'Tap to view') }}</em>
+                    </div>
+                    <i class="fa fa-angle-right pd-kpi__chevron"></i>
+                </a>
+            </div>
         </section>
 
         <section class="pd-ops">
             <header class="pd-section-head">
                 <div>
-                    <h2>Pharmacy Operations</h2>
+                    <h2><i class="fa fa-th-large"></i> Pharmacy Operations</h2>
                     <p class="pd-ops__desktop-sub">Open pharmacy workflows directly from the dashboard.</p>
-                    <p class="pd-ops__mobile-sub">Open pharmacy workflows directly from your mobile.</p>
                 </div>
-                <div class="pd-ops__banner" aria-hidden="true">
-                    Everything you need to manage your pharmacy. From inventory to sales, all in one place.
-                </div>
+                <a class="pd-kpi-block__link pd-ops__view-all" [routerLink]="['/pharmacy/reports']">
+                    <span class="pd-link-mobile">View All</span>
+                    <i class="fa fa-angle-right"></i>
+                </a>
             </header>
 
             <div class="pd-ops__grid pd-ops__grid--desktop">
@@ -67,13 +203,9 @@
             </div>
 
             <div class="pd-ops__grid pd-ops__grid--mobile">
-                <a class="pd-ops__tile" *ngFor="let item of mobileOperationLinks" [routerLink]="[item.link]">
+                <a class="pd-ops__icon-tile" *ngFor="let item of desktopOperationLinks" [routerLink]="[item.link]">
                     <span class="pd-ops__icon"><i class="fa" [ngClass]="item.icon"></i></span>
-                    <span class="pd-ops__copy">
-                        <strong>{{ item.title }}</strong>
-                        <small>{{ item.desc }}</small>
-                    </span>
-                    <i class="fa fa-angle-right pd-ops__chevron"></i>
+                    <strong>{{ item.title }}</strong>
                 </a>
             </div>
         </section>
@@ -182,7 +314,12 @@
                         <button type="button" class="pd-btn pd-btn--ghost pd-btn--sm" (click)="openPrintPreview(prescription)">View</button>
                     </div>
                 </article>
-                <div class="pd-empty" *ngIf="!loading && prescriptions.length === 0">No prescriptions found</div>
+                <div class="pd-empty pd-empty--rich" *ngIf="!loading && prescriptions.length === 0">
+                    <span class="pd-empty__icon"><i class="fa fa-file-text-o"></i></span>
+                    <strong>No prescriptions found</strong>
+                    <p>Prescriptions from doctors will appear here.</p>
+                    <a class="pd-btn pd-btn--ghost" routerLink="/prescriptions">+ Add Prescription</a>
+                </div>
                 <div class="pd-empty" *ngIf="loading">Loading...</div>
             </div>
 
@@ -192,18 +329,75 @@
                 <button type="button" class="pd-btn pd-btn--ghost pd-btn--sm" (click)="changePage(page + 1)" [disabled]="totalPages > 0 && page >= totalPages">Next</button>
             </footer>
         </section>
+
+        <section class="pd-mobile-extra" aria-label="Mobile quick actions">
+            <header class="pd-section-head">
+                <div>
+                    <h2>Quick Actions</h2>
+                </div>
+            </header>
+            <div class="pd-quick-grid">
+                <button
+                    type="button"
+                    class="pd-quick tone-green"
+                    (click)="openPharmacyPos()"
+                    [disabled]="!canOpenPharmacyPos"
+                >
+                    <i class="fa fa-shopping-cart"></i>
+                    <span>New Sale</span>
+                </button>
+                <a class="pd-quick tone-blue" routerLink="/pharmacy/products" [queryParams]="{ productModal: '1' }">
+                    <i class="fa fa-plus"></i>
+                    <span>Add Medicine</span>
+                </a>
+                <a class="pd-quick tone-navy" routerLink="/pharmacy/inventory">
+                    <i class="fa fa-cubes"></i>
+                    <span>Check Stock</span>
+                </a>
+                <a class="pd-quick tone-amber" routerLink="/pharmacy/reports">
+                    <i class="fa fa-bar-chart"></i>
+                    <span>View Reports</span>
+                </a>
+            </div>
+
+            <header class="pd-section-head" *ngIf="recentActivity.length">
+                <div>
+                    <h2>Recent Activity</h2>
+                </div>
+            </header>
+            <ul class="pd-activity" *ngIf="recentActivity.length">
+                <li *ngFor="let item of recentActivity" [ngClass]="'tone-' + item.tone">
+                    <span class="pd-activity__icon"><i class="fa" [ngClass]="item.icon"></i></span>
+                    <div>
+                        <strong>{{ item.title }}</strong>
+                        <small>{{ item.detail }}</small>
+                    </div>
+                    <em>{{ item.when }}</em>
+                </li>
+            </ul>
+        </section>
+    </div>
+
+    <div class="pd-mobile-cta" *ngIf="canOpenPharmacyPos">
+        <button type="button" class="pd-btn pd-btn--teal pd-mobile-cta__btn" (click)="openPharmacyPos()">
+            <i class="fa fa-shopping-cart"></i>
+            <span>Open POS</span>
+        </button>
     </div>
 
     <nav class="pd-bottom-nav" aria-label="Pharmacy mobile navigation">
         <a routerLink="/pharmacy" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }">
-            <i class="fa fa-th-large"></i><span>Dashboard</span>
+            <i class="fa fa-home"></i><span>Home</span>
         </a>
-        <a routerLink="/pharmacy/products" routerLinkActive="is-active">
-            <i class="fa fa-cube"></i><span>Catalog</span>
-        </a>
-        <button type="button" (click)="scrollToQueue()">
-            <i class="fa fa-file-text-o"></i><span>Queue</span>
+        <button type="button" (click)="openPharmacyPos()" [disabled]="!canOpenPharmacyPos">
+            <i class="fa fa-shopping-cart"></i><span>POS</span>
         </button>
+        <a routerLink="/pharmacy/sales" routerLinkActive="is-active">
+            <i class="fa fa-file-text-o"></i><span>Sales</span>
+        </a>
+        <a routerLink="/pharmacy/inventory" routerLinkActive="is-active">
+            <i class="fa fa-cubes"></i><span>Inventory</span>
+        </a>
         <button type="button" [class.is-active]="mobileMoreOpen" (click)="toggleMobileMore()">
             <i class="fa fa-ellipsis-h"></i><span>More</span>
         </button>

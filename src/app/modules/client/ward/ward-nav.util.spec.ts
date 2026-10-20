@@ -39,15 +39,11 @@ describe('ward-nav.util', () => {
     expect(routesOf(buildWardNavSections(context({ role: 'Ward Boy' })))).toEqual(['/ward/tasks']);
   });
 
-  it('gives a nurse home, patients and tasks & handover', () => {
+  it('gives legacy nurse the admin-style desk without My Work', () => {
     const sections = buildWardNavSections(context({ role: 'Nurse' }));
-    expect(sections.map((section) => section.key)).toEqual(['primary', 'tasks']);
-    expect(routesOf(sections)).toEqual([
-      '/ward/home',
-      '/ward/patient-list',
-      '/ward/my-work',
-      '/ward/shift-handover',
-    ]);
+    expect(sections.map((section) => section.key)).toEqual(['primary']);
+    expect(routesOf(sections)).toEqual(['/ward/home', '/ward/patient-list']);
+    expect(routesOf(sections)).not.toContain('/ward/my-work');
   });
 
   it('gives a doctor a single My Inpatients entry', () => {
@@ -68,13 +64,12 @@ describe('ward-nav.util', () => {
       })
     );
 
-    expect(sections.map((section) => section.key)).toEqual(['primary', 'tasks', 'management', 'maternity']);
-    expect(routesOf(sections.slice(0, 2))).toEqual([
+    expect(sections.map((section) => section.key)).toEqual(['primary', 'management', 'maternity']);
+    expect(routesOf(sections.slice(0, 1))).toEqual([
       '/ward/home',
       '/ward/admissions',
       '/ward/patient-list',
-      '/ward/my-work',
-      '/ward/shift-handover',
+      '/ward/duty-roster',
     ]);
 
     const managementSection = sections.find((section) => section.key === 'management');
@@ -83,10 +78,10 @@ describe('ward-nav.util', () => {
       '/ward/dashboard',
       '/ward/bed-management',
       '/operations',
-      '/ward/duty-roster',
       '/ward/inventory',
       '/ward/nurses-staff',
       '/ward/reports',
+      '/hospital-forms',
       '/ward-admin',
     ]);
   });
@@ -95,7 +90,7 @@ describe('ward-nav.util', () => {
     const without = buildWardNavSections(
       context({ role: 'Ward Admin', showWardOpsMenu: true, canViewManagement: false })
     );
-    expect(without.map((section) => section.key)).toEqual(['primary', 'tasks']);
+    expect(without.map((section) => section.key)).toEqual(['primary']);
     expect(routesOf(without)).not.toContain('/ward/dashboard');
     expect(routesOf(without)).not.toContain('/ward/inventory');
 
@@ -114,9 +109,10 @@ describe('ward-nav.util', () => {
     const sections = buildWardNavSections(
       context({ role: 'Ward Admin', showWardOpsMenu: true, canViewManagement: true })
     );
+    const primaryRoutes = sections.find((section) => section.key === 'primary')?.items.map((item) => item.route);
     const managementRoutes = sections.find((section) => section.key === 'management')?.items.map((item) => item.route);
 
-    expect(managementRoutes).not.toContain('/ward/duty-roster');
+    expect(primaryRoutes).not.toContain('/ward/duty-roster');
     expect(managementRoutes).not.toContain('/operations');
   });
 
@@ -140,8 +136,8 @@ describe('ward-nav.util', () => {
   it('lands each ward role on its own home screen', () => {
     expect(resolveWardLandingRoute('Ward Attendant', ['ward.read'])).toBe('/ward/tasks');
     expect(resolveWardLandingRoute('Ward Boy', ['ward.read'])).toBe('/ward/tasks');
-    expect(resolveWardLandingRoute('Nurse', ['ward.read'])).toBe('/ward/my-work');
-    expect(resolveWardLandingRoute('Staff Nurse', ['ward.read'])).toBe('/ward/my-work');
+    expect(resolveWardLandingRoute('Nurse', ['ward.read'])).toBe('/ward/home');
+    expect(resolveWardLandingRoute('Staff Nurse', ['ward.read'])).toBe('/ward/home');
     expect(resolveWardLandingRoute('Doctor', ['ward.read'])).toBe('/ward/patient-list');
     expect(resolveWardLandingRoute('Ward Admin', ['ward.read'])).toBe('/ward/home');
     expect(resolveWardLandingRoute('Admission Officer', ['ward.read', 'room_allotments.create'])).toBe(

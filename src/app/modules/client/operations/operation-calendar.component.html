@@ -567,7 +567,7 @@
           Operation Stopped
         </button>
         <button
-          *ngIf="can('operations.complete') && canComplete(item)"
+          *ngIf="canCompleteOps() && canComplete(item)"
           type="button"
           class="ops-btn ops-btn--primary"
           (click)="complete(item)"

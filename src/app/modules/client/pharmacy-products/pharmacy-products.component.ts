@@ -12,10 +12,16 @@ import {
   Category,
   ProductDiscountType,
   ProductCatalogItem,
+  StockLot,
   Store,
   User,
 } from '../../../shared/models/hospital.model';
 import { downloadBulkMedicineQuickTemplate, downloadBulkMedicineTemplate } from '../bulk-product-import/bulk-product-import.util';
+import {
+  getPharmacyExpiryTone,
+  pharmacyExpiryBadgeClass,
+  pharmacyExpiryLabel,
+} from '../pharmacy-expiry.util';
 
 interface ProductForm {
   name: string;
@@ -64,12 +70,16 @@ export class PharmacyProductsComponent implements OnInit {
   categories: Category[] = [];
   stores: Store[] = [];
   productSearch = '';
+  expiryFilter: '' | 'expired' | 'valid' | 'near_expiry' = '';
   productsLoading = false;
   categoriesLoading = false;
   storesLoading = false;
   productModalOpen = false;
   savingProduct = false;
   editingProductId = '';
+  expandedProductId = '';
+  lotsByProductId: Record<string, StockLot[]> = {};
+  lotsLoadingId = '';
 
   get currencyLabel(): string {
     return this.currency.label;
@@ -127,6 +137,15 @@ export class PharmacyProductsComponent implements OnInit {
       const storeId = params.get('storeId');
       if (storeId) {
         this.productForm.storeId = storeId;
+        this.loadProducts();
+      }
+      const expiryStatus = params.get('expiryStatus');
+      if (
+        expiryStatus === 'expired' ||
+        expiryStatus === 'valid' ||
+        expiryStatus === 'near_expiry'
+      ) {
+        this.expiryFilter = expiryStatus;
         this.loadProducts();
       }
     });
@@ -287,6 +306,7 @@ export class PharmacyProductsComponent implements OnInit {
         isActive: true,
         storeId: this.currentStoreId() || undefined,
         ...(search ? { search } : {}),
+        ...(this.expiryFilter ? { expiryStatus: this.expiryFilter } : {}),
       })
       .pipe(finalize(() => (this.productsLoading = false)))
       .subscribe({
@@ -303,6 +323,7 @@ export class PharmacyProductsComponent implements OnInit {
           if (this.productsPage > this.productsTotalPages) {
             this.productsPage = this.productsTotalPages;
           }
+          this.expandedProductId = '';
         },
         error: (err) => {
           this.products = [];
@@ -311,6 +332,51 @@ export class PharmacyProductsComponent implements OnInit {
           this.toastr.error(err?.error?.message || 'Unable to load products.');
         },
       });
+  }
+
+  onExpiryFilterChange(): void {
+    this.productsPage = 1;
+    this.loadProducts();
+  }
+
+  toggleLots(product: ProductCatalogItem): void {
+    if (this.expandedProductId === product._id) {
+      this.expandedProductId = '';
+      return;
+    }
+
+    this.expandedProductId = product._id;
+    if (this.lotsByProductId[product._id]) {
+      return;
+    }
+
+    const storeId = this.currentStoreId();
+    if (!storeId) {
+      this.lotsByProductId[product._id] = [];
+      return;
+    }
+
+    this.lotsLoadingId = product._id;
+    this.backend
+      .getProductStockOptions(product._id, { storeId })
+      .pipe(finalize(() => (this.lotsLoadingId = '')))
+      .subscribe({
+        next: (result) => {
+          this.lotsByProductId[product._id] = result.lots || [];
+        },
+        error: (err) => {
+          this.lotsByProductId[product._id] = [];
+          this.toastr.error(err?.error?.message || 'Unable to load batches.');
+        },
+      });
+  }
+
+  lotQty(lot: StockLot): number {
+    return Number(lot.availableQuantity ?? lot.quantity ?? 0) || 0;
+  }
+
+  productExpiryValue(product: ProductCatalogItem): string | null {
+    return product.earliestLotExpiry || product.expiryDate || null;
   }
 
   loadCategories(): void {
@@ -724,21 +790,30 @@ export class PharmacyProductsComponent implements OnInit {
   }
 
   expiryLabel(product: ProductCatalogItem): string {
-    if (!product.expiryDate) {
-      return 'No expiry';
-    }
-
-    return this.isExpired(product.expiryDate) ? 'Expired' : 'Valid';
+    return pharmacyExpiryLabel(getPharmacyExpiryTone(this.productExpiryValue(product)));
   }
 
   expiryBadgeClass(product: ProductCatalogItem): string {
-    if (!product.expiryDate) {
-      return 'badge-secondary';
-    }
+    return pharmacyExpiryBadgeClass(getPharmacyExpiryTone(this.productExpiryValue(product)));
+  }
 
-    return this.isExpired(product.expiryDate)
-      ? 'badge-danger'
-      : 'badge-success';
+  lotExpiryLabel(lot: StockLot): string {
+    return pharmacyExpiryLabel(getPharmacyExpiryTone(lot.expiryDate));
+  }
+
+  lotExpiryBadgeClass(lot: StockLot): string {
+    return pharmacyExpiryBadgeClass(getPharmacyExpiryTone(lot.expiryDate));
+  }
+
+  rowExpiryClass(product: ProductCatalogItem): string {
+    const tone = getPharmacyExpiryTone(this.productExpiryValue(product));
+    if (tone === 'near') {
+      return 'is-near-expiry-row';
+    }
+    if (tone === 'expired') {
+      return 'is-expired-row';
+    }
+    return '';
   }
 
   currentStoreId(): string {

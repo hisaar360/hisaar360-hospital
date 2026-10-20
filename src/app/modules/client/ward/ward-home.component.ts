@@ -12,6 +12,7 @@ import {
   WardBedCard,
   WardBedGroup,
   WardHomeFilter,
+  WardHomeMissingUpdate,
   WardHomeSummary,
   WardHomeSummaryTile,
 } from './ward-home.util';
@@ -120,6 +121,15 @@ export class WardHomeComponent implements OnInit {
       return;
     }
     this.router.navigate(['/ward/patient-detail', card.admissionId]);
+  }
+
+  openMissing(item: WardHomeMissingUpdate): void {
+    if (!item.admissionId) {
+      return;
+    }
+    this.router.navigate(['/ward/patient-detail', item.admissionId], {
+      queryParams: { tab: 'medicines' },
+    });
   }
 
   emptyBoardMessage(): string {

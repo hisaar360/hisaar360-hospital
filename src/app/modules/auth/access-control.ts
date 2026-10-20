@@ -1,4 +1,5 @@
 import { isCurrentLaboratoryEdition } from './product-edition';
+import { isPharmacyModuleEnabled } from './hospital-modules';
 
 export type AccessRequirement =
   | string[]
@@ -364,13 +365,11 @@ export const resolveWardLandingRoute = (
   if (isWardAttendantRole(role)) {
     return '/ward/tasks';
   }
-  if (isNurseRole(role)) {
-    return '/ward/my-work';
-  }
   if (isDoctorRole(role)) {
     return '/ward/patient-list';
   }
-  if (isWardAdminRole(role)) {
+  if (isWardAdminRole(role) || isNurseRole(role)) {
+    // Nurse login is deprecated — land on Ward Home (Admin desk), not My Work.
     return '/ward/home';
   }
   if (isWardReceptionRole(role, permissions)) {
@@ -413,6 +412,14 @@ export const resolveDefaultRoute = (
 
   if (isReceptionRole(role)) {
     return '/appointments';
+  }
+
+  // Pharmacy-capable users land on Pharmacy hub before Accounts (Owner often has both).
+  if (
+    isPharmacyModuleEnabled() &&
+    (hasRouteAccess(['products.read'], permissions) || permissions.includes('*'))
+  ) {
+    return '/pharmacy';
   }
 
   const matchedRoute = DEFAULT_ROUTE_ACCESS.find((routeAccess) =>

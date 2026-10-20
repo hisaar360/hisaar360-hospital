@@ -546,6 +546,16 @@ export class OperationCalendarComponent implements OnInit {
     );
   }
 
+  /** Align with backend: complete allowed via complete OR update OR assign. */
+  canCompleteOps(): boolean {
+    return (
+      this.can('operations.complete') ||
+      this.can('operations.update') ||
+      this.can('operations.assign') ||
+      this.can('*')
+    );
+  }
+
   canMutateOperation(item: OperationSchedule): boolean {
     return !['completed', 'cancelled'].includes(String(item.status || '').toLowerCase());
   }

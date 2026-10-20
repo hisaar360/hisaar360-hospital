@@ -3,7 +3,7 @@
     <header class="ward-page-header ward-page-header--compact">
       <div class="ward-page-header__copy">
         <h1>Ward Home</h1>
-        <p>Bed board, pending admissions, and what needs attention right now.</p>
+        <p>Rooms, admitted patients, and pending shift care records for Ward Admin to enter.</p>
       </div>
       <div class="ward-page-header__actions">
         <button type="button" class="btn btn-sm ward-refresh-btn" (click)="loadSummary(); loadBoard()"
@@ -33,6 +33,23 @@
     <section class="ward-home-widget-error" *ngIf="summaryError && !summaryLoading" role="alert">
       <span><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Ward summary could not be loaded.</span>
       <button type="button" class="btn btn-sm ward-home-btn ward-home-btn--primary" (click)="loadSummary()">Retry</button>
+    </section>
+
+    <!-- Missing shift care records -->
+    <section class="ward-home-missing" *ngIf="!summaryLoading && summary.missingUpdates.length" aria-label="Missing care records">
+      <header class="ward-home-missing__header">
+        <h2><i class="fa fa-bell" aria-hidden="true"></i> Care records pending</h2>
+        <span>{{ summary.missingUpdateCount }} reminder{{ summary.missingUpdateCount === 1 ? '' : 's' }}</span>
+      </header>
+      <ul class="ward-home-missing__list">
+        <li *ngFor="let item of summary.missingUpdates">
+          <button type="button" class="ward-home-missing__item" (click)="openMissing(item)">
+            <strong>{{ item.patientName || 'Patient' }}</strong>
+            <span>{{ item.roomLabel || item.bedLabel || 'Room' }} · {{ item.shiftLabel }}</span>
+            <small>{{ item.message }}</small>
+          </button>
+        </li>
+      </ul>
     </section>
 
     <!-- Filters -->

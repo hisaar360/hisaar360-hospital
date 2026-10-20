@@ -7,8 +7,64 @@
 .report-tabs {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   margin-bottom: 14px;
+}
+
+.period-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.period-chip {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 34px;
+  padding: 6px 14px;
+}
+
+.period-chip.active {
+  background: #111827;
+  border-color: #111827;
+  color: #fff;
+}
+
+.medicine-perf-chart {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  padding: 14px 16px 8px;
+}
+
+.medicine-perf-chart header {
+  margin-bottom: 8px;
+}
+
+.medicine-perf-chart h2 {
+  color: #111827;
+  font-size: 16px;
+  font-weight: 900;
+  margin: 0;
+}
+
+.medicine-perf-chart p {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 4px 0 0;
+}
+
+.ph-stat-icon.amber {
+  background: #fff7ed;
+  color: #c2410c;
 }
 
 .report-tab {

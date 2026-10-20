@@ -137,6 +137,13 @@
       </select>
     </label>
     <label class="hms-form-field"><span>Actual Given At</span><input type="datetime-local" data-testid="mar-administered-at" [(ngModel)]="recordForm.administeredAt" /></label>
+    <label class="hms-form-field"><span>Medicine Source</span>
+      <select [(ngModel)]="recordForm.medicineSource" data-testid="mar-medicine-source">
+        <option value="pharmacy">Pharmacy (credit / issue)</option>
+        <option value="ward_stock">Ward stock</option>
+        <option value="patient_own">Patient own medicine</option>
+      </select>
+    </label>
     <label class="hms-form-field"><span>Actual Dose</span><input data-testid="mar-actual-dose" [(ngModel)]="recordForm.dose" /></label>
     <label class="hms-form-field"><span>Notes</span><textarea rows="2" [(ngModel)]="recordForm.notes"></textarea></label>
     <footer>

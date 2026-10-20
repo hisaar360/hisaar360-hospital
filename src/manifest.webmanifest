@@ -1,7 +1,7 @@
 {
   "name": "Hisaar360 Hospital Management System",
   "short_name": "Hisaar360 HMS",
-  "description": "Hisaar360 Hospital Management System: offline-capable hospital appointments, prescriptions, patients, and hospital pharmacy POS.",
+  "description": "Hisaar360 Hospital Management System with Pharmacy Management System, Laboratory Management System, POS System, and Online Laboratory Reports: offline-capable hospital appointments, prescriptions, patients, pharmacy, and hospital pharmacy POS.",
   "theme_color": "#019C9D",
   "background_color": "#f8fafc",
   "display": "standalone",
