@@ -36,19 +36,19 @@
         </div>
       </article>
       <article class="ph-stat">
-        <div class="ph-stat-icon green"><i class="fa fa-tag"></i></div>
-        <div>
-          <span>Retail Value</span>
-          <strong>{{ currency(totalRetailValue) }}</strong>
-          <small>Selling value</small>
-        </div>
-      </article>
-      <article class="ph-stat">
         <div class="ph-stat-icon purple"><i class="fa fa-money"></i></div>
         <div>
           <span>Cost Value</span>
           <strong>{{ currency(totalCostValue) }}</strong>
           <small>Inventory cost</small>
+        </div>
+      </article>
+      <article class="ph-stat">
+        <div class="ph-stat-icon green"><i class="fa fa-tag"></i></div>
+        <div>
+          <span>Sale Value</span>
+          <strong>{{ currency(totalRetailValue) }}</strong>
+          <small>Selling value</small>
         </div>
       </article>
       <article class="ph-stat">
@@ -243,38 +243,89 @@
 </div>
 
 <div class="pharmacy-modal-backdrop" *ngIf="adjustModalOpen" (click)="dismissAdjust()">
-  <div class="pharmacy-modal" (click)="$event.stopPropagation()">
-    <div class="pharmacy-modal-head">
-      <div>
-        <h3>Adjust Stock</h3>
-        <p *ngIf="adjustProduct as product">{{ product.name }} · current {{ qty(product) }} units</p>
+  <div class="pharmacy-modal adjust-modal" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="adjust-stock-title">
+    <div class="adjust-head">
+      <div class="adjust-head-main">
+        <span class="adjust-head-icon" aria-hidden="true"><i class="fa fa-cube"></i></span>
+        <div>
+          <h3 id="adjust-stock-title">Adjust Stock</h3>
+          <p *ngIf="adjustProduct as product">
+            {{ product.name }}<ng-container *ngIf="adjustLot as lot"> · Batch {{ lot.lotNumber || lot._id }}</ng-container>
+            · Current stock:
+            <span class="adjust-pill">{{ adjustCurrentQty }} units</span>
+          </p>
+        </div>
       </div>
-      <button type="button" class="pharmacy-modal-close" (click)="dismissAdjust()" aria-label="Close" [disabled]="savingAdjust">
+      <button type="button" class="adjust-close" (click)="dismissAdjust()" aria-label="Close" [disabled]="savingAdjust">
         <i class="fa fa-times"></i>
       </button>
     </div>
-    <p class="text-muted" *ngIf="adjustLot as lot">Batch {{ lot.lotNumber || lot._id }} · available {{ lotQty(lot) }}</p>
-    <label class="field-label" for="adjust-type">Adjustment Type</label>
-    <select id="adjust-type" class="form-select" [(ngModel)]="adjustType">
-      <option value="INCREASE">Increase</option>
-      <option value="DECREASE">Decrease</option>
-      <option value="SET">Set Exact Quantity</option>
-    </select>
-    <label class="field-label mt-2" for="adjust-reason">Reason</label>
-    <select id="adjust-reason" class="form-select" [(ngModel)]="adjustReason">
-      <option value="MANUAL_ADJUSTMENT">Manual adjustment</option>
-      <option value="WRITE_OFF">Write off</option>
-      <option value="EXPIRED">Expired</option>
-      <option value="DAMAGE">Damage</option>
-    </select>
-    <label class="field-label mt-2" for="adjust-qty">Quantity</label>
-    <input id="adjust-qty" class="form-control" type="number" min="0" step="1" [(ngModel)]="adjustQty" />
-    <label class="field-label mt-2" for="adjust-note">Note</label>
-    <input id="adjust-note" class="form-control" type="text" [(ngModel)]="adjustNote" placeholder="Optional note" />
-    <div class="pharmacy-modal-actions">
-      <button class="ph-btn ghost" type="button" (click)="dismissAdjust()" [disabled]="savingAdjust">Cancel</button>
-      <button class="ph-btn primary" type="button" (click)="submitAdjust()" [disabled]="savingAdjust">
-        {{ savingAdjust ? 'Saving...' : 'Save Adjustment' }}
+
+    <div class="adjust-field">
+      <span>Adjustment Type <em>*</em></span>
+      <div class="adjust-choices">
+        <button type="button" class="adjust-choice" [class.is-selected]="adjustType === 'INCREASE'" (click)="adjustType = 'INCREASE'">
+          <span class="adjust-choice-icon up"><i class="fa fa-arrow-up"></i></span>
+          <span class="adjust-choice-copy">
+            <strong>Increase</strong>
+            <small>Add units to current stock</small>
+          </span>
+          <span class="adjust-radio" [class.is-on]="adjustType === 'INCREASE'"></span>
+        </button>
+        <button type="button" class="adjust-choice" [class.is-selected]="adjustType === 'DECREASE'" (click)="adjustType = 'DECREASE'">
+          <span class="adjust-choice-icon down"><i class="fa fa-arrow-down"></i></span>
+          <span class="adjust-choice-copy">
+            <strong>Decrease</strong>
+            <small>Remove units from current stock</small>
+          </span>
+          <span class="adjust-radio" [class.is-on]="adjustType === 'DECREASE'"></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="adjust-split">
+      <label class="adjust-field" for="adjust-reason">
+        <span>Reason <em>*</em></span>
+        <select id="adjust-reason" class="form-select" [(ngModel)]="adjustReason">
+          <option value="MANUAL_ADJUSTMENT">Manual adjustment</option>
+          <option value="WRITE_OFF">Write off</option>
+          <option value="EXPIRED">Expired</option>
+          <option value="DAMAGE">Damage</option>
+        </select>
+      </label>
+      <aside class="adjust-forecast">
+        <div class="adjust-forecast-label"><i class="fa fa-info-circle"></i> Current Stock</div>
+        <strong>{{ adjustCurrentQty }} units</strong>
+        <div class="adjust-forecast-next">
+          <span>New stock will be:</span>
+          <b [class.is-short]="adjustShortfall">{{ adjustNextQty }} units</b>
+        </div>
+      </aside>
+    </div>
+
+    <label class="adjust-field" for="adjust-qty">
+      <span>Quantity <em>*</em></span>
+      <div class="adjust-qty">
+        <i class="fa fa-cube" aria-hidden="true"></i>
+        <input id="adjust-qty" type="number" min="0" step="1" [(ngModel)]="adjustQty" placeholder="Enter quantity" />
+        <em>units</em>
+      </div>
+    </label>
+
+    <label class="adjust-field" for="adjust-note">
+      <span>Note</span>
+      <div class="adjust-note">
+        <i class="fa fa-file-text-o" aria-hidden="true"></i>
+        <textarea id="adjust-note" maxlength="200" rows="3" [(ngModel)]="adjustNote" placeholder="Add a note (optional)"></textarea>
+        <small>{{ adjustNote.length }}/200</small>
+      </div>
+    </label>
+
+    <div class="adjust-actions">
+      <button class="adjust-cancel" type="button" (click)="dismissAdjust()" [disabled]="savingAdjust">Cancel</button>
+      <button class="adjust-save" type="button" (click)="submitAdjust()" [disabled]="savingAdjust">
+        <i class="fa fa-check"></i>
+        {{ savingAdjust ? 'Saving...' : 'Adjust Stock' }}
       </button>
     </div>
   </div>

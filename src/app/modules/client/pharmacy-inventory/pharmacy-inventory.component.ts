@@ -38,8 +38,8 @@ export class PharmacyInventoryComponent implements OnInit {
   adjustModalOpen = false;
   adjustProduct: ProductCatalogItem | null = null;
   adjustLot: StockLot | null = null;
-  adjustType: 'INCREASE' | 'DECREASE' | 'SET' = 'INCREASE';
-  adjustQty = 0;
+  adjustType: 'INCREASE' | 'DECREASE' = 'INCREASE';
+  adjustQty: number | null = null;
   adjustNote = '';
   adjustReason: 'MANUAL_ADJUSTMENT' | 'WRITE_OFF' | 'EXPIRED' | 'DAMAGE' = 'MANUAL_ADJUSTMENT';
   expandedProductId = '';
@@ -313,11 +313,34 @@ export class PharmacyInventoryComponent implements OnInit {
     return this.backend.hasPermission('inventory.adjust') && Boolean(this.storeId);
   }
 
+  get adjustCurrentQty(): number {
+    if (this.adjustLot) {
+      return this.lotQty(this.adjustLot);
+    }
+    return this.adjustProduct ? this.qty(this.adjustProduct) : 0;
+  }
+
+  get adjustEnteredQty(): number {
+    const quantity = Number(this.adjustQty);
+    return Number.isFinite(quantity) && quantity > 0 ? quantity : 0;
+  }
+
+  get adjustNextQty(): number {
+    if (this.adjustType === 'DECREASE') {
+      return Math.max(this.adjustCurrentQty - this.adjustEnteredQty, 0);
+    }
+    return this.adjustCurrentQty + this.adjustEnteredQty;
+  }
+
+  get adjustShortfall(): boolean {
+    return this.adjustType === 'DECREASE' && this.adjustEnteredQty > this.adjustCurrentQty;
+  }
+
   openAdjust(product: ProductCatalogItem, lot: StockLot | null = null): void {
     this.adjustProduct = product;
     this.adjustLot = lot;
     this.adjustType = lot ? 'DECREASE' : 'INCREASE';
-    this.adjustQty = lot ? this.lotQty(lot) : 0;
+    this.adjustQty = lot ? this.lotQty(lot) : null;
     this.adjustNote = lot ? `Write-off batch ${lot.lotNumber || lot._id}` : '';
     this.adjustReason = lot ? 'WRITE_OFF' : 'MANUAL_ADJUSTMENT';
     this.adjustModalOpen = true;
@@ -375,8 +398,12 @@ export class PharmacyInventoryComponent implements OnInit {
     }
 
     const quantity = Number(this.adjustQty);
-    if (!Number.isFinite(quantity) || (this.adjustType !== 'SET' && quantity <= 0)) {
+    if (!Number.isFinite(quantity) || quantity <= 0) {
       this.toastr.error('Enter a valid adjustment quantity.');
+      return;
+    }
+    if (this.adjustType === 'DECREASE' && quantity > this.adjustCurrentQty) {
+      this.toastr.error('Decrease quantity is higher than current stock.');
       return;
     }
 

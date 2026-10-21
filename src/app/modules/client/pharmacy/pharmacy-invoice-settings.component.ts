@@ -341,12 +341,12 @@ h1{font-size:${headerSize}px;font-weight:${headerWeight};margin:0 0 ${gap}px;let
 p{margin:${gap}px 0}
 .meta{border-bottom:${border};border-top:${border};margin:${gap * 3}px 0;padding:${gap * 2}px 0}
 .meta div,.totals div{display:flex;justify-content:space-between;gap:10px}
-table{border-collapse:collapse;table-layout:fixed;width:100%}
-th,td{border-bottom:1px solid #e5e7eb;font-size:${Math.max(7, bodySize - 1)}px;padding:${gap}px 1px;text-align:left;vertical-align:top;word-break:break-word}
-.item-name{font-size:${medicineSize}px;font-weight:${medicineWeight};line-height:1.15}
-th:first-child,td:first-child{width:34%}
-th:nth-child(2),td:nth-child(2){width:10%;text-align:center}
-th:nth-child(3),td:nth-child(3),th:nth-child(4),td:nth-child(4),th:nth-child(5),td:nth-child(5){width:18%;text-align:right}
+table{border-collapse:collapse;table-layout:auto;width:100%}
+th,td{border-bottom:1px solid #e5e7eb;font-size:${Math.max(7, bodySize - 1)}px;padding:${gap}px 2px;text-align:left;vertical-align:top}
+.item-name{font-size:${medicineSize}px;font-weight:${medicineWeight};line-height:1.15;white-space:nowrap}
+th:first-child,td:first-child{white-space:nowrap}
+th:nth-child(2),td:nth-child(2){text-align:center;white-space:nowrap;width:1%}
+th:nth-child(3),td:nth-child(3),th:nth-child(4),td:nth-child(4),th:nth-child(5),td:nth-child(5){text-align:right;white-space:nowrap;width:1%}
 .totals{border-top:${border};margin-top:${gap * 2}px;padding-top:${gap * 2}px;font-size:${amountSize}px;font-weight:${amountWeight}}
 .grand{font-size:${amountSize}px;font-weight:${amountWeight}}
 .foot{border-top:${border};margin-top:${gap * 3}px;padding-top:${gap * 2}px;text-align:center;font-size:${footerSize}px;font-weight:${footerWeight}}
@@ -363,8 +363,8 @@ ${headerLines.map((l) => `<p>${this.esc(String(l))}</p>`).join('')}
 </div>
 <table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Discount</th><th>Total</th></tr></thead>
 <tbody>
-<tr><td><strong class="item-name">Sample Medicine</strong><br/><small>SKU-001</small></td><td>2</td><td>Rs. 120</td><td>Rs. 20</td><td>Rs. 220</td></tr>
-<tr><td><strong class="item-name">Vitamin Syrup</strong><br/><small>SKU-014</small></td><td>1</td><td>Rs. 350</td><td>Rs. 0</td><td>Rs. 350</td></tr>
+<tr><td><strong class="item-name">Sample Medicine&nbsp;500&nbsp;mg</strong></td><td>2</td><td>Rs. 120</td><td>Rs. 20</td><td>Rs. 220</td></tr>
+<tr><td><strong class="item-name">Vitamin Syrup</strong></td><td>1</td><td>Rs. 350</td><td>Rs. 0</td><td>Rs. 350</td></tr>
 </tbody></table>
 <div class="totals">
 <div><span>Subtotal</span><strong>Rs. 590</strong></div>

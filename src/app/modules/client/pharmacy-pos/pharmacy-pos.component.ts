@@ -176,6 +176,7 @@ interface UnavailableMedicine {
 interface ReceiptPreviewLine {
   name: string;
   sku: string;
+  strength?: string;
   qty: number;
   discountLabel: string;
   unitPrice: number;
@@ -3054,12 +3055,33 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   productDisplay(product: ProductCatalogItem): string {
-    const strength = [product.strengthValue, product.strengthUnit]
-      .filter(Boolean)
-      .join(' ');
+    const strength = this.productStrengthLabel(product);
     return [product.name, strength ? `(${strength})` : '']
       .filter(Boolean)
       .join(' ');
+  }
+
+  productStrengthLabel(product: { strengthValue?: string | null; strengthUnit?: string | null } | null | undefined): string {
+    const value = String(product?.strengthValue || '').trim();
+    if (!value) {
+      return '';
+    }
+    const unit = String(product?.strengthUnit || '').trim();
+    return [value, unit].filter(Boolean).join(' ');
+  }
+
+  receiptMedicineLabel(item: { name?: string; strength?: string }): string {
+    const name = String(item?.name || '').trim();
+    const strength = String(item?.strength || '').trim();
+    if (!strength) {
+      return name;
+    }
+    const compact = (value: string) => value.replace(/\s+/g, '').toLowerCase();
+    if (compact(name).includes(compact(strength))) {
+      return name;
+    }
+    const gluedStrength = strength.replace(/ /g, '\u00A0');
+    return `${name}\u00A0${gluedStrength}`.trim();
   }
 
   productBatchExpiryLabel(product: ProductCatalogItem): string {
@@ -3129,8 +3151,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       items: this.billLines
         .filter((line) => line.billQty > 0)
         .map((line) => ({
-          name: this.productDisplay(line.product),
+          name: line.product.name || 'Product',
           sku: line.product.sku || '',
+          strength: this.productStrengthLabel(line.product),
           qty: Number(line.billQty || 0),
           discountLabel: this.receiptLineDiscountLabel(line),
           unitPrice: Number(line.unitPrice || 0),
@@ -3189,6 +3212,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       items: (sale.items || []).map((item) => ({
         name: item.name || 'Product',
         sku: item.sku || '',
+        strength: this.productStrengthLabel(
+          this.products.find((product) => product._id === item.productId),
+        ),
         qty: Number(item.qty || 0),
         discountLabel: this.saleItemDiscountLabel(
           item,
@@ -3312,8 +3338,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         (item) => `
         <tr>
           <td>
-            <strong class="item-name">${this.escapeHtml(item.name)}</strong>
-            <small>${this.escapeHtml(item.sku)}</small>
+            <strong class="item-name">${this.escapeHtml(this.receiptMedicineLabel(item))}</strong>
           </td>
           <td>${item.qty}</td>
           <td>${this.formatCurrency(item.unitPrice)}</td>
@@ -3328,12 +3353,12 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     // Never set @page { size: NNmm } — that fights the driver and blanks preview.
     const compact = paperMm <= 58;
     const padX = compact ? '1mm' : '2mm';
-    const headerPx = compact ? Math.min(fontHeader, 14) : fontHeader;
-    const bodyPx = compact ? Math.min(fontBody, 10) : fontBody;
-    const footerPx = compact ? Math.min(fontFooter, 9) : fontFooter;
-    const medicinePx = compact ? Math.min(fontMedicine, 9) : fontMedicine;
-    const amountPx = compact ? Math.min(fontAmount, 11) : fontAmount;
-    const gap = compact ? Math.min(lineGap, 2) : lineGap;
+    const headerPx = fontHeader;
+    const bodyPx = fontBody;
+    const footerPx = fontFooter;
+    const medicinePx = fontMedicine;
+    const amountPx = fontAmount;
+    const gap = lineGap;
     const logoPrintPx = compact ? Math.min(logoPx, 40) : logoPx;
 
     return `
@@ -3376,22 +3401,21 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             p { margin: ${gap}px 0; word-break: break-word; }
             .meta { border-bottom: ${border}; border-top: ${border}; margin: ${gap * 2}px 0; padding: ${gap * 2}px 0; }
             .meta div, .totals div { display: flex; justify-content: space-between; gap: 4px; }
-            table { border-collapse: collapse; table-layout: fixed; width: 100%; }
+            table { border-collapse: collapse; table-layout: auto; width: 100%; }
             th, td {
               border-bottom: 1px solid #e5e7eb;
               font-size: ${Math.max(7, bodyPx - 1)}px;
               line-height: 1.2;
-              padding: ${gap}px 1px;
+              padding: ${gap}px 2px;
               text-align: left;
               vertical-align: top;
-              word-break: break-word;
             }
-            .item-name { font-size: ${medicinePx}px; font-weight: ${weightMedicine}; line-height: 1.15; }
-            th:first-child, td:first-child { width: 34%; }
-            th:nth-child(2), td:nth-child(2) { width: 10%; text-align: center; }
+            .item-name { font-size: ${medicinePx}px; font-weight: ${weightMedicine}; line-height: 1.15; white-space: nowrap; }
+            th:first-child, td:first-child { white-space: nowrap; }
+            th:nth-child(2), td:nth-child(2) { width: 1%; text-align: center; white-space: nowrap; }
             th:nth-child(3), td:nth-child(3),
             th:nth-child(4), td:nth-child(4),
-            th:nth-child(5), td:nth-child(5) { width: 18%; text-align: right; }
+            th:nth-child(5), td:nth-child(5) { width: 1%; text-align: right; white-space: nowrap; }
             small { color: #6b7280; display: block; font-size: 7px; margin-top: 1px; }
             .totals { border-top: ${border}; margin-top: ${gap * 2}px; padding-top: ${gap * 2}px; font-size: ${amountPx}px; font-weight: ${weightAmount}; }
             .grand { font-size: ${amountPx}px; font-weight: ${weightAmount}; }

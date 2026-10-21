@@ -889,8 +889,7 @@
                     <tbody>
                         <tr *ngFor="let item of receipt.items">
                             <td>
-                                <strong>{{ item.name }}</strong>
-                                <small>{{ item.sku }}</small>
+                                <strong>{{ receiptMedicineLabel(item) }}</strong>
                             </td>
                             <td>{{ item.qty }}</td>
                             <td>{{ formatCurrency(item.unitPrice) }}</td>
