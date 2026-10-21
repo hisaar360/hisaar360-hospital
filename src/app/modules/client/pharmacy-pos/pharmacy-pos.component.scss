@@ -504,6 +504,11 @@
   padding: 6px 10px;
 }
 
+.storepos-stock-line > div:first-child {
+  flex: 1 1 180px;
+  max-width: min(420px, 100%);
+}
+
 .storepos-stock-line div {
   align-items: center;
   display: flex;
@@ -516,8 +521,10 @@
   font-size: 11px;
   min-width: 0;
   overflow: hidden;
+  overflow-wrap: anywhere;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .storepos-stock-line i {

@@ -62,10 +62,10 @@
                     <i class="fa fa-circle"></i>
                     {{ offline.statusLabel() }}
                 </span>
-                <button type="button" class="storepos-icon-btn" aria-label="Sync offline work"
+                <button type="button" class="storepos-icon-btn" aria-label="Refresh stock and sync offline work"
                     data-tour="pos-sync"
-                    data-tooltip="Sync pending offline sales to the server when you are back online"
-                    [disabled]="!offline.online() || offline.syncing() || offline.pendingCount() === 0"
+                    data-tooltip="Refresh store stock from inventory (and sync any offline sales)"
+                    [disabled]="!offline.online() || offline.syncing()"
                     (click)="syncOfflineWork()">
                     <i class="fa fa-refresh"></i>
                 </button>

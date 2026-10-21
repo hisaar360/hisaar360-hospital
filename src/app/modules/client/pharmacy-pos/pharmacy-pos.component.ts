@@ -50,8 +50,10 @@ import {
   pharmacyExpiryLabel,
 } from '../pharmacy-expiry.util';
 
-const POS_CATALOG_LIMIT = 200;
+const POS_CATALOG_PAGE_SIZE = 500;
+const POS_CATALOG_MAX_PAGES = 40;
 const POS_SEARCH_LIMIT = 25;
+const POS_SEARCH_DEBOUNCE_MS = 220;
 const POS_TUTORIAL_STORAGE = 'hms-pharmacy-pos-tutorial-seen';
 const POS_TUTORIAL_STEPS: Array<{
   target: string;
@@ -1117,32 +1119,59 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.productsLoading = true;
     this.searchResults = null;
     void this.medicineCatalog.ensureLoaded();
-    this.backend
-      .getProducts({ limit: POS_CATALOG_LIMIT, isActive: true, storeId })
-      .pipe(
-        finalize(() => {
-          this.productsLoading = false;
-          this.focusInitialProductSearch();
-        }),
-      )
-      .subscribe({
-        next: (result) => {
-          this.products = this.mergeProductsPreservingZeroStock(
-            this.products,
-            result.items || [],
-          );
-          void this.offline.cacheValue(
-            this.productsCacheKey(storeId),
-            this.products,
-          );
-          if (!this.saleInvoiceNo) {
-            this.rebuildPrescriptionBill();
-          }
-        },
-        error: (err) => {
-          void this.loadCachedProducts(storeId, err);
-        },
+    void this.fetchAllStoreProducts(storeId)
+      .then((items) => {
+        // Full store pull — replace (do not force-zero missing rows from a partial page).
+        this.products = items;
+        void this.offline.cacheValue(this.productsCacheKey(storeId), this.products);
+        if (!this.saleInvoiceNo) {
+          this.rebuildPrescriptionBill();
+        }
+      })
+      .catch((err) => {
+        void this.loadCachedProducts(storeId, err);
+      })
+      .finally(() => {
+        this.productsLoading = false;
+        this.focusInitialProductSearch();
       });
+  }
+
+  /** Paginate store catalog so POS stock matches Inventory for every SKU. */
+  private async fetchAllStoreProducts(storeId: string): Promise<ProductCatalogItem[]> {
+    const collected: ProductCatalogItem[] = [];
+    const seen = new Set<string>();
+
+    for (let page = 1; page <= POS_CATALOG_MAX_PAGES; page += 1) {
+      const result = await firstValueFrom(
+        this.backend.getProducts({
+          page,
+          limit: POS_CATALOG_PAGE_SIZE,
+          isActive: true,
+          storeId,
+        }),
+      );
+      const batch = Array.isArray(result?.items) ? result.items : [];
+      for (const item of batch) {
+        const id = String(item?._id || '');
+        if (!id || seen.has(id)) {
+          continue;
+        }
+        seen.add(id);
+        collected.push(item);
+      }
+
+      const totalPages = Number(result?.pagination?.totalPages || 0);
+      if (
+        !batch.length ||
+        (totalPages > 0 && page >= totalPages) ||
+        batch.length < POS_CATALOG_PAGE_SIZE
+      ) {
+        break;
+      }
+    }
+
+    return collected;
   }
 
   loadPrescription(id: string): void {
@@ -1415,9 +1444,13 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Instant local suggestions from store stock + hospital catalog cache (no API per keystroke).
+    // Instant local suggestions, then live store stock from API (debounced).
     this.searchResults = this.localProductMatches(raw).slice(0, POS_SEARCH_LIMIT);
     this.showSearchDropdown = true;
+    this.searchDebounceTimer = setTimeout(() => {
+      this.searchDebounceTimer = null;
+      void this.runCatalogSearch(raw);
+    }, POS_SEARCH_DEBOUNCE_MS);
   }
 
   handleProductSearchKeydown(event: KeyboardEvent): void {
@@ -1602,6 +1635,14 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       if (this.productSearch.trim() !== raw) return;
 
       const items = result.items || [];
+      // Keep in-memory POS catalog in sync with live inventory for searched SKUs.
+      for (const item of items) {
+        this.mergeProductIntoCatalog(item);
+      }
+      if (items.length) {
+        void this.offline.cacheValue(this.productsCacheKey(storeId), this.products);
+      }
+
       this.searchResults = this.rankSearchHits(items, raw);
       this.selectedProductIndex = 0;
       this.showSearchDropdown = true;
@@ -1640,7 +1681,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       const barcodeHit = (byBarcode.items || []).find((item) =>
         this.isExactCodeMatch(item, raw),
       ) || byBarcode.items?.[0];
-      if (barcodeHit) return barcodeHit;
+      if (barcodeHit) {
+        this.mergeProductIntoCatalog(barcodeHit);
+        return barcodeHit;
+      }
 
       const bySku = await firstValueFrom(
         this.backend.getProducts({
@@ -1653,7 +1697,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       const skuHit = (bySku.items || []).find((item) =>
         this.isExactCodeMatch(item, raw),
       ) || bySku.items?.[0];
-      if (skuHit) return skuHit;
+      if (skuHit) {
+        this.mergeProductIntoCatalog(skuHit);
+        return skuHit;
+      }
 
       const bySearch = await firstValueFrom(
         this.backend.getProducts({
@@ -1664,6 +1711,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         }),
       );
       const ranked = this.rankSearchHits(bySearch.items || [], raw);
+      for (const item of ranked) {
+        this.mergeProductIntoCatalog(item);
+      }
       this.searchResults = ranked;
       return ranked.find((item) => this.isExactCodeMatch(item, raw)) || ranked[0] || null;
     } catch {
@@ -1693,9 +1743,11 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         !this.isExactCodeMatch(product, raw) &&
         this.productSearchText(product).includes(query),
     );
-    const fromStore = [...exact, ...partial];
+    const fromStore = this.rankSearchHits([...exact, ...partial], raw);
     const seen = new Set(fromStore.map((item) => String(item._id)));
 
+    // Hospital catalog fills name gaps while live store search is in flight.
+    // Prefer store stock rows; never invent Rs 0 / Out of stock over a store hit.
     const fromCatalog = this.medicineCatalog
       .search(raw, POS_SEARCH_LIMIT)
       .filter((item) => {
@@ -1705,9 +1757,13 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         }
         seen.add(id);
         return true;
+      })
+      .map((item) => {
+        const storeHit = this.products.find((p) => String(p._id) === String(item._id));
+        return storeHit || item;
       });
 
-    return [...fromStore, ...fromCatalog];
+    return this.rankSearchHits([...fromStore, ...fromCatalog], raw);
   }
 
   private findLocalExactCodeMatch(raw: string): ProductCatalogItem | null {
@@ -1727,40 +1783,15 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
   private mergeProductIntoCatalog(product: ProductCatalogItem): void {
     if (!product?._id) return;
-    const index = this.products.findIndex((item) => item._id === product._id);
+    const index = this.products.findIndex(
+      (item) => String(item._id) === String(product._id),
+    );
     if (index >= 0) {
-      this.products[index] = product;
+      this.products[index] = { ...this.products[index], ...product };
+      this.products = [...this.products];
       return;
     }
     this.products = [product, ...this.products];
-  }
-
-  /**
-   * Keep products that disappeared from the API (e.g. stock hit 0 / pagination)
-   * so POS still shows them as out of stock instead of removing them.
-   */
-  private mergeProductsPreservingZeroStock(
-    previous: ProductCatalogItem[],
-    fresh: ProductCatalogItem[],
-  ): ProductCatalogItem[] {
-    const merged = [...(fresh || [])];
-    const freshIds = new Set(
-      merged.map((item) => String(item?._id || '')).filter(Boolean),
-    );
-
-    for (const prev of previous || []) {
-      const id = String(prev?._id || '');
-      if (!id || freshIds.has(id)) {
-        continue;
-      }
-      merged.push({
-        ...prev,
-        availableQuantity: '0',
-        stockQuantity: '0',
-      });
-    }
-
-    return merged;
   }
 
   private applyOptimisticStockDeltas(
@@ -1807,6 +1838,18 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   private refreshLocalStockAfterTransaction(): void {
     this.loadProducts();
     void this.medicineCatalog.refresh();
+  }
+
+  /** Keep POS stock aligned when returning to the tab after Inventory / Purchases. */
+  @HostListener('document:visibilitychange')
+  onDocumentVisibilityChange(): void {
+    if (typeof document === 'undefined' || document.visibilityState !== 'visible') {
+      return;
+    }
+    if (!this.currentStoreId() || !this.canReadProducts) {
+      return;
+    }
+    this.loadProducts();
   }
 
   checkoutWith(method: SalePaymentMethod): void {
@@ -3499,15 +3542,16 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
 
     const result = await this.offline.syncQueuedWork();
+    // Always pull fresh store stock after sync / manual refresh.
+    this.refreshLocalStockAfterTransaction();
+    this.refreshRegisterState();
     if (result.syncedCount > 0) {
-      this.refreshLocalStockAfterTransaction();
-      this.refreshRegisterState();
       this.loadRecentSales();
       if (showToast) {
-        this.toastr.success(`${result.syncedCount} offline item(s) synced.`);
+        this.toastr.success(`${result.syncedCount} offline item(s) synced. Stock updated.`);
       }
     } else if (showToast) {
-      this.toastr.info('No offline POS sales are waiting to sync.');
+      this.toastr.info('Stock refreshed from inventory.');
     }
   }
 

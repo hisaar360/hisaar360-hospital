@@ -7,10 +7,14 @@
   background: #f8fafc;
   border: 1px solid rgba(23, 25, 28, 0.08);
   border-radius: 12px;
+  box-sizing: border-box;
   display: flex;
   gap: 12px;
   margin: 16px 14px 18px;
+  max-width: calc(100% - 28px);
+  overflow: hidden;
   padding: 12px;
+  width: auto;
 }
 
 #left-sidebar .sidebar-user-card__avatar {
@@ -27,15 +31,14 @@
   width: 52px;
 }
 
-#left-sidebar .sidebar-user-card__meta {
-  display: block;
-  flex: 1;
+#left-sidebar .sidebar-user-card__meta,
+#left-sidebar .user-account .sidebar-user-card__meta.dropdown {
+  display: block !important;
+  flex: 1 1 auto;
+  max-width: 100%;
   min-width: 0;
   position: relative;
-}
-
-#left-sidebar .sidebar-user-card__meta.dropdown {
-  position: relative;
+  vertical-align: top;
 }
 
 #left-sidebar .sidebar-user-card__meta .dropdown-menu {
@@ -119,12 +122,20 @@
 #left-sidebar .sidebar-user-card__name {
   display: block;
   line-height: 1.25;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 #left-sidebar .sidebar-user-card__name strong {
   color: #111827;
+  display: block;
   font-size: 14px;
   font-weight: 700;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
 }
 
 @media (max-width: 767px) {
