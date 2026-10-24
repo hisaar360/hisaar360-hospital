@@ -341,12 +341,14 @@ h1{font-size:${headerSize}px;font-weight:${headerWeight};margin:0 0 ${gap}px;let
 p{margin:${gap}px 0}
 .meta{border-bottom:${border};border-top:${border};margin:${gap * 3}px 0;padding:${gap * 2}px 0}
 .meta div,.totals div{display:flex;justify-content:space-between;gap:10px}
-table{border-collapse:collapse;table-layout:auto;width:100%}
-th,td{border-bottom:1px solid #e5e7eb;font-size:${Math.max(7, bodySize - 1)}px;padding:${gap}px 2px;text-align:left;vertical-align:top}
-.item-name{font-size:${medicineSize}px;font-weight:${medicineWeight};line-height:1.15;white-space:nowrap}
-th:first-child,td:first-child{white-space:nowrap}
-th:nth-child(2),td:nth-child(2){text-align:center;white-space:nowrap;width:1%}
-th:nth-child(3),td:nth-child(3),th:nth-child(4),td:nth-child(4),th:nth-child(5),td:nth-child(5){text-align:right;white-space:nowrap;width:1%}
+table{border-collapse:collapse;table-layout:fixed;width:100%}
+th,td{border:1px solid #111827;font-size:${Math.max(7, bodySize - 1)}px;padding:${gap}px 3px;text-align:left;vertical-align:top;word-break:break-word}
+.item-name{font-size:${medicineSize}px;font-weight:${medicineWeight};line-height:1.15;white-space:normal;word-break:break-word}
+th:first-child,td:first-child{white-space:normal;word-break:break-word}
+th:nth-child(2),td:nth-child(2){text-align:center;white-space:nowrap;width:11%}
+th:nth-child(3),td:nth-child(3){text-align:right;white-space:nowrap;width:16%}
+th:nth-child(4),td:nth-child(4){text-align:right;white-space:nowrap;width:16%}
+th:nth-child(5),td:nth-child(5){text-align:right;white-space:nowrap;width:18%}
 .totals{border-top:${border};margin-top:${gap * 2}px;padding-top:${gap * 2}px;font-size:${amountSize}px;font-weight:${amountWeight}}
 .grand{font-size:${amountSize}px;font-weight:${amountWeight}}
 .foot{border-top:${border};margin-top:${gap * 3}px;padding-top:${gap * 2}px;text-align:center;font-size:${footerSize}px;font-weight:${footerWeight}}
@@ -355,7 +357,7 @@ th:nth-child(3),td:nth-child(3),th:nth-child(4),td:nth-child(4),th:nth-child(5),
 ${logo ? `<img class="logo" src="${this.escAttr(logo)}" alt=""/>` : ''}
 <h1>${this.esc(brand)}</h1>
 ${headerLines.map((l) => `<p>${this.esc(String(l))}</p>`).join('')}
-<p>Bill / Receipt</p></div>
+<p>Receipt</p></div>
 <div class="meta">
 <div><span>Invoice</span><strong>PREVIEW-001</strong></div>
 <div><span>Date</span><strong>${new Date().toLocaleString()}</strong></div>

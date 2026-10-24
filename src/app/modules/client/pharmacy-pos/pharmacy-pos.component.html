@@ -183,7 +183,7 @@
                         <div class="storepos-customer-row">
                             <select [(ngModel)]="selectedCustomerId" (ngModelChange)="onCustomerChange()">
                                 <option value="">Walk-in Customer</option>
-                                <option *ngFor="let customer of customers" [value]="customer._id">
+                                <option *ngFor="let customer of customers; trackBy: trackByCustomerId" [value]="customer._id">
                                     {{ customer.name }}{{ customer.phone ? ' · ' + customer.phone : '' }}{{ customerCreditBadge(customer) }}
                                 </option>
                             </select>
@@ -866,13 +866,12 @@
                         [alt]="receiptBrandTitle(receipt)" />
                     <h2>{{ receiptBrandTitle(receipt) }}</h2>
                     <p *ngFor="let line of receiptHeaderDisplayLines(receipt)">{{ line }}</p>
-                    <strong>Bill / Receipt</strong>
+                    <strong>Receipt</strong>
                 </div>
 
                 <div class="receipt-preview-meta">
                     <div><span>Invoice</span><strong>{{ receipt.reference }}</strong></div>
                     <div><span>Date</span><strong>{{ receipt.saleDate | date:'short' }}</strong></div>
-                    <div><span>Cashier</span><strong>{{ receipt.cashierName }}</strong></div>
                     <div><span>Customer</span><strong>{{ receipt.customerName }}</strong></div>
                 </div>
 
@@ -904,8 +903,6 @@
                     <div><span>Total Discount</span><strong>{{ formatCurrency(receipt.discount) }}</strong></div>
                     <div class="grand"><span>Total</span><strong>{{ formatCurrency(receipt.total) }}</strong></div>
                     <div><span>Paid</span><strong>{{ formatCurrency(receipt.paidAmount) }}</strong></div>
-                    <div><span>Change</span><strong>{{ formatCurrency(receipt.changeDueAmount) }}</strong></div>
-                    <div><span>Status</span><strong>{{ receipt.paymentStatus }}</strong></div>
                 </div>
                 <div class="receipt-preview-foot">
                     <strong *ngIf="receiptFooterTitle(receipt)">{{ receiptFooterTitle(receipt) }}</strong>

@@ -344,6 +344,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   private printSearchFocusAttempts = 0;
   private paidAmountTouched = false;
   private cashReceivedTouched = false;
+  /** True while Paid is updated from cart refresh so ngModelChange does not lock it. */
+  private syncingPaidAmount = false;
   openingAmount: number | null = null;
   openingNote = '';
   closingAmount: number | null = null;
@@ -976,7 +978,14 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
   receiptBrandSubtitle(receipt: ReceiptPreviewData | null | undefined): string {
     const letterhead = this.activeReceiptLetterhead(receipt);
-    return letterhead?.brandSubtitle?.trim() || receipt?.storeName || '';
+    const subtitle = letterhead?.brandSubtitle?.trim() || '';
+    if (!subtitle) {
+      return '';
+    }
+    if (this.sameReceiptText(subtitle, receipt?.storeName || '')) {
+      return '';
+    }
+    return subtitle;
   }
 
   receiptHeaderNote(receipt: ReceiptPreviewData | null | undefined): string {
@@ -1000,11 +1009,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     return this.uniqueReceiptLines([
       subtitle,
       this.receiptHeaderNote(receipt),
-      this.sameReceiptText(subtitle, receipt.storeName)
-        ? ''
-        : receipt.storeName,
       this.receiptAddressLine(receipt),
-      ...this.receiptHeaderLines(receipt),
+      ...this.receiptHeaderLines(receipt).filter(
+        (line) => !this.isStoreHeaderLine(line, receipt),
+      ),
       this.receiptContactLine(receipt),
       this.receiptTaxLine(receipt),
     ]);
@@ -1871,10 +1879,15 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   get selectedCustomer(): Customer | null {
-    if (!this.selectedCustomerId) {
+    const id = String(this.selectedCustomerId || '').trim();
+    if (!id) {
       return null;
     }
-    return this.customers.find((item) => item._id === this.selectedCustomerId) || null;
+    return this.customers.find((item) => String(item._id) === id) || null;
+  }
+
+  trackByCustomerId(_index: number, customer: Customer): string {
+    return String(customer?._id || '');
   }
 
   get customerCreditSummary(): {
@@ -1916,6 +1929,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   onCustomerChange(): void {
+    this.selectedCustomerId = String(this.selectedCustomerId || '').trim();
     this.refreshSelectedCustomerCredit();
   }
 
@@ -1935,16 +1949,14 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     if (!customer?._id) {
       return;
     }
-    const index = this.customers.findIndex((item) => item._id === customer._id);
+    const id = String(customer._id);
+    const next: Customer = { ...customer, _id: id };
+    const index = this.customers.findIndex((item) => String(item._id) === id);
     if (index >= 0) {
-      this.customers = [
-        ...this.customers.slice(0, index),
-        customer,
-        ...this.customers.slice(index + 1),
-      ];
-    } else {
-      this.customers = [customer, ...this.customers];
+      this.customers[index] = next;
+      return;
     }
+    this.customers = [next, ...this.customers];
   }
 
   formatMoney(value: number | string | null | undefined): string {
@@ -2055,7 +2067,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   onPaidAmountChange(value: string): void {
     const normalized = this.normalizeMoneyInput(value, this.subtotal);
     this.paidAmount = String(normalized);
-    this.paidAmountTouched = true;
+    if (!this.syncingPaidAmount) {
+      this.paidAmountTouched = true;
+    }
 
     if (this.paymentMethod === 'credit') {
       if (normalized > 0) {
@@ -2674,13 +2688,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       }
     }
 
-    // Cash/Card/etc Confirm Sale with blank Paid (0) = pay full bill, not credit.
-    // Only the Credit button / paymentMethod=credit (or intentional partial pay) uses credit.
-    if (
-      this.settlementMode !== 'ENCOUNTER' &&
-      this.paymentMethod !== 'credit' &&
-      Number(this.paidAmount || 0) <= 0
-    ) {
+    // Confirm Sale (cash/card/etc) always pays the full bill. Credit button is the
+    // only unpaid path — leftover Paid must never become a silent credit sale.
+    if (this.settlementMode !== 'ENCOUNTER' && this.paymentMethod !== 'credit') {
       this.paidAmount = this.payableAmount;
       this.paidAmountTouched = false;
       if (this.paymentMethod === 'cash') {
@@ -2690,7 +2700,6 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             Number(this.payableAmount || 0),
           ),
         );
-        this.cashReceivedTouched = false;
       } else {
         this.cashReceivedAmount = this.paidAmount;
       }
@@ -2701,22 +2710,13 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         ? 0
         : this.normalizeMoneyInput(this.paidAmount, this.subtotal);
 
-    if (this.settlementMode !== 'ENCOUNTER') {
-      const unpaidPortion = Math.max(
-        Number(this.payableAmount || 0) - paidAmount,
-        0,
+    if (this.settlementMode !== 'ENCOUNTER' && this.paymentMethod === 'credit') {
+      const creditError = this.assertCustomerCreditAllowed(
+        Number(this.payableAmount || 0),
       );
-      // Credit path: explicit Credit, or partial pay leaving a balance.
-      if (this.paymentMethod === 'credit' || unpaidPortion > 0) {
-        const creditError = this.assertCustomerCreditAllowed(
-          this.paymentMethod === 'credit'
-            ? Number(this.payableAmount || 0)
-            : unpaidPortion,
-        );
-        if (creditError) {
-          this.toastr.error(creditError);
-          return;
-        }
+      if (creditError) {
+        this.toastr.error(creditError);
+        return;
       }
     }
 
@@ -3283,7 +3283,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     const productMap = new Map(this.products.map((product) => [product._id, product]));
 
     this.clearSale();
-    this.selectedCustomerId = payload.customerId || '';
+    this.selectedCustomerId = payload.customerId ? String(payload.customerId) : '';
     payload.items.forEach((item) => {
       const product = productMap.get(item.productId);
       if (!product) {
@@ -3329,7 +3329,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
     const printed = printHtmlJob(html, {
       jobType: 'invoice',
-      title: `Invoice — ${receipt.reference}`,
+      title: `Receipt — ${receipt.reference}`,
       paperWidthMm,
     });
 
@@ -3444,21 +3444,22 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             p { margin: ${gap}px 0; word-break: break-word; }
             .meta { border-bottom: ${border}; border-top: ${border}; margin: ${gap * 2}px 0; padding: ${gap * 2}px 0; }
             .meta div, .totals div { display: flex; justify-content: space-between; gap: 4px; }
-            table { border-collapse: collapse; table-layout: auto; width: 100%; }
+            table { border-collapse: collapse; table-layout: fixed; width: 100%; }
             th, td {
-              border-bottom: 1px solid #e5e7eb;
+              border: 1px solid #111827;
               font-size: ${Math.max(7, bodyPx - 1)}px;
               line-height: 1.2;
-              padding: ${gap}px 2px;
+              padding: ${gap}px 3px;
               text-align: left;
               vertical-align: top;
+              word-break: break-word;
             }
-            .item-name { font-size: ${medicinePx}px; font-weight: ${weightMedicine}; line-height: 1.15; white-space: nowrap; }
-            th:first-child, td:first-child { white-space: nowrap; }
-            th:nth-child(2), td:nth-child(2) { width: 1%; text-align: center; white-space: nowrap; }
-            th:nth-child(3), td:nth-child(3),
-            th:nth-child(4), td:nth-child(4),
-            th:nth-child(5), td:nth-child(5) { width: 1%; text-align: right; white-space: nowrap; }
+            .item-name { font-size: ${medicinePx}px; font-weight: ${weightMedicine}; line-height: 1.15; white-space: normal; word-break: break-word; }
+            th:first-child, td:first-child { width: auto; white-space: normal; word-break: break-word; }
+            th:nth-child(2), td:nth-child(2) { width: 11%; text-align: center; white-space: nowrap; }
+            th:nth-child(3), td:nth-child(3) { width: 16%; text-align: right; white-space: nowrap; }
+            th:nth-child(4), td:nth-child(4) { width: 16%; text-align: right; white-space: nowrap; }
+            th:nth-child(5), td:nth-child(5) { width: 18%; text-align: right; white-space: nowrap; }
             small { color: #6b7280; display: block; font-size: 7px; margin-top: 1px; }
             .totals { border-top: ${border}; margin-top: ${gap * 2}px; padding-top: ${gap * 2}px; font-size: ${amountPx}px; font-weight: ${weightAmount}; }
             .grand { font-size: ${amountPx}px; font-weight: ${weightAmount}; }
@@ -3499,12 +3500,11 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               ${logoUrl ? `<img class="logo" src="${this.escapeHtml(logoUrl)}" alt="${this.escapeHtml(brandTitle)}" />` : ''}
               <h1>${this.escapeHtml(brandTitle)}</h1>
               ${headerLines.map((line) => `<p>${this.escapeHtml(line)}</p>`).join('')}
-              <p>Bill / Receipt</p>
+              <p>Receipt</p>
             </div>
             <div class="meta">
               <div><span>Invoice</span><strong>${this.escapeHtml(receipt.reference)}</strong></div>
               <div><span>Date</span><strong>${new Date(receipt.saleDate).toLocaleString()}</strong></div>
-              <div><span>Cashier</span><strong>${this.escapeHtml(receipt.cashierName)}</strong></div>
               <div><span>Customer</span><strong>${this.escapeHtml(receipt.customerName)}</strong></div>
             </div>
             <table>
@@ -3518,8 +3518,6 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               <div><span>Total Discount</span><strong>${this.formatCurrency(receipt.discount)}</strong></div>
               <div class="grand"><span>Total</span><strong>${this.formatCurrency(receipt.total)}</strong></div>
               <div><span>Paid</span><strong>${this.formatCurrency(receipt.paidAmount)}</strong></div>
-              <div><span>Change</span><strong>${this.formatCurrency(receipt.changeDueAmount)}</strong></div>
-              <div><span>Status</span><strong>${this.escapeHtml(receipt.paymentStatus)}</strong></div>
             </div>
             <div class="foot">
               ${footerTitle ? `<p><strong>${this.escapeHtml(footerTitle)}</strong></p>` : ''}
@@ -3844,8 +3842,20 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
     this.backend.getAllCustomers({ isActive: true }).subscribe({
       next: (items) => {
-        this.customers = items;
-        if (this.selectedCustomerId) {
+        const selectedId = String(this.selectedCustomerId || '').trim();
+        const list = (items || []).map((customer) => ({
+          ...customer,
+          _id: String(customer._id),
+        }));
+        if (selectedId && !list.some((customer) => customer._id === selectedId)) {
+          const current = this.customers.find((customer) => String(customer._id) === selectedId);
+          if (current) {
+            list.unshift({ ...current, _id: selectedId });
+          }
+        }
+        this.customers = list;
+        if (selectedId) {
+          this.selectedCustomerId = selectedId;
           this.refreshSelectedCustomerCredit();
         }
         if (this.prescription) {
@@ -3913,8 +3923,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         next: (response) => {
           const customer = response.data;
           if (customer?._id) {
-            this.customers = [customer, ...this.customers.filter((item) => item._id !== customer._id)];
-            this.selectedCustomerId = customer._id;
+            this.upsertCustomer(customer);
+            this.selectedCustomerId = String(customer._id);
           }
           this.customerModalOpen = false;
           this.toastr.success('Customer created. Credit stays off until you set a credit limit.');
@@ -3939,7 +3949,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     const phone = String(this.prescription.patient?.phone || '').trim();
     const existing = this.findCustomerMatch(name, phone);
     if (existing) {
-      this.selectedCustomerId = existing._id;
+      this.selectedCustomerId = String(existing._id);
       return;
     }
 
@@ -3964,8 +3974,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
           if (!customer?._id) {
             return;
           }
-          this.customers = [customer, ...this.customers.filter((item) => item._id !== customer._id)];
-          this.selectedCustomerId = customer._id;
+          this.upsertCustomer(customer);
+          this.selectedCustomerId = String(customer._id);
         },
         error: () => undefined,
       });
@@ -4368,38 +4378,33 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
   refreshPaidAmount(): void {
     this.billLines.forEach((line) => this.syncLineDiscount(line));
-    const nextPayable = Number(this.payableAmount || 0);
 
-    if (this.paymentMethod === 'credit') {
-      this.paidAmount = '0';
-      this.cashReceivedAmount = '0';
-      return;
-    }
-
-    // Stale "touched with 0" left Status=unpaid and triggered false credit errors.
-    if (this.paidAmountTouched && Number(this.paidAmount || 0) <= 0) {
-      this.paidAmountTouched = false;
-    }
-
-    if (!this.paidAmountTouched) {
-      this.paidAmount = this.payableAmount;
-    } else {
-      this.paidAmount = String(
-        this.normalizeMoneyInput(this.paidAmount, nextPayable),
-      );
-    }
-
-    if (this.paymentMethod === 'cash') {
-      if (!this.cashReceivedTouched) {
-        this.cashReceivedAmount = this.paidAmount;
-      } else {
-        this.cashReceivedAmount = String(
-          Math.max(Number(this.cashReceivedAmount || 0), Number(this.paidAmount || 0)),
-        );
+    this.syncingPaidAmount = true;
+    try {
+      if (this.paymentMethod === 'credit') {
+        this.paidAmount = '0';
+        this.cashReceivedAmount = '0';
+        return;
       }
-    } else {
-      this.cashReceivedAmount = this.paidAmount;
-      this.cashReceivedTouched = false;
+
+      // Cash/card/etc stay in sync with the bill. Do not lock Paid from ngModel echo.
+      this.paidAmountTouched = false;
+      this.paidAmount = this.payableAmount;
+
+      if (this.paymentMethod === 'cash') {
+        if (!this.cashReceivedTouched) {
+          this.cashReceivedAmount = this.paidAmount;
+        } else {
+          this.cashReceivedAmount = String(
+            Math.max(Number(this.cashReceivedAmount || 0), Number(this.paidAmount || 0)),
+          );
+        }
+      } else {
+        this.cashReceivedAmount = this.paidAmount;
+        this.cashReceivedTouched = false;
+      }
+    } finally {
+      this.syncingPaidAmount = false;
     }
   }
 
@@ -4589,6 +4594,21 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         .trim()
         .toLowerCase()
     );
+  }
+
+  private isStoreHeaderLine(
+    line: string,
+    receipt: ReceiptPreviewData | null | undefined,
+  ): boolean {
+    const value = String(line || '').trim();
+    if (!value) {
+      return false;
+    }
+    if (this.sameReceiptText(value, receipt?.storeName || '')) {
+      return true;
+    }
+    const compact = value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    return compact.includes('pharmacystore');
   }
 
   private runShortcutAction(action: string): void {
