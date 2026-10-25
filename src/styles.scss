@@ -104,6 +104,14 @@ a:hover {
 
 @import url("https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&display=swap");
 @font-face {
+  font-family: "Jameel Noori Nastaleeq";
+  font-style: normal;
+  font-weight: 400;
+  src: url("./assets/fonts/jameel-noori-nastaleeq/JameelNooriNastaleeqRegular.woff")
+    format("woff");
+  font-display: swap;
+}
+@font-face {
   font-family: "simple-Line-Icons";
   src: url("../src/assets/fonts/simple-Line-Icons.eot");
   src: url("../src/assets/fonts/simple-Line-Icons.eot")

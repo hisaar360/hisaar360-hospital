@@ -982,6 +982,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     if (!subtitle) {
       return '';
     }
+    // Legacy default slogan — hide unless user re-saves a custom tagline.
+    if (/^quality medicines for a health(y|ier) life\.?$/i.test(subtitle)) {
+      return '';
+    }
     if (this.sameReceiptText(subtitle, receipt?.storeName || '')) {
       return '';
     }
@@ -1005,11 +1009,12 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return [];
     }
 
+    // Only show lines the user configured — never auto-inject country/address
+    // (e.g. "Pakistan") or blank tagline space.
     const subtitle = this.receiptBrandSubtitle(receipt);
     return this.uniqueReceiptLines([
       subtitle,
       this.receiptHeaderNote(receipt),
-      this.receiptAddressLine(receipt),
       ...this.receiptHeaderLines(receipt).filter(
         (line) => !this.isStoreHeaderLine(line, receipt),
       ),
@@ -3012,13 +3017,13 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
   resolvedCustomerName(): string {
     if (this.prescription) {
-      return this.patientName() === '-' ? 'Walk-in Customer' : this.patientName();
+      return this.patientName() === '-' ? 'Walk-in' : this.patientName();
     }
 
     const customer = this.customers.find(
       (item) => item._id === this.selectedCustomerId,
     );
-    return customer?.name || 'Walk-in Customer';
+    return customer?.name || 'Walk-in';
   }
 
   resolvedCustomerPhone(): string {
@@ -3072,6 +3077,23 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
   formatCurrency(value: unknown): string {
     return formatActiveCurrency(value, { fractionDigits: 2 });
+  }
+
+  /** Thermal receipt amounts: number only (no Rs./symbol) so 58mm cells fit. */
+  formatReceiptAmount(value: unknown): string {
+    const amount = Number(value || 0);
+    const safe = Number.isFinite(amount) ? amount : 0;
+    return safe.toLocaleString('en-PK', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+      useGrouping: false,
+    });
+  }
+
+  showReceiptTotalDiscount(
+    receipt: ReceiptPreviewData | null | undefined = this.receiptPreview,
+  ): boolean {
+    return this.activeReceiptLetterhead(receipt)?.showTotalDiscount !== false;
   }
 
   formatCompactNumber(value: unknown): string {
@@ -3323,7 +3345,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
     const html = this.receiptHtml(receipt);
     const paperWidthMm =
-      Number(this.activeReceiptLetterhead(receipt)?.paperWidthMm) || 80;
+      Number(this.activeReceiptLetterhead(receipt)?.paperWidthMm) || 58;
     this.receiptPreviewOpen = false;
     this.receiptPreview = null;
 
@@ -3358,7 +3380,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     const footerLines = this.receiptFooterLines(receipt);
     const logoUrl = this.receiptLogoUrl(receipt);
     const lh = this.activeReceiptLetterhead(receipt);
-    const paperMm = Number(lh?.paperWidthMm) || 80;
+    const paperMm = Number(lh?.paperWidthMm) || 58;
     const borderStyle = lh?.borderStyle || 'dashed';
     const border =
       borderStyle === 'none' ? 'none' : `1px ${borderStyle} #9ca3af`;
@@ -3376,6 +3398,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     const weightMedicine = lh?.fontWeightMedicine === 'normal' ? 'normal' : 'bold';
     const weightAmount = lh?.fontWeightAmount === 'normal' ? 'normal' : 'bold';
     const termsText = this.resolveReceiptTermsText(lh?.termsText);
+    const showTotalDiscount = lh?.showTotalDiscount !== false;
+    // Always 4 columns + 58mm-safe sizing so amounts never clip/overlap on
+    // narrow thermal paper (even if letterhead still says 80mm).
+    const narrow = paperMm <= 58;
     const rows = receipt.items
       .map(
         (item) => `
@@ -3383,26 +3409,30 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
           <td>
             <strong class="item-name">${this.escapeHtml(this.receiptMedicineLabel(item))}</strong>
           </td>
-          <td>${item.qty}</td>
-          <td>${this.formatCurrency(item.unitPrice)}</td>
-          <td>${this.escapeHtml(this.receiptDiscountCell(item))}</td>
-          <td>${this.formatCurrency(item.total)}</td>
-        </tr>
-      `,
+          <td class="qty">${item.qty}</td>
+          <td class="amt">${this.formatReceiptAmount(item.unitPrice)}</td>
+          <td class="amt">${this.formatReceiptAmount(item.total)}</td>
+        </tr>`,
       )
       .join('');
 
-    // Fill whatever paper the cashier picks in Chrome (58x3276, 80mm, etc.).
-    // Never set @page { size: NNmm } — that fights the driver and blanks preview.
-    const compact = paperMm <= 58;
-    const padX = compact ? '1mm' : '2mm';
-    const headerPx = fontHeader;
-    const bodyPx = fontBody;
-    const footerPx = fontFooter;
-    const medicinePx = fontMedicine;
-    const amountPx = fontAmount;
-    const gap = lineGap;
-    const logoPrintPx = compact ? Math.min(logoPx, 40) : logoPx;
+    // Fill printer paper width; never set @page size (driver fight / blank preview).
+    const padX = narrow ? '0.4mm' : '1mm';
+    const headerPx = Math.min(fontHeader, narrow ? 13 : 15);
+    const bodyPx = Math.min(fontBody, narrow ? 9 : 10);
+    const footerPx = Math.min(fontFooter, narrow ? 9 : 10);
+    const medicinePx = Math.min(fontMedicine, narrow ? 9 : 10);
+    const amountPx = Math.min(fontAmount, narrow ? 10 : 11);
+    const cellPx = narrow ? 8 : 9;
+    const gap = Math.min(lineGap, narrow ? 1 : 2);
+    const logoPrintPx = Math.min(logoPx, narrow ? 34 : 44);
+    const jameelFontUrl =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/assets/fonts/jameel-noori-nastaleeq/JameelNooriNastaleeqRegular.woff`
+        : '/assets/fonts/jameel-noori-nastaleeq/JameelNooriNastaleeqRegular.woff';
+    const discountTotalRow = showTotalDiscount
+      ? `<div><span>Total Discount</span><strong>${this.formatReceiptAmount(receipt.discount)}</strong></div>`
+      : '';
 
     return `
       <!doctype html>
@@ -3413,6 +3443,13 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
           <style>
             @page { size: auto; margin: 0 !important; }
             * { box-sizing: border-box; }
+            @font-face {
+              font-family: "Jameel Noori Nastaleeq";
+              font-style: normal;
+              font-weight: 400;
+              src: url("${jameelFontUrl}") format("woff");
+              font-display: swap;
+            }
             html, body {
               margin: 0 !important;
               padding: 0 !important;
@@ -3427,7 +3464,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             }
             body {
               color: #111827;
-              font-family: Arial, "Noto Nastaliq Urdu", "Segoe UI", sans-serif;
+              font-family: Arial, "Segoe UI", sans-serif;
               font-size: ${bodyPx}px;
               font-weight: ${weightBody};
             }
@@ -3435,37 +3472,78 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               margin: 0;
               width: 100%;
               max-width: 100%;
-              padding: 1mm ${padX} 12mm;
-              overflow: visible;
+              padding: 0.8mm ${padX} 10mm;
+              overflow: hidden;
             }
             .center { text-align: center; }
-            .logo { display: block; height: ${logoPrintPx}px; margin: 0 auto ${gap * 2}px; max-width: 100%; object-fit: contain; }
-            h1 { font-size: ${headerPx}px; font-weight: ${weightHeader}; margin: 0 0 ${gap}px; word-break: break-word; }
+            .logo { display: block; height: ${logoPrintPx}px; margin: 0 auto ${gap}px; max-width: 92%; object-fit: contain; }
+            h1 { font-size: ${headerPx}px; font-weight: ${weightHeader}; margin: 0 0 ${gap}px; word-break: break-word; line-height: 1.15; }
             p { margin: ${gap}px 0; word-break: break-word; }
             .meta { border-bottom: ${border}; border-top: ${border}; margin: ${gap * 2}px 0; padding: ${gap * 2}px 0; }
-            .meta div, .totals div { display: flex; justify-content: space-between; gap: 4px; }
-            table { border-collapse: collapse; table-layout: fixed; width: 100%; }
-            th, td {
-              border: 1px solid #111827;
-              font-size: ${Math.max(7, bodyPx - 1)}px;
-              line-height: 1.2;
-              padding: ${gap}px 3px;
-              text-align: left;
-              vertical-align: top;
+            .meta div, .totals div {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              gap: 3px;
+              width: 100%;
+            }
+            .meta span, .totals span { flex: 0 0 auto; max-width: 42%; }
+            .meta strong, .totals strong {
+              flex: 1 1 auto;
+              min-width: 0;
+              text-align: right;
+              overflow-wrap: anywhere;
               word-break: break-word;
             }
-            .item-name { font-size: ${medicinePx}px; font-weight: ${weightMedicine}; line-height: 1.15; white-space: normal; word-break: break-word; }
-            th:first-child, td:first-child { width: auto; white-space: normal; word-break: break-word; }
-            th:nth-child(2), td:nth-child(2) { width: 11%; text-align: center; white-space: nowrap; }
-            th:nth-child(3), td:nth-child(3) { width: 16%; text-align: right; white-space: nowrap; }
-            th:nth-child(4), td:nth-child(4) { width: 16%; text-align: right; white-space: nowrap; }
-            th:nth-child(5), td:nth-child(5) { width: 18%; text-align: right; white-space: nowrap; }
-            small { color: #6b7280; display: block; font-size: 7px; margin-top: 1px; }
-            .totals { border-top: ${border}; margin-top: ${gap * 2}px; padding-top: ${gap * 2}px; font-size: ${amountPx}px; font-weight: ${weightAmount}; }
+            table {
+              border-collapse: collapse;
+              table-layout: fixed;
+              width: 100%;
+              max-width: 100%;
+            }
+            th, td {
+              border: 1px solid #111827;
+              font-size: ${cellPx}px;
+              line-height: 1.15;
+              padding: 1px 1px;
+              text-align: left;
+              vertical-align: top;
+              overflow: hidden;
+              overflow-wrap: anywhere;
+              word-break: break-word;
+            }
+            .item-name {
+              font-size: ${medicinePx}px;
+              font-weight: ${weightMedicine};
+              line-height: 1.12;
+              white-space: normal;
+              word-break: break-word;
+            }
+            th:first-child, td:first-child { width: 46%; }
+            th:nth-child(2), td:nth-child(2), .qty { width: 12%; text-align: center; white-space: nowrap; }
+            th:nth-child(3), td:nth-child(3) { width: 21%; }
+            th:nth-child(4), td:nth-child(4) { width: 21%; }
+            .amt {
+              text-align: right;
+              white-space: nowrap;
+              overflow: hidden;
+              font-variant-numeric: tabular-nums;
+              font-size: ${cellPx}px;
+              max-width: 100%;
+              padding-left: 0;
+              padding-right: 1px;
+            }
+            .totals {
+              border-top: ${border};
+              margin-top: ${gap * 2}px;
+              padding-top: ${gap * 2}px;
+              font-size: ${amountPx}px;
+              font-weight: ${weightAmount};
+            }
             .grand { font-size: ${amountPx}px; font-weight: ${weightAmount}; }
             .foot {
               border-top: ${border};
-              margin-top: ${gap * 3}px;
+              margin-top: ${gap * 2}px;
               padding-top: ${gap * 2}px;
               text-align: center;
               font-size: ${footerPx}px;
@@ -3475,21 +3553,22 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               margin-top: ${gap * 2}px;
               text-align: right;
               white-space: pre-wrap;
-              font-size: ${footerPx}px;
-              font-weight: ${weightFooter};
+              font-family: "Jameel Noori Nastaleeq", "Noto Nastaliq Urdu", serif;
+              font-size: ${Math.max(footerPx + 2, narrow ? 11 : 13)}px;
+              font-weight: 400;
               unicode-bidi: plaintext;
               direction: rtl;
-              line-height: 1.45;
+              line-height: 1.65;
               word-break: break-word;
             }
-            .cut-spacer { height: 10mm; }
+            .cut-spacer { height: 8mm; }
             @media print {
               @page { size: auto; margin: 0 !important; }
               html, body, .receipt {
                 width: 100% !important;
                 max-width: 100% !important;
                 height: auto !important;
-                overflow: visible !important;
+                overflow: hidden !important;
               }
             }
           </style>
@@ -3500,7 +3579,6 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               ${logoUrl ? `<img class="logo" src="${this.escapeHtml(logoUrl)}" alt="${this.escapeHtml(brandTitle)}" />` : ''}
               <h1>${this.escapeHtml(brandTitle)}</h1>
               ${headerLines.map((line) => `<p>${this.escapeHtml(line)}</p>`).join('')}
-              <p>Receipt</p>
             </div>
             <div class="meta">
               <div><span>Invoice</span><strong>${this.escapeHtml(receipt.reference)}</strong></div>
@@ -3508,16 +3586,14 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               <div><span>Customer</span><strong>${this.escapeHtml(receipt.customerName)}</strong></div>
             </div>
             <table>
-              <thead>
-                <tr><th>Item</th><th>Qty</th><th>Price</th><th>Discount</th><th>Total</th></tr>
-              </thead>
+              <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
               <tbody>${rows}</tbody>
             </table>
             <div class="totals">
-              <div><span>Subtotal</span><strong>${this.formatCurrency(receipt.subtotal)}</strong></div>
-              <div><span>Total Discount</span><strong>${this.formatCurrency(receipt.discount)}</strong></div>
-              <div class="grand"><span>Total</span><strong>${this.formatCurrency(receipt.total)}</strong></div>
-              <div><span>Paid</span><strong>${this.formatCurrency(receipt.paidAmount)}</strong></div>
+              <div><span>Subtotal</span><strong>${this.formatReceiptAmount(receipt.subtotal)}</strong></div>
+              ${discountTotalRow}
+              <div class="grand"><span>Total</span><strong>${this.formatReceiptAmount(receipt.total)}</strong></div>
+              <div><span>Paid</span><strong>${this.formatReceiptAmount(receipt.paidAmount)}</strong></div>
             </div>
             <div class="foot">
               ${footerTitle ? `<p><strong>${this.escapeHtml(footerTitle)}</strong></p>` : ''}
@@ -4051,7 +4127,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
   private resolveSaleCustomerName(sale: Sale): string {
     const customer = this.customers.find((item) => item._id === sale.customerId);
-    return customer?.name || 'Walk-in Customer';
+    return customer?.name || 'Walk-in';
   }
 
   private resolveSaleCustomerPhone(sale: Sale): string {
@@ -4338,30 +4414,34 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   private receiptLineDiscountLabel(line: PharmacyBillLine): string {
     const amount = Number(line.discount || 0);
     if (amount <= 0) {
-      return this.formatCurrency(0);
+      return this.formatReceiptAmount(0);
     }
 
     if (line.discountType === 'percentage' && Number(line.discountInput || 0) > 0) {
-      return `${this.formatCurrency(amount)} (${this.formatNumber(line.discountInput)}%)`;
+      return `${this.formatReceiptAmount(amount)} (${this.formatNumber(line.discountInput)}%)`;
     }
 
-    return this.formatCurrency(amount);
+    return this.formatReceiptAmount(amount);
   }
 
   private receiptDiscountCell(item: ReceiptPreviewLine): string {
     const amount = Number(item.discount || 0);
     if (amount <= 0) {
-      return this.formatCurrency(0);
+      return this.formatReceiptAmount(0);
     }
 
     const label = String(item.discountLabel || '').trim();
     if (label && label !== '-' && label.includes('%')) {
-      return label.startsWith(this.formatCurrency(amount))
-        ? label
-        : `${this.formatCurrency(amount)} (${label})`;
+      const plainAmount = this.formatReceiptAmount(amount);
+      const cleaned = label
+        .replace(/^(Rs\.|PKR|AED|SAR|USD|EUR|GBP|INR)\s*/i, '')
+        .replace(/^[$€£¥₺؋]\s*/, '');
+      return cleaned.startsWith(plainAmount)
+        ? cleaned
+        : `${plainAmount} (${cleaned})`;
     }
 
-    return this.formatCurrency(amount);
+    return this.formatReceiptAmount(amount);
   }
 
   private saleItemDiscountLabel(
@@ -4373,7 +4453,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return this.receiptLineDiscountLabel(currentLine);
     }
 
-    return this.formatCurrency(Number(item.discount || 0));
+    return this.formatReceiptAmount(Number(item.discount || 0));
   }
 
   refreshPaidAmount(): void {
@@ -4535,6 +4615,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     return {
       enabled: settings?.enabled !== false,
       showLogo: Boolean(settings?.showLogo),
+      showTotalDiscount: settings?.showTotalDiscount !== false,
       logoUrl: settings?.logoUrl?.trim() || null,
       brandTitle: settings?.brandTitle?.trim() || null,
       brandSubtitle: settings?.brandSubtitle?.trim() || null,
@@ -4546,7 +4627,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       footerTitle: settings?.footerTitle?.trim() || null,
       footerLines: this.uniqueReceiptLines(settings?.footerLines || []),
       termsText: this.resolveReceiptTermsText(settings?.termsText),
-      paperWidthMm: Number(settings?.paperWidthMm) || 80,
+      paperWidthMm: Number(settings?.paperWidthMm) || 58,
       borderStyle: settings?.borderStyle || 'dashed',
       logoScale: Number(settings?.logoScale) || 1,
       fontSizeHeader: Number(settings?.fontSizeHeader) || 18,

@@ -86,19 +86,21 @@
           </div>
 
           <label class="pis-field">
-            <span>Subtitle (e.g. Tagline)</span>
+            <span>Subtitle / Tagline (optional)</span>
             <input
               [(ngModel)]="form.brandSubtitle"
               (ngModelChange)="onFormChange()"
               [disabled]="!canEdit"
-              placeholder="Quality Medicines for a Healthier Life"
+              placeholder="Leave blank to hide — e.g. Quality Medicines…"
             />
+            <small class="pis-hint-inline">Blank = not printed (no empty space).</small>
           </label>
 
           <div class="pis-grid pis-grid--2">
             <label class="pis-field">
               <span>Header Note (Address / Location)</span>
-              <input [(ngModel)]="form.headerNote" (ngModelChange)="onFormChange()" [disabled]="!canEdit" placeholder="Shop address" />
+              <input [(ngModel)]="form.headerNote" (ngModelChange)="onFormChange()" [disabled]="!canEdit" placeholder="Leave blank to hide — e.g. Shop address" />
+              <small class="pis-hint-inline">Blank = not printed (no empty space).</small>
             </label>
             <label class="pis-field">
               <span>Contact Line</span>
@@ -174,9 +176,23 @@
               </label>
             </div>
 
+            <label class="pis-switch">
+              <input
+                type="checkbox"
+                [(ngModel)]="form.showTotalDiscount"
+                (ngModelChange)="onFormChange()"
+                [disabled]="!canEdit"
+              />
+              <span class="pis-switch__track" aria-hidden="true"></span>
+              <span class="pis-switch__copy">
+                <strong>Show Total Discount on bill</strong>
+                <small>Turn off to hide the Total Discount row on printed receipts.</small>
+              </span>
+            </label>
+
             <div class="pis-print-tip">
               <i class="fa fa-info-circle" aria-hidden="true"></i>
-              <span><strong>POS printer setup:</strong> Use 58×3276 or 80mm paper, no margins, 100% scale, and turn browser headers and footers off.</span>
+              <span><strong>POS printer setup:</strong> Default is 58mm. Use 58×3276 or 80mm paper, no margins, 100% scale, and turn browser headers and footers off.</span>
             </div>
           </div>
 

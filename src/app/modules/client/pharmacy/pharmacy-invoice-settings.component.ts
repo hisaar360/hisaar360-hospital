@@ -168,6 +168,8 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
         headerNote: this.form.headerNote?.trim() || '',
         contactLine: this.form.contactLine?.trim() || '',
         footerTitle: this.form.footerTitle?.trim() || '',
+        showTotalDiscount: this.form.showTotalDiscount !== false,
+        paperWidthMm: Number(this.form.paperWidthMm) > 0 ? Number(this.form.paperWidthMm) : 58,
         termsText: resolveReceiptTermsText(this.form.termsText),
         logoUrl: this.form.logoUrl?.trim() || '',
       },
@@ -199,16 +201,17 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
     return {
       enabled: true,
       showLogo: true,
+      showTotalDiscount: true,
       logoUrl: '',
       brandTitle: 'Pharmacy',
-      brandSubtitle: 'Quality Medicines for a Healthier Life',
+      brandSubtitle: '',
       headerNote: '',
       contactLine: '',
       extraHeaderLines: [],
       footerTitle: 'Thank you',
       footerLines: ['Visit Again'],
       termsText: DEFAULT_RECEIPT_TERMS,
-      paperWidthMm: 80,
+      paperWidthMm: 58,
       borderStyle: 'dashed',
       logoScale: 1,
       fontSizeHeader: 18,
@@ -228,16 +231,18 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
   private fromCompany(company: CompanyProfile): ReceiptLetterheadSettings {
     const lh = company.receiptLetterhead;
     const defaults = this.emptyForm();
+    const hasStoredLetterhead = Boolean(lh && Object.keys(lh).length);
     return {
       enabled: lh?.enabled !== false,
       showLogo: lh?.showLogo !== false,
+      showTotalDiscount: lh?.showTotalDiscount !== false,
       logoUrl: resolveAssetUrl(lh?.logoUrl || company.logoUrl || ''),
       brandTitle: lh?.brandTitle || company.name || defaults.brandTitle,
-      brandSubtitle: lh?.brandSubtitle || defaults.brandSubtitle,
-      headerNote:
-        lh?.headerNote ||
-        [company.address, company.city].filter(Boolean).join(', ') ||
-        '',
+      // Blank unless user typed a tagline — do not reinject old default slogan.
+      brandSubtitle: String(lh?.brandSubtitle || '').trim(),
+      headerNote: hasStoredLetterhead
+        ? String(lh?.headerNote || '').trim()
+        : '',
       contactLine:
         lh?.contactLine ||
         [company.phone, company.email].filter(Boolean).join(' · ') ||
@@ -248,7 +253,7 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
       footerTitle: lh ? String(lh.footerTitle || '') : defaults.footerTitle || '',
       footerLines: lh && Array.isArray(lh.footerLines) ? lh.footerLines : defaults.footerLines,
       termsText: resolveReceiptTermsText(lh?.termsText),
-      paperWidthMm: lh?.paperWidthMm || 80,
+      paperWidthMm: lh?.paperWidthMm || 58,
       borderStyle: lh?.borderStyle || 'dashed',
       logoScale: lh?.logoScale || 1,
       fontSizeHeader: lh?.fontSizeHeader || 18,
@@ -296,7 +301,7 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
   private buildPreviewHtml(): string {
     const f = this.form;
     const isA4 = this.previewMode === 'a4';
-    const width = isA4 ? 210 : Number(f.paperWidthMm) || 80;
+    const width = isA4 ? 210 : Number(f.paperWidthMm) || 58;
     const border =
       f.borderStyle === 'none'
         ? 'none'
@@ -316,20 +321,26 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
     const brand = f.brandTitle || this.company?.name || 'Pharmacy';
     const logo = f.showLogo && f.logoUrl ? resolveAssetUrl(f.logoUrl) : '';
     const headerLines = [
-      f.brandSubtitle,
-      f.headerNote,
-      f.contactLine,
+      String(f.brandSubtitle || '').trim(),
+      String(f.headerNote || '').trim(),
+      String(f.contactLine || '').trim(),
       ...this.splitLines(this.extraHeaderText),
     ].filter(Boolean);
     const footerTitle = String(f.footerTitle || '').trim();
     const footerLines = this.splitLines(this.footerLinesText);
     const terms = resolveReceiptTermsText(f.termsText);
+    const showTotalDiscount = f.showTotalDiscount !== false;
     const maxWidth = isA4 ? 640 : Math.round(width * 3.78);
+    const jameelFontUrl =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/assets/fonts/jameel-noori-nastaleeq/JameelNooriNastaleeqRegular.woff`
+        : '/assets/fonts/jameel-noori-nastaleeq/JameelNooriNastaleeqRegular.woff';
 
     return `<!doctype html><html><head><meta charset="utf-8"/><style>
 @page{margin:0;size:auto}
 *{box-sizing:border-box}
-body{margin:0;color:#111827;font-family:Arial,"Noto Nastaliq Urdu","Segoe UI",sans-serif;font-size:${bodySize}px;font-weight:${bodyWeight};background:#eef2f7}
+@font-face{font-family:"Jameel Noori Nastaleeq";font-style:normal;font-weight:400;src:url("${jameelFontUrl}") format("woff");font-display:swap}
+body{margin:0;color:#111827;font-family:Arial,"Segoe UI",sans-serif;font-size:${bodySize}px;font-weight:${bodyWeight};background:#eef2f7}
 .wrap{padding:18px 12px 28px}
 .receipt{margin:0 auto;max-width:${maxWidth}px;background:#fff;padding:${isA4 ? '22px 28px' : '12px 10px 18px'};box-shadow:0 10px 28px rgba(15,23,42,.12);position:relative;border-radius:2px}
 .receipt:after{content:"";position:absolute;left:0;right:0;bottom:-10px;height:12px;background:
@@ -340,38 +351,42 @@ body{margin:0;color:#111827;font-family:Arial,"Noto Nastaliq Urdu","Segoe UI",sa
 h1{font-size:${headerSize}px;font-weight:${headerWeight};margin:0 0 ${gap}px;letter-spacing:-.02em}
 p{margin:${gap}px 0}
 .meta{border-bottom:${border};border-top:${border};margin:${gap * 3}px 0;padding:${gap * 2}px 0}
-.meta div,.totals div{display:flex;justify-content:space-between;gap:10px}
+.meta div,.totals div{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
+.meta span{flex:0 0 auto}
+.meta strong{flex:1 1 auto;min-width:0;text-align:right;overflow-wrap:anywhere;word-break:break-word}
 table{border-collapse:collapse;table-layout:fixed;width:100%}
 th,td{border:1px solid #111827;font-size:${Math.max(7, bodySize - 1)}px;padding:${gap}px 3px;text-align:left;vertical-align:top;word-break:break-word}
 .item-name{font-size:${medicineSize}px;font-weight:${medicineWeight};line-height:1.15;white-space:normal;word-break:break-word}
 th:first-child,td:first-child{white-space:normal;word-break:break-word}
-th:nth-child(2),td:nth-child(2){text-align:center;white-space:nowrap;width:11%}
-th:nth-child(3),td:nth-child(3){text-align:right;white-space:nowrap;width:16%}
-th:nth-child(4),td:nth-child(4){text-align:right;white-space:nowrap;width:16%}
-th:nth-child(5),td:nth-child(5){text-align:right;white-space:nowrap;width:18%}
+th:first-child,td:first-child{width:46%}
+th:nth-child(2),td:nth-child(2){text-align:center;white-space:nowrap;width:12%}
+th:nth-child(3),td:nth-child(3){width:21%}
+th:nth-child(4),td:nth-child(4){width:21%}
+.amt{text-align:right;white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums;max-width:100%}
 .totals{border-top:${border};margin-top:${gap * 2}px;padding-top:${gap * 2}px;font-size:${amountSize}px;font-weight:${amountWeight}}
+.totals strong{overflow-wrap:anywhere;word-break:break-all;text-align:right;max-width:55%}
 .grand{font-size:${amountSize}px;font-weight:${amountWeight}}
 .foot{border-top:${border};margin-top:${gap * 3}px;padding-top:${gap * 2}px;text-align:center;font-size:${footerSize}px;font-weight:${footerWeight}}
-.terms{margin-top:${gap * 2}px;text-align:right;font-size:${footerSize}px;font-weight:${footerWeight};white-space:pre-wrap;unicode-bidi:plaintext;direction:rtl;line-height:1.35}
+.terms{margin-top:${gap * 2}px;text-align:right;font-family:"Jameel Noori Nastaleeq","Noto Nastaliq Urdu",serif;font-size:${Math.max(footerSize + 2, 13)}px;font-weight:400;white-space:pre-wrap;unicode-bidi:plaintext;direction:rtl;line-height:1.7}
 </style></head><body><div class="wrap"><section class="receipt"><div class="center">
 ${logo ? `<img class="logo" src="${this.escAttr(logo)}" alt=""/>` : ''}
 <h1>${this.esc(brand)}</h1>
 ${headerLines.map((l) => `<p>${this.esc(String(l))}</p>`).join('')}
-<p>Receipt</p></div>
+</div>
 <div class="meta">
 <div><span>Invoice</span><strong>PREVIEW-001</strong></div>
 <div><span>Date</span><strong>${new Date().toLocaleString()}</strong></div>
 <div><span>Customer</span><strong>Walk-in</strong></div>
 </div>
-<table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Discount</th><th>Total</th></tr></thead>
+<table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
 <tbody>
-<tr><td><strong class="item-name">Sample Medicine&nbsp;500&nbsp;mg</strong></td><td>2</td><td>Rs. 120</td><td>Rs. 20</td><td>Rs. 220</td></tr>
-<tr><td><strong class="item-name">Vitamin Syrup</strong></td><td>1</td><td>Rs. 350</td><td>Rs. 0</td><td>Rs. 350</td></tr>
+<tr><td><strong class="item-name">Sample Medicine&nbsp;500&nbsp;mg</strong></td><td>2</td><td class="amt">120.00</td><td class="amt">220.00</td></tr>
+<tr><td><strong class="item-name">Vitamin Syrup</strong></td><td>1</td><td class="amt">350.00</td><td class="amt">350.00</td></tr>
 </tbody></table>
 <div class="totals">
-<div><span>Subtotal</span><strong>Rs. 590</strong></div>
-<div><span>Total Discount</span><strong>Rs. 20</strong></div>
-<div class="grand"><span>Total</span><strong>Rs. 570</strong></div>
+<div><span>Subtotal</span><strong>590.00</strong></div>
+${showTotalDiscount ? '<div><span>Total Discount</span><strong>20.00</strong></div>' : ''}
+<div class="grand"><span>Total</span><strong>570.00</strong></div>
 </div>
 <div class="foot">${footerTitle ? `<p><strong>${this.esc(footerTitle)}</strong></p>` : ''}
 ${footerLines.map((l) => `<p>${this.esc(l)}</p>`).join('')}

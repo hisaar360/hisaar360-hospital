@@ -9,7 +9,7 @@ export interface PrintJobOptions {
   paperWidthMm?: number;
 }
 
-const clampPaperWidthMm = (value: unknown, fallback = 80): number => {
+const clampPaperWidthMm = (value: unknown, fallback = 58): number => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
     return fallback;
@@ -97,7 +97,7 @@ body.hms-print-a4 {
  */
 export const wrapPrintHtml = (html: string, options: PrintJobOptions): string => {
   const jobType = options.jobType || 'a4';
-  const paperWidthMm = clampPaperWidthMm(options.paperWidthMm, 80);
+  const paperWidthMm = clampPaperWidthMm(options.paperWidthMm, 58);
   const title =
     options.title ||
     (jobType === 'invoice'
@@ -170,7 +170,7 @@ export const printHtmlJob = (html: string, options: PrintJobOptions): boolean =>
 
   const paperWidthMm = clampPaperWidthMm(
     options.paperWidthMm,
-    options.jobType === 'invoice' ? 80 : 210,
+    options.jobType === 'invoice' ? 58 : 210,
   );
   const wrapped = wrapPrintHtml(html, { ...options, paperWidthMm });
 

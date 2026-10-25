@@ -182,7 +182,7 @@
                         <span>Customer</span>
                         <div class="storepos-customer-row">
                             <select [(ngModel)]="selectedCustomerId" (ngModelChange)="onCustomerChange()">
-                                <option value="">Walk-in Customer</option>
+                                <option value="">Walk-in</option>
                                 <option *ngFor="let customer of customers; trackBy: trackByCustomerId" [value]="customer._id">
                                     {{ customer.name }}{{ customer.phone ? ' · ' + customer.phone : '' }}{{ customerCreditBadge(customer) }}
                                 </option>
@@ -866,7 +866,6 @@
                         [alt]="receiptBrandTitle(receipt)" />
                     <h2>{{ receiptBrandTitle(receipt) }}</h2>
                     <p *ngFor="let line of receiptHeaderDisplayLines(receipt)">{{ line }}</p>
-                    <strong>Receipt</strong>
                 </div>
 
                 <div class="receipt-preview-meta">
@@ -875,13 +874,12 @@
                     <div><span>Customer</span><strong>{{ receipt.customerName }}</strong></div>
                 </div>
 
-                <table class="receipt-preview-table">
+                <table class="receipt-preview-table is-compact">
                     <thead>
                         <tr>
                             <th>Item</th>
                             <th>Qty</th>
                             <th>Price</th>
-                            <th>Discount</th>
                             <th>Total</th>
                         </tr>
                     </thead>
@@ -890,19 +888,18 @@
                             <td>
                                 <strong>{{ receiptMedicineLabel(item) }}</strong>
                             </td>
-                            <td>{{ item.qty }}</td>
-                            <td>{{ formatCurrency(item.unitPrice) }}</td>
-                            <td>{{ item.discountLabel || formatCurrency(item.discount || 0) }}</td>
-                            <td>{{ formatCurrency(item.total) }}</td>
+                            <td class="qty">{{ item.qty }}</td>
+                            <td class="amt">{{ formatReceiptAmount(item.unitPrice) }}</td>
+                            <td class="amt">{{ formatReceiptAmount(item.total) }}</td>
                         </tr>
                     </tbody>
                 </table>
 
                 <div class="receipt-preview-totals">
-                    <div><span>Subtotal</span><strong>{{ formatCurrency(receipt.subtotal) }}</strong></div>
-                    <div><span>Total Discount</span><strong>{{ formatCurrency(receipt.discount) }}</strong></div>
-                    <div class="grand"><span>Total</span><strong>{{ formatCurrency(receipt.total) }}</strong></div>
-                    <div><span>Paid</span><strong>{{ formatCurrency(receipt.paidAmount) }}</strong></div>
+                    <div><span>Subtotal</span><strong>{{ formatReceiptAmount(receipt.subtotal) }}</strong></div>
+                    <div *ngIf="showReceiptTotalDiscount(receipt)"><span>Total Discount</span><strong>{{ formatReceiptAmount(receipt.discount) }}</strong></div>
+                    <div class="grand"><span>Total</span><strong>{{ formatReceiptAmount(receipt.total) }}</strong></div>
+                    <div><span>Paid</span><strong>{{ formatReceiptAmount(receipt.paidAmount) }}</strong></div>
                 </div>
                 <div class="receipt-preview-foot">
                     <strong *ngIf="receiptFooterTitle(receipt)">{{ receiptFooterTitle(receipt) }}</strong>

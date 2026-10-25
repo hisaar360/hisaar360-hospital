@@ -1,6 +1,8 @@
 export interface ReceiptLetterheadSettings {
   enabled: boolean;
   showLogo: boolean;
+  /** When false, hide Total Discount row on printed / preview receipt. */
+  showTotalDiscount?: boolean;
   logoUrl?: string | null;
   brandTitle?: string | null;
   brandSubtitle?: string | null;
