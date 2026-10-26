@@ -264,3 +264,35 @@
     grid-template-columns: 1fr;
   }
 }
+
+.cost-warning-card {
+  background: #fff;
+  border: 1px solid #fecaca;
+  border-left: 4px solid #dc2626;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+
+  header h2 {
+    color: #b91c1c;
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 4px;
+
+    .fa {
+      margin-right: 6px;
+    }
+  }
+
+  header p {
+    color: #64748b;
+    font-size: 12.5px;
+    margin: 0 0 10px;
+  }
+
+  th {
+    color: #64748b;
+    font-size: 11px;
+    text-transform: uppercase;
+  }
+}

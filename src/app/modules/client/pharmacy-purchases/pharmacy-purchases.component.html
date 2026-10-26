@@ -7,7 +7,9 @@
         <h1 *ngIf="view === 'create'">Create Purchase</h1>
         <h1 *ngIf="view === 'detail'">{{ text(purchase?.['invoiceNo']) || 'Purchase Detail' }}</h1>
         <h1 *ngIf="view === 'returns'">Purchase Returns</h1>
-        <p *ngIf="view !== 'detail'">Procurement, receiving, supplier payable, and return documents.</p>
+        <p *ngIf="view === 'list'">Vendor bills, payments, and pending credit in one place.</p>
+        <p *ngIf="view === 'create'">Add as many medicines as the vendor bill has, then record how much you paid.</p>
+        <p *ngIf="view === 'returns'">Medicines sent back to vendors and the credit they give you.</p>
         <p *ngIf="view === 'detail' && purchase">
           {{ supplierName() }} · {{ warehouseName() }} · {{ date(purchase['purchaseDate']) }}
         </p>
@@ -19,314 +21,582 @@
         </span>
       </div>
       <div class="pharmacy-hero-actions">
-        <a class="ph-btn ghost" routerLink="/pharmacy/purchases">Purchases</a>
-        <a class="ph-btn ghost" routerLink="/pharmacy/purchase-returns">Returns</a>
-        <a class="ph-btn primary" routerLink="/pharmacy/purchases/create" *ngIf="canCreate">New Purchase</a>
-        <button
-          class="ph-btn primary"
-          type="button"
-          *ngIf="view === 'detail' && purchase && canReceive && text(purchase['status']) !== 'received' && text(purchase['status']) !== 'cancelled'"
-          (click)="receive(text(purchase['_id']))"
-          [disabled]="saving">
-          Receive stock
-        </button>
+        <a class="ph-btn ghost" routerLink="/pharmacy/purchases" *ngIf="view !== 'list'">Purchases</a>
+        <a class="ph-btn ghost" routerLink="/pharmacy/purchase-returns" *ngIf="view !== 'returns'">Returns</a>
         <button
           class="ph-btn ghost"
           type="button"
-          *ngIf="view === 'detail' && purchase && canCancel && text(purchase['status']) !== 'cancelled'"
-          (click)="cancel(text(purchase['_id']))"
-          [disabled]="saving">
-          Cancel
+          *ngIf="view === 'returns' && canCreateReturn"
+          (click)="openReturn()">
+          <i class="fa fa-undo"></i>
+          <span>New Purchase Return</span>
         </button>
+        <a class="ph-btn primary" routerLink="/pharmacy/purchases/create" *ngIf="canCreate && view !== 'create'">
+          <i class="fa fa-plus"></i>
+          <span>New Purchase</span>
+        </a>
+        <ng-container *ngIf="view === 'detail' && purchase">
+          <button
+            class="ph-btn primary"
+            type="button"
+            *ngIf="canPayPurchase(purchase)"
+            (click)="openPay(purchase)"
+            [disabled]="saving">
+            <i class="fa fa-money"></i>
+            <span>Pay Vendor</span>
+          </button>
+          <button
+            class="ph-btn primary"
+            type="button"
+            *ngIf="canReceive && text(purchase['status']) !== 'received' && text(purchase['status']) !== 'cancelled'"
+            (click)="receive(text(purchase['_id']))"
+            [disabled]="saving">
+            Receive stock
+          </button>
+          <button
+            class="ph-btn ghost"
+            type="button"
+            *ngIf="canCreateReturn && text(purchase['status']) === 'received'"
+            (click)="openReturn(purchase)"
+            [disabled]="saving">
+            <i class="fa fa-undo"></i>
+            <span>Return</span>
+          </button>
+          <button
+            class="ph-btn ghost"
+            type="button"
+            *ngIf="canCancel && text(purchase['status']) === 'received'"
+            (click)="cancel(text(purchase['_id']))"
+            [disabled]="saving">
+            Cancel
+          </button>
+        </ng-container>
       </div>
     </header>
 
-    <div class="pharmacy-filter-card" *ngIf="view === 'list'">
-      <div class="pharmacy-filter-head">
-        <div>
-          <h2><i class="fa fa-filter"></i> Purchase Filters</h2>
-          <p>Review supplier invoices by receiving status.</p>
-        </div>
-      </div>
-      <div class="pharmacy-filter-body">
-        <div class="pharmacy-filter-grid">
-          <label class="pharmacy-field">
-            <span>Status</span>
-            <select class="form-select" [(ngModel)]="status">
-              <option value="">All</option>
-              <option value="draft">Draft</option>
-              <option value="ordered">Ordered</option>
-              <option value="partially_received">Partially received</option>
-              <option value="received">Received</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </label>
-        </div>
-        <div class="pharmacy-filter-actions">
-          <button class="ph-btn primary" type="button" (click)="loadPurchases()">
-            <i class="fa fa-filter"></i>
-            <span>Apply Filters</span>
-          </button>
-          <button class="ph-btn ghost" type="button" (click)="status=''; loadPurchases()">
-            <i class="fa fa-refresh"></i>
-            <span>Reset</span>
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- ===================== LIST ===================== -->
+    <ng-container *ngIf="view === 'list'">
+      <section class="ph-highlights" aria-label="Vendor payable highlights">
+        <article class="ph-stat">
+          <div class="ph-stat-icon blue"><i class="fa fa-shopping-bag"></i></div>
+          <div>
+            <span>Total Purchased</span>
+            <strong>{{ currency(selectedVendorRow ? selectedVendorRow.totalPurchased : summaryTotals.totalPurchased) }}</strong>
+            <small>{{ selectedVendorRow ? selectedVendorRow.billCount : summaryTotals.billCount }} received bills</small>
+          </div>
+        </article>
+        <article class="ph-stat">
+          <div class="ph-stat-icon green"><i class="fa fa-check-circle"></i></div>
+          <div>
+            <span>Paid to Vendors</span>
+            <strong>{{ currency(selectedVendorRow ? selectedVendorRow.totalPaid : summaryTotals.totalPaid) }}</strong>
+            <small>Cash / bank payments</small>
+          </div>
+        </article>
+        <article class="ph-stat">
+          <div class="ph-stat-icon amber"><i class="fa fa-clock-o"></i></div>
+          <div>
+            <span>Pending Credit (to pay)</span>
+            <strong class="text-warning-emphasis">{{ currency(selectedVendorRow ? selectedVendorRow.pending : summaryTotals.pending) }}</strong>
+            <small *ngIf="!selectedVendorRow">{{ summaryTotals.vendorsWithDues }} vendors have dues</small>
+            <small *ngIf="selectedVendorRow">
+              <ng-container *ngIf="selectedVendorRow.openingBalance">Incl. opening {{ currency(selectedVendorRow.openingBalance) }}</ng-container>
+              <ng-container *ngIf="!selectedVendorRow.openingBalance">Payable to {{ selectedVendorRow.name }}</ng-container>
+            </small>
+          </div>
+        </article>
+        <article class="ph-stat">
+          <div class="ph-stat-icon purple"><i class="fa fa-undo"></i></div>
+          <div>
+            <span>{{ selectedVendorRow ? 'Available Credit' : 'Return Credit' }}</span>
+            <strong *ngIf="!selectedVendorRow">{{ currency(summaryTotals.returnCredit) }}</strong>
+            <strong *ngIf="selectedVendorRow">{{ currency(selectedVendorRow.availableCredit) }}</strong>
+            <small *ngIf="!selectedVendorRow">{{ summaryTotals.openOrderCount }} open orders not received</small>
+            <small *ngIf="selectedVendorRow">Limit {{ currency(selectedVendorRow.creditLimit) }}</small>
+          </div>
+        </article>
+      </section>
 
-    <section class="ph-highlights" *ngIf="view === 'list'" aria-label="Purchase highlights">
-      <article class="ph-stat">
-        <div class="ph-stat-icon blue"><i class="fa fa-shopping-bag"></i></div>
-        <div>
-          <span>Total Purchase</span>
-          <strong>{{ currency(purchaseTotal) }}</strong>
-          <small>{{ purchases.length }} docs</small>
+      <div class="pharmacy-filter-card">
+        <div class="pharmacy-filter-head">
+          <div>
+            <h2><i class="fa fa-filter"></i> Filters</h2>
+            <p>Filter by vendor, date and status. Pick a vendor to see its full history.</p>
+          </div>
         </div>
-      </article>
-      <article class="ph-stat">
-        <div class="ph-stat-icon green"><i class="fa fa-check-circle"></i></div>
-        <div>
-          <span>Paid</span>
-          <strong>{{ currency(purchasePaid) }}</strong>
-          <small>Settled</small>
-        </div>
-      </article>
-      <article class="ph-stat">
-        <div class="ph-stat-icon amber"><i class="fa fa-clock-o"></i></div>
-        <div>
-          <span>Pending</span>
-          <strong>{{ currency(purchasePending) }}</strong>
-          <small>Open AP</small>
-        </div>
-      </article>
-      <article class="ph-stat">
-        <div class="ph-stat-icon purple"><i class="fa fa-file-text-o"></i></div>
-        <div>
-          <span>Documents</span>
-          <strong>{{ purchases.length }}</strong>
-          <small>Visible</small>
-        </div>
-      </article>
-    </section>
-
-    <div class="pharmacy-table-card" *ngIf="view === 'list'">
-      <div class="pharmacy-table-head">
-        <div>
-          <h2>Purchase Register</h2>
-          <p>{{ purchases.length }} purchase documents in this view.</p>
+        <div class="pharmacy-filter-body">
+          <div class="pharmacy-filter-grid">
+            <label class="pharmacy-field">
+              <span>Vendor</span>
+              <select class="form-select" [(ngModel)]="supplierFilter" (ngModelChange)="onSupplierFilterChange()">
+                <option value="">All vendors</option>
+                <option *ngFor="let supplier of suppliers" [value]="supplier._id">{{ supplier.name }}</option>
+              </select>
+            </label>
+            <label class="pharmacy-field">
+              <span>Status</span>
+              <select class="form-select" [(ngModel)]="status">
+                <option value="">All</option>
+                <option value="draft">Draft</option>
+                <option value="ordered">Ordered</option>
+                <option value="partially_received">Partially received</option>
+                <option value="received">Received</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
+            <label class="pharmacy-field">
+              <span>From</span>
+              <input class="form-control" type="date" [(ngModel)]="fromDate" />
+            </label>
+            <label class="pharmacy-field">
+              <span>To</span>
+              <input class="form-control" type="date" [(ngModel)]="toDate" />
+            </label>
+          </div>
+          <div class="pharmacy-filter-actions">
+            <button class="ph-btn primary" type="button" (click)="applyFilters()">
+              <i class="fa fa-filter"></i>
+              <span>Apply</span>
+            </button>
+            <button class="ph-btn ghost" type="button" (click)="resetFilters()">
+              <i class="fa fa-refresh"></i>
+              <span>Reset</span>
+            </button>
+          </div>
         </div>
       </div>
-      <div class="card-body">
-        <div *ngIf="loading" class="pharmacy-empty-state">Loading purchases...</div>
-        <div *ngIf="!loading && !purchases.length" class="pharmacy-empty-state">No purchases found.</div>
-        <div class="table-responsive ph-desktop-table" *ngIf="!loading && purchases.length">
-          <table class="table align-middle">
-            <thead>
-              <tr>
-                <th>Purchase #</th>
-                <th>Date</th>
-                <th>Supplier</th>
-                <th>Warehouse</th>
-                <th>Status</th>
-                <th>Total</th>
-                <th>Paid</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of purchases">
-                <td class="fw-semibold">{{ text(item['invoiceNo']) }}</td>
-                <td>{{ date(item['purchaseDate']) }}</td>
-                <td>{{ supplierName(item) }}</td>
-                <td>{{ warehouseName(item) }}</td>
-                <td>
-                  <span class="pharmacy-status-pill" [ngClass]="statusClass(text(item['status']))">
-                    {{ text(item['status']) }}
-                  </span>
-                </td>
-                <td>{{ currency(item['total']) }}</td>
-                <td>{{ currency(item['paidAmount']) }}</td>
-                <td class="text-end">
+
+      <nav class="purchase-tabs" aria-label="Purchase views">
+        <button type="button" [class.is-active]="listTab === 'bills'" (click)="setTab('bills')">
+          <i class="fa fa-file-text-o"></i> Bills <span>{{ purchases.length }}</span>
+        </button>
+        <button type="button" [class.is-active]="listTab === 'vendors'" (click)="setTab('vendors')">
+          <i class="fa fa-users"></i> All Vendors <span>{{ summaryRows.length }}</span>
+        </button>
+        <button type="button" [class.is-active]="listTab === 'history'" (click)="setTab('history')" [disabled]="!supplierFilter">
+          <i class="fa fa-history"></i> Vendor History
+          <span *ngIf="supplierFilter">{{ vendorHistory.length }}</span>
+        </button>
+      </nav>
+
+      <!-- Bills -->
+      <div class="pharmacy-table-card" *ngIf="listTab === 'bills'">
+        <div class="pharmacy-table-head">
+          <div>
+            <h2>Purchase Bills</h2>
+            <p>{{ visiblePurchases.length }} bills{{ selectedVendorRow ? ' from ' + selectedVendorRow.name : '' }}.</p>
+          </div>
+          <div class="purchase-head-search">
+            <i class="fa fa-search"></i>
+            <input class="form-control" [(ngModel)]="invoiceSearch" placeholder="Search bill # / vendor invoice" />
+          </div>
+        </div>
+        <div class="card-body">
+          <div *ngIf="loading" class="pharmacy-empty-state">Loading purchases...</div>
+          <div *ngIf="!loading && !visiblePurchases.length" class="pharmacy-empty-state">No purchases found.</div>
+          <div class="table-responsive ph-desktop-table" *ngIf="!loading && visiblePurchases.length">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Bill #</th>
+                  <th>Date</th>
+                  <th>Vendor</th>
+                  <th class="text-end">Items</th>
+                  <th>Status</th>
+                  <th class="text-end">Total</th>
+                  <th class="text-end">Paid</th>
+                  <th class="text-end">Pending</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of visiblePurchases">
+                  <td class="fw-semibold">
+                    {{ text(item['invoiceNo']) }}
+                    <small class="d-block text-muted" *ngIf="item['supplierInvoiceNo']">Vendor # {{ text(item['supplierInvoiceNo']) }}</small>
+                  </td>
+                  <td>{{ date(item['purchaseDate']) }}</td>
+                  <td>{{ supplierName(item) }}</td>
+                  <td class="text-end">{{ linesOf(item).length }}</td>
+                  <td>
+                    <span class="pharmacy-status-pill" [ngClass]="statusClass(text(item['status']))">
+                      {{ text(item['status']) }}
+                    </span>
+                  </td>
+                  <td class="text-end">{{ currency(item['total']) }}</td>
+                  <td class="text-end text-success">{{ currency(item['paidAmount']) }}</td>
+                  <td class="text-end fw-semibold" [class.text-warning-emphasis]="balance(item) > 0">
+                    {{ text(item['status']) === 'received' ? currency(balance(item)) : '—' }}
+                  </td>
+                  <td class="text-end text-nowrap">
+                    <button
+                      class="ph-btn primary ph-btn-sm"
+                      type="button"
+                      *ngIf="canPayPurchase(item)"
+                      (click)="openPay(item)">
+                      Pay
+                    </button>
+                    <a class="ph-icon-btn" [routerLink]="['/pharmacy/purchases', item['_id']]" title="Open">
+                      <i class="fa fa-eye"></i>
+                    </a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="ph-mobile-list" *ngIf="!loading && visiblePurchases.length">
+            <article class="ph-mobile-card" *ngFor="let item of visiblePurchases">
+              <div class="ph-mobile-top">
+                <div>
+                  <strong>{{ text(item['invoiceNo']) }}</strong>
+                  <small>{{ date(item['purchaseDate']) }} · {{ supplierName(item) }}</small>
+                </div>
+                <span class="pharmacy-status-pill" [ngClass]="statusClass(text(item['status']))">
+                  {{ text(item['status']) }}
+                </span>
+              </div>
+              <div class="ph-mobile-row">
+                <div>
+                  <div class="ph-mobile-amount">{{ currency(item['total']) }}</div>
+                  <small class="text-muted">Paid {{ currency(item['paidAmount']) }} · Pending {{ currency(balance(item)) }}</small>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="ph-btn primary ph-btn-sm" type="button" *ngIf="canPayPurchase(item)" (click)="openPay(item)">Pay</button>
                   <a class="ph-icon-btn" [routerLink]="['/pharmacy/purchases', item['_id']]" title="Open">
                     <i class="fa fa-eye"></i>
                   </a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="ph-mobile-list" *ngIf="!loading && purchases.length">
-          <article class="ph-mobile-card" *ngFor="let item of purchases">
-            <div class="ph-mobile-top">
-              <div>
-                <strong>{{ text(item['invoiceNo']) }}</strong>
-                <small>{{ date(item['purchaseDate']) }} · {{ supplierName(item) }}</small>
+                </div>
               </div>
-              <span class="pharmacy-status-pill" [ngClass]="statusClass(text(item['status']))">
-                {{ text(item['status']) }}
-              </span>
-            </div>
-            <div class="ph-mobile-row">
-              <div>
-                <div class="ph-mobile-amount">{{ currency(item['total']) }}</div>
-                <small class="text-muted">Paid {{ currency(item['paidAmount']) }}</small>
-              </div>
-              <a class="ph-icon-btn" [routerLink]="['/pharmacy/purchases', item['_id']]" title="Open">
-                <i class="fa fa-eye"></i>
-              </a>
-            </div>
-          </article>
-        </div>
-      </div>
-    </div>
-
-    <div class="pharmacy-filter-card" *ngIf="view === 'create'">
-      <div class="pharmacy-filter-head">
-        <div>
-          <h2>Purchase Header</h2>
-          <p>Supplier, receiving warehouse, and payment. Use Receive now only when stock is already at the door.</p>
-        </div>
-      </div>
-      <div class="pharmacy-filter-grid">
-        <label>
-          <span>Supplier</span>
-          <select class="form-select" [(ngModel)]="form.supplierId">
-            <option value="">Select supplier</option>
-            <option *ngFor="let supplier of suppliers" [value]="supplier._id">{{ supplier.name }}</option>
-          </select>
-        </label>
-        <label>
-          <span>Warehouse / store receiving</span>
-          <select class="form-select" [(ngModel)]="form.warehouseId">
-            <option value="">Select warehouse</option>
-            <option *ngFor="let warehouse of warehouses" [value]="warehouse._id">{{ warehouse.name }}</option>
-          </select>
-          <small class="d-block mt-1 text-muted" *ngIf="!warehouses.length">No warehouse exists yet. Create one to receive stock.</small>
-          <button class="btn btn-sm btn-default mt-2" type="button" *ngIf="canManageWarehouses && !warehouseCreateOpen" (click)="openWarehouseCreate()">Add warehouse</button>
-        </label>
-        <ng-container *ngIf="warehouseCreateOpen">
-          <label>
-            <span>New warehouse name</span>
-            <input class="form-control" [(ngModel)]="warehouseForm.name" placeholder="Main warehouse" />
-          </label>
-          <label>
-            <span>Warehouse code</span>
-            <input class="form-control" [(ngModel)]="warehouseForm.code" placeholder="WH-01" />
-          </label>
-          <div class="pharmacy-filter-actions">
-            <button class="btn btn-outline-secondary" type="button" (click)="warehouseCreateOpen = false" [disabled]="creatingWarehouse">Cancel</button>
-            <button class="btn btn-outline-primary" type="button" (click)="createWarehouse()" [disabled]="creatingWarehouse">{{ creatingWarehouse ? 'Creating...' : 'Create warehouse' }}</button>
+            </article>
           </div>
-        </ng-container>
-        <label>
-          <span>Date</span>
-          <input class="form-control" type="date" [(ngModel)]="form.purchaseDate" />
-        </label>
-        <label>
-          <span>Status</span>
-          <select class="form-select" [(ngModel)]="form.status">
-            <option value="draft">Draft</option>
-            <option value="ordered">Ordered</option>
-            <option value="received">Receive now</option>
-          </select>
-        </label>
-        <label>
-          <span>Paid amount</span>
-          <input class="form-control" type="number" [(ngModel)]="form.paidAmount" />
-          <small class="text-muted" *ngIf="supplierCreditHint">{{ supplierCreditHint }}</small>
-        </label>
-        <label>
-          <span>Payment method</span>
-          <select class="form-select" [(ngModel)]="form.paymentMethod">
-            <option value="">Credit (unpaid / supplier AP)</option>
-            <option value="cash">Cash</option>
-            <option value="bank">Bank</option>
-          </select>
-        </label>
+        </div>
       </div>
+
+      <!-- Vendors -->
+      <div class="pharmacy-table-card" *ngIf="listTab === 'vendors'">
+        <div class="pharmacy-table-head">
+          <div>
+            <h2>All Vendors</h2>
+            <p>Bills, payments and pending credit per vendor. Click a vendor to open its history.</p>
+          </div>
+          <div class="purchase-head-search">
+            <i class="fa fa-search"></i>
+            <input class="form-control" [(ngModel)]="vendorSearch" placeholder="Search vendor" />
+          </div>
+        </div>
+        <div class="card-body">
+          <div *ngIf="summaryLoading" class="pharmacy-empty-state">Loading vendors...</div>
+          <div *ngIf="!summaryLoading && !visibleVendors.length" class="pharmacy-empty-state">No vendors found.</div>
+          <div class="vendor-grid" *ngIf="!summaryLoading && visibleVendors.length">
+            <button type="button" class="vendor-card" *ngFor="let row of visibleVendors" (click)="openVendor(row)">
+              <div class="vendor-card__head">
+                <div>
+                  <strong>{{ row.name }}</strong>
+                  <small>{{ row.phone || row.city || 'No contact' }}</small>
+                </div>
+                <span class="vendor-card__badge" [class.has-dues]="row.pending > 0">
+                  {{ row.pending > 0 ? 'Dues' : 'Clear' }}
+                </span>
+              </div>
+              <div class="vendor-card__stats">
+                <div><span>Bills</span><strong>{{ row.billCount }}</strong></div>
+                <div><span>Purchased</span><strong>{{ currency(row.totalPurchased) }}</strong></div>
+                <div><span>Paid</span><strong class="text-success">{{ currency(row.totalPaid) }}</strong></div>
+                <div><span>Pending</span><strong [class.text-warning-emphasis]="row.pending > 0">{{ currency(row.pending) }}</strong></div>
+              </div>
+              <div class="vendor-card__bar" *ngIf="row.creditLimit > 0">
+                <div class="vendor-card__bar-fill" [style.width.%]="creditUsedPct(row)"
+                  [class.is-over]="row.pending > row.creditLimit"></div>
+              </div>
+              <small class="vendor-card__foot">
+                <ng-container *ngIf="row.creditLimit > 0">Credit used {{ currency(row.pending) }} of {{ currency(row.creditLimit) }}</ng-container>
+                <ng-container *ngIf="row.creditLimit <= 0">No credit limit (cash only)</ng-container>
+                <ng-container *ngIf="row.lastPurchaseDate"> · Last bill {{ date(row.lastPurchaseDate) }}</ng-container>
+              </small>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vendor history -->
+      <ng-container *ngIf="listTab === 'history' && supplierFilter">
+        <div class="pharmacy-table-card">
+          <div class="pharmacy-table-head">
+            <div>
+              <h2>{{ selectedVendorRow?.name || 'Vendor' }} · Account History</h2>
+              <p>Every bill (adds to payable), payment and return (reduces payable) with running balance.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <div *ngIf="summaryLoading" class="pharmacy-empty-state">Loading history...</div>
+            <div *ngIf="!summaryLoading && !vendorHistory.length" class="pharmacy-empty-state">No activity for this vendor yet.</div>
+            <div class="table-responsive" *ngIf="!summaryLoading && vendorHistory.length">
+              <table class="table align-middle">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Reference</th>
+                    <th>Details</th>
+                    <th class="text-end">Bill (+)</th>
+                    <th class="text-end">Paid / Return (−)</th>
+                    <th class="text-end">Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let entry of vendorHistory">
+                    <td>{{ date(entry.date) }}</td>
+                    <td><span class="history-type" [ngClass]="'is-' + entry.type">{{ entry.type }}</span></td>
+                    <td>
+                      <a *ngIf="entry.purchaseId" [routerLink]="['/pharmacy/purchases', entry.purchaseId]">{{ entry.reference || 'Open' }}</a>
+                      <span *ngIf="!entry.purchaseId">{{ entry.reference }}</span>
+                    </td>
+                    <td>{{ entry.description }}</td>
+                    <td class="text-end">{{ entry.debit ? currency(entry.debit) : '—' }}</td>
+                    <td class="text-end text-success">{{ entry.credit ? currency(entry.credit) : '—' }}</td>
+                    <td class="text-end fw-semibold">{{ currency(entry.balance) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </ng-container>
+
+    <!-- ===================== CREATE ===================== -->
+    <div class="purchase-create" *ngIf="view === 'create'">
+      <div class="purchase-create__main">
+        <section class="ph-doc-section">
+          <header>
+            <h4><i class="fa fa-truck"></i> Vendor &amp; bill</h4>
+            <small>Required fields are marked *</small>
+          </header>
+          <div class="ph-doc-grid">
+            <label class="ph-doc-field">
+              <span>Vendor / Supplier *</span>
+              <select class="form-select" [(ngModel)]="form.supplierId" (ngModelChange)="onCreateSupplierChange()">
+                <option value="">Select vendor</option>
+                <option *ngFor="let supplier of suppliers" [value]="supplier._id">{{ supplier.name }}</option>
+              </select>
+            </label>
+            <label class="ph-doc-field">
+              <span>Receiving warehouse *</span>
+              <select class="form-select" [(ngModel)]="form.warehouseId">
+                <option value="">Select warehouse</option>
+                <option *ngFor="let warehouse of warehouses" [value]="warehouse._id">{{ warehouse.name }}</option>
+              </select>
+              <small *ngIf="!warehouses.length">
+                No warehouse yet.
+                <button class="ph-link-btn" type="button" *ngIf="canManageWarehouses && !warehouseCreateOpen" (click)="openWarehouseCreate()">Add warehouse</button>
+              </small>
+            </label>
+            <label class="ph-doc-field">
+              <span>Vendor invoice #</span>
+              <input class="form-control" [(ngModel)]="form.supplierInvoiceNo" placeholder="As printed on vendor bill" />
+            </label>
+            <label class="ph-doc-field">
+              <span>Bill date</span>
+              <input class="form-control" type="date" [(ngModel)]="form.purchaseDate" />
+            </label>
+            <label class="ph-doc-field">
+              <span>Stock status</span>
+              <select class="form-select" [(ngModel)]="form.status" (ngModelChange)="onCreateStatusChange()">
+                <option value="received">Received now (add to stock)</option>
+                <option value="ordered">Ordered (not received yet)</option>
+                <option value="draft">Draft</option>
+              </select>
+            </label>
+          </div>
+          <div class="ph-doc-grid mt-3" *ngIf="warehouseCreateOpen">
+            <label class="ph-doc-field">
+              <span>New warehouse name</span>
+              <input class="form-control" [(ngModel)]="warehouseForm.name" placeholder="Main warehouse" />
+            </label>
+            <label class="ph-doc-field">
+              <span>Warehouse code</span>
+              <input class="form-control" [(ngModel)]="warehouseForm.code" placeholder="WH-01" />
+            </label>
+            <div class="d-flex align-items-end gap-2">
+              <button class="ph-btn ghost" type="button" (click)="warehouseCreateOpen = false" [disabled]="creatingWarehouse">Cancel</button>
+              <button class="ph-btn primary" type="button" (click)="createWarehouse()" [disabled]="creatingWarehouse">
+                {{ creatingWarehouse ? 'Creating...' : 'Create' }}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="ph-doc-section">
+          <header>
+            <h4><i class="fa fa-medkit"></i> Medicines ({{ form.items.length }})</h4>
+            <small>Search or scan to add each medicine. Same medicine again increases qty.</small>
+          </header>
+
+          <div class="purchase-quick-add">
+            <div class="ph-doc-search">
+              <i class="fa fa-search"></i>
+              <input
+                class="form-control form-control-lg"
+                type="search"
+                [(ngModel)]="quickSearch"
+                (ngModelChange)="onQuickSearchChange()"
+                (focus)="quickOpen = true"
+                (blur)="onQuickSearchBlur()"
+                (keydown.enter)="handleQuickSearchEnter($event)"
+                placeholder="Search medicine name / SKU / barcode and press Enter to add"
+                autocomplete="off"
+              />
+            </div>
+            <div class="purchase-product-results" *ngIf="quickOpen && (quickLoading || quickResults.length)">
+              <div class="purchase-product-results__status" *ngIf="quickLoading">Searching…</div>
+              <button
+                type="button"
+                class="purchase-product-results__item"
+                *ngFor="let product of quickResults"
+                (mousedown)="addProduct(product)">
+                <strong>{{ product.name }}</strong>
+                <span>
+                  <ng-container *ngIf="product.sku">SKU {{ product.sku }}</ng-container>
+                  <ng-container *ngIf="product.barcode"> · {{ product.barcode }}</ng-container>
+                  <ng-container *ngIf="product.costPrice"> · Cost {{ currency(product.costPrice) }}</ng-container>
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div class="ph-doc-empty mt-3" *ngIf="!form.items.length">
+            <i class="fa fa-plus-circle"></i> No medicines yet. Use the search above to add the first one.
+          </div>
+
+          <div class="ph-doc-lines mt-3" *ngIf="form.items.length">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Medicine</th>
+                  <th>Qty</th>
+                  <th>Cost / unit</th>
+                  <th>Discount</th>
+                  <th>Tax</th>
+                  <th>Batch</th>
+                  <th>Expiry</th>
+                  <th class="text-end">Line total</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let line of form.items; let i = index; trackBy: trackByIndex">
+                  <td class="text-muted">{{ i + 1 }}</td>
+                  <td class="ph-line-name">
+                    <strong>{{ line.productLabel }}</strong>
+                    <small *ngIf="line.sku">{{ line.sku }}</small>
+                  </td>
+                  <td><input class="form-control ph-qty-input" type="number" min="0" [(ngModel)]="line.qty" /></td>
+                  <td><input class="form-control purchase-num" type="number" min="0" [(ngModel)]="line.unitCost" /></td>
+                  <td><input class="form-control purchase-num" type="number" min="0" [(ngModel)]="line.discount" /></td>
+                  <td><input class="form-control purchase-num" type="number" min="0" [(ngModel)]="line.tax" /></td>
+                  <td><input class="form-control purchase-batch" [(ngModel)]="line.batchNumber" placeholder="Batch" /></td>
+                  <td><input class="form-control purchase-date" type="date" [(ngModel)]="line.expiryDate" /></td>
+                  <td class="text-end fw-semibold">{{ currency(lineTotal(line)) }}</td>
+                  <td class="text-end text-nowrap">
+                    <button class="ph-icon-btn" type="button" title="Add another batch of this medicine" (click)="duplicateLine(i)">
+                      <i class="fa fa-clone"></i>
+                    </button>
+                    <button class="ph-icon-btn danger" type="button" title="Remove" (click)="removeLine(i)">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <label class="ph-doc-field mt-3">
+            <span>Notes</span>
+            <textarea class="form-control" rows="2" [(ngModel)]="form.note" placeholder="Optional"></textarea>
+          </label>
+        </section>
+      </div>
+
+      <aside class="purchase-create__side">
+        <section class="ph-doc-section" *ngIf="selectedSupplier">
+          <header><h4><i class="fa fa-user"></i> {{ selectedSupplier.name }}</h4></header>
+          <div class="ph-doc-facts">
+            <div class="ph-doc-fact is-warn">
+              <span>Already pending</span>
+              <strong>{{ currency(createSupplierRow?.pending ?? 0) }}</strong>
+            </div>
+            <div class="ph-doc-fact">
+              <span>Credit limit</span>
+              <strong>{{ currency(selectedSupplier.creditLimit || 0) }}</strong>
+            </div>
+            <div class="ph-doc-fact is-good">
+              <span>Available credit</span>
+              <strong>{{ currency(createSupplierRow?.availableCredit ?? selectedSupplier.availableCredit ?? 0) }}</strong>
+            </div>
+            <div class="ph-doc-fact">
+              <span>Bills so far</span>
+              <strong>{{ createSupplierRow?.billCount ?? 0 }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="ph-doc-section purchase-totals">
+          <header><h4><i class="fa fa-calculator"></i> Bill summary</h4></header>
+          <dl>
+            <div><dt>Medicines</dt><dd>{{ form.items.length }} lines · {{ formQtyTotal }} qty</dd></div>
+            <div><dt>Subtotal</dt><dd>{{ currency(formSubtotal) }}</dd></div>
+            <div><dt>Discount</dt><dd>− {{ currency(formDiscount) }}</dd></div>
+            <div><dt>Tax</dt><dd>+ {{ currency(formTax) }}</dd></div>
+            <div class="is-total"><dt>Bill total</dt><dd>{{ currency(formItemsTotal) }}</dd></div>
+          </dl>
+
+          <div class="purchase-pay-box">
+            <label class="ph-doc-field">
+              <span class="d-flex justify-content-between">
+                Paid now
+                <button type="button" class="ph-link-btn" (click)="payFullOnCreate()" [disabled]="form.status !== 'received'">Pay full</button>
+              </span>
+              <input
+                class="form-control"
+                type="number"
+                min="0"
+                [max]="formItemsTotal"
+                [(ngModel)]="form.paidAmount"
+                [disabled]="form.status !== 'received'" />
+              <small *ngIf="form.status !== 'received'">Payment can be recorded once stock is received.</small>
+            </label>
+            <label class="ph-doc-field" *ngIf="form.status === 'received'">
+              <span>Paid by</span>
+              <select class="form-select" [(ngModel)]="form.paymentMethod">
+                <option value="cash">Cash</option>
+                <option value="bank">Bank</option>
+                <option value="card">Card</option>
+                <option value="online">Online</option>
+              </select>
+            </label>
+          </div>
+
+          <dl>
+            <div class="is-good"><dt>Paid</dt><dd>{{ currency(formPaid) }}</dd></div>
+            <div class="is-warn"><dt>Credit (pay later)</dt><dd>{{ currency(formCredit) }}</dd></div>
+          </dl>
+          <small class="purchase-hint" *ngIf="supplierCreditHint">{{ supplierCreditHint }}</small>
+
+          <button
+            class="ph-btn primary w-100 mt-3"
+            type="button"
+            (click)="save()"
+            [disabled]="saving || !form.items.length">
+            <i class="fa fa-check"></i>
+            <span>{{ saving ? 'Saving...' : 'Save purchase' }}</span>
+          </button>
+        </section>
+      </aside>
     </div>
 
-    <div class="pharmacy-table-card" *ngIf="view === 'create'">
-      <div class="pharmacy-table-head">
-        <div>
-          <h2>Line Items</h2>
-          <p>Add products, qty, and cost. Batch and expiry are optional.</p>
-        </div>
-      </div>
-      <div class="card-body">
-        <div class="table-responsive">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Qty</th>
-                <th>Rate</th>
-                <th>Discount</th>
-                <th>Tax</th>
-                <th>Batch</th>
-                <th>Expiry</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let line of form.items; let i = index">
-                <td class="purchase-product-cell">
-                  <div class="purchase-product-search">
-                    <input
-                      class="form-control"
-                      type="search"
-                      [(ngModel)]="line.productSearch"
-                      (ngModelChange)="onLineProductSearchChange(i)"
-                      (focus)="onLineProductSearchFocus(i)"
-                      (keydown.enter)="handleLineProductSearchEnter($event, i)"
-                      placeholder="Search name / SKU / barcode — Enter to select"
-                      autocomplete="off"
-                    />
-                    <div
-                      class="purchase-product-results"
-                      *ngIf="activeSearchLineIndex === i && (lineSearchLoading || lineSearchResults.length)"
-                    >
-                      <div class="purchase-product-results__status" *ngIf="lineSearchLoading">Searching…</div>
-                      <button
-                        type="button"
-                        class="purchase-product-results__item"
-                        *ngFor="let product of lineSearchResults"
-                        (mousedown)="selectLineProduct(i, product)"
-                      >
-                        <strong>{{ product.name }}</strong>
-                        <span>
-                          <ng-container *ngIf="product.sku">SKU {{ product.sku }}</ng-container>
-                          <ng-container *ngIf="product.barcode"> · {{ product.barcode }}</ng-container>
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                  <small class="text-muted" *ngIf="line.productId">Selected</small>
-                </td>
-                <td><input class="form-control" type="number" [(ngModel)]="line.qty" /></td>
-                <td><input class="form-control" type="number" [(ngModel)]="line.unitCost" /></td>
-                <td><input class="form-control" type="number" [(ngModel)]="line.discount" /></td>
-                <td><input class="form-control" type="number" [(ngModel)]="line.tax" /></td>
-                <td><input class="form-control" [(ngModel)]="line.batchNumber" /></td>
-                <td><input class="form-control" type="date" [(ngModel)]="line.expiryDate" /></td>
-                <td><button class="btn btn-sm btn-default" type="button" (click)="removeLine(i)">Remove</button></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <label class="d-block mt-3">
-          <span class="form-label">Notes</span>
-          <textarea class="form-control" [(ngModel)]="form.note"></textarea>
-        </label>
-        <div class="mt-3">
-          <button class="btn btn-default mr-2" type="button" (click)="addLine()">Add item</button>
-          <button class="btn btn-primary" type="button" (click)="save()" [disabled]="saving">Save purchase</button>
-        </div>
-      </div>
-    </div>
-
+    <!-- ===================== DETAIL ===================== -->
     <div class="pharmacy-loading" *ngIf="view === 'detail' && loading && !purchase">
       <i class="fa fa-spinner fa-spin"></i> Loading purchase...
     </div>
@@ -337,44 +607,46 @@
     </div>
 
     <ng-container *ngIf="view === 'detail' && purchase">
-      <div class="pharmacy-stats-grid">
-        <article class="pharmacy-stat-card">
-          <span>Total</span>
-          <strong>{{ currency(purchase['total']) }}</strong>
+      <section class="ph-highlights">
+        <article class="ph-stat">
+          <div class="ph-stat-icon blue"><i class="fa fa-file-text-o"></i></div>
+          <div><span>Bill total</span><strong>{{ currency(purchase['total']) }}</strong><small>{{ purchaseLines().length }} medicines</small></div>
         </article>
-        <article class="pharmacy-stat-card">
-          <span>Paid</span>
-          <strong>{{ currency(purchase['paidAmount']) }}</strong>
+        <article class="ph-stat">
+          <div class="ph-stat-icon green"><i class="fa fa-check-circle"></i></div>
+          <div><span>Paid</span><strong>{{ currency(purchase['paidAmount']) }}</strong><small>{{ purchasePayments.length }} payments</small></div>
         </article>
-        <article class="pharmacy-stat-card">
-          <span>Balance</span>
-          <strong>{{ currency(balance(purchase)) }}</strong>
+        <article class="ph-stat">
+          <div class="ph-stat-icon amber"><i class="fa fa-clock-o"></i></div>
+          <div><span>Pending</span><strong>{{ currency(balance(purchase)) }}</strong><small class="text-capitalize">{{ paymentStatusLabel(purchase) }}</small></div>
         </article>
-        <article class="pharmacy-stat-card">
-          <span>Payment</span>
-          <strong>{{ paymentStatusLabel(purchase) }}</strong>
+        <article class="ph-stat">
+          <div class="ph-stat-icon purple"><i class="fa fa-user"></i></div>
+          <div>
+            <span>Vendor</span>
+            <strong class="purchase-vendor-name">{{ supplierName() }}</strong>
+            <small><a [routerLink]="['/pharmacy/purchases']" [queryParams]="{ supplierId: text(purchase['supplierId']) }">View vendor history</a></small>
+          </div>
         </article>
-      </div>
+      </section>
 
       <div class="pharmacy-summary-card">
         <div class="pharmacy-table-head">
           <div>
             <h2>Purchase Summary</h2>
-            <p>Supplier, warehouse, and document totals for this procurement.</p>
+            <p>Vendor, warehouse, and document totals.</p>
           </div>
         </div>
         <div class="card-body">
-          <div class="row g-4">
-            <div class="col-md-4"><strong>Purchase #</strong><div>{{ text(purchase['invoiceNo']) }}</div></div>
-            <div class="col-md-4"><strong>Date</strong><div>{{ date(purchase['purchaseDate']) }}</div></div>
-            <div class="col-md-4"><strong>Status</strong><div>{{ text(purchase['status']) }}</div></div>
-            <div class="col-md-4"><strong>Supplier</strong><div>{{ supplierName() }}</div></div>
-            <div class="col-md-4"><strong>Warehouse</strong><div>{{ warehouseName() }}</div></div>
-            <div class="col-md-4"><strong>Payment status</strong><div>{{ text(purchase['paymentStatus']) || 'unpaid' }}</div></div>
-            <div class="col-md-4"><strong>Subtotal</strong><div>{{ currency(purchase['subtotal']) }}</div></div>
-            <div class="col-md-4"><strong>Discount</strong><div>{{ currency(purchase['discount']) }}</div></div>
-            <div class="col-md-4"><strong>Tax</strong><div>{{ currency(purchase['tax']) }}</div></div>
-            <div class="col-12"><strong>Note</strong><div>{{ text(purchase['note']) || 'No note' }}</div></div>
+          <div class="ph-doc-facts">
+            <div class="ph-doc-fact"><span>Bill #</span><strong>{{ text(purchase['invoiceNo']) }}</strong></div>
+            <div class="ph-doc-fact"><span>Vendor invoice #</span><strong>{{ text(purchase['supplierInvoiceNo']) || '—' }}</strong></div>
+            <div class="ph-doc-fact"><span>Date</span><strong>{{ date(purchase['purchaseDate']) }}</strong></div>
+            <div class="ph-doc-fact"><span>Warehouse</span><strong>{{ warehouseName() }}</strong></div>
+            <div class="ph-doc-fact"><span>Subtotal</span><strong>{{ currency(purchase['subtotal']) }}</strong></div>
+            <div class="ph-doc-fact"><span>Discount</span><strong>{{ currency(purchase['discount']) }}</strong></div>
+            <div class="ph-doc-fact"><span>Tax</span><strong>{{ currency(purchase['tax']) }}</strong></div>
+            <div class="ph-doc-fact"><span>Note</span><strong>{{ text(purchase['note']) || '—' }}</strong></div>
           </div>
         </div>
       </div>
@@ -382,8 +654,8 @@
       <div class="pharmacy-table-card">
         <div class="pharmacy-table-head">
           <div>
-            <h2>Line Items</h2>
-            <p>{{ purchaseLines().length }} product lines on this purchase.</p>
+            <h2>Medicines</h2>
+            <p>{{ purchaseLines().length }} lines on this bill.</p>
           </div>
         </div>
         <div class="card-body">
@@ -392,119 +664,424 @@
             <table class="table align-middle">
               <thead>
                 <tr>
-                  <th>Product</th>
+                  <th>Medicine</th>
                   <th>SKU</th>
-                  <th>Qty</th>
-                  <th>Rate</th>
-                  <th>Discount</th>
-                  <th>Tax</th>
-                  <th>Total</th>
+                  <th class="text-end">Qty</th>
+                  <th class="text-end">Cost</th>
+                  <th class="text-end">Discount</th>
+                  <th class="text-end">Tax</th>
+                  <th class="text-end">Total</th>
                   <th>Batch</th>
+                  <th>Expiry</th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngFor="let line of purchaseLines()">
                   <td class="fw-semibold">{{ text(line['name']) || '—' }}</td>
                   <td>{{ text(line['sku']) || '—' }}</td>
-                  <td>{{ text(line['qty']) }}</td>
-                  <td>{{ currency(line['unitCost']) }}</td>
-                  <td>{{ currency(line['discount']) }}</td>
-                  <td>{{ currency(line['tax']) }}</td>
-                  <td>{{ currency(line['total']) }}</td>
+                  <td class="text-end">{{ text(line['qty']) }}</td>
+                  <td class="text-end">{{ currency(line['unitCost']) }}</td>
+                  <td class="text-end">{{ currency(line['discount']) }}</td>
+                  <td class="text-end">{{ currency(line['tax']) }}</td>
+                  <td class="text-end fw-semibold">{{ currency(line['total']) }}</td>
                   <td>{{ text(line['batchNumber']) || '—' }}</td>
+                  <td>{{ line['expiryDate'] ? date(line['expiryDate']) : '—' }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
       </div>
-    </ng-container>
 
-    <section class="ph-highlights" *ngIf="view === 'returns'" aria-label="Purchase return highlights">
-      <article class="ph-stat">
-        <div class="ph-stat-icon blue"><i class="fa fa-undo"></i></div>
-        <div>
-          <span>Returns</span>
-          <strong>{{ returns.length }}</strong>
-          <small>Documents</small>
+      <div class="purchase-detail-grid">
+        <div class="pharmacy-table-card">
+          <div class="pharmacy-table-head">
+            <div>
+              <h2>Payments</h2>
+              <p>Money paid to the vendor for this bill.</p>
+            </div>
+            <button class="ph-btn primary ph-btn-sm" type="button" *ngIf="canPayPurchase(purchase)" (click)="openPay(purchase)">
+              <i class="fa fa-plus"></i> Pay
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="pharmacy-empty-state" *ngIf="!purchasePayments.length">No payments yet.</div>
+            <div class="table-responsive" *ngIf="purchasePayments.length">
+              <table class="table align-middle">
+                <thead>
+                  <tr><th>Date</th><th>Method</th><th>Reference</th><th class="text-end">Amount</th></tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let payment of purchasePayments">
+                    <td>{{ date(payment.paymentDate) }}</td>
+                    <td>{{ methodLabel(payment.method) }}</td>
+                    <td>{{ payment.referenceNo || '—' }}</td>
+                    <td class="text-end fw-semibold text-success">{{ currency(payment.amount) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </article>
-      <article class="ph-stat">
-        <div class="ph-stat-icon green"><i class="fa fa-money"></i></div>
-        <div>
-          <span>Return Total</span>
-          <strong>{{ currency(returnTotal) }}</strong>
-          <small>Visible set</small>
-        </div>
-      </article>
-      <article class="ph-stat">
-        <div class="ph-stat-icon amber"><i class="fa fa-clock-o"></i></div>
-        <div>
-          <span>Pending</span>
-          <strong>{{ returnPendingCount }}</strong>
-          <small>Open docs</small>
-        </div>
-      </article>
-      <article class="ph-stat">
-        <div class="ph-stat-icon purple"><i class="fa fa-check-circle"></i></div>
-        <div>
-          <span>Completed</span>
-          <strong>{{ returnCompletedCount }}</strong>
-          <small>Posted</small>
-        </div>
-      </article>
-    </section>
 
-    <div class="pharmacy-table-card" *ngIf="view === 'returns'">
-      <div class="pharmacy-table-head">
-        <div>
-          <h2>Purchase Return Register</h2>
-          <p>{{ returns.length }} purchase return documents in this view.</p>
+        <div class="pharmacy-table-card">
+          <div class="pharmacy-table-head">
+            <div>
+              <h2>Returns</h2>
+              <p>Medicines sent back to the vendor from this bill.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="pharmacy-empty-state" *ngIf="!purchaseReturnsForDetail.length">No returns.</div>
+            <div class="table-responsive" *ngIf="purchaseReturnsForDetail.length">
+              <table class="table align-middle">
+                <thead>
+                  <tr><th>Return #</th><th>Date</th><th class="text-end">Value</th><th class="text-end">Refund</th></tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let record of purchaseReturnsForDetail">
+                    <td class="fw-semibold">{{ text(record['returnNo']) }}</td>
+                    <td>{{ date(record['returnDate']) }}</td>
+                    <td class="text-end">{{ currency(record['total']) }}</td>
+                    <td class="text-end">{{ currency(record['refundAmount']) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="card-body">
-        <div *ngIf="loading" class="pharmacy-empty-state">Loading returns...</div>
-        <div *ngIf="!loading && !returns.length" class="pharmacy-empty-state">No purchase returns found.</div>
-        <div class="table-responsive ph-desktop-table" *ngIf="!loading && returns.length">
-          <table class="table align-middle">
-            <thead>
-              <tr>
-                <th>Return #</th>
-                <th>Date</th>
-                <th>Total</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of returns">
-                <td class="fw-semibold">{{ text(item['returnNo']) }}</td>
-                <td>{{ date(item['returnDate']) }}</td>
-                <td>{{ currency(item['total']) }}</td>
-                <td>
-                  <span class="pharmacy-status-pill" [ngClass]="statusClass(text(item['status']))">
-                    {{ text(item['status']) }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+    </ng-container>
 
-        <div class="ph-mobile-list" *ngIf="!loading && returns.length">
-          <article class="ph-mobile-card" *ngFor="let item of returns">
-            <div class="ph-mobile-top">
-              <div>
-                <strong>{{ text(item['returnNo']) }}</strong>
-                <small>{{ date(item['returnDate']) }}</small>
+    <!-- ===================== RETURNS ===================== -->
+    <ng-container *ngIf="view === 'returns'">
+      <section class="ph-highlights" aria-label="Purchase return highlights">
+        <article class="ph-stat">
+          <div class="ph-stat-icon blue"><i class="fa fa-undo"></i></div>
+          <div><span>Returns</span><strong>{{ returns.length }}</strong><small>Documents</small></div>
+        </article>
+        <article class="ph-stat">
+          <div class="ph-stat-icon purple"><i class="fa fa-cubes"></i></div>
+          <div><span>Return Value</span><strong>{{ currency(returnTotal) }}</strong><small>At purchase cost</small></div>
+        </article>
+        <article class="ph-stat">
+          <div class="ph-stat-icon green"><i class="fa fa-money"></i></div>
+          <div><span>Cash Refunded</span><strong>{{ currency(returnRefundTotal) }}</strong><small>Received from vendors</small></div>
+        </article>
+        <article class="ph-stat">
+          <div class="ph-stat-icon amber"><i class="fa fa-credit-card"></i></div>
+          <div><span>Vendor Credit</span><strong>{{ currency(returnCreditTotal) }}</strong><small>Adjusted against payable</small></div>
+        </article>
+      </section>
+
+      <div class="pharmacy-filter-card">
+        <div class="pharmacy-filter-body">
+          <div class="pharmacy-filter-grid">
+            <label class="pharmacy-field">
+              <span>From</span>
+              <input class="form-control" type="date" [(ngModel)]="fromDate" />
+            </label>
+            <label class="pharmacy-field">
+              <span>To</span>
+              <input class="form-control" type="date" [(ngModel)]="toDate" />
+            </label>
+          </div>
+          <div class="pharmacy-filter-actions">
+            <button class="ph-btn primary" type="button" (click)="loadReturns()">
+              <i class="fa fa-filter"></i><span>Apply</span>
+            </button>
+            <button class="ph-btn ghost" type="button" (click)="fromDate = ''; toDate = ''; loadReturns()">
+              <i class="fa fa-refresh"></i><span>Reset</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pharmacy-table-card">
+        <div class="pharmacy-table-head">
+          <div>
+            <h2>Purchase Return Register</h2>
+            <p>{{ returns.length }} purchase return documents.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div *ngIf="loading" class="pharmacy-empty-state">Loading returns...</div>
+          <div *ngIf="!loading && !returns.length" class="pharmacy-empty-state">No purchase returns found.</div>
+          <div class="table-responsive ph-desktop-table" *ngIf="!loading && returns.length">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Return #</th>
+                  <th>Date</th>
+                  <th>Vendor</th>
+                  <th>Purchase</th>
+                  <th class="text-end">Items</th>
+                  <th class="text-end">Value</th>
+                  <th class="text-end">Refund</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of returns">
+                  <td class="fw-semibold">{{ text(item['returnNo']) }}</td>
+                  <td>{{ date(item['returnDate']) }}</td>
+                  <td>{{ supplierName(item) }}</td>
+                  <td>
+                    <a [routerLink]="['/pharmacy/purchases', item['purchaseId']]">{{ purchaseInvoice(item['purchaseId']) }}</a>
+                  </td>
+                  <td class="text-end">{{ linesOf(item).length }}</td>
+                  <td class="text-end">{{ currency(item['total']) }}</td>
+                  <td class="text-end">{{ currency(item['refundAmount']) }}</td>
+                  <td>
+                    <span class="pharmacy-status-pill" [ngClass]="statusClass(text(item['status']))">
+                      {{ text(item['status']) }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="ph-mobile-list" *ngIf="!loading && returns.length">
+            <article class="ph-mobile-card" *ngFor="let item of returns">
+              <div class="ph-mobile-top">
+                <div>
+                  <strong>{{ text(item['returnNo']) }}</strong>
+                  <small>{{ date(item['returnDate']) }} · {{ supplierName(item) }}</small>
+                </div>
+                <span class="pharmacy-status-pill" [ngClass]="statusClass(text(item['status']))">
+                  {{ text(item['status']) }}
+                </span>
               </div>
-              <span class="pharmacy-status-pill" [ngClass]="statusClass(text(item['status']))">
-                {{ text(item['status']) }}
-              </span>
+              <div class="ph-mobile-meta">
+                <span>Value {{ currency(item['total']) }}</span>
+                <span>Refund {{ currency(item['refundAmount']) }}</span>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </div>
+
+  <!-- ===================== PAY MODAL ===================== -->
+  <div class="ph-doc-backdrop" *ngIf="payOpen && payTarget" (click)="closePay()">
+    <div class="ph-doc-modal is-small" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="ph-doc-modal__head">
+        <span class="ph-doc-modal__icon"><i class="fa fa-money"></i></span>
+        <div>
+          <h3>Pay Vendor</h3>
+          <p>{{ supplierName(payTarget) }} · {{ text(payTarget['invoiceNo']) }}</p>
+        </div>
+        <button type="button" class="pharmacy-modal-close" (click)="closePay()" aria-label="Close">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      <div class="ph-doc-modal__body">
+        <div class="ph-doc-facts">
+          <div class="ph-doc-fact"><span>Bill total</span><strong>{{ currency(payTarget['total']) }}</strong></div>
+          <div class="ph-doc-fact is-good"><span>Paid</span><strong>{{ currency(payTarget['paidAmount']) }}</strong></div>
+          <div class="ph-doc-fact is-warn"><span>Pending</span><strong>{{ currency(balance(payTarget)) }}</strong></div>
+        </div>
+        <div class="ph-doc-grid">
+          <label class="ph-doc-field">
+            <span class="d-flex justify-content-between">
+              Amount
+              <button type="button" class="ph-link-btn" (click)="payForm.amount = balance(payTarget)">Full</button>
+            </span>
+            <input class="form-control" type="number" min="0" [max]="balance(payTarget)" [(ngModel)]="payForm.amount" />
+          </label>
+          <label class="ph-doc-field">
+            <span>Method</span>
+            <select class="form-select" [(ngModel)]="payForm.method">
+              <option value="cash">Cash</option>
+              <option value="bank">Bank</option>
+              <option value="check">Cheque</option>
+              <option value="online">Online</option>
+              <option value="card">Card</option>
+            </select>
+          </label>
+          <label class="ph-doc-field">
+            <span>Date</span>
+            <input class="form-control" type="date" [(ngModel)]="payForm.paymentDate" />
+          </label>
+          <label class="ph-doc-field">
+            <span>Reference {{ payForm.method === 'check' ? '*' : '' }}</span>
+            <input class="form-control" [(ngModel)]="payForm.referenceNo" placeholder="Cheque / txn no." />
+          </label>
+        </div>
+        <label class="ph-doc-field">
+          <span>Note</span>
+          <input class="form-control" [(ngModel)]="payForm.note" placeholder="Optional" />
+        </label>
+      </div>
+      <div class="ph-doc-modal__foot">
+        <div class="ph-doc-summary">
+          <div class="is-warn">
+            <span>Remaining after</span>
+            <strong>{{ currency(balance(payTarget) - (payForm.amount || 0) > 0 ? balance(payTarget) - (payForm.amount || 0) : 0) }}</strong>
+          </div>
+        </div>
+        <div class="ph-doc-modal__actions">
+          <button class="ph-btn ghost" type="button" (click)="closePay()" [disabled]="saving">Cancel</button>
+          <button class="ph-btn primary" type="button" (click)="submitPay()" [disabled]="saving">
+            <i class="fa fa-check"></i>
+            <span>{{ saving ? 'Saving...' : 'Record payment' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PURCHASE RETURN MODAL ===================== -->
+  <div class="ph-doc-backdrop" *ngIf="returnOpen" (click)="closeReturn()">
+    <div class="ph-doc-modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="ph-doc-modal__head">
+        <span class="ph-doc-modal__icon"><i class="fa fa-undo"></i></span>
+        <div>
+          <h3>Create Purchase Return</h3>
+          <p>Send medicines back to the vendor. Unrefunded value reduces what you owe them.</p>
+        </div>
+        <button type="button" class="pharmacy-modal-close" (click)="closeReturn()" aria-label="Close">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+
+      <div class="ph-doc-modal__body">
+        <section class="ph-doc-section" *ngIf="!returnPurchase">
+          <header>
+            <h4>1. Select purchase bill</h4>
+            <small>{{ returnCandidatesLoading ? 'Loading…' : filteredReturnCandidates.length + ' received bills' }}</small>
+          </header>
+          <div class="ph-doc-search mb-2">
+            <i class="fa fa-search"></i>
+            <input class="form-control" [(ngModel)]="returnSearch" placeholder="Search bill #, vendor invoice or vendor" autocomplete="off" />
+          </div>
+          <div class="ph-doc-picklist" *ngIf="filteredReturnCandidates.length; else noReturnCandidates">
+            <button
+              type="button"
+              class="ph-doc-pick"
+              *ngFor="let item of filteredReturnCandidates"
+              (click)="chooseReturnPurchase(item)">
+              <div>
+                <strong>{{ text(item['invoiceNo']) }} · {{ supplierName(item) }}</strong>
+                <small>{{ date(item['purchaseDate']) }} · {{ linesOf(item).length }} medicines · Paid {{ currency(item['paidAmount']) }}</small>
+              </div>
+              <span class="ph-doc-pick__amount">{{ currency(item['total']) }}</span>
+            </button>
+          </div>
+          <ng-template #noReturnCandidates>
+            <div class="ph-doc-empty">
+              {{ returnCandidatesLoading ? 'Loading bills…' : 'No received purchase bill found.' }}
             </div>
-            <div class="ph-mobile-meta">
-              <span>Total {{ currency(item['total']) }}</span>
+          </ng-template>
+        </section>
+
+        <ng-container *ngIf="returnPurchase">
+          <section class="ph-doc-section">
+            <header>
+              <h4><i class="fa fa-file-text-o"></i> {{ text(returnPurchase['invoiceNo']) }} · {{ supplierName(returnPurchase) }}</h4>
+              <button type="button" class="ph-link-btn" *ngIf="view !== 'detail'" (click)="clearReturnSelection()">Change bill</button>
+            </header>
+            <div class="ph-doc-facts">
+              <div class="ph-doc-fact"><span>Bill date</span><strong>{{ date(returnPurchase['purchaseDate']) }}</strong></div>
+              <div class="ph-doc-fact"><span>Bill total</span><strong>{{ currency(returnPurchase['total']) }}</strong></div>
+              <div class="ph-doc-fact is-good"><span>Paid</span><strong>{{ currency(returnPurchase['paidAmount']) }}</strong></div>
+              <div class="ph-doc-fact is-warn"><span>Pending</span><strong>{{ currency(balance(returnPurchase)) }}</strong></div>
             </div>
-          </article>
+          </section>
+
+          <section class="ph-doc-section">
+            <header>
+              <h4>2. Return quantity</h4>
+              <div class="d-flex gap-3">
+                <button type="button" class="ph-link-btn" (click)="returnAllLines()">Return all</button>
+                <button type="button" class="ph-link-btn" (click)="clearReturnQty()">Clear</button>
+              </div>
+            </header>
+            <div class="ph-doc-lines">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Medicine</th>
+                    <th class="text-end">Purchased</th>
+                    <th class="text-end">Returned</th>
+                    <th class="text-end">Cost</th>
+                    <th>Return qty</th>
+                    <th class="text-end">Value</th>
+                    <th>Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let line of returnLines" [class.is-active]="line.qty > 0">
+                    <td class="ph-line-name">
+                      <strong>{{ line.name }}</strong>
+                      <small *ngIf="line.sku">{{ line.sku }}</small>
+                    </td>
+                    <td class="text-end">{{ line.purchasedQty }}</td>
+                    <td class="text-end">{{ line.returnedQty }}</td>
+                    <td class="text-end">{{ currency(line.unitCost) }}</td>
+                    <td>
+                      <input
+                        class="form-control ph-qty-input"
+                        type="number"
+                        min="0"
+                        [max]="returnRemaining(line)"
+                        [disabled]="returnRemaining(line) <= 0"
+                        [ngModel]="line.qty"
+                        (ngModelChange)="setReturnQty(line, $event)" />
+                    </td>
+                    <td class="text-end fw-semibold">{{ currency(line.qty * line.unitCost) }}</td>
+                    <td><input class="form-control" [(ngModel)]="line.reason" placeholder="Expired, damaged…" /></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="ph-doc-section">
+            <header><h4>3. Refund from vendor</h4></header>
+            <div class="ph-doc-grid">
+              <label class="ph-doc-field">
+                <span>Return date</span>
+                <input class="form-control" type="date" [(ngModel)]="returnDate" />
+              </label>
+              <label class="ph-doc-field">
+                <span>Cash refund received</span>
+                <input
+                  class="form-control"
+                  type="number"
+                  min="0"
+                  [max]="returnMaxRefund"
+                  [ngModel]="returnRefund"
+                  (ngModelChange)="onReturnRefundChange($event)" />
+                <small>Max {{ currency(returnMaxRefund) }}. Leave 0 to adjust against pending credit.</small>
+              </label>
+              <label class="ph-doc-field">
+                <span>Refund method</span>
+                <select class="form-select" [(ngModel)]="returnMethod" [disabled]="!returnRefund">
+                  <option value="cash">Cash</option>
+                  <option value="bank">Bank</option>
+                </select>
+              </label>
+            </div>
+          </section>
+        </ng-container>
+      </div>
+
+      <div class="ph-doc-modal__foot">
+        <div class="ph-doc-summary" *ngIf="returnPurchase">
+          <div><span>Qty</span><strong>{{ returnQtyTotal }}</strong></div>
+          <div><span>Return value</span><strong>{{ currency(returnValue) }}</strong></div>
+          <div><span>Refund</span><strong>{{ currency(returnRefund) }}</strong></div>
+          <div class="is-primary"><span>Vendor credit</span><strong>{{ currency(returnValue - returnRefund) }}</strong></div>
+        </div>
+        <div class="ph-doc-modal__actions">
+          <button class="ph-btn ghost" type="button" (click)="closeReturn()" [disabled]="saving">Cancel</button>
+          <button class="ph-btn primary" type="button" (click)="submitReturn()" [disabled]="saving || !returnPurchase || !returnQtyTotal">
+            <i class="fa fa-check"></i>
+            <span>{{ saving ? 'Saving...' : 'Create Return' }}</span>
+          </button>
         </div>
       </div>
     </div>

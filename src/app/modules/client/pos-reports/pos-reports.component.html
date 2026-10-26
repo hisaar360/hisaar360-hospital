@@ -154,6 +154,41 @@
         </article>
       </section>
 
+      <section class="cost-warning-card" *ngIf="costWarnings.length" aria-label="Cost above selling price">
+        <header>
+          <h2><i class="fa fa-exclamation-triangle"></i> Cost is higher than selling price</h2>
+          <p>
+            These medicines were sold below their cost price, which pulls Gross Profit negative. Usually the cost
+            was entered per box / strip while selling is per unit. Fix the cost price in the medicine catalog;
+            new sales will use the corrected cost.
+          </p>
+        </header>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Medicine</th>
+                <th>SKU</th>
+                <th class="text-end">Cost / unit</th>
+                <th class="text-end">Sale price / unit</th>
+                <th class="text-end">Qty sold</th>
+                <th class="text-end">Loss</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of costWarnings">
+                <td class="fw-semibold">{{ row['name'] || '-' }}</td>
+                <td>{{ row['sku'] || '-' }}</td>
+                <td class="text-end">{{ formatValue('unitCost', row['unitCost']) }}</td>
+                <td class="text-end">{{ formatValue('unitPrice', row['unitPrice']) }}</td>
+                <td class="text-end">{{ row['qty'] }}</td>
+                <td class="text-end text-danger fw-semibold">{{ formatValue('lossAmount', row['lossAmount']) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="medicine-perf-chart" *ngIf="showMedicineChart" aria-label="Medicine performance chart">
         <header>
           <h2>Sold / Returned / Purchased</h2>

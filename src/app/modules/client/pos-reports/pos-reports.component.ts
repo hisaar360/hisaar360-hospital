@@ -210,6 +210,14 @@ export class PosReportsComponent implements OnInit {
     return Array.isArray(possibleItems) ? possibleItems.filter(this.isRecord) : [];
   }
 
+  get costWarnings(): Record<string, unknown>[] {
+    if (this.activeReport !== 'profit-loss' || !this.isRecord(this.reportData)) {
+      return [];
+    }
+    const rows = this.reportData['costWarnings'];
+    return Array.isArray(rows) ? rows.filter(this.isRecord) : [];
+  }
+
   get summaryEntries(): Array<{ key: string; value: unknown }> {
     if (!this.isRecord(this.reportData) || Array.isArray(this.reportData)) {
       return [];
@@ -223,7 +231,9 @@ export class PosReportsComponent implements OnInit {
           : [];
 
     const entries = Object.entries(this.reportData)
-      .filter(([key]) => key !== 'items' && key !== 'fromDate' && key !== 'toDate')
+      .filter(
+        ([key]) => key !== 'items' && key !== 'costWarnings' && key !== 'fromDate' && key !== 'toDate'
+      )
       .map(([key, value]) => ({ key, value }));
 
     if (!preferred.length) {
@@ -377,6 +387,11 @@ export class PosReportsComponent implements OnInit {
       purchased: 'Purchased',
       totals: 'Totals',
       count: 'Movements',
+      revenue: 'Net Revenue',
+      grossRevenue: 'Gross Sales',
+      salesReturns: 'Sales Returns',
+      cogs: 'Cost of Goods Sold',
+      saleCount: 'Completed Sales',
       sku: 'SKU',
       name: 'Medicine',
     };
@@ -636,6 +651,11 @@ export class PosReportsComponent implements OnInit {
       'expenses',
       'grossProfit',
       'grossProfitToday',
+      'grossRevenue',
+      'salesReturns',
+      'unitCost',
+      'unitPrice',
+      'lossAmount',
       'netProfit',
       'paidAmount',
       'revenue',

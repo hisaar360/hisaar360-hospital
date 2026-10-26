@@ -735,3 +735,389 @@
     display: grid;
   }
 }
+
+/* ---------- Document modals (sales return / purchase return / payment) ---------- */
+.ph-doc-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 16px;
+  position: fixed;
+  z-index: 1200;
+}
+
+.ph-doc-modal {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.25);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 32px);
+  max-width: 1040px;
+  overflow: hidden;
+  width: 100%;
+
+  &.is-small {
+    max-width: 520px;
+  }
+}
+
+.ph-doc-modal__head {
+  align-items: center;
+  background: linear-gradient(135deg, #003e86 0%, #0b5cad 60%, #019c9d 100%);
+  color: #fff;
+  display: flex;
+  gap: 14px;
+  padding: 16px 20px;
+
+  h3 {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 800;
+    margin: 0;
+  }
+
+  p {
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 12.5px;
+    margin: 2px 0 0;
+  }
+
+  .pharmacy-modal-close {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #fff;
+    margin-left: auto;
+  }
+}
+
+.ph-doc-modal__icon {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 18px;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.ph-doc-modal__body {
+  background: #f8fafc;
+  display: grid;
+  gap: 14px;
+  overflow: auto;
+  padding: 18px 20px;
+}
+
+.ph-doc-modal__foot {
+  align-items: center;
+  background: #fff;
+  border-top: 1px solid var(--pharmacy-line, #e2e8f0);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 14px 20px;
+}
+
+.ph-doc-modal__actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.ph-doc-section {
+  background: #fff;
+  border: 1px solid var(--pharmacy-line, #e2e8f0);
+  border-radius: 12px;
+  padding: 14px 16px;
+
+  > header {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: space-between;
+    margin-bottom: 10px;
+
+    h4 {
+      color: #0f172a;
+      font-size: 14px;
+      font-weight: 800;
+      margin: 0;
+    }
+
+    small {
+      color: #64748b;
+      font-size: 12px;
+    }
+  }
+}
+
+.ph-doc-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.ph-doc-field {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+
+  > span {
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  > small {
+    color: #64748b;
+    font-size: 11.5px;
+  }
+
+  .form-control,
+  .form-select {
+    border-radius: 8px;
+    font-size: 13.5px;
+    min-height: 38px;
+  }
+}
+
+.ph-doc-facts {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.ph-doc-fact {
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+  border-radius: 10px;
+  padding: 9px 12px;
+
+  span {
+    color: #64748b;
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  strong {
+    color: #0f172a;
+    display: block;
+    font-size: 14px;
+    font-weight: 800;
+    margin-top: 2px;
+    word-break: break-word;
+  }
+
+  &.is-good strong {
+    color: #047857;
+  }
+
+  &.is-warn strong {
+    color: #b45309;
+  }
+
+  &.is-danger strong {
+    color: #b91c1c;
+  }
+}
+
+.ph-doc-lines {
+  border: 1px solid #eef2f7;
+  border-radius: 10px;
+  overflow: auto;
+
+  table {
+    margin: 0;
+    min-width: 640px;
+    width: 100%;
+  }
+
+  th {
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 9px 10px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  td {
+    border-top: 1px solid #eef2f7;
+    font-size: 13px;
+    padding: 8px 10px;
+    vertical-align: middle;
+  }
+
+  tr.is-active td {
+    background: #f0fdfa;
+  }
+
+  .form-control {
+    border-radius: 8px;
+    font-size: 13px;
+    min-height: 34px;
+  }
+
+  .ph-qty-input {
+    max-width: 92px;
+  }
+
+  .ph-line-name strong {
+    color: #0f172a;
+    display: block;
+  }
+
+  .ph-line-name small {
+    color: #64748b;
+  }
+}
+
+.ph-doc-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+
+  div {
+    display: grid;
+  }
+
+  span {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  strong {
+    color: #0f172a;
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  .is-primary strong {
+    color: #003e86;
+    font-size: 19px;
+  }
+
+  .is-warn strong {
+    color: #b45309;
+  }
+}
+
+.ph-doc-search {
+  position: relative;
+
+  .fa-search {
+    color: #94a3b8;
+    left: 12px;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .form-control {
+    padding-left: 34px;
+  }
+}
+
+.ph-doc-picklist {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.ph-doc-pick {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px 12px;
+  text-align: left;
+  width: 100%;
+
+  &:hover {
+    border-color: #93c5fd;
+  }
+
+  &.is-selected {
+    background: #eff6ff;
+    border-color: #1d4ed8;
+    box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.12);
+  }
+
+  strong {
+    color: #0f172a;
+    display: block;
+    font-size: 13px;
+  }
+
+  small {
+    color: #64748b;
+    font-size: 11.5px;
+  }
+
+  .ph-doc-pick__amount {
+    color: #0f172a;
+    font-weight: 800;
+    text-align: right;
+    white-space: nowrap;
+  }
+}
+
+.ph-doc-empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  color: #64748b;
+  font-size: 13px;
+  padding: 18px;
+  text-align: center;
+}
+
+.ph-link-btn {
+  background: transparent;
+  border: 0;
+  color: #1d4ed8;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+@media (max-width: 640px) {
+  .ph-doc-modal__body,
+  .ph-doc-modal__foot,
+  .ph-doc-modal__head {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .ph-doc-modal__actions {
+    width: 100%;
+
+    .ph-btn {
+      flex: 1;
+    }
+  }
+}

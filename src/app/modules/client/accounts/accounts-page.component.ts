@@ -58,7 +58,7 @@ export class AccountsPageComponent implements OnInit, OnDestroy {
   search = '';
   tableSearch = '';
   accountId = '';
-  accountCode = '1100';
+  accountCode = '1000';
   supplierId = '';
   saving = false;
   data: Record<string, unknown> = {};

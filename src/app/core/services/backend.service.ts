@@ -2523,6 +2523,16 @@ export class BackendService {
     );
   }
 
+  createPurchaseReturn(payload: Record<string, unknown>): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(CONFIG.returns.purchases, payload);
+  }
+
+  getPurchaseSupplierSummary(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.purchases}/supplier-summary`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
   getInventory(params?: Record<string, unknown>): Observable<ListResult<Record<string, unknown>>> {
     return this.get<PaginatedResponse<Record<string, unknown>>>(CONFIG.inventory, params).pipe(
       map((response) => this.unwrapData(response))
