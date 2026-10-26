@@ -342,7 +342,7 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
 @font-face{font-family:"Jameel Noori Nastaleeq";font-style:normal;font-weight:400;src:url("${jameelFontUrl}") format("woff");font-display:swap}
 body{margin:0;color:#111827;font-family:Arial,"Segoe UI",sans-serif;font-size:${bodySize}px;font-weight:${bodyWeight};background:#eef2f7}
 .wrap{padding:18px 12px 28px}
-.receipt{margin:0 auto;max-width:${maxWidth}px;background:#fff;padding:${isA4 ? '22px 28px' : '12px 10px 18px'};box-shadow:0 10px 28px rgba(15,23,42,.12);position:relative;border-radius:2px}
+.receipt{margin:0 auto;max-width:${maxWidth}px;background:#fff;padding:${isA4 ? '22px 28px' : '12px 14px 18px 10px'};box-shadow:0 10px 28px rgba(15,23,42,.12);position:relative;border-radius:2px;box-sizing:border-box}
 .receipt:after{content:"";position:absolute;left:0;right:0;bottom:-10px;height:12px;background:
   linear-gradient(135deg,#fff 33%,transparent 33%) -6px 0/12px 12px,
   linear-gradient(225deg,#fff 33%,transparent 33%) -6px 0/12px 12px;background-color:transparent}

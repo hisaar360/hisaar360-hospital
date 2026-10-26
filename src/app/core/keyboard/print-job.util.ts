@@ -54,11 +54,14 @@ body.hms-print-invoice {
   overflow: visible !important;
 }
 body.hms-print-invoice .receipt,
-body.hms-print-invoice section {
+body.hms-print-invoice section.receipt {
   width: 100% !important;
   max-width: 100% !important;
   margin: 0 !important;
   box-sizing: border-box !important;
+  /* Thermal heads often clip the far-right edge — bias content left */
+  padding-left: 1.2mm !important;
+  padding-right: 4mm !important;
 }
 @media print {
   @page { size: auto; margin: 0 !important; }
@@ -67,6 +70,11 @@ body.hms-print-invoice section {
     max-width: 100% !important;
     height: auto !important;
     overflow: visible !important;
+  }
+  body.hms-print-invoice .receipt,
+  body.hms-print-invoice section.receipt {
+    padding-left: 1.2mm !important;
+    padding-right: 4mm !important;
   }
 }
 `;

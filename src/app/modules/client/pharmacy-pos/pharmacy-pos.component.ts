@@ -3417,7 +3417,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       .join('');
 
     // Fill printer paper width; never set @page size (driver fight / blank preview).
-    const padX = narrow ? '0.4mm' : '1mm';
+    // Thermal heads clip the right edge (~2–4mm). Always bias content left
+    // (even if letterhead says 80mm while the physical roll is 58mm).
+    const padLeft = '1.2mm';
+    const padRight = '4mm';
     const headerPx = Math.min(fontHeader, narrow ? 13 : 15);
     const bodyPx = Math.min(fontBody, narrow ? 9 : 10);
     const footerPx = Math.min(fontFooter, narrow ? 9 : 10);
@@ -3472,11 +3475,13 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               margin: 0;
               width: 100%;
               max-width: 100%;
-              padding: 0.8mm ${padX} 10mm;
+              box-sizing: border-box;
+              /* Extra right inset = content shifted left away from clip zone */
+              padding: 0.8mm ${padRight} 10mm ${padLeft};
               overflow: hidden;
             }
             .center { text-align: center; }
-            .logo { display: block; height: ${logoPrintPx}px; margin: 0 auto ${gap}px; max-width: 92%; object-fit: contain; }
+            .logo { display: block; height: ${logoPrintPx}px; margin: 0 auto ${gap}px; max-width: 90%; object-fit: contain; }
             h1 { font-size: ${headerPx}px; font-weight: ${weightHeader}; margin: 0 0 ${gap}px; word-break: break-word; line-height: 1.15; }
             p { margin: ${gap}px 0; word-break: break-word; }
             .meta { border-bottom: ${border}; border-top: ${border}; margin: ${gap * 2}px 0; padding: ${gap * 2}px 0; }
@@ -3486,20 +3491,25 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               align-items: flex-start;
               gap: 3px;
               width: 100%;
+              max-width: 100%;
+              box-sizing: border-box;
             }
-            .meta span, .totals span { flex: 0 0 auto; max-width: 42%; }
+            .meta span, .totals span { flex: 0 0 auto; max-width: 40%; }
             .meta strong, .totals strong {
               flex: 1 1 auto;
               min-width: 0;
+              max-width: 58%;
               text-align: right;
               overflow-wrap: anywhere;
               word-break: break-word;
+              padding-right: 0.5mm;
             }
             table {
               border-collapse: collapse;
               table-layout: fixed;
               width: 100%;
               max-width: 100%;
+              box-sizing: border-box;
             }
             th, td {
               border: 1px solid #111827;
