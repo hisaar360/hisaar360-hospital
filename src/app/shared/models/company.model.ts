@@ -20,12 +20,18 @@ export interface ReceiptLetterheadSettings {
   fontSizeFooter?: number;
   fontSizeMedicine?: number;
   fontSizeAmount?: number;
+  /** Invoice / Date / Customer block */
+  fontSizeMeta?: number;
+  /** Urdu / English terms block */
+  fontSizeTerms?: number;
   lineGap?: number;
   fontWeightHeader?: 'normal' | 'bold';
   fontWeightBody?: 'normal' | 'bold';
   fontWeightFooter?: 'normal' | 'bold';
   fontWeightMedicine?: 'normal' | 'bold';
   fontWeightAmount?: 'normal' | 'bold';
+  fontWeightMeta?: 'normal' | 'bold';
+  fontWeightTerms?: 'normal' | 'bold';
 }
 
 export interface CompanyProfile {

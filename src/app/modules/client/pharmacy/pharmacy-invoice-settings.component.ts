@@ -219,12 +219,16 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
       fontSizeFooter: 10,
       fontSizeMedicine: 11,
       fontSizeAmount: 13,
+      fontSizeMeta: 10,
+      fontSizeTerms: 11,
       lineGap: 2,
       fontWeightHeader: 'bold',
       fontWeightBody: 'normal',
       fontWeightFooter: 'normal',
       fontWeightMedicine: 'bold',
       fontWeightAmount: 'bold',
+      fontWeightMeta: 'normal',
+      fontWeightTerms: 'normal',
     };
   }
 
@@ -261,12 +265,16 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
       fontSizeFooter: lh?.fontSizeFooter || 10,
       fontSizeMedicine: lh?.fontSizeMedicine || lh?.fontSizeBody || 11,
       fontSizeAmount: lh?.fontSizeAmount || (Number(lh?.fontSizeBody) || 11) + 2,
+      fontSizeMeta: lh?.fontSizeMeta || lh?.fontSizeBody || 10,
+      fontSizeTerms: lh?.fontSizeTerms || lh?.fontSizeFooter || 11,
       lineGap: Number.isFinite(Number(lh?.lineGap)) ? Number(lh?.lineGap) : 2,
       fontWeightHeader: lh?.fontWeightHeader === 'normal' ? 'normal' : 'bold',
       fontWeightBody: lh?.fontWeightBody === 'bold' ? 'bold' : 'normal',
       fontWeightFooter: lh?.fontWeightFooter === 'bold' ? 'bold' : 'normal',
       fontWeightMedicine: lh?.fontWeightMedicine === 'normal' ? 'normal' : 'bold',
       fontWeightAmount: lh?.fontWeightAmount === 'normal' ? 'normal' : 'bold',
+      fontWeightMeta: lh?.fontWeightMeta === 'bold' ? 'bold' : 'normal',
+      fontWeightTerms: lh?.fontWeightTerms === 'bold' ? 'bold' : 'normal',
     };
   }
 
@@ -312,12 +320,16 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
     const footerSize = Number(f.fontSizeFooter) || 10;
     const medicineSize = Number(f.fontSizeMedicine) || bodySize;
     const amountSize = Number(f.fontSizeAmount) || bodySize + 2;
+    const metaSize = Number(f.fontSizeMeta) || bodySize;
+    const termsSize = Number(f.fontSizeTerms) || footerSize;
     const gap = Number.isFinite(Number(f.lineGap)) ? Number(f.lineGap) : 2;
     const headerWeight = f.fontWeightHeader === 'normal' ? 'normal' : 'bold';
     const bodyWeight = f.fontWeightBody === 'bold' ? 'bold' : 'normal';
     const footerWeight = f.fontWeightFooter === 'bold' ? 'bold' : 'normal';
     const medicineWeight = f.fontWeightMedicine === 'normal' ? 'normal' : 'bold';
     const amountWeight = f.fontWeightAmount === 'normal' ? 'normal' : 'bold';
+    const metaWeight = f.fontWeightMeta === 'bold' ? 'bold' : 'normal';
+    const termsWeight = f.fontWeightTerms === 'bold' ? 'bold' : 'normal';
     const brand = f.brandTitle || this.company?.name || 'Pharmacy';
     const logo = f.showLogo && f.logoUrl ? resolveAssetUrl(f.logoUrl) : '';
     const headerLines = [
@@ -350,12 +362,12 @@ body{margin:0;color:#111827;font-family:Arial,"Segoe UI",sans-serif;font-size:${
 .logo{display:block;height:${logoPx}px;margin:0 auto ${gap * 2}px;max-width:${Math.max(logoPx, 120)}px;object-fit:contain}
 h1{font-size:${headerSize}px;font-weight:${headerWeight};margin:0 0 ${gap}px;letter-spacing:-.02em}
 p{margin:${gap}px 0}
-.meta{border-bottom:${border};border-top:${border};margin:${gap * 3}px 0;padding:${gap * 2}px 0}
+.meta{border-bottom:${border};border-top:${border};margin:${gap * 3}px 0;padding:${gap * 2}px 0;font-size:${metaSize}px;font-weight:${metaWeight}}
 .meta div,.totals div{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
-.meta span{flex:0 0 auto}
-.meta strong{flex:1 1 auto;min-width:0;text-align:right;overflow-wrap:anywhere;word-break:break-word}
+.meta span{flex:0 0 auto;font-weight:${metaWeight}}
+.meta .meta-val{flex:1 1 auto;min-width:0;text-align:right;overflow-wrap:anywhere;word-break:break-word;font-weight:${metaWeight}}
 table{border-collapse:collapse;table-layout:fixed;width:100%}
-th,td{border:1px solid #111827;font-size:${Math.max(7, bodySize - 1)}px;padding:${gap}px 3px;text-align:left;vertical-align:top;word-break:break-word}
+th,td{border:1px solid #111827;font-size:${bodySize}px;padding:${gap}px 3px;text-align:left;vertical-align:top;word-break:break-word}
 .item-name{font-size:${medicineSize}px;font-weight:${medicineWeight};line-height:1.15;white-space:normal;word-break:break-word}
 th:first-child,td:first-child{white-space:normal;word-break:break-word}
 th:first-child,td:first-child{width:46%}
@@ -367,16 +379,16 @@ th:nth-child(4),td:nth-child(4){width:21%}
 .totals strong{overflow-wrap:anywhere;word-break:break-all;text-align:right;max-width:55%}
 .grand{font-size:${amountSize}px;font-weight:${amountWeight}}
 .foot{border-top:${border};margin-top:${gap * 3}px;padding-top:${gap * 2}px;text-align:center;font-size:${footerSize}px;font-weight:${footerWeight}}
-.terms{margin-top:${gap * 2}px;text-align:right;font-family:"Jameel Noori Nastaleeq","Noto Nastaliq Urdu",serif;font-size:${Math.max(footerSize + 2, 13)}px;font-weight:400;white-space:pre-wrap;unicode-bidi:plaintext;direction:rtl;line-height:1.7}
+.terms{margin-top:${gap * 2}px;text-align:right;font-family:"Jameel Noori Nastaleeq","Noto Nastaliq Urdu",serif;font-size:${termsSize}px;font-weight:${termsWeight};white-space:pre-wrap;unicode-bidi:plaintext;direction:rtl;line-height:1.7}
 </style></head><body><div class="wrap"><section class="receipt"><div class="center">
 ${logo ? `<img class="logo" src="${this.escAttr(logo)}" alt=""/>` : ''}
 <h1>${this.esc(brand)}</h1>
 ${headerLines.map((l) => `<p>${this.esc(String(l))}</p>`).join('')}
 </div>
 <div class="meta">
-<div><span>Invoice</span><strong>PREVIEW-001</strong></div>
-<div><span>Date</span><strong>${new Date().toLocaleString()}</strong></div>
-<div><span>Customer</span><strong>Walk-in</strong></div>
+<div><span>Invoice</span><span class="meta-val">PREVIEW-001</span></div>
+<div><span>Date</span><span class="meta-val">${new Date().toLocaleString()}</span></div>
+<div><span>Customer</span><span class="meta-val">Walk-in</span></div>
 </div>
 <table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
 <tbody>

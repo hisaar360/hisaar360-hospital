@@ -1806,7 +1806,14 @@
 .receipt-preview-meta span,
 .receipt-preview-totals span {
   color: #64748b;
-  font-weight: 800;
+  font-weight: 600;
+}
+
+.receipt-preview-meta .meta-val {
+  color: #0f172a;
+  font-style: normal;
+  font-weight: 500;
+  text-align: right;
 }
 
 .receipt-preview-table {

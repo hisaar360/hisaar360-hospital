@@ -212,7 +212,7 @@
               <div class="pis-type-row">
                 <span>Header</span>
                 <label class="pis-mini">
-                  <input type="number" min="0" step="1" [(ngModel)]="form.fontSizeHeader" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Header size" />
+                  <input type="number" step="any" [(ngModel)]="form.fontSizeHeader" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Header size" />
                   <em>px</em>
                 </label>
                 <select [(ngModel)]="form.fontWeightHeader" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Header weight">
@@ -224,7 +224,7 @@
               <div class="pis-type-row">
                 <span>Body</span>
                 <label class="pis-mini">
-                  <input type="number" min="0" step="1" [(ngModel)]="form.fontSizeBody" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Body size" />
+                  <input type="number" step="any" [(ngModel)]="form.fontSizeBody" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Body size" />
                   <em>px</em>
                 </label>
                 <select [(ngModel)]="form.fontWeightBody" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Body weight">
@@ -234,9 +234,21 @@
               </div>
 
               <div class="pis-type-row">
+                <span>Invoice / Date / Customer</span>
+                <label class="pis-mini">
+                  <input type="number" step="any" [(ngModel)]="form.fontSizeMeta" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Invoice details size" />
+                  <em>px</em>
+                </label>
+                <select [(ngModel)]="form.fontWeightMeta" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Invoice details weight">
+                  <option value="normal">Normal</option>
+                  <option value="bold">Bold</option>
+                </select>
+              </div>
+
+              <div class="pis-type-row">
                 <span>Medicine name</span>
                 <label class="pis-mini">
-                  <input type="number" min="0" step="1" [(ngModel)]="form.fontSizeMedicine" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Medicine name size" />
+                  <input type="number" step="any" [(ngModel)]="form.fontSizeMedicine" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Medicine name size" />
                   <em>px</em>
                 </label>
                 <select [(ngModel)]="form.fontWeightMedicine" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Medicine name weight">
@@ -248,7 +260,7 @@
               <div class="pis-type-row">
                 <span>Subtotal &amp; total</span>
                 <label class="pis-mini">
-                  <input type="number" min="0" step="1" [(ngModel)]="form.fontSizeAmount" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Amount size" />
+                  <input type="number" step="any" [(ngModel)]="form.fontSizeAmount" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Amount size" />
                   <em>px</em>
                 </label>
                 <select [(ngModel)]="form.fontWeightAmount" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Amount weight">
@@ -260,7 +272,7 @@
               <div class="pis-type-row">
                 <span>Footer</span>
                 <label class="pis-mini">
-                  <input type="number" min="0" step="1" [(ngModel)]="form.fontSizeFooter" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Footer size" />
+                  <input type="number" step="any" [(ngModel)]="form.fontSizeFooter" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Footer size" />
                   <em>px</em>
                 </label>
                 <select [(ngModel)]="form.fontWeightFooter" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Footer weight">
@@ -270,9 +282,21 @@
               </div>
 
               <div class="pis-type-row">
+                <span>Terms (Urdu / English)</span>
+                <label class="pis-mini">
+                  <input type="number" step="any" [(ngModel)]="form.fontSizeTerms" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Terms size" />
+                  <em>px</em>
+                </label>
+                <select [(ngModel)]="form.fontWeightTerms" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Terms weight">
+                  <option value="normal">Normal</option>
+                  <option value="bold">Bold</option>
+                </select>
+              </div>
+
+              <div class="pis-type-row">
                 <span>Line gap</span>
                 <label class="pis-mini">
-                  <input type="number" min="0" step="1" [(ngModel)]="form.lineGap" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Line gap" />
+                  <input type="number" step="any" [(ngModel)]="form.lineGap" (ngModelChange)="onFormChange()" [disabled]="!canEdit" aria-label="Line gap" />
                   <em>px</em>
                 </label>
                 <span class="pis-type-row__note">Space between lines</span>

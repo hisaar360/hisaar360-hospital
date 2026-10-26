@@ -869,9 +869,9 @@
                 </div>
 
                 <div class="receipt-preview-meta">
-                    <div><span>Invoice</span><strong>{{ receipt.reference }}</strong></div>
-                    <div><span>Date</span><strong>{{ receipt.saleDate | date:'short' }}</strong></div>
-                    <div><span>Customer</span><strong>{{ receipt.customerName }}</strong></div>
+                    <div><span>Invoice</span><em class="meta-val">{{ receipt.reference }}</em></div>
+                    <div><span>Date</span><em class="meta-val">{{ receipt.saleDate | date:'short' }}</em></div>
+                    <div><span>Customer</span><em class="meta-val">{{ receipt.customerName }}</em></div>
                 </div>
 
                 <table class="receipt-preview-table is-compact">

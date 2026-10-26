@@ -3391,12 +3391,16 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     const fontFooter = Number(lh?.fontSizeFooter) || 10;
     const fontMedicine = Number(lh?.fontSizeMedicine) || fontBody;
     const fontAmount = Number(lh?.fontSizeAmount) || fontBody + 2;
+    const fontMeta = Number(lh?.fontSizeMeta) || fontBody;
+    const fontTerms = Number(lh?.fontSizeTerms) || fontFooter;
     const lineGap = Number.isFinite(Number(lh?.lineGap)) ? Number(lh?.lineGap) : 2;
     const weightHeader = lh?.fontWeightHeader === 'normal' ? 'normal' : 'bold';
     const weightBody = lh?.fontWeightBody === 'bold' ? 'bold' : 'normal';
     const weightFooter = lh?.fontWeightFooter === 'bold' ? 'bold' : 'normal';
     const weightMedicine = lh?.fontWeightMedicine === 'normal' ? 'normal' : 'bold';
     const weightAmount = lh?.fontWeightAmount === 'normal' ? 'normal' : 'bold';
+    const weightMeta = lh?.fontWeightMeta === 'bold' ? 'bold' : 'normal';
+    const weightTerms = lh?.fontWeightTerms === 'bold' ? 'bold' : 'normal';
     const termsText = this.resolveReceiptTermsText(lh?.termsText);
     const showTotalDiscount = lh?.showTotalDiscount !== false;
     // Always 4 columns + 58mm-safe sizing so amounts never clip/overlap on
@@ -3421,13 +3425,16 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     // (even if letterhead says 80mm while the physical roll is 58mm).
     const padLeft = '1.2mm';
     const padRight = '4mm';
-    const headerPx = Math.min(fontHeader, narrow ? 13 : 15);
-    const bodyPx = Math.min(fontBody, narrow ? 9 : 10);
-    const footerPx = Math.min(fontFooter, narrow ? 9 : 10);
-    const medicinePx = Math.min(fontMedicine, narrow ? 9 : 10);
-    const amountPx = Math.min(fontAmount, narrow ? 10 : 11);
-    const cellPx = narrow ? 8 : 9;
-    const gap = Math.min(lineGap, narrow ? 1 : 2);
+    // Use settings sizes as-is — no min/max font clamps.
+    const headerPx = fontHeader;
+    const bodyPx = fontBody;
+    const footerPx = fontFooter;
+    const medicinePx = fontMedicine;
+    const amountPx = fontAmount;
+    const metaPx = fontMeta;
+    const termsPx = fontTerms;
+    const cellPx = bodyPx;
+    const gap = lineGap;
     const logoPrintPx = Math.min(logoPx, narrow ? 34 : 44);
     const jameelFontUrl =
       typeof window !== 'undefined'
@@ -3484,7 +3491,14 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             .logo { display: block; height: ${logoPrintPx}px; margin: 0 auto ${gap}px; max-width: 90%; object-fit: contain; }
             h1 { font-size: ${headerPx}px; font-weight: ${weightHeader}; margin: 0 0 ${gap}px; word-break: break-word; line-height: 1.15; }
             p { margin: ${gap}px 0; word-break: break-word; }
-            .meta { border-bottom: ${border}; border-top: ${border}; margin: ${gap * 2}px 0; padding: ${gap * 2}px 0; }
+            .meta {
+              border-bottom: ${border};
+              border-top: ${border};
+              margin: ${gap * 2}px 0;
+              padding: ${gap * 2}px 0;
+              font-size: ${metaPx}px;
+              font-weight: ${weightMeta};
+            }
             .meta div, .totals div {
               display: flex;
               justify-content: space-between;
@@ -3494,8 +3508,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               max-width: 100%;
               box-sizing: border-box;
             }
-            .meta span, .totals span { flex: 0 0 auto; max-width: 40%; }
-            .meta strong, .totals strong {
+            .meta span, .totals span { flex: 0 0 auto; max-width: 40%; font-weight: ${weightMeta}; }
+            .meta .meta-val, .totals strong {
               flex: 1 1 auto;
               min-width: 0;
               max-width: 58%;
@@ -3503,7 +3517,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               overflow-wrap: anywhere;
               word-break: break-word;
               padding-right: 0.5mm;
+              font-weight: ${weightMeta};
             }
+            .totals strong { font-weight: ${weightAmount}; }
             table {
               border-collapse: collapse;
               table-layout: fixed;
@@ -3564,8 +3580,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               text-align: right;
               white-space: pre-wrap;
               font-family: "Jameel Noori Nastaleeq", "Noto Nastaliq Urdu", serif;
-              font-size: ${Math.max(footerPx + 2, narrow ? 11 : 13)}px;
-              font-weight: 400;
+              font-size: ${termsPx}px;
+              font-weight: ${weightTerms};
               unicode-bidi: plaintext;
               direction: rtl;
               line-height: 1.65;
@@ -3591,9 +3607,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               ${headerLines.map((line) => `<p>${this.escapeHtml(line)}</p>`).join('')}
             </div>
             <div class="meta">
-              <div><span>Invoice</span><strong>${this.escapeHtml(receipt.reference)}</strong></div>
-              <div><span>Date</span><strong>${new Date(receipt.saleDate).toLocaleString()}</strong></div>
-              <div><span>Customer</span><strong>${this.escapeHtml(receipt.customerName)}</strong></div>
+              <div><span>Invoice</span><span class="meta-val">${this.escapeHtml(receipt.reference)}</span></div>
+              <div><span>Date</span><span class="meta-val">${new Date(receipt.saleDate).toLocaleString()}</span></div>
+              <div><span>Customer</span><span class="meta-val">${this.escapeHtml(receipt.customerName)}</span></div>
             </div>
             <table>
               <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
@@ -4645,12 +4661,16 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       fontSizeFooter: Number(settings?.fontSizeFooter) || 10,
       fontSizeMedicine: Number(settings?.fontSizeMedicine) || Number(settings?.fontSizeBody) || 11,
       fontSizeAmount: Number(settings?.fontSizeAmount) || (Number(settings?.fontSizeBody) || 11) + 2,
+      fontSizeMeta: Number(settings?.fontSizeMeta) || Number(settings?.fontSizeBody) || 10,
+      fontSizeTerms: Number(settings?.fontSizeTerms) || Number(settings?.fontSizeFooter) || 11,
       lineGap: Number.isFinite(Number(settings?.lineGap)) ? Number(settings?.lineGap) : 2,
       fontWeightMedicine: settings?.fontWeightMedicine === 'normal' ? 'normal' : 'bold',
       fontWeightAmount: settings?.fontWeightAmount === 'normal' ? 'normal' : 'bold',
       fontWeightHeader: settings?.fontWeightHeader === 'normal' ? 'normal' : 'bold',
       fontWeightBody: settings?.fontWeightBody === 'bold' ? 'bold' : 'normal',
       fontWeightFooter: settings?.fontWeightFooter === 'bold' ? 'bold' : 'normal',
+      fontWeightMeta: settings?.fontWeightMeta === 'bold' ? 'bold' : 'normal',
+      fontWeightTerms: settings?.fontWeightTerms === 'bold' ? 'bold' : 'normal',
     };
   }
 
