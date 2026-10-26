@@ -874,12 +874,13 @@
                     <div><span>Customer</span><em class="meta-val">{{ receipt.customerName }}</em></div>
                 </div>
 
-                <table class="receipt-preview-table is-compact">
+                <table class="receipt-preview-table is-compact" [class.has-discount]="showReceiptTotalDiscount(receipt)">
                     <thead>
                         <tr>
                             <th>Item</th>
                             <th>Qty</th>
                             <th>Price</th>
+                            <th *ngIf="showReceiptTotalDiscount(receipt)">Disc</th>
                             <th>Total</th>
                         </tr>
                     </thead>
@@ -890,6 +891,7 @@
                             </td>
                             <td class="qty">{{ item.qty }}</td>
                             <td class="amt">{{ formatReceiptAmount(item.unitPrice) }}</td>
+                            <td class="amt" *ngIf="showReceiptTotalDiscount(receipt)">{{ formatReceiptAmount(item.discount) }}</td>
                             <td class="amt">{{ formatReceiptAmount(item.total) }}</td>
                         </tr>
                     </tbody>

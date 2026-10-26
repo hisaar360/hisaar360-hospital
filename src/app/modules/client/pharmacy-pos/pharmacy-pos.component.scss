@@ -1875,6 +1875,42 @@
   font-size: 10px;
 }
 
+.receipt-preview-table.has-discount {
+  th:first-child,
+  td:first-child {
+    width: 33%;
+  }
+
+  th:nth-child(2),
+  td:nth-child(2) {
+    width: 9%;
+  }
+
+  th:nth-child(3),
+  td:nth-child(3) {
+    width: 19%;
+  }
+
+  th:nth-child(4),
+  td:nth-child(4) {
+    width: 17%;
+  }
+
+  th:nth-child(5),
+  td:nth-child(5) {
+    width: 22%;
+  }
+
+  th {
+    font-size: 8.5px;
+  }
+
+  .amt {
+    font-size: 8.5px;
+    letter-spacing: -0.02em;
+  }
+}
+
 .receipt-preview-meta div,
 .receipt-preview-totals div {
   align-items: flex-start;

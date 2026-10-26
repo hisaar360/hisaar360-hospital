@@ -370,11 +370,20 @@ table{border-collapse:collapse;table-layout:fixed;width:100%}
 th,td{border:1px solid #111827;font-size:${bodySize}px;padding:${gap}px 3px;text-align:left;vertical-align:top;word-break:break-word}
 .item-name{font-size:${medicineSize}px;font-weight:${medicineWeight};line-height:1.15;white-space:normal;word-break:break-word}
 th:first-child,td:first-child{white-space:normal;word-break:break-word}
-th:first-child,td:first-child{width:46%}
+${
+  showTotalDiscount
+    ? `th:first-child,td:first-child{width:33%}
+th:nth-child(2),td:nth-child(2){text-align:center;white-space:nowrap;width:9%}
+th:nth-child(3),td:nth-child(3){width:19%}
+th:nth-child(4),td:nth-child(4){width:17%}
+th:nth-child(5),td:nth-child(5){width:22%}
+th{font-size:${bodySize * 0.85}px}`
+    : `th:first-child,td:first-child{width:46%}
 th:nth-child(2),td:nth-child(2){text-align:center;white-space:nowrap;width:12%}
 th:nth-child(3),td:nth-child(3){width:21%}
-th:nth-child(4),td:nth-child(4){width:21%}
-.amt{text-align:right;white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums;max-width:100%}
+th:nth-child(4),td:nth-child(4){width:21%}`
+}
+.amt{text-align:right;white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums;max-width:100%;font-size:${showTotalDiscount ? bodySize * 0.82 : bodySize}px;letter-spacing:${showTotalDiscount ? '-0.02em' : '0'}}
 .totals{border-top:${border};margin-top:${gap * 2}px;padding-top:${gap * 2}px;font-size:${amountSize}px;font-weight:${amountWeight}}
 .totals strong{overflow-wrap:anywhere;word-break:break-all;text-align:right;max-width:55%}
 .grand{font-size:${amountSize}px;font-weight:${amountWeight}}
@@ -390,10 +399,10 @@ ${headerLines.map((l) => `<p>${this.esc(String(l))}</p>`).join('')}
 <div><span>Date</span><span class="meta-val">${new Date().toLocaleString()}</span></div>
 <div><span>Customer</span><span class="meta-val">Walk-in</span></div>
 </div>
-<table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+<table><thead><tr><th>Item</th><th>Qty</th><th>Price</th>${showTotalDiscount ? '<th>Disc</th>' : ''}<th>Total</th></tr></thead>
 <tbody>
-<tr><td><strong class="item-name">Sample Medicine&nbsp;500&nbsp;mg</strong></td><td>2</td><td class="amt">120.00</td><td class="amt">220.00</td></tr>
-<tr><td><strong class="item-name">Vitamin Syrup</strong></td><td>1</td><td class="amt">350.00</td><td class="amt">350.00</td></tr>
+<tr><td><strong class="item-name">Sample Medicine&nbsp;500&nbsp;mg</strong></td><td>2</td><td class="amt">120.00</td>${showTotalDiscount ? '<td class="amt">20.00</td>' : ''}<td class="amt">220.00</td></tr>
+<tr><td><strong class="item-name">Vitamin Syrup</strong></td><td>30</td><td class="amt">46.50</td>${showTotalDiscount ? '<td class="amt">0.00</td>' : ''}<td class="amt">1395.00</td></tr>
 </tbody></table>
 <div class="totals">
 <div><span>Subtotal</span><strong>590.00</strong></div>

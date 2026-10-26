@@ -2674,7 +2674,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       .map((line) => ({
         productId: line.product._id,
         qty: line.billQty,
-        unitPrice: line.unitPrice,
+        unitPrice: Number(line.unitPrice || 0),
         discount: Number(line.discount || 0),
         tax: 0,
       }));
@@ -2710,10 +2710,18 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Paid must never exceed the bill total by float noise (sale rejected).
+    const billTotal = saleItems.reduce(
+      (sum, item) => sum + Math.max(Number(item.qty) * item.unitPrice - item.discount, 0),
+      0,
+    );
     const paidAmount =
       this.settlementMode === 'ENCOUNTER' || this.paymentMethod === 'credit'
         ? 0
-        : this.normalizeMoneyInput(this.paidAmount, this.subtotal);
+        : Math.min(
+            this.roundMoney(this.normalizeMoneyInput(this.paidAmount, this.subtotal)),
+            this.roundMoney(billTotal),
+          );
 
     if (this.settlementMode !== 'ENCOUNTER' && this.paymentMethod === 'credit') {
       const creditError = this.assertCustomerCreditAllowed(
@@ -3415,6 +3423,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
           </td>
           <td class="qty">${item.qty}</td>
           <td class="amt">${this.formatReceiptAmount(item.unitPrice)}</td>
+          ${showTotalDiscount ? `<td class="amt">${this.formatReceiptAmount(item.discount)}</td>` : ''}
           <td class="amt">${this.formatReceiptAmount(item.total)}</td>
         </tr>`,
       )
@@ -3434,6 +3443,22 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     const metaPx = fontMeta;
     const termsPx = fontTerms;
     const cellPx = bodyPx;
+    // 5 columns (with Disc) on 58mm: shrink amount + header text so numbers
+    // like 1395.00 stay inside their cell instead of clipping/overlapping.
+    const amountCellPx = showTotalDiscount ? cellPx * 0.82 : cellPx;
+    const headCellPx = showTotalDiscount ? cellPx * 0.85 : cellPx;
+    const columnCss = showTotalDiscount
+      ? `
+            th:first-child, td:first-child { width: 33%; }
+            th:nth-child(2), td:nth-child(2), .qty { width: 9%; text-align: center; white-space: nowrap; }
+            th:nth-child(3), td:nth-child(3) { width: 19%; }
+            th:nth-child(4), td:nth-child(4) { width: 17%; }
+            th:nth-child(5), td:nth-child(5) { width: 22%; }`
+      : `
+            th:first-child, td:first-child { width: 46%; }
+            th:nth-child(2), td:nth-child(2), .qty { width: 12%; text-align: center; white-space: nowrap; }
+            th:nth-child(3), td:nth-child(3) { width: 21%; }
+            th:nth-child(4), td:nth-child(4) { width: 21%; }`;
     const gap = lineGap;
     const logoPrintPx = Math.min(logoPx, narrow ? 34 : 44);
     const jameelFontUrl =
@@ -3545,20 +3570,19 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               white-space: normal;
               word-break: break-word;
             }
-            th:first-child, td:first-child { width: 46%; }
-            th:nth-child(2), td:nth-child(2), .qty { width: 12%; text-align: center; white-space: nowrap; }
-            th:nth-child(3), td:nth-child(3) { width: 21%; }
-            th:nth-child(4), td:nth-child(4) { width: 21%; }
+            ${columnCss}
             .amt {
               text-align: right;
               white-space: nowrap;
               overflow: hidden;
               font-variant-numeric: tabular-nums;
-              font-size: ${cellPx}px;
+              font-size: ${amountCellPx}px;
+              letter-spacing: ${showTotalDiscount ? '-0.02em' : '0'};
               max-width: 100%;
               padding-left: 0;
               padding-right: 1px;
             }
+            th { font-size: ${headCellPx}px; }
             .totals {
               border-top: ${border};
               margin-top: ${gap * 2}px;
@@ -3612,7 +3636,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               <div><span>Customer</span><span class="meta-val">${this.escapeHtml(receipt.customerName)}</span></div>
             </div>
             <table>
-              <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+              <thead><tr><th>Item</th><th>Qty</th><th>Price</th>${showTotalDiscount ? '<th>Disc</th>' : ''}<th>Total</th></tr></thead>
               <tbody>${rows}</tbody>
             </table>
             <div class="totals">
@@ -4512,6 +4536,14 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     } finally {
       this.syncingPaidAmount = false;
     }
+  }
+
+  private roundMoney(value: unknown): number {
+    const numeric = Number(value || 0);
+    if (!Number.isFinite(numeric)) {
+      return 0;
+    }
+    return Math.round((numeric + Number.EPSILON) * 100) / 100;
   }
 
   private normalizeMoneyInput(
