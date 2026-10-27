@@ -434,27 +434,37 @@
           </header>
 
           <div class="purchase-quick-add">
-            <div class="ph-doc-search">
-              <i class="fa fa-search"></i>
+            <div class="purchase-search">
+              <span class="purchase-search__icon" aria-hidden="true">
+                <i class="fa fa-search"></i>
+              </span>
               <input
-                class="form-control form-control-lg"
-                type="search"
+                #quickSearchInput
+                class="purchase-search__input"
+                type="text"
                 [(ngModel)]="quickSearch"
                 (ngModelChange)="onQuickSearchChange()"
-                (focus)="quickOpen = true"
+                (focus)="onQuickSearchFocus()"
                 (blur)="onQuickSearchBlur()"
-                (keydown.enter)="handleQuickSearchEnter($event)"
-                placeholder="Search medicine name / SKU / barcode and press Enter to add"
+                (keydown)="onQuickSearchKeydown($event)"
+                placeholder="Type name, SKU or barcode"
                 autocomplete="off"
+                spellcheck="false"
               />
+              <span class="purchase-search__hint">↑↓ Enter</span>
             </div>
-            <div class="purchase-product-results" *ngIf="quickOpen && (quickLoading || quickResults.length)">
+            <div
+              class="purchase-product-results"
+              *ngIf="quickOpen && (quickLoading || quickResults.length)"
+              role="listbox">
               <div class="purchase-product-results__status" *ngIf="quickLoading">Searching…</div>
               <button
                 type="button"
                 class="purchase-product-results__item"
-                *ngFor="let product of quickResults"
-                (mousedown)="addProduct(product)">
+                role="option"
+                *ngFor="let product of quickResults; let i = index"
+                [class.is-active]="i === quickActiveIndex"
+                (mousedown)="$event.preventDefault(); addProduct(product)">
                 <strong>{{ product.name }}</strong>
                 <span>
                   <ng-container *ngIf="product.sku">SKU {{ product.sku }}</ng-container>
@@ -462,6 +472,9 @@
                   <ng-container *ngIf="product.costPrice"> · Cost {{ currency(product.costPrice) }}</ng-container>
                 </span>
               </button>
+              <div class="purchase-product-results__status" *ngIf="!quickLoading && !quickResults.length">
+                No medicine found
+              </div>
             </div>
           </div>
 
@@ -469,47 +482,53 @@
             <i class="fa fa-plus-circle"></i> No medicines yet. Use the search above to add the first one.
           </div>
 
-          <div class="ph-doc-lines mt-3" *ngIf="form.items.length">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Medicine</th>
-                  <th>Qty</th>
-                  <th>Cost / unit</th>
-                  <th>Discount</th>
-                  <th>Tax</th>
-                  <th>Batch</th>
-                  <th>Expiry</th>
-                  <th class="text-end">Line total</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let line of form.items; let i = index; trackBy: trackByIndex">
-                  <td class="text-muted">{{ i + 1 }}</td>
-                  <td class="ph-line-name">
+          <div class="purchase-lines mt-3" *ngIf="form.items.length">
+            <article class="purchase-line-card" *ngFor="let line of form.items; let i = index; trackBy: trackByIndex">
+              <div class="purchase-line-card__top">
+                <div class="purchase-line-meta">
+                  <span class="purchase-line-index">{{ i + 1 }}</span>
+                  <div class="purchase-line-title">
                     <strong>{{ line.productLabel }}</strong>
-                    <small *ngIf="line.sku">{{ line.sku }}</small>
-                  </td>
-                  <td><input class="form-control ph-qty-input" type="number" min="0" [(ngModel)]="line.qty" /></td>
-                  <td><input class="form-control purchase-num" type="number" min="0" [(ngModel)]="line.unitCost" /></td>
-                  <td><input class="form-control purchase-num" type="number" min="0" [(ngModel)]="line.discount" /></td>
-                  <td><input class="form-control purchase-num" type="number" min="0" [(ngModel)]="line.tax" /></td>
-                  <td><input class="form-control purchase-batch" [(ngModel)]="line.batchNumber" placeholder="Batch" /></td>
-                  <td><input class="form-control purchase-date" type="date" [(ngModel)]="line.expiryDate" /></td>
-                  <td class="text-end fw-semibold">{{ currency(lineTotal(line)) }}</td>
-                  <td class="text-end text-nowrap">
-                    <button class="ph-icon-btn" type="button" title="Add another batch of this medicine" (click)="duplicateLine(i)">
-                      <i class="fa fa-clone"></i>
-                    </button>
-                    <button class="ph-icon-btn danger" type="button" title="Remove" (click)="removeLine(i)">
-                      <i class="fa fa-trash"></i>
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    <small *ngIf="line.sku">SKU {{ line.sku }}</small>
+                  </div>
+                </div>
+                <div class="purchase-line-card__actions">
+                  <strong class="purchase-line-total">{{ currency(lineTotal(line)) }}</strong>
+                  <button class="ph-icon-btn" type="button" title="Add another batch" (click)="duplicateLine(i)">
+                    <i class="fa fa-clone"></i>
+                  </button>
+                  <button class="ph-icon-btn danger" type="button" title="Remove" (click)="removeLine(i)">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="purchase-line-card__grid">
+                <label class="purchase-field">
+                  <span>Qty</span>
+                  <input class="purchase-field__control" type="number" min="0" step="any" [(ngModel)]="line.qty" />
+                </label>
+                <label class="purchase-field">
+                  <span>Cost / unit</span>
+                  <input class="purchase-field__control" type="number" min="0" step="any" [(ngModel)]="line.unitCost" />
+                </label>
+                <label class="purchase-field">
+                  <span>Discount</span>
+                  <input class="purchase-field__control" type="number" min="0" step="any" [(ngModel)]="line.discount" />
+                </label>
+                <label class="purchase-field">
+                  <span>Tax</span>
+                  <input class="purchase-field__control" type="number" min="0" step="any" [(ngModel)]="line.tax" />
+                </label>
+                <label class="purchase-field">
+                  <span>Batch</span>
+                  <input class="purchase-field__control" type="text" [(ngModel)]="line.batchNumber" placeholder="Optional" />
+                </label>
+                <label class="purchase-field">
+                  <span>Expiry</span>
+                  <input class="purchase-field__control" type="date" [(ngModel)]="line.expiryDate" />
+                </label>
+              </div>
+            </article>
           </div>
 
           <label class="ph-doc-field mt-3">
@@ -954,14 +973,22 @@
             <small>{{ returnCandidatesLoading ? 'Loading…' : filteredReturnCandidates.length + ' received bills' }}</small>
           </header>
           <div class="ph-doc-search mb-2">
-            <i class="fa fa-search"></i>
-            <input class="form-control" [(ngModel)]="returnSearch" placeholder="Search bill #, vendor invoice or vendor" autocomplete="off" />
+            <i class="fa fa-search" aria-hidden="true"></i>
+            <input
+              class="form-control"
+              [(ngModel)]="returnSearch"
+              (ngModelChange)="onReturnSearchChange()"
+              (keydown)="onReturnSearchKeydown($event)"
+              placeholder="Search bill # / vendor — ↑↓ then Enter"
+              autocomplete="off"
+            />
           </div>
           <div class="ph-doc-picklist" *ngIf="filteredReturnCandidates.length; else noReturnCandidates">
             <button
               type="button"
               class="ph-doc-pick"
-              *ngFor="let item of filteredReturnCandidates"
+              *ngFor="let item of filteredReturnCandidates; let i = index"
+              [class.is-selected]="i === returnActiveIndex"
               (click)="chooseReturnPurchase(item)">
               <div>
                 <strong>{{ text(item['invoiceNo']) }} · {{ supplierName(item) }}</strong>

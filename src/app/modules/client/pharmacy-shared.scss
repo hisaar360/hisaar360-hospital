@@ -1022,14 +1022,17 @@
 
   .fa-search {
     color: #94a3b8;
-    left: 12px;
+    font-size: 14px;
+    left: 14px;
+    pointer-events: none;
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
+    z-index: 1;
   }
 
   .form-control {
-    padding-left: 34px;
+    padding-left: 42px !important;
   }
 }
 

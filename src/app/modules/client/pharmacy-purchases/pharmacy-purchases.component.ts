@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom, finalize } from 'rxjs';
@@ -123,13 +123,16 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
   creatingWarehouse = false;
   warehouseForm = { name: '', code: '' };
 
+  @ViewChild('quickSearchInput') quickSearchInput?: ElementRef<HTMLInputElement>;
   quickSearch = '';
   quickResults: ProductCatalogItem[] = [];
   quickLoading = false;
   quickOpen = false;
   quickResolving = false;
+  quickActiveIndex = -1;
   private quickTimer: ReturnType<typeof setTimeout> | null = null;
   private quickSeq = 0;
+  returnActiveIndex = -1;
 
   payOpen = false;
   payTarget: Record<string, unknown> | null = null;
@@ -545,6 +548,7 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
       this.quickTimer = null;
     }
     this.quickOpen = true;
+    this.quickActiveIndex = -1;
     if (!raw) {
       this.quickResults = [];
       this.quickLoading = false;
@@ -553,15 +557,66 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
     this.quickTimer = setTimeout(() => void this.runQuickSearch(raw), 220);
   }
 
-  onQuickSearchBlur(): void {
-    setTimeout(() => (this.quickOpen = false), 180);
+  onQuickSearchFocus(): void {
+    this.quickOpen = true;
+    if (this.quickSearch.trim() && !this.quickResults.length && !this.quickLoading) {
+      void this.runQuickSearch(this.quickSearch.trim());
+    }
   }
 
-  async handleQuickSearchEnter(event: Event): Promise<void> {
-    event.preventDefault();
+  onQuickSearchBlur(): void {
+    setTimeout(() => {
+      this.quickOpen = false;
+      this.quickActiveIndex = -1;
+    }, 220);
+  }
+
+  onQuickSearchKeydown(event: KeyboardEvent): void {
+    const key = event.key;
+    if (key === 'Escape') {
+      event.preventDefault();
+      this.quickOpen = false;
+      this.quickActiveIndex = -1;
+      return;
+    }
+
+    if (key === 'ArrowDown' || key === 'ArrowUp') {
+      if (!this.quickResults.length) {
+        return;
+      }
+      event.preventDefault();
+      this.quickOpen = true;
+      if (key === 'ArrowDown') {
+        this.quickActiveIndex =
+          this.quickActiveIndex < this.quickResults.length - 1 ? this.quickActiveIndex + 1 : 0;
+      } else {
+        this.quickActiveIndex =
+          this.quickActiveIndex > 0 ? this.quickActiveIndex - 1 : this.quickResults.length - 1;
+      }
+      this.scrollQuickActiveIntoView();
+      return;
+    }
+
+    if (key === 'Enter') {
+      event.preventDefault();
+      void this.handleQuickSearchEnter();
+    }
+  }
+
+  async handleQuickSearchEnter(): Promise<void> {
     if (this.quickResolving) {
       return;
     }
+
+    if (this.quickOpen && this.quickResults.length) {
+      const index = this.quickActiveIndex >= 0 ? this.quickActiveIndex : 0;
+      const highlighted = this.quickResults[index];
+      if (highlighted) {
+        this.addProduct(highlighted);
+        return;
+      }
+    }
+
     const raw = this.quickSearch.trim();
     if (!raw) {
       return;
@@ -594,6 +649,7 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
       line.productId = product._id;
       line.productLabel = product.name;
       line.sku = product.sku || '';
+      line.qty = 1;
       const cost = Number(product.costPrice ?? 0);
       line.unitCost = Number.isFinite(cost) && cost > 0 ? cost : 0;
       this.form.items.push(line);
@@ -601,6 +657,8 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
     this.quickSearch = '';
     this.quickResults = [];
     this.quickOpen = false;
+    this.quickActiveIndex = -1;
+    setTimeout(() => this.quickSearchInput?.nativeElement?.focus(), 0);
   }
 
   duplicateLine(index: number): void {
@@ -847,6 +905,7 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
   openReturn(record?: Record<string, unknown> | null): void {
     this.returnOpen = true;
     this.returnSearch = '';
+    this.returnActiveIndex = -1;
     this.clearReturnSelection();
     this.returnDate = toDateInputValue(new Date());
     if (record) {
@@ -858,9 +917,43 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
       .getPurchases({ limit: 100, status: 'received' })
       .pipe(finalize(() => (this.returnCandidatesLoading = false)))
       .subscribe({
-        next: (result) => (this.returnCandidates = result.items || []),
-        error: () => (this.returnCandidates = []),
+        next: (result) => {
+          this.returnCandidates = result.items || [];
+          this.returnActiveIndex = this.returnCandidates.length ? 0 : -1;
+        },
+        error: () => {
+          this.returnCandidates = [];
+          this.returnActiveIndex = -1;
+        },
       });
+  }
+
+  onReturnSearchChange(): void {
+    this.returnActiveIndex = this.filteredReturnCandidates.length ? 0 : -1;
+  }
+
+  onReturnSearchKeydown(event: KeyboardEvent): void {
+    const list = this.filteredReturnCandidates;
+    if (!list.length) {
+      return;
+    }
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.returnActiveIndex = this.returnActiveIndex < list.length - 1 ? this.returnActiveIndex + 1 : 0;
+      return;
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.returnActiveIndex = this.returnActiveIndex > 0 ? this.returnActiveIndex - 1 : list.length - 1;
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const item = list[this.returnActiveIndex >= 0 ? this.returnActiveIndex : 0];
+      if (item) {
+        this.chooseReturnPurchase(item);
+      }
+    }
   }
 
   closeReturn(): void {
@@ -1124,16 +1217,26 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
         return;
       }
       this.quickResults = this.rankSearchHits(result.items || [], raw);
+      this.quickActiveIndex = this.quickResults.length ? 0 : -1;
     } catch {
       if (requestId !== this.quickSeq) {
         return;
       }
       this.quickResults = this.localProductMatches(raw).slice(0, PURCHASE_SEARCH_LIMIT);
+      this.quickActiveIndex = this.quickResults.length ? 0 : -1;
     } finally {
       if (requestId === this.quickSeq) {
         this.quickLoading = false;
       }
     }
+  }
+
+  private scrollQuickActiveIntoView(): void {
+    const root = document.querySelector('.purchase-product-results') as HTMLElement | null;
+    const item = root?.querySelectorAll('.purchase-product-results__item')?.[this.quickActiveIndex] as
+      | HTMLElement
+      | undefined;
+    item?.scrollIntoView({ block: 'nearest' });
   }
 
   private async resolveScannedOrSearchedProduct(raw: string): Promise<ProductCatalogItem | null> {
