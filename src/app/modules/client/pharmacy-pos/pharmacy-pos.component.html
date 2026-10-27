@@ -772,7 +772,7 @@
             </ng-container>
 
             <ng-container *ngIf="!saleReturnLoading && selectedReturnSale">
-                <div class="modern-register-summary">
+                <div class="sale-return-summary">
                     <div>
                         <span>Invoice</span>
                         <strong>{{ selectedReturnSale.invoiceNo }}</strong>
@@ -791,36 +791,77 @@
                     </div>
                 </div>
 
-                <div class="history-table" *ngIf="returnLines.length">
-                    <div class="history-head">
-                        <span>Item</span>
-                        <span>Sold</span>
-                        <span>Returned</span>
-                        <span>Max</span>
-                        <span>Qty</span>
-                        <span>Unit Price</span>
-                        <span>Reason</span>
-                    </div>
-                    <div class="history-row" *ngFor="let line of returnLines">
-                        <strong>{{ line.name }}</strong>
-                        <span>{{ line.soldQty }}</span>
-                        <span>{{ line.alreadyReturnedQty }}</span>
-                        <span>{{ line.maxQty }}</span>
-                        <span>
-                            <input type="number" min="0" [max]="line.maxQty" [ngModel]="line.qty"
-                                (ngModelChange)="updateReturnLineQty(line, $event)" />
-                        </span>
-                        <span>{{ formatCurrency(line.unitPrice) }}</span>
-                        <span>
-                            <input type="text" [(ngModel)]="line.reason" placeholder="Optional reason" />
-                        </span>
+                <div class="sale-return-toolbar" *ngIf="returnLines.length">
+                    <strong>Medicines</strong>
+                    <div>
+                        <button type="button" class="sale-return-link" (click)="returnAllSaleLines()">Return all</button>
+                        <button type="button" class="sale-return-link" (click)="clearReturnSaleQtys()">Clear</button>
                     </div>
                 </div>
 
-                <div class="modern-register-field">
-                    <span>Refund Amount</span>
-                    <input type="number" min="0" [max]="saleReturnRefundLimit" [ngModel]="returnRefundAmount"
-                        (ngModelChange)="updateReturnRefundAmount($event)" />
+                <div class="sale-return-table-wrap" *ngIf="returnLines.length">
+                    <table class="sale-return-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th class="text-end">Sold</th>
+                                <th class="text-end">Returned</th>
+                                <th class="text-end">Max</th>
+                                <th>Qty</th>
+                                <th class="text-end">Unit Price</th>
+                                <th class="text-end">Value</th>
+                                <th>Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let line of returnLines" [class.is-active]="line.qty > 0">
+                                <td class="sale-return-item">
+                                    <strong>{{ line.name }}</strong>
+                                    <small *ngIf="line.sku">{{ line.sku }}</small>
+                                </td>
+                                <td class="text-end">{{ line.soldQty }}</td>
+                                <td class="text-end">{{ line.alreadyReturnedQty }}</td>
+                                <td class="text-end">{{ line.maxQty }}</td>
+                                <td>
+                                    <input
+                                        class="sale-return-qty"
+                                        type="number"
+                                        min="0"
+                                        [max]="line.maxQty"
+                                        [ngModel]="line.qty"
+                                        (ngModelChange)="updateReturnLineQty(line, $event)"
+                                    />
+                                </td>
+                                <td class="text-end">{{ formatCurrency(line.unitPrice) }}</td>
+                                <td class="text-end fw-semibold">{{ formatCurrency(returnLineValue(line)) }}</td>
+                                <td>
+                                    <input
+                                        class="sale-return-reason"
+                                        type="text"
+                                        [(ngModel)]="line.reason"
+                                        placeholder="Optional reason"
+                                    />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="sale-return-refund">
+                    <div class="sale-return-refund__head">
+                        <span>Refund Amount</span>
+                        <button type="button" class="sale-return-link" (click)="fillReturnRefundToLimit()">
+                            Fill max {{ formatCurrency(saleReturnRefundLimit) }}
+                        </button>
+                    </div>
+                    <input
+                        type="number"
+                        min="0"
+                        [max]="saleReturnRefundLimit"
+                        [ngModel]="returnRefundAmount"
+                        (ngModelChange)="updateReturnRefundAmount($event)"
+                    />
+                    <small>Auto-fills when you enter Qty. You can still edit it.</small>
                 </div>
 
                 <div class="modern-register-field" *ngIf="returnRefundAmount > 0">
@@ -836,7 +877,7 @@
 
                 <div class="receipt-actions">
                     <button type="button" class="btn btn-default" (click)="closeSaleReturn()">Cancel</button>
-                    <button type="button" class="btn btn-primary" [disabled]="saleReturnSubmitting"
+                    <button type="button" class="btn btn-primary" [disabled]="saleReturnSubmitting || !selectedReturnItemsCount"
                         (click)="submitSaleReturn()">
                         {{ saleReturnSubmitting ? 'Submitting...' : 'Complete Return' }}
                     </button>

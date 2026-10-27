@@ -329,6 +329,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   selectedReturnRefundCeiling = 0;
   returnLines: PharmacyReturnLine[] = [];
   returnRefundAmount = 0;
+  returnRefundTouched = false;
   returnPaymentMethod: Exclude<SalePaymentMethod, 'check'> = 'cash';
   receiptPreviewOpen = false;
   receiptPreview: ReceiptPreviewData | null = null;
@@ -2159,6 +2160,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.selectedReturnRefundCeiling = 0;
     this.returnLines = [];
     this.returnRefundAmount = 0;
+    this.returnRefundTouched = false;
     this.returnPaymentMethod = 'cash';
 
     if (wasOpen && !this.saleHistoryOpen) {
@@ -2946,11 +2948,19 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   updateReturnRefundAmount(value: string | number): void {
+    this.returnRefundTouched = true;
     const numericValue = Number(value || 0);
-    this.returnRefundAmount = Math.min(
-      Math.max(Number.isFinite(numericValue) ? numericValue : 0, 0),
-      this.saleReturnRefundLimit,
+    this.returnRefundAmount = this.roundMoney(
+      Math.min(
+        Math.max(Number.isFinite(numericValue) ? numericValue : 0, 0),
+        this.saleReturnRefundLimit,
+      ),
     );
+  }
+
+  fillReturnRefundToLimit(): void {
+    this.returnRefundTouched = true;
+    this.returnRefundAmount = this.roundMoney(this.saleReturnRefundLimit);
   }
 
   submitSaleReturn(): void {
@@ -3044,8 +3054,35 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   updateReturnLineQty(line: PharmacyReturnLine, value: string | number): void {
     const qty = Math.max(0, Math.min(Number(value || 0), line.maxQty));
     line.qty = Number.isFinite(qty) ? qty : 0;
-    if (this.returnRefundAmount > this.saleReturnRefundLimit) {
-      this.returnRefundAmount = this.saleReturnRefundLimit;
+    this.syncReturnRefundFromLines();
+  }
+
+  returnAllSaleLines(): void {
+    this.returnLines.forEach((line) => {
+      line.qty = line.maxQty;
+    });
+    this.syncReturnRefundFromLines();
+  }
+
+  clearReturnSaleQtys(): void {
+    this.returnLines.forEach((line) => {
+      line.qty = 0;
+    });
+    this.syncReturnRefundFromLines();
+  }
+
+  returnLineValue(line: PharmacyReturnLine): number {
+    return this.roundMoney(Number(line.qty || 0) * Number(line.unitPrice || 0));
+  }
+
+  private syncReturnRefundFromLines(): void {
+    const limit = this.roundMoney(this.saleReturnRefundLimit);
+    if (!this.returnRefundTouched) {
+      this.returnRefundAmount = limit;
+      return;
+    }
+    if (this.returnRefundAmount > limit) {
+      this.returnRefundAmount = limit;
     }
   }
 
@@ -3767,6 +3804,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.selectedReturnRefundCeiling = 0;
     this.returnLines = [];
     this.returnRefundAmount = 0;
+    this.returnRefundTouched = false;
     this.returnPaymentMethod = 'cash';
 
     if (saleId) {
@@ -3781,6 +3819,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.selectedReturnHistory = [];
     this.selectedReturnRefundCeiling = 0;
     this.returnLines = [];
+    this.returnRefundAmount = 0;
+    this.returnRefundTouched = false;
 
     this.backend.getSaleById(saleId).subscribe({
       next: (sale) => {
