@@ -12,6 +12,7 @@ import {
 import { printHtmlJob } from '../../../core/keyboard/print-job.util';
 import { BackendService } from '../../../core/services/backend.service';
 import { formatActiveCurrency } from '../../../core/services/currency.service';
+import { ReceiptLetterheadCacheService } from '../../../core/services/receipt-letterhead-cache.service';
 import { HmsDocumentService } from '../../../core/services/hms-document.service';
 import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import {
@@ -431,6 +432,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     private toastr: ToastrService,
     private keyboard: HmsKeyboardService,
     private docs: HmsDocumentService,
+    private letterheadCache: ReceiptLetterheadCacheService,
   ) {}
 
   ngOnInit(): void {
@@ -674,15 +676,39 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
   }
 
+  @HostListener('window:storage', ['$event'])
+  handleLetterheadStorage(event: StorageEvent): void {
+    const companyId = this.letterheadCache.currentCompanyId() || this.companyProfile?._id || '';
+    if (!companyId || event.key !== this.letterheadCache.storageKey(companyId)) {
+      return;
+    }
+    this.applyCachedLetterhead();
+  }
+
   private loadCompanyProfile(): void {
+    this.applyCachedLetterhead();
     this.backend.getMyCompany().subscribe({
       next: (company) => {
+        this.letterheadCache.write(company);
         this.companyProfile = company;
       },
       error: () => {
-        this.companyProfile = null;
+        if (!this.letterheadCache.read(this.companyProfile?._id)) {
+          this.companyProfile = null;
+        }
       },
     });
+  }
+
+  private applyCachedLetterhead(): void {
+    const letterhead = this.letterheadCache.read(this.companyProfile?._id);
+    if (!letterhead || !this.companyProfile) {
+      return;
+    }
+    this.companyProfile = {
+      ...this.companyProfile,
+      receiptLetterhead: letterhead,
+    };
   }
 
   handleKeyboardShortcuts(event: KeyboardEvent): void {
@@ -4708,7 +4734,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   private receiptLetterheadSnapshot(): ReceiptLetterheadSettings {
-    const settings = this.companyProfile?.receiptLetterhead;
+    const settings =
+      this.letterheadCache.read(this.companyProfile?._id) ||
+      this.companyProfile?.receiptLetterhead;
 
     return {
       enabled: settings?.enabled !== false,

@@ -6,6 +6,7 @@ import { RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { finalize } from 'rxjs/operators';
 import { BackendService } from '../../../core/services/backend.service';
+import { ReceiptLetterheadCacheService } from '../../../core/services/receipt-letterhead-cache.service';
 import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import { hasRouteAccess, readStoredPermissions } from '../../auth/access-control';
 import {
@@ -44,6 +45,9 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
   private backend = inject(BackendService);
   private toastr = inject(ToastrService);
   private sanitizer = inject(DomSanitizer);
+  private letterheadCache = inject(ReceiptLetterheadCacheService);
+  private formDirty = false;
+  private applyingServer = false;
 
   loading = false;
   saving = false;
@@ -75,16 +79,22 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
       .subscribe({
         next: (company) => {
           this.company = company;
-          this.form = this.fromCompany(company);
-          this.footerLinesText = (this.form.footerLines || []).join('\n');
-          this.extraHeaderText = (this.form.extraHeaderLines || []).join('\n');
-          this.refreshPreview();
+          this.letterheadCache.write(company);
+          if (this.formDirty || this.saving) {
+            return;
+          }
+          this.applyCompany(company);
         },
         error: (err) => this.toastr.error(err?.error?.message || 'Unable to load company profile'),
       });
   }
 
   onFormChange(): void {
+    if (this.applyingServer) {
+      this.refreshPreview();
+      return;
+    }
+    this.formDirty = true;
     this.refreshPreview();
   }
 
@@ -133,6 +143,7 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
       .then((dataUrl) => {
         this.form.logoUrl = dataUrl;
         this.form.showLogo = true;
+        this.formDirty = true;
         this.refreshPreview();
       })
       .catch(() => this.toastr.error('Unable to read selected logo.'))
@@ -148,6 +159,7 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
     }
     this.form.logoUrl = '';
     this.logoFileLabel = '';
+    this.formDirty = true;
     this.refreshPreview();
   }
 
@@ -179,11 +191,12 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
       .pipe(finalize(() => (this.saving = false)))
       .subscribe({
         next: (res) => {
-          this.company = res.data || this.company;
+          const company = res.data || this.company;
+          this.company = company;
+          this.letterheadCache.write(company);
+          this.formDirty = false;
           if (res.data) {
-            this.form = this.fromCompany(res.data);
-            this.footerLinesText = (this.form.footerLines || []).join('\n');
-            this.extraHeaderText = (this.form.extraHeaderLines || []).join('\n');
+            this.applyCompany(res.data);
             this.logoFileLabel = '';
           }
           this.refreshPreview();
@@ -195,6 +208,17 @@ export class PharmacyInvoiceSettingsComponent implements OnInit {
 
   get logoPreviewUrl(): string {
     return resolveAssetUrl(this.form.logoUrl || '');
+  }
+
+  private applyCompany(company: CompanyProfile): void {
+    this.applyingServer = true;
+    this.form = this.fromCompany(company);
+    this.footerLinesText = (this.form.footerLines || []).join('\n');
+    this.extraHeaderText = (this.form.extraHeaderLines || []).join('\n');
+    this.refreshPreview();
+    setTimeout(() => {
+      this.applyingServer = false;
+    });
   }
 
   private emptyForm(): ReceiptLetterheadSettings {

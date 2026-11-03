@@ -11,6 +11,7 @@ import { Subscription, filter, map, shareReplay, startWith } from 'rxjs';
 import { LeftmenuComponent } from '../modules/client/leftmenu/leftmenu.component';
 import { HeaderComponent } from '../modules/client/header/header.component';
 import { MedicineCatalogCacheService } from '../core/services/medicine-catalog-cache.service';
+import { ReceiptLetterheadCacheService } from '../core/services/receipt-letterhead-cache.service';
 
 const PRODUCT_HELP_OFFER_STORAGE = 'hms-product-help-offer-seen';
 const PRODUCT_TOUR_STORAGE = 'hms-product-shell-tutorial-seen';
@@ -94,7 +95,9 @@ const PRODUCT_TOUR_STEPS: ProductTourStep[] = [
 export class LayoutComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly medicineCatalog = inject(MedicineCatalogCacheService);
+  private readonly letterheadCache = inject(ReceiptLetterheadCacheService);
   private readonly routerSubscription: Subscription;
+  private letterheadRefreshSub: Subscription | null = null;
 
   showProductHelpOffer = false;
   tutorialActive = false;
@@ -141,10 +144,14 @@ export class LayoutComponent implements OnInit, OnDestroy {
     // Fresh medicine catalog once per login session (IndexedDB + memory).
     if (hasUser) {
       void this.medicineCatalog.ensureLoaded();
+      this.letterheadRefreshSub?.unsubscribe();
+      this.letterheadRefreshSub = this.letterheadCache.watchHourly().subscribe();
     }
   }
 
   ngOnDestroy(): void {
+    this.letterheadRefreshSub?.unsubscribe();
+    this.letterheadRefreshSub = null;
     this.routerSubscription.unsubscribe();
     document.body.classList.remove('pos-route-active', 'overflow-hidden');
     document.documentElement.classList.remove('pos-route-active');
