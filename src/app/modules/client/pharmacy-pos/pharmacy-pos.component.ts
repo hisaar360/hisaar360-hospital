@@ -973,16 +973,17 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   get balanceDueAmount(): number {
-    return Math.max(this.subtotal - Number(this.paidAmount || 0), 0);
+    return Math.max(this.roundMoney(this.subtotal) - this.roundMoney(this.paidAmount), 0);
   }
 
   get paymentStatusPreview(): 'paid' | 'partial' | 'unpaid' {
-    const paid = Number(this.paidAmount || 0);
+    const paid = this.roundMoney(this.paidAmount);
+    const due = this.roundMoney(this.subtotal);
     if (paid <= 0) {
       return 'unpaid';
     }
 
-    if (paid < this.subtotal) {
+    if (paid < due) {
       return 'partial';
     }
 
@@ -2530,10 +2531,12 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   lineTotal(line: PharmacyBillLine): number {
-    return Math.max(
-      Number(line.billQty || 0) * Number(line.unitPrice || 0) -
-        Number(line.discount || 0),
-      0,
+    return this.roundMoney(
+      Math.max(
+        Number(line.billQty || 0) * Number(line.unitPrice || 0) -
+          Number(line.discount || 0),
+        0,
+      ),
     );
   }
 
@@ -2739,10 +2742,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
 
     // Paid must never exceed the bill total by float noise (sale rejected).
-    const billTotal = saleItems.reduce(
-      (sum, item) => sum + Math.max(Number(item.qty) * item.unitPrice - item.discount, 0),
-      0,
-    );
+    const billTotal = this.roundMoney(this.subtotal);
     const paidAmount =
       this.settlementMode === 'ENCOUNTER' || this.paymentMethod === 'credit'
         ? 0
@@ -2798,6 +2798,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         return;
       }
     }
+
+    // #region agent log
+    fetch('http://127.0.0.1:7728/ingest/74b8b091-3eac-4d13-8a65-3c0f1c42eb89',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a41656'},body:JSON.stringify({sessionId:'a41656',hypothesisId:'A-B-C-D',location:'pharmacy-pos.component.ts:confirmBilling',message:'sale payload before create',data:{paymentMethod:this.paymentMethod,settlementMode:this.settlementMode,hasCustomer:Boolean(this.selectedCustomerId),paidAmount,payableAmount:this.payableAmount,subtotal:this.subtotal,billTotal,paidAmountTouched:this.paidAmountTouched,statusPreview:this.paymentStatusPreview,lineCount:saleItems.length,unitPrices:saleItems.map((item)=>item.unitPrice),qtys:saleItems.map((item)=>item.qty),discounts:saleItems.map((item)=>item.discount)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     const payload: CreateSalePayload = {
       storeId,
