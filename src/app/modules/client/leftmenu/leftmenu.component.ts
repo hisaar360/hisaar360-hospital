@@ -43,6 +43,11 @@ type SidebarSectionKey =
   | 'doctors'
   | 'prescriptions'
   | 'pharmacy'
+  | 'pharmacySales'
+  | 'pharmacyPurchases'
+  | 'pharmacyStock'
+  | 'pharmacyAccounts'
+  | 'pharmacyWard'
   | 'laboratory'
   | 'ward'
   | 'wardManagement'
@@ -66,6 +71,11 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   RoomCollapsed = true;
   PatientCollapsed = true;
   PharmacyCollapsed = true;
+  PharmacySalesCollapsed = true;
+  PharmacyPurchasesCollapsed = true;
+  PharmacyStockCollapsed = true;
+  PharmacyAccountsCollapsed = true;
+  PharmacyWardCollapsed = true;
   PrescriptionCollapsed = true;
   LaboratoryCollapsed = true;
   WardCollapsed = true;
@@ -670,6 +680,41 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     return this.canViewAllRoutes || this.hasPermission('pharmacy.ward_requests.read');
   }
 
+  get showPharmacySalesGroup(): boolean {
+    return (
+      this.canOpenPharmacyPos ||
+      this.canViewPharmacySales ||
+      this.canViewPharmacyReturns ||
+      this.canViewPharmacyCustomers
+    );
+  }
+
+  get showPharmacyPurchasesGroup(): boolean {
+    return this.canViewPurchases || this.canViewPharmacySuppliers;
+  }
+
+  get showPharmacyStockGroup(): boolean {
+    return (
+      this.canViewPharmacy ||
+      this.canViewPharmacyInventory ||
+      this.canViewPharmacyStockMovements ||
+      this.canViewPharmacyTransfers
+    );
+  }
+
+  get showPharmacyAccountsGroup(): boolean {
+    return (
+      this.canViewPharmacyPayments ||
+      this.canViewPharmacyExpenses ||
+      this.canViewPharmacyRegisterSessions ||
+      this.canViewPosReports
+    );
+  }
+
+  get showPharmacyWardGroup(): boolean {
+    return this.canViewPharmacyWardRequests || this.canViewPharmacyWardSettlements;
+  }
+
   get canViewHospitalAdministration(): boolean {
     return this.canViewHospitals || this.canViewUsers || this.canViewRoles || this.canViewAuditLogs;
   }
@@ -693,6 +738,7 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     this.router.events.subscribe((event) => {
       if (event instanceof NavigationEnd) {
         this.refreshAccess();
+        this.syncPharmacyGroups(event.urlAfterRedirects);
         this.closeSidebarOnMobile();
       }
     });
@@ -712,6 +758,7 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     this.PharmacyCollapsed = !(
       url.includes('pharmacy') || url.includes('pos-reports')
     );
+    this.syncPharmacyGroups(url);
     this.LaboratoryCollapsed = !url.includes('laboratory');
     this.WardCollapsed = !(url.includes('/ward') || url.includes('ward-admin') || url.includes('/operations'));
     this.WardManagementCollapsed = !(
@@ -726,6 +773,41 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     );
     this.SetupCollapsed = !url.includes('hospital-setup');
     this.AccountsCollapsed = !url.includes('/accounts');
+  }
+
+  private syncPharmacyGroups(url: string): void {
+    const path = url.split('?')[0].split('#')[0];
+    const matches = (prefixes: string[]) =>
+      prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+
+    this.PharmacySalesCollapsed = !matches([
+      '/pharmacy/pos',
+      '/pharmacy/sales',
+      '/pharmacy/sales-returns',
+      '/pharmacy/returns/sales',
+      '/pharmacy/customers',
+    ]);
+    this.PharmacyPurchasesCollapsed = !matches([
+      '/pharmacy/purchases',
+      '/pharmacy/purchase-returns',
+      '/pharmacy/suppliers',
+    ]);
+    this.PharmacyStockCollapsed = !matches([
+      '/pharmacy/products',
+      '/pharmacy/inventory',
+      '/pharmacy/stock-movements',
+      '/pharmacy/transfers',
+    ]);
+    this.PharmacyAccountsCollapsed = !matches([
+      '/pharmacy/payments',
+      '/pharmacy/expenses',
+      '/pharmacy/register-sessions',
+      '/pharmacy/reports',
+    ]);
+    this.PharmacyWardCollapsed = !matches([
+      '/pharmacy/ward-requests',
+      '/pharmacy/ward-settlements',
+    ]);
   }
 
   private normalizeRole(role: string): string {
@@ -872,6 +954,21 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
         break;
       case 'pharmacy':
         this.PharmacyCollapsed = !this.PharmacyCollapsed;
+        break;
+      case 'pharmacySales':
+        this.PharmacySalesCollapsed = !this.PharmacySalesCollapsed;
+        break;
+      case 'pharmacyPurchases':
+        this.PharmacyPurchasesCollapsed = !this.PharmacyPurchasesCollapsed;
+        break;
+      case 'pharmacyStock':
+        this.PharmacyStockCollapsed = !this.PharmacyStockCollapsed;
+        break;
+      case 'pharmacyAccounts':
+        this.PharmacyAccountsCollapsed = !this.PharmacyAccountsCollapsed;
+        break;
+      case 'pharmacyWard':
+        this.PharmacyWardCollapsed = !this.PharmacyWardCollapsed;
         break;
       case 'laboratory':
         this.LaboratoryCollapsed = !this.LaboratoryCollapsed;

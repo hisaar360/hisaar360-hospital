@@ -232,11 +232,12 @@
 }
 
 /*
- * Nested Ward "Management" toggle lives inside `.nav-dropdown`. Top-level
- * button padding (15px) overlaps the submenu guide line — match sibling
- * link indent (47px) and nest children one level deeper.
+ * Nested subsection toggle lives inside `.nav-dropdown` (Ward Management,
+ * Pharmacy Sales, and the other Pharmacy groups). Top-level button padding
+ * (15px) overlaps the submenu guide line — match sibling link indent (47px)
+ * and nest children one level deeper.
  */
-#left-sidebar #main-menu .nav-dropdown > li.ward-nav-subsection {
+#left-sidebar #main-menu .nav-dropdown > li.nav-subsection {
   flex: 0 0 auto;
   list-style: none;
   margin: 2px 0;
@@ -244,7 +245,7 @@
   width: 100%;
 }
 
-#left-sidebar #main-menu .nav-dropdown > li.ward-nav-subsection > button.ward-nav-subsection__toggle {
+#left-sidebar #main-menu .nav-dropdown > li.nav-subsection > button.nav-subsection__toggle {
   box-sizing: border-box;
   font-size: 15px;
   font-weight: 600;
@@ -256,21 +257,21 @@
   width: 100%;
 }
 
-#left-sidebar #main-menu .nav-dropdown > li.ward-nav-subsection > .ward-nav-subsection__menu {
+#left-sidebar #main-menu .nav-dropdown > li.nav-subsection > .nav-subsection__menu {
   margin: 0;
   padding: 0;
   width: 100%;
 }
 
-#left-sidebar #main-menu .nav-dropdown > li.ward-nav-subsection > .ward-nav-subsection__menu::before {
+#left-sidebar #main-menu .nav-dropdown > li.nav-subsection > .nav-subsection__menu::before {
   left: 45px;
 }
 
-#left-sidebar #main-menu .nav-dropdown > li.ward-nav-subsection > .ward-nav-subsection__menu > li > a {
+#left-sidebar #main-menu .nav-dropdown > li.nav-subsection > .nav-subsection__menu > li > a {
   padding-left: 70px;
 }
 
-#left-sidebar #main-menu .nav-dropdown > li.ward-nav-subsection > .ward-nav-subsection__menu > li > a::before {
+#left-sidebar #main-menu .nav-dropdown > li.nav-subsection > .nav-subsection__menu > li > a::before {
   left: 43px;
 }
 

@@ -94,25 +94,70 @@
                         <i class="fa fa-medkit"></i><span>Pharmacy</span>
                     </button>
                     <ul class="nav-dropdown" *ngIf="!PharmacyCollapsed">
-                        <li *ngIf="canViewPharmacy"><a [routerLink]="['/pharmacy']">Pharmacy Dashboard</a></li>
-                        <li *ngIf="canViewPharmacyInvoiceSettings"><a [routerLink]="['/pharmacy/invoice-settings']">Invoice / Print Bill</a></li>
-                        <li *ngIf="canViewPharmacy"><a [routerLink]="['/pharmacy/products']">Medicine Catalog</a></li>
-                        <li *ngIf="canViewPharmacyCustomers"><a [routerLink]="['/pharmacy/customers']">Customers</a></li>
-                        <li *ngIf="canViewPharmacySuppliers"><a [routerLink]="['/pharmacy/suppliers']">Suppliers</a></li>
-                        <li *ngIf="canViewPharmacyInventory"><a [routerLink]="['/pharmacy/inventory']">Inventory</a></li>
-                        <li *ngIf="canViewPharmacyStockMovements"><a [routerLink]="['/pharmacy/stock-movements']">Stock Movements</a></li>
-                        <li *ngIf="canViewPharmacyTransfers"><a [routerLink]="['/pharmacy/transfers']">Stock Transfers</a></li>
-                        <li *ngIf="canViewPharmacySales"><a [routerLink]="['/pharmacy/sales']">Sales</a></li>
-                        <li *ngIf="canOpenPharmacyPos"><a [routerLink]="['/pharmacy/pos']">Pharmacy POS</a></li>
-                        <li *ngIf="canViewPurchases"><a [routerLink]="['/pharmacy/purchases']">Purchases</a></li>
-                        <li *ngIf="canViewPurchases"><a [routerLink]="['/pharmacy/purchase-returns']">Purchase Returns</a></li>
-                        <li *ngIf="canViewPharmacyReturns"><a [routerLink]="['/pharmacy/returns/sales']">Sales Returns</a></li>
-                        <li *ngIf="canViewPharmacyPayments"><a [routerLink]="['/pharmacy/payments']">Payments</a></li>
-                        <li *ngIf="canViewPharmacyRegisterSessions"><a [routerLink]="['/pharmacy/register-sessions']">Register Sessions</a></li>
-                        <li *ngIf="canViewPharmacyExpenses"><a [routerLink]="['/pharmacy/expenses']">Expenses</a></li>
-                        <li *ngIf="canViewPharmacyWardSettlements"><a [routerLink]="['/pharmacy/ward-settlements']">Ward Settlements</a></li>
-                        <li *ngIf="canViewPharmacyWardRequests"><a [routerLink]="['/pharmacy/ward-requests']">Ward Requests</a></li>
-                        <li *ngIf="canViewPosReports"><a [routerLink]="['/pharmacy/reports']">Pharmacy Reports</a></li>
+                        <li *ngIf="canViewPharmacy"><a [routerLink]="['/pharmacy']" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Pharmacy Dashboard</a></li>
+                        <li *ngIf="canViewPharmacyInvoiceSettings"><a [routerLink]="['/pharmacy/invoice-settings']" routerLinkActive="active">Invoice / Print Bill</a></li>
+
+                        <li *ngIf="showPharmacySalesGroup" class="nav-subsection">
+                            <button type="button" (click)="toggleSection('pharmacySales', $event)"
+                                [attr.aria-expanded]="!PharmacySalesCollapsed" class="has-arrow nav-subsection__toggle">
+                                <span>Sales</span>
+                            </button>
+                            <ul class="nav-dropdown nav-subsection__menu" *ngIf="!PharmacySalesCollapsed">
+                                <li *ngIf="canOpenPharmacyPos"><a [routerLink]="['/pharmacy/pos']" routerLinkActive="active">Pharmacy POS</a></li>
+                                <li *ngIf="canViewPharmacySales"><a [routerLink]="['/pharmacy/sales']" routerLinkActive="active">Sales</a></li>
+                                <li *ngIf="canViewPharmacyReturns"><a [routerLink]="['/pharmacy/returns/sales']" routerLinkActive="active">Sales Returns</a></li>
+                                <li *ngIf="canViewPharmacyCustomers"><a [routerLink]="['/pharmacy/customers']" routerLinkActive="active">Customers</a></li>
+                            </ul>
+                        </li>
+
+                        <li *ngIf="showPharmacyPurchasesGroup" class="nav-subsection">
+                            <button type="button" (click)="toggleSection('pharmacyPurchases', $event)"
+                                [attr.aria-expanded]="!PharmacyPurchasesCollapsed" class="has-arrow nav-subsection__toggle">
+                                <span>Purchases</span>
+                            </button>
+                            <ul class="nav-dropdown nav-subsection__menu" *ngIf="!PharmacyPurchasesCollapsed">
+                                <li *ngIf="canViewPurchases"><a [routerLink]="['/pharmacy/purchases']" routerLinkActive="active">Purchases</a></li>
+                                <li *ngIf="canViewPurchases"><a [routerLink]="['/pharmacy/purchase-returns']" routerLinkActive="active">Purchase Returns</a></li>
+                                <li *ngIf="canViewPharmacySuppliers"><a [routerLink]="['/pharmacy/suppliers']" routerLinkActive="active">Suppliers</a></li>
+                            </ul>
+                        </li>
+
+                        <li *ngIf="showPharmacyStockGroup" class="nav-subsection">
+                            <button type="button" (click)="toggleSection('pharmacyStock', $event)"
+                                [attr.aria-expanded]="!PharmacyStockCollapsed" class="has-arrow nav-subsection__toggle">
+                                <span>Stock</span>
+                            </button>
+                            <ul class="nav-dropdown nav-subsection__menu" *ngIf="!PharmacyStockCollapsed">
+                                <li *ngIf="canViewPharmacy"><a [routerLink]="['/pharmacy/products']" routerLinkActive="active">Medicine Catalog</a></li>
+                                <li *ngIf="canViewPharmacyInventory"><a [routerLink]="['/pharmacy/inventory']" routerLinkActive="active">Inventory</a></li>
+                                <li *ngIf="canViewPharmacyStockMovements"><a [routerLink]="['/pharmacy/stock-movements']" routerLinkActive="active">Stock Movements</a></li>
+                                <li *ngIf="canViewPharmacyTransfers"><a [routerLink]="['/pharmacy/transfers']" routerLinkActive="active">Stock Transfers</a></li>
+                            </ul>
+                        </li>
+
+                        <li *ngIf="showPharmacyAccountsGroup" class="nav-subsection">
+                            <button type="button" (click)="toggleSection('pharmacyAccounts', $event)"
+                                [attr.aria-expanded]="!PharmacyAccountsCollapsed" class="has-arrow nav-subsection__toggle">
+                                <span>Accounts</span>
+                            </button>
+                            <ul class="nav-dropdown nav-subsection__menu" *ngIf="!PharmacyAccountsCollapsed">
+                                <li *ngIf="canViewPharmacyPayments"><a [routerLink]="['/pharmacy/payments']" routerLinkActive="active">Payments</a></li>
+                                <li *ngIf="canViewPharmacyExpenses"><a [routerLink]="['/pharmacy/expenses']" routerLinkActive="active">Expenses</a></li>
+                                <li *ngIf="canViewPharmacyRegisterSessions"><a [routerLink]="['/pharmacy/register-sessions']" routerLinkActive="active">Register Sessions</a></li>
+                                <li *ngIf="canViewPosReports"><a [routerLink]="['/pharmacy/reports']" routerLinkActive="active">Pharmacy Reports</a></li>
+                            </ul>
+                        </li>
+
+                        <li *ngIf="showPharmacyWardGroup" class="nav-subsection">
+                            <button type="button" (click)="toggleSection('pharmacyWard', $event)"
+                                [attr.aria-expanded]="!PharmacyWardCollapsed" class="has-arrow nav-subsection__toggle">
+                                <span>Ward</span>
+                            </button>
+                            <ul class="nav-dropdown nav-subsection__menu" *ngIf="!PharmacyWardCollapsed">
+                                <li *ngIf="canViewPharmacyWardRequests"><a [routerLink]="['/pharmacy/ward-requests']" routerLinkActive="active">Ward Requests</a></li>
+                                <li *ngIf="canViewPharmacyWardSettlements"><a [routerLink]="['/pharmacy/ward-settlements']" routerLinkActive="active">Ward Settlements</a></li>
+                            </ul>
+                        </li>
                     </ul>
                 </li>
 
@@ -144,12 +189,12 @@
                                     <a [routerLink]="[item.route]" routerLinkActive="active">{{ item.label }}</a>
                                 </li>
                             </ng-container>
-                            <li *ngIf="section.collapsible" class="ward-nav-subsection">
+                            <li *ngIf="section.collapsible" class="nav-subsection">
                                 <button type="button" (click)="toggleSection('wardManagement', $event)"
-                                    [attr.aria-expanded]="!WardManagementCollapsed" class="has-arrow ward-nav-subsection__toggle">
+                                    [attr.aria-expanded]="!WardManagementCollapsed" class="has-arrow nav-subsection__toggle">
                                     <span>{{ section.label }}</span>
                                 </button>
-                                <ul class="nav-dropdown ward-nav-subsection__menu" *ngIf="!WardManagementCollapsed">
+                                <ul class="nav-dropdown nav-subsection__menu" *ngIf="!WardManagementCollapsed">
                                     <li *ngFor="let item of section.items; trackBy: trackWardItem">
                                         <a [routerLink]="[item.route]" routerLinkActive="active">{{ item.label }}</a>
                                     </li>
