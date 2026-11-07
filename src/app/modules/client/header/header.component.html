@@ -32,7 +32,74 @@
             <a *ngIf="!isFullScreen" href="javascript:void(0);" (click)="openfullScreen()" id="btnFullscreen" class="icon-menu-bar"><i class="fa fa-arrows-alt"></i></a>
             <a *ngIf="isFullScreen" href="javascript:void(0);" (click)="closeFullScreen()" id="btnFullscreen" class="icon-menu-bar"><i class="fa fa-arrows-alt"></i></a>
           </li>
-          <li><a (click)="logout()" href="javascript:void(0)" class="icon-menu-bar"><i class="fa fa-power-off"></i></a></li>
+          <li class="hms-profile-menu" data-tour="shell-profile" (click)="$event.stopPropagation()">
+            <button
+              type="button"
+              class="hms-profile-trigger"
+              [class.is-open]="profileMenuOpen"
+              [attr.aria-expanded]="profileMenuOpen"
+              aria-haspopup="menu"
+              aria-controls="hms-profile-popover"
+              (click)="toggleProfileMenu($event)"
+            >
+              <span class="hms-profile-avatar">
+                <img *ngIf="photoUrl; else profileInitials" [src]="photoUrl" alt="">
+                <ng-template #profileInitials>{{ initials }}</ng-template>
+                <span class="hms-profile-status" aria-hidden="true"></span>
+              </span>
+              <i class="fa fa-angle-down hms-profile-chevron" aria-hidden="true"></i>
+              <span class="sr-only">Open account menu</span>
+            </button>
+
+            <div
+              *ngIf="profileMenuOpen"
+              id="hms-profile-popover"
+              class="hms-profile-popover"
+              role="menu"
+              aria-label="Account menu"
+            >
+              <div class="hms-profile-summary">
+                <span class="hms-profile-summary__avatar">
+                  <img *ngIf="photoUrl; else summaryInitials" [src]="photoUrl" alt="">
+                  <ng-template #summaryInitials>{{ initials }}</ng-template>
+                  <span class="hms-profile-status" aria-hidden="true"></span>
+                </span>
+                <div class="hms-profile-summary__copy">
+                  <strong>{{ displayName }}</strong>
+                  <span *ngIf="emailAddress">{{ emailAddress }}</span>
+                  <small>{{ roleLabel }}</small>
+                </div>
+              </div>
+
+              <div
+                *ngIf="packageReminders.packageExpiryLabel()"
+                class="hms-profile-expiry"
+                [class.is-expired]="packageReminders.isPackageExpired()"
+                role="status"
+              >
+                <i class="fa fa-calendar" aria-hidden="true"></i>
+                <span>Package expires:</span>
+                <strong>{{ packageReminders.packageExpiryLabel() }}</strong>
+              </div>
+
+              <div class="hms-profile-actions">
+                <button type="button" role="menuitem" (click)="openProfileSettings()">
+                  <i class="fa fa-gear" aria-hidden="true"></i>
+                  <span>Settings</span>
+                  <i class="fa fa-angle-right hms-profile-actions__arrow" aria-hidden="true"></i>
+                </button>
+                <button type="button" role="menuitem" (click)="openPasswordSettings()">
+                  <i class="fa fa-key" aria-hidden="true"></i>
+                  <span>Change password</span>
+                  <i class="fa fa-angle-right hms-profile-actions__arrow" aria-hidden="true"></i>
+                </button>
+                <button type="button" role="menuitem" class="hms-profile-signout" (click)="logout()">
+                  <i class="fa fa-power-off" aria-hidden="true"></i>
+                  <span>Sign out</span>
+                </button>
+              </div>
+            </div>
+          </li>
         </ul>
       </div>
     </div>

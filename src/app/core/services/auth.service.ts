@@ -8,6 +8,7 @@ import {
   resolveDefaultRoute,
   sanitizePermissions,
 } from '../../modules/auth/access-control';
+import { PackageReminderService } from './package-reminder.service';
 
 type AuthPayload = {
   token?: string;
@@ -27,6 +28,7 @@ type ApiEnvelope<T> = {
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly packageReminders = inject(PackageReminderService);
 
   private readonly userSignal = signal<any | null>(this.loadStoredUser());
   private readonly tokenPayloadSignal = signal<any | null>(
@@ -380,6 +382,12 @@ export class AuthService {
     localStorage.removeItem('auth_session');
     localStorage.removeItem('hospital');
     localStorage.removeItem('userName');
+
+    try {
+      this.packageReminders.clear();
+    } catch {
+      // Service may be unavailable during early bootstrap.
+    }
 
     this.userSignal.set(null);
     this.tokenPayloadSignal.set(null);

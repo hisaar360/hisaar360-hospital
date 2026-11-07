@@ -85,4 +85,9 @@ export const CONFIG = {
   roles: API_BASE_URL + '/roles',
   auditLogs: API_BASE_URL + '/audit-logs',
   stores: API_BASE_URL + '/stores',
+  packageReminders: {
+    active: API_BASE_URL + '/package-reminders/active',
+    dismiss: (id: string) =>
+      `${API_BASE_URL}/package-reminders/${encodeURIComponent(id)}/dismiss`,
+  },
 };

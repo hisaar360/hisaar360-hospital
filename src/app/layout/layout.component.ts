@@ -12,6 +12,8 @@ import { LeftmenuComponent } from '../modules/client/leftmenu/leftmenu.component
 import { HeaderComponent } from '../modules/client/header/header.component';
 import { MedicineCatalogCacheService } from '../core/services/medicine-catalog-cache.service';
 import { ReceiptLetterheadCacheService } from '../core/services/receipt-letterhead-cache.service';
+import { PackageReminderService } from '../core/services/package-reminder.service';
+import { PackageReminderAlertComponent } from '../shared/components/package-reminder-alert/package-reminder-alert';
 
 const PRODUCT_HELP_OFFER_STORAGE = 'hms-product-help-offer-seen';
 const PRODUCT_TOUR_STORAGE = 'hms-product-shell-tutorial-seen';
@@ -88,7 +90,13 @@ const PRODUCT_TOUR_STEPS: ProductTourStep[] = [
 
 @Component({
   selector: 'app-layout',
-  imports: [CommonModule, RouterOutlet, LeftmenuComponent, HeaderComponent],
+  imports: [
+    CommonModule,
+    RouterOutlet,
+    LeftmenuComponent,
+    HeaderComponent,
+    PackageReminderAlertComponent,
+  ],
   templateUrl: './layout.component.html',
   styleUrl: './layout.component.scss',
 })
@@ -96,6 +104,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly medicineCatalog = inject(MedicineCatalogCacheService);
   private readonly letterheadCache = inject(ReceiptLetterheadCacheService);
+  private readonly packageReminders = inject(PackageReminderService);
   private readonly routerSubscription: Subscription;
   private letterheadRefreshSub: Subscription | null = null;
 
@@ -146,6 +155,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
       void this.medicineCatalog.ensureLoaded();
       this.letterheadRefreshSub?.unsubscribe();
       this.letterheadRefreshSub = this.letterheadCache.watchHourly().subscribe();
+      this.packageReminders.refresh();
     }
   }
 

@@ -12,26 +12,6 @@
     </div>
 
     <div class="sidebar-scroll">
-        <div *ngIf="displayName" class="user-account sidebar-user-card d-flex">
-            <div class="user_div sidebar-user-card__avatar">
-                <img [src]="photoUrl || 'assets/images/user.png'" class="user-photo" alt="User Profile Picture">
-            </div>
-            <div class="dropdown sidebar-user-card__meta">
-                <span class="sidebar-user-card__role">{{ roleLabel }}</span>
-                <a href="javascript:void(0);" class="dropdown-toggle user-name sidebar-user-card__name" (click)="showDropDown()">
-                    <strong>{{ displayName }}</strong>
-                </a>
-                <ul class="dropdown-menu dropdown-menu-right account vivify flipInY" id="drp">
-                    <li><a [routerLink]="['/settings']"><i class="fa fa-user"></i>My Profile</a></li>
-                    <li><a [routerLink]="['/help']"><i class="fa fa-question-circle"></i>Help Center</a></li>
-                    <li *ngIf="canViewAccounts"><a [routerLink]="['/accounts/dashboard']"><i class="fa fa-book"></i>Accounts</a></li>
-                    <li *ngIf="canViewSettings"><a [routerLink]="['/settings']"><i class="fa fa-gear"></i>Settings</a></li>
-                    <li class="divider"></li>
-                    <li><a href="javascript:void(0);" (click)="logout()"><i class="fa fa-power-off"></i>Logout</a></li>
-                </ul>
-            </div>
-        </div>
-
         <nav id="left-sidebar-nav" class="sidebar-nav">
             <ul id="main-menu" class="metismenu animation-li-delay">
                 <li class="header">{{ isLaboratoryEdition ? 'Laboratory' : 'Hospital' }}</li>
@@ -303,12 +283,6 @@
                 <li class="header">Support</li>
                 <li [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }" class="sidebar-help-link" data-tour="shell-help">
                     <a [routerLink]="['/help']"><i class="fa fa-question-circle"></i><span>Help Center</span></a>
-                </li>
-
-                <li [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }" class="sidebar-account-action">
-                    <a [routerLink]="['/change-password']">
-                        <i class="fa fa-key"></i><span>Change Password</span>
-                    </a>
                 </li>
 
                 <li *ngIf="false" class="extra_widget">

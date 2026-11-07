@@ -2,168 +2,6 @@
   left: none !important;
 }
 
-#left-sidebar .sidebar-user-card {
-  align-items: center;
-  background: #f8fafc;
-  border: 1px solid rgba(23, 25, 28, 0.08);
-  border-radius: 12px;
-  box-sizing: border-box;
-  display: flex;
-  gap: 12px;
-  margin: 16px 14px 18px;
-  max-width: calc(100% - 28px);
-  overflow: hidden;
-  padding: 12px;
-  width: auto;
-}
-
-#left-sidebar .sidebar-user-card__avatar {
-  display: block;
-  flex-shrink: 0;
-  padding: 0;
-}
-
-#left-sidebar .sidebar-user-card__avatar .user-photo {
-  border-radius: 12px;
-  display: block;
-  height: 52px;
-  object-fit: cover;
-  width: 52px;
-}
-
-#left-sidebar .sidebar-user-card__meta,
-#left-sidebar .user-account .sidebar-user-card__meta.dropdown {
-  display: block !important;
-  flex: 1 1 auto;
-  max-width: 100%;
-  min-width: 0;
-  position: relative;
-  vertical-align: top;
-}
-
-#left-sidebar .sidebar-user-card__meta .dropdown-menu {
-  background: #fff;
-  border: 1px solid rgba(23, 25, 28, 0.08);
-  border-radius: 12px;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
-  display: none;
-  left: 0 !important;
-  list-style: none;
-  margin: 6px 0 0;
-  min-width: 200px;
-  padding: 8px;
-  position: absolute;
-  right: auto !important;
-  top: calc(100% + 4px) !important;
-  width: max-content;
-  z-index: 1050;
-}
-
-#left-sidebar .sidebar-user-card__meta .dropdown-menu.ShowDiv {
-  display: block !important;
-}
-
-#left-sidebar .sidebar-user-card__meta .dropdown-menu > li {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-#left-sidebar .sidebar-user-card__meta .dropdown-menu a {
-  align-items: center;
-  border-radius: 8px;
-  color: #4b5563;
-  display: flex;
-  font-size: 14px;
-  gap: 10px;
-  line-height: 1.2;
-  padding: 10px 12px;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-#left-sidebar .sidebar-user-card__meta .dropdown-menu a i {
-  color: #6b7280;
-  flex: 0 0 16px;
-  font-size: 14px;
-  line-height: 1;
-  margin-right: 0;
-  text-align: center;
-  width: 16px;
-}
-
-#left-sidebar .sidebar-user-card__meta .dropdown-menu a:hover {
-  background: rgba(1, 156, 157, 0.08);
-  color: #111827;
-}
-
-#left-sidebar .sidebar-user-card__meta .dropdown-menu a:hover i {
-  color: #019c9d;
-}
-
-#left-sidebar .sidebar-user-card__meta .dropdown-menu li.divider {
-  border-bottom: 1px solid rgba(23, 25, 28, 0.08);
-  height: 0;
-  margin: 6px 4px;
-  overflow: hidden;
-  padding: 0;
-}
-
-#left-sidebar .sidebar-user-card__role {
-  color: #6b7280;
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  margin-bottom: 2px;
-  text-transform: capitalize;
-}
-
-#left-sidebar .sidebar-user-card__name {
-  display: block;
-  line-height: 1.25;
-  max-width: 100%;
-  min-width: 0;
-  overflow: hidden;
-}
-
-#left-sidebar .sidebar-user-card__name strong {
-  color: #111827;
-  display: block;
-  font-size: 14px;
-  font-weight: 700;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  white-space: normal;
-  word-break: break-word;
-}
-
-@media (max-width: 767px) {
-  #left-sidebar .sidebar-user-card__avatar .user-photo {
-    height: 48px;
-    width: 48px;
-  }
-}
-
-:host-context(.toggle_menu_active) #left-sidebar .sidebar-user-card {
-  justify-content: center;
-  margin-inline: 10px;
-  padding: 10px 8px;
-}
-
-:host-context(.toggle_menu_active) #left-sidebar .sidebar-user-card__meta {
-  display: none;
-}
-
-:host-context(.toggle_menu_active) #left-sidebar:hover .sidebar-user-card {
-  justify-content: flex-start;
-  padding: 12px;
-}
-
-:host-context(.toggle_menu_active) #left-sidebar:hover .sidebar-user-card__meta {
-  display: block;
-}
-
 #left-sidebar.sidebar {
   display: flex;
   flex-direction: column;
@@ -326,14 +164,6 @@
   background: rgba(23, 25, 28, 0.1);
 }
 
-.sidebar-account-action {
-  border-top: 1px solid rgba(23, 25, 28, 0.08);
-  margin-top: 8px;
-  margin-bottom: 18px;
-  padding-top: 8px;
-  padding-bottom: 10px;
-}
-
 .sidebar-scroll {
   flex: 1;
   min-height: 0;
@@ -347,12 +177,6 @@
 
 #main-menu {
   padding-bottom: 24px;
-}
-
-#main-menu > li.sidebar-account-action a {
-  align-items: center;
-  display: flex;
-  min-height: 40px;
 }
 
 .password-modal-backdrop {

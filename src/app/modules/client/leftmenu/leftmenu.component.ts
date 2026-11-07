@@ -36,8 +36,6 @@ import { canAccessHospitalSetup } from '../../auth/hospital-scope';
 import { buildWardNavSections, WardNavSection } from '../ward/ward-nav.util';
 import { AuthService } from '../../../core/services/auth.service';
 import { CurrencyService } from '../../../core/services/currency.service';
-import { resolveAssetUrl } from '../../../core/utils/asset.util';
-import { User } from '../../../shared/models/hospital.model';
 
 type SidebarSectionKey =
   | 'doctors'
@@ -175,22 +173,6 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
 
   get homeRoute(): string {
     return resolveDefaultRoute(this.permissions, this.role);
-  }
-
-  get currentUser(): User | null {
-    return (this.authService.currentUser() as User | null) || null;
-  }
-
-  get displayName(): string {
-    return String(this.currentUser?.name || this.currentUser?.email || '').trim();
-  }
-
-  get roleLabel(): string {
-    return String(this.currentUser?.role?.name || this.role || 'Staff').trim();
-  }
-
-  get photoUrl(): string {
-    return resolveAssetUrl(this.currentUser?.photoUrl);
   }
 
   get canViewDoctors(): boolean {
@@ -890,14 +872,6 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
         element.classList.remove('gradient');
       }
     });
-  }
-
-  showDropDown(): void {
-    document.getElementById('drp')?.classList.toggle('ShowDiv');
-  }
-
-  logout(): void {
-    this.authService.logout();
   }
 
   toggleMenu(): void {
