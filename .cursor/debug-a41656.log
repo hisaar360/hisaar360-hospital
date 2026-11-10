@@ -1,0 +1,2 @@
+{"sessionId":"a41656","hypothesisId":"B-D","location":"sale.service.js:assertCustomerCreditForSale","message":"credit check","data":{"creditExposure":false,"hasCustomer":false,"settlementMode":"COUNTER","total":"240.00","paidAmount":"240.00"},"timestamp":1794323803567}
+{"sessionId":"a41656","hypothesisId":"B-D","location":"sale.service.js:assertCustomerCreditForSale","message":"credit check","data":{"creditExposure":false,"hasCustomer":false,"settlementMode":"COUNTER","total":"500.00","paidAmount":"500.00"},"timestamp":1794329618755}

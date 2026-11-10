@@ -150,19 +150,58 @@
 
         <app-clinical-patient-header [model]="clinicalPatientHeaderModel()"></app-clinical-patient-header>
 
-        <div class="rx-tabs clinical-workspace-tabs">
-          <button type="button" [class.active]="workspaceTab === 'vitals'" (click)="setWorkspaceTab('vitals')">
-            Vitals &amp; Trends
+        <div class="rx-tabs clinical-workspace-tabs" role="tablist" aria-label="Consultation controls">
+          <button
+            type="button"
+            role="tab"
+            class="rx-tab tone-vitals"
+            [class.active]="workspaceTab === 'vitals'"
+            (click)="setWorkspaceTab('vitals')"
+          >
+            <i class="fa fa-heartbeat" aria-hidden="true"></i>
+            <span>Vitals &amp; Trends</span>
           </button>
-          <button type="button" [class.active]="workspaceTab === 'visit'" (click)="setWorkspaceTab('visit')">
-            {{ isGynaeDoctor() ? 'Visit Details' : 'Visit' }}
+          <button
+            type="button"
+            role="tab"
+            class="rx-tab tone-visit"
+            [class.active]="workspaceTab === 'visit'"
+            (click)="setWorkspaceTab('visit')"
+          >
+            <i class="fa fa-stethoscope" aria-hidden="true"></i>
+            <span>{{ isGynaeDoctor() ? 'Visit Details' : 'Visit' }}</span>
           </button>
-          <button type="button" [class.active]="workspaceTab === 'specialty'" (click)="setWorkspaceTab('specialty')">
-            Specialty
+          <button
+            type="button"
+            role="tab"
+            class="rx-tab tone-specialty"
+            [class.active]="workspaceTab === 'specialty'"
+            (click)="setWorkspaceTab('specialty')"
+          >
+            <i class="fa fa-user-md" aria-hidden="true"></i>
+            <span>Specialty</span>
             <small>{{ specialtyWorkspaceTitle() }}</small>
           </button>
-          <button type="button" [class.active]="workspaceTab === 'orders'" (click)="setWorkspaceTab('orders')">Orders</button>
-          <button type="button" [class.active]="workspaceTab === 'history'" (click)="setWorkspaceTab('history')">History</button>
+          <button
+            type="button"
+            role="tab"
+            class="rx-tab tone-orders"
+            [class.active]="workspaceTab === 'orders'"
+            (click)="setWorkspaceTab('orders')"
+          >
+            <i class="fa fa-flask" aria-hidden="true"></i>
+            <span>Orders</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="rx-tab tone-history"
+            [class.active]="workspaceTab === 'history'"
+            (click)="setWorkspaceTab('history')"
+          >
+            <i class="fa fa-history" aria-hidden="true"></i>
+            <span>History</span>
+          </button>
         </div>
 
         <section class="clinical-workspace-panel vitals-workspace-panel" *ngIf="workspaceTab === 'vitals'">
@@ -170,7 +209,7 @@
             <div class="vitals-dashboard-head">
               <div>
                 <h3>Vitals &amp; Trends</h3>
-                <p class="vitals-dashboard-sub">Recorded vitals, charts, and history for this patient — separate from visit notes.</p>
+                <p class="vitals-dashboard-sub">Charts &amp; history for this patient</p>
               </div>
               <div class="vitals-dashboard-head__actions">
                 <div class="vitals-range-switch">

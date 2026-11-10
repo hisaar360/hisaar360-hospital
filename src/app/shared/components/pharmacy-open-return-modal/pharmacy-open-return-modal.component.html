@@ -1,0 +1,266 @@
+<div class="por-backdrop" *ngIf="open" (click)="close()">
+  <div class="por-modal" role="dialog" aria-modal="true" aria-labelledby="por-title" (click)="$event.stopPropagation()">
+    <div class="por-head">
+      <div class="por-badge" aria-hidden="true">
+        <i class="fa fa-exchange"></i>
+      </div>
+      <div class="por-head-copy">
+        <strong id="por-title">Random Return / Exchange</strong>
+        <span>Return without bill · optional replacement · settle net amount · stock updates instantly</span>
+      </div>
+      <button type="button" class="por-close" (click)="close()" aria-label="Close">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
+
+    <div class="por-body">
+      <div class="por-message" *ngIf="errorMessage">{{ errorMessage }}</div>
+      <div class="por-message is-warn" *ngIf="!activeStoreId && !storesLoading">Select a store to continue.</div>
+
+      <label class="por-store">
+        <span>Store <em>*</em></span>
+        <div class="por-store-control">
+          <i class="fa fa-hospital-o" aria-hidden="true"></i>
+          <select
+            [ngModel]="selectedStoreId"
+            (ngModelChange)="onStoreChange($event)"
+            [disabled]="submitting || storesLoading || (!!storeId && stores.length <= 1)"
+          >
+            <option value="" disabled>{{ storesLoading ? 'Loading stores…' : 'Select store' }}</option>
+            <option *ngFor="let store of stores" [value]="store._id">{{ store.name }}</option>
+            <option *ngIf="!stores.length && activeStoreId" [value]="activeStoreId">Current store</option>
+          </select>
+        </div>
+      </label>
+
+      <div class="por-columns">
+        <section class="por-panel is-return">
+          <header class="por-panel-head">
+            <div class="por-panel-icon" aria-hidden="true"><i class="fa fa-undo"></i></div>
+            <div>
+              <h3>Return medicines</h3>
+              <p>
+                Add back items to stock ·
+                {{ returnLines.length || 0 }} item{{ returnLines.length === 1 ? '' : 's' }} · ↑↓ Enter to pick
+              </p>
+            </div>
+          </header>
+
+          <div class="por-search-wrap">
+            <div class="por-search">
+              <i class="fa fa-search" aria-hidden="true"></i>
+              <input
+                type="text"
+                [ngModel]="returnSearch"
+                (ngModelChange)="onReturnSearchChange($event)"
+                (keydown)="onSearchKeydown($event, 'return')"
+                placeholder="Name / SKU / barcode"
+                [disabled]="!activeStoreId || submitting"
+                autocomplete="off"
+              />
+              <span class="por-search-scan" aria-hidden="true"><i class="fa fa-barcode"></i></span>
+            </div>
+            <div class="por-suggest" *ngIf="returnSearching">Searching...</div>
+            <div class="por-suggest-list" *ngIf="returnSuggestions.length" role="listbox">
+              <button
+                type="button"
+                class="por-suggest-item"
+                *ngFor="let product of returnSuggestions; let i = index"
+                [class.is-active]="i === returnActiveIndex"
+                role="option"
+                [attr.aria-selected]="i === returnActiveIndex"
+                (mouseenter)="returnActiveIndex = i"
+                (click)="selectSuggestion('return', product)"
+              >
+                <strong>{{ product.name }}</strong>
+                <span>{{ product.sku }} · {{ currency(product.sellingPrice) }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="por-empty" *ngIf="!returnLines.length">No return items yet.</div>
+
+          <div class="por-lines" *ngIf="returnLines.length">
+            <article class="por-card" *ngFor="let line of returnLines">
+              <div class="por-card-top">
+                <div class="por-med-icon" aria-hidden="true"><i class="fa fa-medkit"></i></div>
+                <div class="por-line-main">
+                  <strong>{{ line.name }}</strong>
+                  <span>{{ line.sku }}</span>
+                </div>
+                <div class="por-card-fields">
+                  <label class="por-qty">
+                    <span>Qty</span>
+                    <input type="number" min="0.001" step="any" [ngModel]="line.qty" (ngModelChange)="setQty(line, $event)" />
+                  </label>
+                  <label class="por-price">
+                    <span>Price</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      [ngModel]="line.unitPrice"
+                      (ngModelChange)="setUnitPrice(line, $event)"
+                    />
+                  </label>
+                  <button type="button" class="por-remove" (click)="removeLine('return', line.key)" aria-label="Remove">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="por-card-meta">
+                <label>
+                  <span>Batch / Lot</span>
+                  <input type="text" [(ngModel)]="line.lotNumber" placeholder="Batch / lot" autocomplete="off" />
+                </label>
+                <label>
+                  <span>Expiry</span>
+                  <input type="date" [(ngModel)]="line.expiryDate" />
+                </label>
+                <label>
+                  <span>Reason</span>
+                  <input type="text" [(ngModel)]="line.reason" placeholder="Optional" />
+                </label>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="por-panel is-issue">
+          <header class="por-panel-head">
+            <div class="por-panel-icon" aria-hidden="true"><i class="fa fa-refresh"></i></div>
+            <div>
+              <h3>Replacement issue</h3>
+              <p>
+                Optional · deducted from stock ·
+                {{ issueLines.length || 0 }} item{{ issueLines.length === 1 ? '' : 's' }} · ↑↓ Enter
+              </p>
+            </div>
+          </header>
+
+          <div class="por-search-wrap">
+            <div class="por-search">
+              <i class="fa fa-search" aria-hidden="true"></i>
+              <input
+                type="text"
+                [ngModel]="issueSearch"
+                (ngModelChange)="onIssueSearchChange($event)"
+                (keydown)="onSearchKeydown($event, 'issue')"
+                placeholder="Name / SKU / barcode"
+                [disabled]="!activeStoreId || submitting"
+                autocomplete="off"
+              />
+              <span class="por-search-scan" aria-hidden="true"><i class="fa fa-barcode"></i></span>
+            </div>
+            <div class="por-suggest" *ngIf="issueSearching">Searching...</div>
+            <div class="por-suggest-list" *ngIf="issueSuggestions.length" role="listbox">
+              <button
+                type="button"
+                class="por-suggest-item"
+                *ngFor="let product of issueSuggestions; let i = index"
+                [class.is-active]="i === issueActiveIndex"
+                role="option"
+                [attr.aria-selected]="i === issueActiveIndex"
+                (mouseenter)="issueActiveIndex = i"
+                (click)="selectSuggestion('issue', product)"
+              >
+                <strong>{{ product.name }}</strong>
+                <span>
+                  {{ product.sku }} · {{ currency(product.sellingPrice) }}
+                  <ng-container *ngIf="product.availableQuantity != null">
+                    · Avl {{ product.availableQuantity }}
+                  </ng-container>
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div class="por-empty" *ngIf="!issueLines.length">No replacement items (refund-only).</div>
+
+          <div class="por-lines" *ngIf="issueLines.length">
+            <article class="por-card is-issue-card" *ngFor="let line of issueLines">
+              <div class="por-card-top">
+                <div class="por-med-icon" aria-hidden="true"><i class="fa fa-medkit"></i></div>
+                <div class="por-line-main">
+                  <strong>{{ line.name }}</strong>
+                  <span>{{ line.sku }}</span>
+                </div>
+                <div class="por-card-fields">
+                  <label class="por-qty">
+                    <span>Qty</span>
+                    <input type="number" min="0.001" step="any" [ngModel]="line.qty" (ngModelChange)="setQty(line, $event)" />
+                  </label>
+                  <label class="por-price">
+                    <span>Price</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      [ngModel]="line.unitPrice"
+                      (ngModelChange)="setUnitPrice(line, $event)"
+                    />
+                  </label>
+                  <button type="button" class="por-remove" (click)="removeLine('issue', line.key)" aria-label="Remove">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+
+      <div class="por-footer-bar">
+        <div class="por-totals">
+          <div class="por-total-box">
+            <span>Return Total</span>
+            <strong>{{ currency(returnTotal) }}</strong>
+          </div>
+          <div class="por-total-box">
+            <span>Issue Total</span>
+            <strong>{{ currency(issueTotal) }}</strong>
+          </div>
+          <div
+            class="por-total-box is-net"
+            [class.is-receive]="netAmount > 0"
+            [class.is-pay]="netAmount < 0"
+            [class.is-even]="netAmount === 0"
+          >
+            <span><i class="fa fa-credit-card"></i> {{ settlementLabel }}</span>
+            <strong>{{ currency(netAmount < 0 ? -netAmount : netAmount) }}</strong>
+          </div>
+        </div>
+
+        <div class="por-pay-row" [class.no-pay]="netAmount === 0">
+          <label class="por-pay-field" *ngIf="netAmount !== 0">
+            <span>Payment Method</span>
+            <div class="por-pay-control">
+              <i class="fa fa-money" aria-hidden="true"></i>
+              <select [(ngModel)]="paymentMethod">
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="bank">Bank</option>
+                <option value="online">Online</option>
+                <option value="wallet">Wallet</option>
+              </select>
+            </div>
+          </label>
+          <label class="por-pay-field is-note">
+            <span>Note</span>
+            <div class="por-pay-control">
+              <i class="fa fa-file-text-o" aria-hidden="true"></i>
+              <input type="text" [(ngModel)]="note" placeholder="Optional note" />
+            </div>
+          </label>
+          <div class="por-actions">
+            <button type="button" class="por-btn" (click)="close()" [disabled]="submitting">Cancel</button>
+            <button type="button" class="por-btn is-primary" (click)="submit()" [disabled]="!canSubmit">
+              <i class="fa fa-check"></i>
+              {{ submitting ? 'Saving...' : 'Complete Return' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

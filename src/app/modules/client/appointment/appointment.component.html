@@ -220,34 +220,43 @@
                 Select a doctor.
               </small>
             </label>
-            <div class="consultation-fee-card" *ngIf="appointmentForm.value.doctorId">
-              <span>Consultation Fee (editable)</span>
-              <input
-                #appointmentFeeInput
-                class="fee-input"
-                type="number"
-                min="0"
-                step="1"
-                formControlName="consultationFee"
-                (change)="markFeeManualOverride()"
-              />
-              <small *ngIf="followUpFeeApplied" class="fee-hint is-follow-up">{{ feeSuggestionLabel }}</small>
-              <small *ngIf="!followUpFeeApplied && selectedDoctor?.followUpFeeEnabled" class="fee-hint">
-                Full fee · follow-up window {{ selectedDoctor?.followUpWithinDays || 7 }} days
-              </small>
-              <button
-                type="button"
-                class="fee-reset"
-                *ngIf="selectedDoctor"
-                (click)="applySuggestedConsultationFee()"
-              >
-                Reset suggested
-              </button>
+            <div class="fee-row" *ngIf="appointmentForm.value.doctorId">
+              <div class="consultation-fee-card">
+                <span>Consultation Fee</span>
+                <div class="fee-input-row">
+                  <input
+                    #appointmentFeeInput
+                    class="fee-input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    formControlName="consultationFee"
+                    (change)="markFeeManualOverride()"
+                  />
+                  <button
+                    type="button"
+                    class="fee-reset"
+                    *ngIf="selectedDoctor"
+                    (click)="applySuggestedConsultationFee()"
+                    title="Reset suggested fee"
+                  >
+                    Reset
+                  </button>
+                </div>
+                <small *ngIf="followUpFeeApplied" class="fee-hint is-follow-up">{{ feeSuggestionLabel }}</small>
+                <small *ngIf="!followUpFeeApplied && selectedDoctor?.followUpFeeEnabled" class="fee-hint">
+                  Full fee · follow-up {{ selectedDoctor?.followUpWithinDays || 7 }}d
+                </small>
+              </div>
+              <label class="fee-discount-field">
+                <span>Discount ({{ currencyLabel }})</span>
+                <input #appointmentDiscountInput type="number" min="0" step="1" formControlName="discount" />
+              </label>
+              <div class="consultation-fee-card net-fee-card">
+                <span>Net Fee</span>
+                <strong>{{ netConsultationFee | hmsCurrency }}</strong>
+              </div>
             </div>
-            <label>
-              <span>Discount ({{ currencyLabel }})</span>
-              <input #appointmentDiscountInput type="number" min="0" step="1" formControlName="discount" />
-            </label>
             <label class="wide" *ngIf="(appointmentForm.value.discount || 0) > 0"
               [class.is-invalid]="showDiscountReasonError()">
               <span>Discount Reason *</span>
@@ -257,28 +266,23 @@
                 Enter a discount reason.
               </small>
             </label>
-            <div class="consultation-fee-card net-fee-card" *ngIf="appointmentForm.value.doctorId">
-              <span>Net Fee</span>
-              <strong>{{ netConsultationFee | hmsCurrency }}</strong>
-            </div>
             <label [class.is-invalid]="showAppointmentError('appointmentDate') || showDateUnavailableError()">
               <span>Date *</span>
               <input type="date" formControlName="appointmentDate" (change)="refreshAvailableSlots()" />
-              <small class="text-muted d-block" *ngIf="appointmentForm.value.doctorId">
-                Available days: {{ selectedDoctorAvailableDaysLabel }}
+              <small class="field-hint" *ngIf="appointmentForm.value.doctorId" [title]="selectedDoctorAvailableDaysLabel">
+                Days: {{ selectedDoctorAvailableDaysLabel }}
               </small>
               <small class="field-error"
                 *ngIf="showAppointmentError('appointmentDate')">
-                Select an appointment date.
+                Select a date.
               </small>
               <small class="field-error"
                 *ngIf="showDateUnavailableError() && isSelectedDateOnLeave()">
-                Doctor is on leave on this date — not available for appointments.
+                Doctor on leave this date.
               </small>
               <small class="field-error"
                 *ngIf="showDateUnavailableError() && !isSelectedDateOnLeave()">
-                Doctor is not available on {{ selectedAppointmentWeekdayLabel || 'this date' }}.
-                Working days: {{ selectedDoctorAvailableDaysLabel }}.
+                Not available on {{ selectedAppointmentWeekdayLabel || 'this date' }}.
               </small>
             </label>
             <label>
@@ -290,56 +294,76 @@
                 <option value="Emergency">Emergency</option>
               </select>
             </label>
+            <div class="payment-status-row" [class.has-fee-point]="showFeeCollectionPoint">
+              <label>
+                <span>Payment *</span>
+                <select formControlName="paymentStatus" (change)="onPaymentStatusChange()">
+                  <option value="unpaid">Unpaid</option>
+                  <option value="paid">Paid</option>
+                </select>
+              </label>
+              <label *ngIf="showFeeCollectionPoint">
+                <span>Collect fee at</span>
+                <select
+                  formControlName="feeCollectionPoint"
+                  (change)="onFeeCollectionPointChange()"
+                >
+                  <option value="opd">OPD / Reception</option>
+                  <option value="pharmacy" *ngIf="canCollectAppointmentFeeAtPharmacy">Pharmacy</option>
+                </select>
+                <small class="status-hint" *ngIf="appointmentForm.value.feeCollectionPoint === 'pharmacy'">
+                  Pharmacy Settlement · received by logged-in pharmacy user
+                </small>
+                <small class="status-hint" *ngIf="!canCollectAppointmentFeeAtPharmacy">
+                  Only pharmacy users can mark fees paid at Pharmacy Settlement.
+                </small>
+              </label>
+              <label>
+                <span>Status *</span>
+                <select formControlName="status">
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="no_show">No show</option>
+                </select>
+                <small class="status-hint" *ngIf="appointmentForm.value.paymentStatus === 'paid'">
+                  Paid → auto confirmed
+                </small>
+              </label>
+            </div>
             <label>
-              <span>Payment Status *</span>
-              <select formControlName="paymentStatus" (change)="onPaymentStatusChange()">
-                <option value="unpaid">Unpaid</option>
-                <option value="paid">Paid</option>
-              </select>
-            </label>
-            <label>
-              <span>Start Time</span>
+              <span>Start</span>
               <input type="time" step="60" formControlName="startTime" />
             </label>
             <label>
-              <span>End Time</span>
+              <span>End</span>
               <input type="time" step="60" formControlName="endTime" />
               <small class="status-hint" *ngIf="expectedVisitLabel">
-                Expected time: {{ expectedVisitLabel }}
-              </small>
-            </label>
-            <label>
-              <span>Status *</span>
-              <select formControlName="status">
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="no_show">No show</option>
-              </select>
-              <small class="status-hint" *ngIf="appointmentForm.value.paymentStatus === 'paid'">
-                Payment paid — appointment will be confirmed automatically.
+                {{ expectedVisitLabel }}
               </small>
             </label>
           </div>
 
           <div class="slot-row" [class.is-invalid]="showTimeSlotError()">
-            <span>Available Time Slots {{ timeSlots.length ? '*' : '' }}</span>
-            <small class="slot-hint" *ngIf="appointmentForm.value.doctorId">
-              {{ selectedSlotDurationMinutes }} minutes per patient
-            </small>
+            <div class="slot-row__head">
+              <span>Time slots {{ timeSlots.length ? '*' : '' }}</span>
+              <small class="slot-hint" *ngIf="appointmentForm.value.doctorId">
+                {{ selectedSlotDurationMinutes }} min
+              </small>
+            </div>
             <p class="slot-empty" *ngIf="!slotsLoading && appointmentForm.value.doctorId && !timeSlots.length">
               <ng-container *ngIf="isSelectedDateOnLeave() || slotAvailabilityReason; else noSlotsGeneric">
-                {{ slotAvailabilityReason || 'Doctor is on leave on that date' }} — not available for appointments.
+                {{ slotAvailabilityReason || 'Doctor is on leave on that date' }} — not available.
               </ng-container>
               <ng-template #noSlotsGeneric>
-                No open slots for this date. Choose another date or check the doctor's working hours.
+                No open slots for this date.
               </ng-template>
             </p>
             <p class="field-error" *ngIf="showTimeSlotError()">
-              Select a time slot to continue.
+              Select a time slot.
             </p>
-            <div>
+            <div class="slot-row__chips">
               <button type="button" *ngFor="let slot of timeSlots" [class.active]="isSelectedTimeSlot(slot)"
                 (click)="selectTimeSlot(slot)">
                 {{ formatClockTime(slot.startTime) }}
@@ -347,17 +371,18 @@
             </div>
           </div>
 
-          <label class="reason-field">
-            <span>Reason for Visit (Optional)</span>
-            <textarea formControlName="reason" maxlength="250"
-              placeholder="Enter reason for visit, symptoms, or notes..."></textarea>
-            <small>{{ appointmentForm.value.reason?.length || 0 }}/250</small>
-          </label>
-
-          <label class="reason-field compact">
-            <span>Notes (Optional)</span>
-            <textarea formControlName="notes" placeholder="Internal notes..."></textarea>
-          </label>
+          <div class="notes-row">
+            <label class="reason-field">
+              <span>Reason (optional)</span>
+              <textarea formControlName="reason" maxlength="250"
+                placeholder="Symptoms / reason..."></textarea>
+              <small>{{ appointmentForm.value.reason?.length || 0 }}/250</small>
+            </label>
+            <label class="reason-field compact">
+              <span>Notes (optional)</span>
+              <textarea formControlName="notes" placeholder="Internal notes..."></textarea>
+            </label>
+          </div>
 
           <section class="appointment-vitals-panel" *ngIf="selectedPatient">
             <div class="appointment-vitals-head">
@@ -483,6 +508,7 @@
                 <th>Fee</th>
                 <th>Discount Reason</th>
                 <th>Payment</th>
+                <th>Received by</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -490,7 +516,7 @@
             <tbody>
               <ng-container *ngFor="let group of appointmentGroups; let groupIndex = index; trackBy: trackAppointmentGroup">
                 <tr class="doctor-group-row" [ngClass]="doctorGroupToneClass(groupIndex)">
-                  <td colspan="10">
+                  <td colspan="11">
                     <div class="doctor-group-label">
                       <strong><i class="fa fa-user-md"></i> {{ group.doctorName }}</strong>
                       <small>{{ group.items.length }} appointment{{ group.items.length === 1 ? '' : 's' }}</small>
@@ -533,6 +559,17 @@
                       {{ paymentStatusLabel(option) }}
                     </option>
                   </select>
+                </td>
+                <td class="fee-received-cell" (click)="$event.stopPropagation()">
+                  <ng-container *ngIf="feeReceivedByLabel(appointment) as receiver; else feeNotReceived">
+                    <strong>{{ receiver }}</strong>
+                    <small class="fee-channel-badge" [class.is-pharmacy]="appointment.feeReceivedChannel === 'pharmacy'">
+                      {{ feeReceivedChannelLabel(appointment) }}
+                    </small>
+                  </ng-container>
+                  <ng-template #feeNotReceived>
+                    <span class="muted">—</span>
+                  </ng-template>
                 </td>
                 <td class="status-cell">
                   <select class="inline-status-select" [ngModel]="appointment.status"

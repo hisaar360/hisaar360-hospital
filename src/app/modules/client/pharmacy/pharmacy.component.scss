@@ -163,6 +163,12 @@
   text-transform: uppercase;
 }
 
+.pd-range__dates .pd-btn--primary,
+.pd-range__dates .pd-btn--primary span,
+.pd-range__dates .pd-btn--primary i {
+  color: #fff;
+}
+
 .pd-range__dates input {
   border: 1px solid #cbd5e1;
   border-radius: 10px;
@@ -588,6 +594,32 @@ a.pd-kpi__card:hover {
 
 .pd-match.is-miss {
   color: #b91c1c;
+}
+
+.pd-badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 140px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.pd-badge.is-ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.pd-badge.is-miss {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.pd-rx-card__fee {
+  margin: 0 0 8px;
 }
 
 .pd-queue__actions {

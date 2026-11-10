@@ -1,4 +1,4 @@
-<div id="main-content" class="pharmacy-page ph-list">
+<div id="main-content" class="pharmacy-page ph-list ph-sales-page">
   <div class="pharmacy-shell pharmacy-admin-page">
     <header class="pharmacy-hero">
       <div class="pharmacy-hero-main">
@@ -16,6 +16,15 @@
           (excelClick)="exportExcel()"
         ></app-hms-document-toolbar>
         <a class="ph-btn ghost" routerLink="/pharmacy/returns/sales">Sales Returns</a>
+        <button
+          type="button"
+          class="ph-btn ghost"
+          [disabled]="!canOpenRandomReturn()"
+          (click)="openRandomReturn()"
+        >
+          <i class="fa fa-exchange"></i>
+          <span>Random Return</span>
+        </button>
         <a class="ph-btn primary" [routerLink]="['/pharmacy/pos']" [queryParams]="storeId ? { storeId: storeId } : null">
           <i class="fa fa-shopping-cart"></i>
           <span>Open POS</span>
@@ -24,33 +33,33 @@
     </header>
 
     <section class="ph-highlights" aria-label="Sales highlights">
-      <article class="ph-stat">
+      <article class="ph-stat tone-blue">
         <div class="ph-stat-icon blue"><i class="fa fa-money"></i></div>
-        <div>
+        <div class="ph-stat-copy">
           <span>Total Sales</span>
           <strong>{{ currency(totalSales) }}</strong>
           <small>{{ sales.length }} invoices</small>
         </div>
       </article>
-      <article class="ph-stat">
+      <article class="ph-stat tone-green">
         <div class="ph-stat-icon green"><i class="fa fa-check-circle"></i></div>
-        <div>
+        <div class="ph-stat-copy">
           <span>Total Paid</span>
           <strong>{{ currency(totalPaid) }}</strong>
           <small>Collected</small>
         </div>
       </article>
-      <article class="ph-stat">
+      <article class="ph-stat tone-purple">
         <div class="ph-stat-icon purple"><i class="fa fa-cubes"></i></div>
-        <div>
+        <div class="ph-stat-copy">
           <span>Items Sold</span>
           <strong>{{ totalItems }}</strong>
           <small>Line qty</small>
         </div>
       </article>
-      <article class="ph-stat">
+      <article class="ph-stat tone-amber">
         <div class="ph-stat-icon amber"><i class="fa fa-file-text-o"></i></div>
-        <div>
+        <div class="ph-stat-copy">
           <span>Unpaid</span>
           <strong>{{ unpaidCount }}</strong>
           <small>Credit / open AR</small>
@@ -67,7 +76,7 @@
       </div>
 
       <div class="pharmacy-filter-body">
-        <div class="pharmacy-filter-grid">
+        <div class="pharmacy-filter-grid ph-sales-filters">
           <label class="pharmacy-field">
             <span>Store</span>
             <select class="form-select" [(ngModel)]="storeId">
@@ -106,23 +115,23 @@
           </label>
 
           <label class="pharmacy-field">
-            <span>Near-expiry sales</span>
+            <span>Near-Expiry Sales</span>
             <select class="form-select" [(ngModel)]="nearExpiryOnly">
               <option [ngValue]="false">All sales</option>
-              <option [ngValue]="true">Near-expiry lots only</option>
+              <option [ngValue]="true">Bills with near-expiry medicines</option>
             </select>
           </label>
-        </div>
 
-        <div class="pharmacy-filter-actions">
-          <button class="ph-btn primary" type="button" (click)="loadSales()">
-            <i class="fa fa-filter"></i>
-            <span>Apply Filters</span>
-          </button>
-          <button class="ph-btn ghost" type="button" (click)="reset()">
-            <i class="fa fa-refresh"></i>
-            <span>Reset</span>
-          </button>
+          <div class="pharmacy-filter-actions">
+            <button class="ph-btn primary" type="button" (click)="loadSales()">
+              <i class="fa fa-filter"></i>
+              <span>Apply Filters</span>
+            </button>
+            <button class="ph-btn ghost" type="button" (click)="reset()">
+              <i class="fa fa-refresh"></i>
+              <span>Reset</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -140,13 +149,13 @@
         <div *ngIf="!loading && !sales.length" class="pharmacy-empty-state">No sales found for the current filters.</div>
 
         <div class="table-responsive ph-desktop-table" *ngIf="!loading && sales.length">
-          <table class="table align-middle">
+          <table class="table align-middle ph-sales-table">
             <thead>
               <tr>
                 <th>Invoice</th>
                 <th>Date</th>
                 <th>Items</th>
-                <th>Near-expiry</th>
+                <th title="How many medicines on this bill were sold from a near-expiry batch">Near-expiry items</th>
                 <th>Total</th>
                 <th>Paid</th>
                 <th>Payment</th>
@@ -156,17 +165,21 @@
             </thead>
             <tbody>
               <tr *ngFor="let sale of sales" [class.is-near-expiry-sale]="hasNearExpiry(sale)">
-                <td class="fw-semibold">{{ sale.invoiceNo }}</td>
-                <td>{{ dateTime(sale.saleDate) }}</td>
+                <td class="ph-invoice">{{ sale.invoiceNo }}</td>
+                <td class="ph-date">{{ dateTime(sale.saleDate) }}</td>
                 <td>{{ sale.items.length }}</td>
                 <td>
-                  <span *ngIf="hasNearExpiry(sale); else noNearExpiry" class="pharmacy-status-pill status-unpaid">
-                    {{ nearExpiryLineCount(sale) }} line(s)
+                  <span
+                    *ngIf="hasNearExpiry(sale); else noNearExpiry"
+                    class="ph-near-pill"
+                    [attr.title]="nearExpiryHint(sale)"
+                  >
+                    {{ nearExpiryLabel(sale) }}
                   </span>
-                  <ng-template #noNearExpiry><span class="text-muted">-</span></ng-template>
+                  <ng-template #noNearExpiry><span class="ph-none">—</span></ng-template>
                 </td>
-                <td>{{ currency(sale.total) }}</td>
-                <td>{{ currency(sale.paidAmount) }}</td>
+                <td class="ph-money">{{ currency(sale.total) }}</td>
+                <td class="ph-money">{{ currency(sale.paidAmount) }}</td>
                 <td>
                   <span class="pharmacy-status-pill" [ngClass]="paymentStatusClass(sale.paymentStatus)">
                     {{ sale.paymentStatus || '-' }}
@@ -179,10 +192,32 @@
                 </td>
                 <td class="text-end">
                   <div class="ph-row-actions">
-                    <a class="ph-icon-btn" [routerLink]="['/pharmacy/sales', sale._id]" title="View">
+                    <a
+                      class="ph-icon-btn"
+                      [routerLink]="['/pharmacy/sales', sale._id]"
+                      data-tooltip="View invoice details"
+                      aria-label="View invoice details"
+                    >
                       <i class="fa fa-eye"></i>
                     </a>
-                    <button class="ph-icon-btn danger" type="button" *ngIf="canCancel(sale)" title="Cancel" (click)="cancel(sale)">
+                    <button
+                      class="ph-icon-btn"
+                      type="button"
+                      *ngIf="canReturn(sale)"
+                      data-tooltip="Return medicines against this bill"
+                      aria-label="Return medicines against this bill"
+                      (click)="openReturn(sale)"
+                    >
+                      <i class="fa fa-undo"></i>
+                    </button>
+                    <button
+                      class="ph-icon-btn danger"
+                      type="button"
+                      *ngIf="canCancel(sale)"
+                      data-tooltip="Cancel this completed sale"
+                      aria-label="Cancel this completed sale"
+                      (click)="cancel(sale)"
+                    >
                       <i class="fa fa-times"></i>
                     </button>
                   </div>
@@ -209,10 +244,32 @@
                 <small class="text-muted">Paid {{ currency(sale.paidAmount) }}</small>
               </div>
               <div class="ph-row-actions">
-                <a class="ph-icon-btn" [routerLink]="['/pharmacy/sales', sale._id]" title="View">
+                <a
+                  class="ph-icon-btn"
+                  [routerLink]="['/pharmacy/sales', sale._id]"
+                  data-tooltip="View invoice details"
+                  aria-label="View invoice details"
+                >
                   <i class="fa fa-eye"></i>
                 </a>
-                <button class="ph-icon-btn danger" type="button" *ngIf="canCancel(sale)" title="Cancel" (click)="cancel(sale)">
+                <button
+                  class="ph-icon-btn"
+                  type="button"
+                  *ngIf="canReturn(sale)"
+                  data-tooltip="Return medicines against this bill"
+                  aria-label="Return medicines against this bill"
+                  (click)="openReturn(sale)"
+                >
+                  <i class="fa fa-undo"></i>
+                </button>
+                <button
+                  class="ph-icon-btn danger"
+                  type="button"
+                  *ngIf="canCancel(sale)"
+                  data-tooltip="Cancel this completed sale"
+                  aria-label="Cancel this completed sale"
+                  (click)="cancel(sale)"
+                >
                   <i class="fa fa-times"></i>
                 </button>
               </div>
@@ -223,3 +280,19 @@
     </div>
   </div>
 </div>
+
+<app-pharmacy-sale-return-modal
+  [open]="returnModalOpen"
+  [initialSaleId]="returnSaleId"
+  [enablePicker]="false"
+  [storeId]="storeId"
+  (closed)="closeReturnModal()"
+  (completed)="onReturnCompleted($event)"
+></app-pharmacy-sale-return-modal>
+
+<app-pharmacy-open-return-modal
+  [open]="openReturnModalOpen"
+  [storeId]="storeId"
+  (closed)="closeOpenReturnModal()"
+  (completed)="onOpenReturnCompleted($event)"
+></app-pharmacy-open-return-modal>

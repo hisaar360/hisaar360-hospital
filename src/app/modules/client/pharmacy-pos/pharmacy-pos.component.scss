@@ -20,6 +20,7 @@
 .storepos-main-grid,
 .storepos-dock,
 .prescription-banner,
+.consultation-fee-banner,
 .modern-register-summary {
   min-width: 0;
 }
@@ -140,6 +141,19 @@
   box-shadow: inset 3px 0 0 #0f766e;
 }
 
+.storepos-search-dropdown__item.is-near-expiry {
+  background: #fff7f7;
+}
+
+.storepos-search-dropdown__item.is-near-expiry:hover,
+.storepos-search-dropdown__item.is-near-expiry.is-active {
+  background: #fff1f2;
+}
+
+.storepos-search-dropdown__item.is-near-expiry.is-active {
+  box-shadow: inset 3px 0 0 #e11d48;
+}
+
 .storepos-search-dropdown__main {
   display: grid;
   gap: 2px;
@@ -156,6 +170,10 @@
   color: #64748b;
   font-size: 11px;
   font-weight: 600;
+}
+
+.storepos-search-dropdown__main small.is-near-expiry-text {
+  color: #b91c1c;
 }
 
 .storepos-search-dropdown__meta {
@@ -803,6 +821,60 @@
   font-size: 12px;
 }
 
+.consultation-fee-banner {
+  align-items: center;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1px solid #6ee7b7;
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.consultation-fee-banner__main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.consultation-fee-banner__eyebrow {
+  color: #047857;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.consultation-fee-banner__main strong {
+  color: #064e3b;
+  font-size: 14px;
+}
+
+.consultation-fee-banner__main small {
+  color: #065f46;
+  font-size: 12px;
+}
+
+.consultation-fee-banner__check {
+  align-items: center;
+  color: #064e3b;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 6px;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.consultation-fee-banner__amount {
+  color: #047857;
+  font-size: 20px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .storepos-main-grid {
   display: grid;
   flex: 1 1 auto;
@@ -820,9 +892,20 @@
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
   display: flex;
   flex-direction: column;
+  min-height: 0;
   min-width: 0;
   overflow: hidden;
-  justify-content: space-between;
+  justify-content: flex-start;
+}
+
+.storepos-cart-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .storepos-table-head,
@@ -850,9 +933,8 @@
 }
 
 .storepos-table-body {
-  flex: 1;
-  min-height: 230px;
-  overflow: auto;
+  flex: 0 0 auto;
+  min-height: 0;
 }
 
 .storepos-table-row {
@@ -992,9 +1074,25 @@
   align-items: center;
   color: #64748b;
   display: grid;
+  flex: 0 0 auto;
   justify-content: center;
   min-height: 220px;
   text-align: center;
+}
+
+.storepos-empty-table.is-compact {
+  min-height: 64px;
+  padding: 10px 12px;
+}
+
+.storepos-empty-table.is-compact i {
+  font-size: 22px;
+  margin-bottom: 4px;
+}
+
+.storepos-empty-table.is-compact p {
+  font-size: 12px;
+  margin: 0;
 }
 
 .storepos-empty-table i {
@@ -1006,31 +1104,100 @@
 .unavailable-panel {
   background: #fff7ed;
   border-top: 1px solid #fed7aa;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 140px;
+  padding: 0;
+}
+
+.storepos-cart-panel.has-unavailable .unavailable-panel {
+  /* When cart is empty, give the list most of the panel height. */
+  min-height: min(360px, 55vh);
+}
+
+.unavailable-panel__head {
+  align-items: center;
+  background: #ffedd5;
+  border-bottom: 1px solid #fed7aa;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  justify-content: space-between;
+  margin: 0;
   padding: 8px 10px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .unavailable-panel h3 {
   color: #9a3412;
   font-size: 14px;
   font-weight: 900;
-  margin: 0 0 8px;
+  margin: 0;
 }
 
-.unavailable-panel div {
-  padding: 6px 0;
+.unavailable-panel h3 small {
+  color: #c2410c;
+  display: inline;
+  font-size: 12px;
+  font-weight: 800;
+  margin-left: 4px;
 }
 
-.unavailable-panel span {
-  display: block;
+.unavailable-print-btn {
+  background: #fff;
+  border: 1px solid #fdba74;
+  border-radius: 6px;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 8px;
+}
+
+.unavailable-panel__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 4px 10px 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.unavailable-panel__item {
+  border-bottom: 1px solid #fed7aa;
+  padding: 8px 0;
+}
+
+.unavailable-panel__item:last-child {
+  border-bottom: 0;
+}
+
+.unavailable-panel__item span {
+  display: inline-block;
   font-weight: 800;
 }
 
-.unavailable-panel small {
+.unavailable-tag {
+  background: #ffedd5;
+  border-radius: 999px;
+  color: #c2410c;
+  display: inline-block;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+  margin-left: 6px;
+  padding: 2px 6px;
+  text-transform: uppercase;
+}
+
+.unavailable-panel__item small {
   color: #9a3412;
   display: block;
 }
 
-.unavailable-panel strong {
+.unavailable-panel__item strong {
   color: #7c2d12;
   display: block;
   font-size: 12px;
@@ -1196,6 +1363,16 @@
 .storepos-expiry-badge.is-near-expiry,
 .storepos-expiry-badge.is-expired {
   animation: pharmacy-expiry-blink 1.1s ease-in-out infinite;
+}
+
+.pos-lot-expiry {
+  color: #64748b;
+  font-weight: 700;
+
+  &.is-blink {
+    color: #dc2626;
+    animation: pharmacy-expiry-blink 1.1s ease-in-out infinite;
+  }
 }
 
 @keyframes pharmacy-expiry-blink {
@@ -1448,6 +1625,21 @@
   color: #fff;
   display: block;
   font-size: 13px;
+}
+
+.dock-summary__collect {
+  background: rgba(16, 185, 129, 0.22) !important;
+  border-color: rgba(52, 211, 153, 0.55) !important;
+  color: #bbf7d0 !important;
+}
+
+.dock-summary__collect strong {
+  color: #ecfdf5 !important;
+  font-size: 15px;
+}
+
+.pay-btn.fee-btn {
+  background: #047857;
 }
 
 .dock-payment label {

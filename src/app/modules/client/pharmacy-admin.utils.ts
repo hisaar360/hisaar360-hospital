@@ -28,6 +28,23 @@ export const formatDate = (value: string | null | undefined): string => {
   });
 };
 
+/** Short pharmacy date for POS display / print: dd/mm/yy */
+export const formatDateShort = (value: string | Date | null | undefined): string => {
+  if (!value) {
+    return '-';
+  }
+
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return String(value);
+  }
+
+  const day = String(parsed.getDate()).padStart(2, '0');
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const year = String(parsed.getFullYear()).slice(-2);
+  return `${day}/${month}/${year}`;
+};
+
 export const formatDateTime = (value: string | null | undefined): string => {
   if (!value) {
     return '-';

@@ -1,0 +1,83 @@
+<section class="ward-day">
+  <header class="ward-day__hero">
+    <div>
+      <h1>Ward Day Collections</h1>
+      <p>
+        Day-wise IPD / ward cash collections. Settle cash from
+        <a routerLink="/accounts/ward-cash">Ward Till</a>. Pharmacy-collected ward medicine stays tagged separately.
+      </p>
+    </div>
+  </header>
+
+  <div class="ward-day__filters">
+    <label>
+      <span>From</span>
+      <input type="date" [(ngModel)]="dateFrom" name="from" />
+    </label>
+    <label>
+      <span>To</span>
+      <input type="date" [(ngModel)]="dateTo" name="to" />
+    </label>
+    <label>
+      <span>Collected by</span>
+      <select [(ngModel)]="collectedByDepartment" name="dept">
+        <option value="">All</option>
+        <option value="ward">Ward desk</option>
+        <option value="pharmacy">Pharmacy</option>
+      </select>
+    </label>
+    <div class="ward-day__actions">
+      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="setToday()">Today</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="setWeek()">This week</button>
+      <button type="button" class="btn btn-sm btn-primary" (click)="reload()">Apply</button>
+    </div>
+  </div>
+
+  <div class="ward-day__kpis">
+    <article class="kpi--navy"><span>Payments</span><strong>{{ totals['count'] || 0 }}</strong></article>
+    <article class="kpi--teal"><span>Patients</span><strong>{{ totals['patientCount'] || 0 }}</strong></article>
+    <article class="kpi--green"><span>Collected</span><strong>{{ money(totals['collectedTotal'] || 0) }}</strong></article>
+    <article class="kpi--green"><span>Ward desk</span><strong>{{ money(totals['wardCollected'] || 0) }}</strong></article>
+    <article class="kpi--amber"><span>Pharmacy</span><strong>{{ money(totals['pharmacyCollected'] || 0) }}</strong></article>
+    <article class="kpi--red"><span>Refunds</span><strong>{{ money(totals['refundTotal'] || 0) }}</strong></article>
+  </div>
+
+  <div class="ward-day__panel">
+    <header><h2>Collections</h2></header>
+    <div *ngIf="loading" class="ward-day__empty">Loading…</div>
+    <div class="table-responsive" *ngIf="!loading">
+      <table class="table table-sm" *ngIf="items.length; else empty">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Patient</th>
+            <th>Ward / room</th>
+            <th>Dept</th>
+            <th>Method</th>
+            <th class="num">Amount</th>
+            <th>Received by</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of items">
+            <td>{{ row['receivedAt'] ? dateTime($any(row['receivedAt'])) : '—' }}</td>
+            <td>
+              <strong>{{ row['patientName'] || '—' }}</strong>
+              <div class="muted">{{ row['encounterNo'] || row['paymentNo'] || '' }}</div>
+            </td>
+            <td>{{ row['wardLabel'] || '—' }}<ng-container *ngIf="row['roomLabel']"> · {{ row['roomLabel'] }}</ng-container></td>
+            <td>{{ row['collectedByDepartment'] || '—' }}</td>
+            <td>{{ row['method'] || '—' }}</td>
+            <td class="num" [class.amt-out]="row['isRefund']" [class.amt-in]="!row['isRefund']">
+              {{ row['isRefund'] ? '−' : '' }}{{ money(row['amount'] || 0) }}
+            </td>
+            <td>{{ row['receivedByName'] || '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #empty>
+        <p class="ward-day__empty">No ward collections for these filters.</p>
+      </ng-template>
+    </div>
+  </div>
+</section>

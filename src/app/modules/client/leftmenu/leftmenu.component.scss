@@ -31,15 +31,17 @@
   flex: 0 0 auto;
 }
 
+/* Height/opacity/visibility driven by Angular [@sidebarDropdown] — do not CSS-fight it. */
 #left-sidebar #main-menu .nav-dropdown {
   display: block;
   flex: 0 0 auto;
-  height: auto;
-  max-height: none;
-  opacity: 1;
-  overflow: visible;
+  overflow: hidden;
   position: relative;
   width: 100%;
+}
+
+#left-sidebar #main-menu .nav-dropdown.nav-subsection__menu {
+  overflow: hidden;
 }
 
 /* Match link styling — section toggles are buttons so they cannot become
@@ -81,6 +83,17 @@
   margin: 2px 0;
   min-height: 0;
   width: 100%;
+}
+
+#left-sidebar #main-menu .nav-dropdown > li.nav-subsection-label {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  list-style: none;
+  margin: 10px 0 4px;
+  padding: 0 16px 0 47px;
+  text-transform: uppercase;
 }
 
 #left-sidebar #main-menu .nav-dropdown > li.nav-subsection > button.nav-subsection__toggle {

@@ -1,4 +1,4 @@
-<div id="main-content" class="pharmacy-page ph-list">
+<div id="main-content" class="pharmacy-page ph-list ph-sales-returns-page">
   <div class="pharmacy-shell pharmacy-admin-page">
     <header class="pharmacy-hero">
       <div class="pharmacy-hero-main">
@@ -6,6 +6,15 @@
         <p>Process returned pharmacy items against completed POS invoices.</p>
       </div>
       <div class="pharmacy-hero-actions">
+        <button
+          class="ph-btn ghost"
+          type="button"
+          [disabled]="!canOpenRandomReturn()"
+          (click)="openRandomReturn()"
+        >
+          <i class="fa fa-exchange"></i>
+          <span>Random Return</span>
+        </button>
         <button class="ph-btn primary" type="button" (click)="openCreate()">
           <i class="fa fa-plus"></i>
           <span>Create Sales Return</span>
@@ -14,33 +23,33 @@
     </header>
 
     <section class="ph-highlights" aria-label="Sales return highlights">
-      <article class="ph-stat">
+      <article class="ph-stat tone-blue">
         <div class="ph-stat-icon blue"><i class="fa fa-undo"></i></div>
-        <div>
+        <div class="ph-stat-copy">
           <span>Returns</span>
           <strong>{{ returns.length }}</strong>
           <small>Visible</small>
         </div>
       </article>
-      <article class="ph-stat">
+      <article class="ph-stat tone-green">
         <div class="ph-stat-icon green"><i class="fa fa-money"></i></div>
-        <div>
+        <div class="ph-stat-copy">
           <span>Refund Total</span>
           <strong>{{ currency(refundTotal) }}</strong>
           <small>All visible</small>
         </div>
       </article>
-      <article class="ph-stat">
+      <article class="ph-stat tone-purple">
         <div class="ph-stat-icon purple"><i class="fa fa-cubes"></i></div>
-        <div>
+        <div class="ph-stat-copy">
           <span>Items</span>
           <strong>{{ itemTotal }}</strong>
           <small>Line count</small>
         </div>
       </article>
-      <article class="ph-stat">
+      <article class="ph-stat tone-amber">
         <div class="ph-stat-icon amber"><i class="fa fa-check-circle"></i></div>
-        <div>
+        <div class="ph-stat-copy">
           <span>Completed</span>
           <strong>{{ completedCount }}</strong>
           <small>Posted returns</small>
@@ -57,7 +66,7 @@
       </div>
 
       <div class="pharmacy-filter-body">
-        <div class="pharmacy-filter-grid">
+        <div class="pharmacy-filter-grid ph-returns-filters">
           <label class="pharmacy-field">
             <span>Store</span>
             <select class="form-select" [(ngModel)]="storeId">
@@ -81,17 +90,17 @@
               <i class="fa fa-calendar" aria-hidden="true"></i>
             </div>
           </label>
-        </div>
 
-        <div class="pharmacy-filter-actions">
-          <button class="ph-btn primary" type="button" (click)="loadReturns()">
-            <i class="fa fa-filter"></i>
-            <span>Apply Filters</span>
-          </button>
-          <button class="ph-btn ghost" type="button" (click)="reset()">
-            <i class="fa fa-refresh"></i>
-            <span>Reset</span>
-          </button>
+          <div class="pharmacy-filter-actions">
+            <button class="ph-btn primary" type="button" (click)="loadReturns()">
+              <i class="fa fa-filter"></i>
+              <span>Apply Filters</span>
+            </button>
+            <button class="ph-btn ghost" type="button" (click)="reset()">
+              <i class="fa fa-refresh"></i>
+              <span>Reset</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -109,27 +118,37 @@
         <div *ngIf="!loading && !returns.length" class="pharmacy-empty-state">No sales returns found.</div>
 
         <div class="table-responsive ph-desktop-table" *ngIf="!loading && returns.length">
-          <table class="table align-middle">
+          <table class="table align-middle ph-returns-table">
             <thead>
               <tr>
                 <th>Return No.</th>
+                <th>Type</th>
                 <th>Sale</th>
                 <th>Date</th>
                 <th>Items</th>
                 <th>Refund</th>
+                <th>Collect</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let item of returns">
-                <td class="fw-semibold">{{ item.returnNo }}</td>
+                <td class="ph-invoice">{{ item.returnNo }}</td>
                 <td>
-                  <a *ngIf="item.saleId" [routerLink]="['/pharmacy/sales', item.saleId]">{{ saleLabel(item) }}</a>
-                  <span *ngIf="!item.saleId">{{ saleLabel(item) }}</span>
+                  <span class="ph-type-pill" [class.is-open]="item.returnType === 'open' || !item.saleId">
+                    {{ item.returnType === 'open' || !item.saleId ? 'Random' : 'Against bill' }}
+                  </span>
                 </td>
-                <td>{{ date(item.returnDate) }}</td>
-                <td>{{ item.items.length }}</td>
-                <td>{{ currency(item.refundAmount) }}</td>
+                <td>
+                  <a *ngIf="item.saleId" class="ph-sale-link" [routerLink]="['/pharmacy/sales', item.saleId]">
+                    {{ saleLabel(item) }}
+                  </a>
+                  <span *ngIf="!item.saleId" class="ph-none">—</span>
+                </td>
+                <td class="ph-date">{{ date(item.returnDate) }}</td>
+                <td>{{ item.items.length || 0 }}</td>
+                <td class="ph-money">{{ currency(item.refundAmount) }}</td>
+                <td class="ph-money">{{ currency(item.collectAmount || 0) }}</td>
                 <td><span [ngClass]="statusClass(item.status)">{{ item.status }}</span></td>
               </tr>
             </tbody>
@@ -141,7 +160,7 @@
             <div class="ph-mobile-top">
               <div>
                 <strong>{{ item.returnNo }}</strong>
-                <small>{{ date(item.returnDate) }} · {{ item.items.length }} items</small>
+                <small>{{ date(item.returnDate) }} · {{ item.items.length || 0 }} items</small>
               </div>
               <span [ngClass]="statusClass(item.status)">{{ item.status }}</span>
             </div>
@@ -149,7 +168,7 @@
               <span>
                 Sale
                 <a *ngIf="item.saleId" [routerLink]="['/pharmacy/sales', item.saleId]">{{ saleLabel(item) }}</a>
-                <ng-container *ngIf="!item.saleId">{{ saleLabel(item) }}</ng-container>
+                <ng-container *ngIf="!item.saleId">Random</ng-container>
               </span>
               <span>Refund {{ currency(item.refundAmount) }}</span>
             </div>
@@ -177,7 +196,31 @@
               <h4>1. Select invoice</h4>
               <small>{{ salesLoading ? 'Loading…' : filteredSales.length + ' completed sales' }}</small>
             </header>
-            <div class="ph-doc-search mb-2">
+
+            <div class="ph-return-mode">
+              <button type="button" class="ph-btn ghost" (click)="openRandomReturn()" [disabled]="!canOpenRandomReturn()">
+                <i class="fa fa-exchange"></i>
+                <span>Random Return (no bill)</span>
+              </button>
+              <small>Return any medicine and optionally issue a replacement; settle receive/pay remainder.</small>
+            </div>
+
+            <div class="ph-doc-date-filters">
+              <label>
+                <span>From date</span>
+                <input class="form-control" type="date" [(ngModel)]="pickerFromDate" />
+              </label>
+              <label>
+                <span>To date</span>
+                <input class="form-control" type="date" [(ngModel)]="pickerToDate" />
+              </label>
+              <div class="ph-doc-date-actions">
+                <button type="button" class="ph-btn primary" (click)="applyPickerDateFilter()">Apply</button>
+                <button type="button" class="ph-btn ghost" (click)="resetPickerDateFilter()">Reset</button>
+              </div>
+            </div>
+
+            <div class="ph-doc-search">
               <i class="fa fa-search"></i>
               <input
                 class="form-control"
@@ -233,7 +276,7 @@
                 </div>
               </header>
               <div class="ph-doc-lines">
-                <table class="table">
+                <table class="table ph-return-lines-table">
                   <thead>
                     <tr>
                       <th>Medicine</th>
@@ -323,3 +366,10 @@
     </div>
   </div>
 </div>
+
+<app-pharmacy-open-return-modal
+  [open]="openReturnModalOpen"
+  [storeId]="storeId"
+  (closed)="closeOpenReturnModal()"
+  (completed)="onOpenReturnCompleted($event)"
+></app-pharmacy-open-return-modal>

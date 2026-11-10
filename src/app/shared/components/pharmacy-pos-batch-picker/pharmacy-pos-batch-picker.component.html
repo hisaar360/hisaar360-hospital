@@ -1,0 +1,74 @@
+<div class="ppb-backdrop" *ngIf="open" (click)="close()">
+  <div
+    class="ppb-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="ppb-title"
+    (click)="$event.stopPropagation()"
+  >
+    <header class="ppb-head">
+      <div class="ppb-head__icon" aria-hidden="true">
+        <i class="fa fa-cubes"></i>
+      </div>
+      <div class="ppb-head__copy">
+        <strong id="ppb-title">Select Batch</strong>
+        <span *ngIf="product as med">{{ med.name }} · Sell near-expiry first</span>
+      </div>
+      <button type="button" class="ppb-close" (click)="close()" aria-label="Close">
+        <i class="fa fa-times"></i>
+      </button>
+    </header>
+
+    <div class="ppb-body">
+      <div class="ppb-hint">
+        <i class="fa fa-info-circle" aria-hidden="true"></i>
+        <span>Use ↑ ↓ then Enter to pick a batch. Near-expiry rows are highlighted.</span>
+      </div>
+
+      <div class="ppb-list" *ngIf="lots.length; else emptyLots" role="radiogroup" aria-label="Batches">
+        <button
+          type="button"
+          class="ppb-row"
+          *ngFor="let lot of lots; let i = index"
+          role="radio"
+          [attr.aria-checked]="i === focusIndex"
+          [class.is-focused]="i === focusIndex"
+          [class.is-near]="isNearExpiry(lot)"
+          (click)="focusIndex = i"
+          (dblclick)="choose(lot)"
+          (mouseenter)="focusIndex = i"
+        >
+          <span class="ppb-radio" aria-hidden="true">
+            <i class="fa" [ngClass]="i === focusIndex ? 'fa-dot-circle-o' : 'fa-circle-o'"></i>
+          </span>
+          <span class="ppb-row__main">
+            <strong>Batch Number : {{ lot.lotNumber || '—' }}</strong>
+            <em>Qty {{ availableQty(lot) }}</em>
+          </span>
+          <span class="ppb-expiry" [class.is-near]="isNearExpiry(lot)">
+            <i class="fa fa-calendar" aria-hidden="true"></i>
+            Exp {{ expiryLabel(lot) }}
+          </span>
+          <strong class="ppb-price">{{ currency(lotPrice(lot)) }}</strong>
+        </button>
+      </div>
+
+      <ng-template #emptyLots>
+        <p class="ppb-empty">No named batches available for this medicine.</p>
+      </ng-template>
+    </div>
+
+    <footer class="ppb-foot">
+      <button type="button" class="ppb-btn" (click)="close()">Cancel</button>
+      <button
+        type="button"
+        class="ppb-btn is-primary"
+        (click)="confirmFocused()"
+        [disabled]="!lots.length"
+      >
+        <i class="fa fa-check" aria-hidden="true"></i>
+        Select Batch
+      </button>
+    </footer>
+  </div>
+</div>

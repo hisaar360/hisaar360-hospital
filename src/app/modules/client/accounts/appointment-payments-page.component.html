@@ -1,0 +1,227 @@
+<section class="appt-pay accounts-page">
+  <div class="accounts-shell">
+    <header class="appt-pay__hero">
+      <div>
+        <h1>{{ pharmacyMode ? 'Appointment fees (Pharmacy)' : 'OPD Fees Audit' }}</h1>
+        <p *ngIf="!pharmacyMode">
+          Day-wise OPD consultation fee audit by doctor. Fees collected at reception go to the
+          <a routerLink="/accounts/opd-cash">OPD Till</a>; fees collected at pharmacy go to the
+          <a routerLink="/accounts/pharmacy-cash">Pharmacy Settlement</a> (separate from medicine sales).
+        </p>
+        <p *ngIf="pharmacyMode">
+          Pharmacy consultation fees for the selected dates. Collected fees appear as
+          <strong>Pharmacy paid</strong>. Cash posts to
+          <a routerLink="/accounts/pharmacy-cash">Pharmacy Settlement</a>
+          (separate from medicine sales). Use Status
+          <strong>Due at pharmacy</strong> only for unpaid queue.
+        </p>
+      </div>
+    </header>
+
+    <div class="appt-pay__disabled" *ngIf="!clinicalEnabled">
+      Clinical module is disabled for this hospital. Appointment payments are unavailable.
+    </div>
+
+    <ng-container *ngIf="clinicalEnabled">
+      <div class="accounts-filter-card">
+        <div class="appt-pay__filters">
+          <label>
+            <span>From</span>
+            <input type="date" [(ngModel)]="dateFrom" name="from" />
+          </label>
+          <label>
+            <span>To</span>
+            <input type="date" [(ngModel)]="dateTo" name="to" />
+          </label>
+          <label>
+            <span>Doctor</span>
+            <select [(ngModel)]="doctorId" name="doctorId">
+              <option value="">All doctors</option>
+              <option *ngFor="let d of doctors" [value]="d.userId || d._id">
+                {{ d.name }}<ng-container *ngIf="d.specialization"> · {{ d.specialization }}</ng-container>
+              </option>
+            </select>
+          </label>
+          <label>
+            <span>Status</span>
+            <select [(ngModel)]="auditStatus" name="auditStatus">
+              <option value="">All</option>
+              <option value="unpaid">Unpaid</option>
+              <option value="due_at_pharmacy">Due at pharmacy</option>
+              <option value="paid">Paid (OPD)</option>
+              <option value="pharmacy_paid">Pharmacy paid</option>
+              <option value="unchecked">Unchecked</option>
+              <option value="no_show">No checkup</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </label>
+          <label *ngIf="canCollect && !pharmacyMode">
+            <span>Collect as</span>
+            <select [(ngModel)]="collectChannel" name="collectChannel">
+              <option value="opd">OPD / Reception</option>
+              <option value="pharmacy">Pharmacy counter</option>
+            </select>
+          </label>
+          <div class="appt-pay__filter-actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="setToday()">Today</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="setWeek()">This week</button>
+            <button type="button" class="btn btn-sm btn-primary" (click)="reload()">Apply</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="appt-pay__kpis">
+        <article class="kpi--navy">
+          <span>Patients</span>
+          <strong>{{ totals['count'] || 0 }}</strong>
+        </article>
+        <article class="kpi--teal">
+          <span>Fee total</span>
+          <strong>{{ money(totals['feeTotal'] || 0) }}</strong>
+        </article>
+        <article class="kpi--green" *ngIf="!pharmacyMode">
+          <span>Paid (OPD)</span>
+          <strong>{{ money(totals['paidTotal'] || 0) }}</strong>
+          <small>{{ totals['paidCount'] || 0 }}</small>
+        </article>
+        <article class="kpi--teal">
+          <span>Pharmacy paid</span>
+          <strong>{{ money(totals['pharmacyPaidTotal'] || 0) }}</strong>
+          <small>{{ totals['pharmacyPaidCount'] || 0 }}</small>
+        </article>
+        <article class="kpi--red">
+          <span>Unpaid</span>
+          <strong>{{ money(totals['unpaidTotal'] || 0) }}</strong>
+          <small>{{ totals['unpaidCount'] || 0 }}</small>
+        </article>
+        <article class="kpi--amber">
+          <span>Due at pharmacy</span>
+          <strong>{{ money(totals['dueAtPharmacyTotal'] || 0) }}</strong>
+          <small>{{ totals['dueAtPharmacyCount'] || 0 }}</small>
+        </article>
+        <article class="kpi--amber" *ngIf="!pharmacyMode">
+          <span>Unchecked</span>
+          <strong>{{ totals['uncheckedCount'] || 0 }}</strong>
+        </article>
+        <article class="kpi--rose" *ngIf="!pharmacyMode">
+          <span>No checkup</span>
+          <strong>{{ totals['noShowCount'] || 0 }}</strong>
+        </article>
+        <article class="kpi--slate" *ngIf="!pharmacyMode">
+          <span>Cancelled</span>
+          <strong>{{ totals['cancelledCount'] || 0 }}</strong>
+        </article>
+      </div>
+
+      <div class="accounts-panel" *ngIf="doctorSummary.length">
+        <header class="accounts-filter-head">
+          <h2>Doctor-wise</h2>
+        </header>
+        <div class="table-responsive">
+          <table class="table table-sm appt-pay__table">
+            <thead>
+              <tr>
+                <th>Doctor</th>
+                <th class="num">Patients</th>
+                <th class="num">Fee</th>
+                <th class="num">Paid</th>
+                <th class="num">Unpaid</th>
+                <th class="num">Pharmacy</th>
+                <th class="num">No checkup</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of doctorSummary">
+                <td>{{ row['doctorName'] || '—' }}</td>
+                <td class="num">{{ row['patients'] || 0 }}</td>
+                <td class="num">{{ money(row['feeTotal'] || 0) }}</td>
+                <td class="num">{{ money(row['paidTotal'] || 0) }}</td>
+                <td class="num">{{ money(row['unpaidTotal'] || 0) }}</td>
+                <td class="num">{{ row['pharmacyPaidCount'] || 0 }}</td>
+                <td class="num">{{ row['noShowCount'] || 0 }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="accounts-panel">
+        <header class="accounts-filter-head">
+          <h2>Day list</h2>
+        </header>
+        <div class="appt-pay__loading" *ngIf="loading">Loading…</div>
+        <div class="table-responsive" *ngIf="!loading">
+          <table class="table table-sm appt-pay__table" *ngIf="items.length; else empty">
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th>Doctor</th>
+                <th>Date</th>
+                <th class="num">Fee</th>
+                <th>Collect at</th>
+                <th>Status</th>
+                <th>Received by</th>
+                <th>Channel</th>
+                <th>Received at</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of items">
+                <td>
+                  <strong>{{ patientName(row) }}</strong>
+                  <div class="muted">{{ row['appointmentNo'] || '—' }}</div>
+                </td>
+                <td>{{ doctorName(row) }}</td>
+                <td>
+                  {{ row['appointmentDate'] || '—' }}
+                  <div class="muted">{{ row['startTime'] || '' }}</div>
+                </td>
+                <td
+                  class="num"
+                  [class.amt-in]="row['auditStatus'] === 'paid' || row['auditStatus'] === 'pharmacy_paid'"
+                  [class.amt-out]="row['auditStatus'] === 'unpaid' || row['auditStatus'] === 'unchecked'"
+                >{{ money(row['netFee'] || 0) }}</td>
+                <td>{{ collectionPointLabel(row) }}</td>
+                <td>
+                  <span class="status-badge" [ngClass]="badgeClass(row['auditStatus'])">
+                    {{ badgeLabel(row['auditStatus']) }}
+                  </span>
+                </td>
+                <td>
+                  <strong>{{ receivedByLabel(row) }}</strong>
+                </td>
+                <td>
+                  <span class="status-badge" [ngClass]="channelBadgeClass(row)">
+                    {{ receivedChannelLabel(row) }}
+                  </span>
+                </td>
+                <td>{{ row['receivedAt'] ? dateTime($any(row['receivedAt'])) : '—' }}</td>
+                <td class="actions">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-primary"
+                    *ngIf="canCollect && row['auditStatus'] !== 'paid' && row['auditStatus'] !== 'pharmacy_paid' && row['auditStatus'] !== 'cancelled'"
+                    [disabled]="collectingId === row['_id']"
+                    (click)="collect(row)"
+                  >
+                    {{ collectingId === row['_id'] ? 'Collecting…' : 'Collect' }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <ng-template #empty>
+            <p class="appt-pay__empty" *ngIf="auditStatus === 'due_at_pharmacy'; else emptyGeneric">
+              No unpaid pharmacy fees for these dates.
+              Collected fees are under Status → <strong>Pharmacy paid</strong> (or All).
+            </p>
+            <ng-template #emptyGeneric>
+              <p class="appt-pay__empty">No appointments for these filters.</p>
+            </ng-template>
+          </ng-template>
+        </div>
+      </div>
+    </ng-container>
+  </div>
+</section>

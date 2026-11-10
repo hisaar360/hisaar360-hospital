@@ -240,6 +240,7 @@ export class MedicineCatalogCacheService {
     return [
       item.name,
       item.brand,
+      item.salt,
       item.sku,
       item.barcode,
       item.unit,

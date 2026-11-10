@@ -34,6 +34,11 @@ export interface ReceiptLetterheadSettings {
   fontWeightTerms?: 'normal' | 'bold';
 }
 
+export interface PharmacyDiscountSettings {
+  /** When true, POS can discount any medicine up to line subtotal (ignores product caps). */
+  allowDiscountAnyMedicine: boolean;
+}
+
 export interface CompanyProfile {
   _id: string;
   name: string;
@@ -48,6 +53,7 @@ export interface CompanyProfile {
   currency?: string | null;
   timezone?: string | null;
   receiptLetterhead?: ReceiptLetterheadSettings;
+  pharmacyDiscountSettings?: PharmacyDiscountSettings;
   isActive: boolean;
 }
 
@@ -63,4 +69,5 @@ export interface UpdateCompanyProfilePayload {
   currency?: string;
   timezone?: string;
   receiptLetterhead?: Partial<ReceiptLetterheadSettings>;
+  pharmacyDiscountSettings?: Partial<PharmacyDiscountSettings>;
 }

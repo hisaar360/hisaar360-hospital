@@ -23,6 +23,9 @@ interface ApiSuccess<T> {
   data?: T;
 }
 
+const RENEWAL_WINDOW_DAYS = 15;
+const LOCAL_REMINDER_PREFIX = 'local-renewal-';
+
 @Injectable({ providedIn: 'root' })
 export class PackageReminderService {
   private readonly http = inject(HttpClient);
@@ -82,6 +85,7 @@ export class PackageReminderService {
       )
       .subscribe((payload) => {
         this.applyPayload(payload, { keepExpiryOnEmpty: true });
+        this.ensureLocalRenewalReminder();
       });
   }
 
@@ -92,7 +96,13 @@ export class PackageReminderService {
       return;
     }
 
+    this.markLocalDismissed(current);
     this.activeReminder.set(null);
+
+    if (current.reminderId.startsWith(LOCAL_REMINDER_PREFIX)) {
+      return;
+    }
+
     this.http
       .post(CONFIG.packageReminders.dismiss(current.reminderId), {})
       .pipe(catchError(() => of(null)))
@@ -154,6 +164,118 @@ export class PackageReminderService {
     if (!options?.keepExpiryOnEmpty) {
       this.packageExpiryDate.set(null);
       this.subscriptionStatus.set(null);
+    }
+  }
+
+  /**
+   * From 15 days before expiry through expiry day, surface a professional
+   * renewal notice when Central has not already sent a reminder.
+   */
+  private ensureLocalRenewalReminder(): void {
+    if (this.activeReminder()) {
+      return;
+    }
+
+    const expiry = this.packageExpiryDate();
+    if (!expiry) {
+      return;
+    }
+
+    const parsed = new Date(expiry);
+    if (Number.isNaN(parsed.getTime())) {
+      return;
+    }
+
+    const end = new Date(parsed);
+    end.setHours(23, 59, 59, 999);
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const daysLeft = Math.ceil((end.getTime() - Date.now()) / msPerDay);
+
+    if (daysLeft > RENEWAL_WINDOW_DAYS) {
+      return;
+    }
+
+    const dayKey = this.calendarDayKey(end);
+    const reminderId = `${LOCAL_REMINDER_PREFIX}${dayKey}`;
+    if (this.wasLocalDismissedToday(reminderId)) {
+      return;
+    }
+
+    const dateLabel = end.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    this.activeReminder.set({
+      reminderId,
+      expiryDate: expiry,
+      message: this.buildRenewalMessage(daysLeft, dateLabel),
+      sentAt: new Date().toISOString(),
+      sentByName: 'Hisaar360',
+    });
+  }
+
+  private buildRenewalMessage(daysLeft: number, dateLabel: string): string {
+    if (daysLeft < 0) {
+      return (
+        `Your Hisaar360 subscription package expired on ${dateLabel}. ` +
+        `Please renew promptly to restore uninterrupted access to hospital operations and avoid any service disruption.`
+      );
+    }
+    if (daysLeft === 0) {
+      return (
+        `Your Hisaar360 subscription package expires today (${dateLabel}). ` +
+        `Please renew now to maintain uninterrupted access for your hospital team.`
+      );
+    }
+    if (daysLeft === 1) {
+      return (
+        `Your Hisaar360 subscription package expires tomorrow (${dateLabel}). ` +
+        `Kindly renew today to ensure continuous, uninterrupted service.`
+      );
+    }
+    if (daysLeft <= 7) {
+      return (
+        `Important: Your Hisaar360 subscription package will expire in ${daysLeft} days, on ${dateLabel}. ` +
+        `Please renew at your earliest convenience to avoid any interruption to hospital services.`
+      );
+    }
+    return (
+      `Your Hisaar360 subscription package is approaching renewal. ` +
+      `It will expire in ${daysLeft} days, on ${dateLabel}. ` +
+      `We recommend renewing in advance so your hospital operations continue without interruption.`
+    );
+  }
+
+  private calendarDayKey(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  private dismissStorageKey(reminderId: string): string {
+    const today = this.calendarDayKey(new Date());
+    return `hms.packageReminder.dismissed.${reminderId}.${today}`;
+  }
+
+  private wasLocalDismissedToday(reminderId: string): boolean {
+    try {
+      return sessionStorage.getItem(this.dismissStorageKey(reminderId)) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private markLocalDismissed(reminder: PackageReminderPayload): void {
+    if (!reminder.reminderId.startsWith(LOCAL_REMINDER_PREFIX)) {
+      return;
+    }
+    try {
+      sessionStorage.setItem(this.dismissStorageKey(reminder.reminderId), '1');
+    } catch {
+      /* ignore quota / private mode */
     }
   }
 }

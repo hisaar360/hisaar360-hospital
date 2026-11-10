@@ -6,6 +6,7 @@ import { finalize } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 
 import { BackendService } from '../../../core/services/backend.service';
+import { PharmacyOpenReturnModalComponent } from '../../../shared/components/pharmacy-open-return-modal/pharmacy-open-return-modal.component';
 import { Sale, SalesReturn, Store } from '../../../shared/models/hospital.model';
 import { formatCurrency, formatDate, readAssignedStoreId, toDateInputValue } from '../pharmacy-admin.utils';
 
@@ -23,7 +24,7 @@ interface SalesReturnLine {
 @Component({
   selector: 'app-pharmacy-sales-returns',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, PharmacyOpenReturnModalComponent],
   templateUrl: './pharmacy-sales-returns.component.html',
   styleUrl: './pharmacy-sales-returns.component.scss',
 })
@@ -34,10 +35,13 @@ export class PharmacySalesReturnsComponent implements OnInit {
   loading = false;
   saving = false;
   modalOpen = false;
+  openReturnModalOpen = false;
   salesLoading = false;
   storeId = readAssignedStoreId();
   fromDate = '';
   toDate = '';
+  pickerFromDate = '';
+  pickerToDate = '';
   saleSearch = '';
   selectedSaleId = '';
   selectedSale: Sale | null = null;
@@ -141,6 +145,54 @@ export class PharmacySalesReturnsComponent implements OnInit {
     this.saleSearch = '';
     this.clearSelection();
     this.returnDate = toDateInputValue(new Date());
+    if (!this.pickerFromDate && !this.pickerToDate) {
+      this.pickerToDate = toDateInputValue(new Date());
+      const from = new Date();
+      from.setDate(from.getDate() - 30);
+      this.pickerFromDate = toDateInputValue(from);
+    }
+    this.loadSales();
+  }
+
+  canOpenRandomReturn(): boolean {
+    return this.backend.hasPermission('returns.create') || this.backend.hasPermission('*');
+  }
+
+  openRandomReturn(): void {
+    if (!this.canOpenRandomReturn()) {
+      this.toastr.warning('You do not have permission to create returns.');
+      return;
+    }
+    this.modalOpen = false;
+    this.openReturnModalOpen = true;
+  }
+
+  closeOpenReturnModal(): void {
+    this.openReturnModalOpen = false;
+  }
+
+  onOpenReturnCompleted(salesReturn: SalesReturn): void {
+    const direction = salesReturn.settlementDirection || 'even';
+    const settleHint =
+      direction === 'collect'
+        ? `Received ${formatCurrency(salesReturn.collectAmount || 0)}`
+        : direction === 'refund'
+          ? `Refunded ${formatCurrency(salesReturn.refundAmount || 0)}`
+          : 'Even exchange';
+    this.toastr.success(
+      `Random return ${salesReturn.returnNo || salesReturn._id} completed. ${settleHint}.`,
+    );
+    this.closeOpenReturnModal();
+    this.loadReturns();
+  }
+
+  applyPickerDateFilter(): void {
+    this.loadSales();
+  }
+
+  resetPickerDateFilter(): void {
+    this.pickerFromDate = '';
+    this.pickerToDate = '';
     this.loadSales();
   }
 
@@ -152,6 +204,12 @@ export class PharmacySalesReturnsComponent implements OnInit {
         storeId: this.storeId || undefined,
         status: 'completed',
         invoiceNo: invoiceNo ? invoiceNo.toUpperCase() : undefined,
+        fromDate: this.pickerFromDate
+          ? new Date(`${this.pickerFromDate}T00:00:00`).toISOString()
+          : undefined,
+        toDate: this.pickerToDate
+          ? new Date(`${this.pickerToDate}T23:59:59`).toISOString()
+          : undefined,
       })
       .pipe(finalize(() => (this.salesLoading = false)))
       .subscribe({

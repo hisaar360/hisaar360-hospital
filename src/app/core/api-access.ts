@@ -102,9 +102,30 @@ const RULES: AccessRule[] = [
 
   { methods: ['GET'], pattern: /^\/appointments\/calendar$/, any: ['appointments.read'], empty: ARRAY },
   { methods: ['GET'], pattern: /^\/appointments\/available-slots$/, any: ['appointments.read'], empty: 'slots' },
+  {
+    methods: ['GET'],
+    pattern: /^\/appointments\/payments-audit$/,
+    any: [
+      'appointments.read',
+      'ledger_payments.read',
+      'accounts.cash_settlement.view',
+      'accounts.reports.read',
+    ],
+    empty: OBJECT,
+  },
   { methods: ['GET'], pattern: /^\/appointments$/, any: ['appointments.read'], empty: LIST },
   { methods: ['GET'], pattern: /^\/appointments\//, any: ['appointments.read'], empty: NONE },
   { methods: ['POST'], pattern: /^\/appointments$/, any: ['appointments.create'] },
+  {
+    methods: ['POST'],
+    pattern: /^\/appointments\/[^/]+\/collect-fee$/,
+    any: [
+      'appointments.update',
+      'ledger_payments.create',
+      'accounts.cash_settlement.manage',
+      'sales.create',
+    ],
+  },
   { methods: ['PATCH'], pattern: /^\/appointments\/[^/]+\/status$/, any: ['appointments.status_update'] },
   { methods: ['PATCH'], pattern: /^\/appointments\//, any: ['appointments.update'] },
   { methods: ['DELETE'], pattern: /^\/appointments\//, any: ['appointments.delete'] },
@@ -185,6 +206,18 @@ const RULES: AccessRule[] = [
   { methods: ['GET'], pattern: /^\/ward-billing\/admission-recommendations\/[^/]+$/, any: ['ward.admissions.read', 'ward.admissions.create', 'ward.admissions.recommend'] },
   { methods: ['PATCH'], pattern: /^\/ward-billing\/admission-recommendations\/[^/]+$/, any: ['ward.admissions.recommend', 'ward.admissions.update'] },
   { methods: ['POST'], pattern: /^\/ward-billing\/admission-recommendations\/[^/]+\/(cancel|acknowledge)$/, any: ['ward.admissions.recommend', 'ward.admissions.update', 'ward.admissions.create'] },
+  {
+    methods: ['GET'],
+    pattern: /^\/ward-billing\/payments-audit$/,
+    any: [
+      'ward.billing.read',
+      'ward.payments.collect',
+      'ward.read',
+      'accounts.reports.read',
+      'accounts.cash_settlement.view',
+    ],
+    empty: OBJECT,
+  },
   { methods: ['GET'], pattern: /^\/ward-billing\/admissions\/[^/]+\/bill/, any: ['ward.billing.read'] },
   { methods: ['POST'], pattern: /^\/ward-billing\/admissions\/[^/]+\/charges/, any: ['ward.billing.create'] },
   { methods: ['POST'], pattern: /^\/ward-billing\/admissions\/[^/]+\/payments/, any: ['ward.payments.collect'] },
@@ -252,10 +285,21 @@ const RULES: AccessRule[] = [
   {
     methods: ['GET'],
     pattern: /^\/accounts/,
-    any: ['accounts.read', 'accounts.journals.read', 'accounts.reports.read', 'financial_reconciliation.read', 'expenses.read'],
+    any: [
+      'accounts.read',
+      'accounts.journals.read',
+      'accounts.reports.read',
+      'accounts.cash_settlement.view',
+      'financial_reconciliation.read',
+      'expenses.read',
+    ],
     empty: OBJECT,
   },
-  { methods: ['POST'], pattern: /^\/accounts/, any: ['accounts.journals.create', 'expenses.create'] },
+  {
+    methods: ['POST'],
+    pattern: /^\/accounts/,
+    any: ['accounts.journals.create', 'accounts.cash_settlement.manage', 'expenses.create'],
+  },
 
   { methods: ['GET'], pattern: /^\/categories/, any: ['categories.read'], empty: LIST },
   { methods: ['POST'], pattern: /^\/categories$/, any: ['categories.create'] },

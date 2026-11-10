@@ -139,6 +139,12 @@ export const isLaboratoryModuleEnabled = (): boolean => readStoredHospitalModule
 export const isWardModuleEnabled = (): boolean => readStoredHospitalModules().ward;
 export const isClinicalModuleEnabled = (): boolean => readStoredHospitalModules().clinical;
 
+/** Pure pharmacy install — clinical / lab / ward off. Hide OPD billing UI. */
+export const isPharmacyOnlyModules = (): boolean => {
+  const modules = readStoredHospitalModules();
+  return Boolean(modules.pharmacy && !modules.clinical && !modules.laboratory && !modules.ward);
+};
+
 /** Departments / wards / rooms / birth-cert config — not for pharmacy-only or lab-only. */
 export const isHospitalSetupModuleAllowed = (): boolean => {
   const modules = readStoredHospitalModules();

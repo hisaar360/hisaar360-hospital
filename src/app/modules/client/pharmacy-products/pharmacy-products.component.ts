@@ -31,6 +31,7 @@ interface ProductForm {
   expiryDate: string;
   mfdDate: string;
   brand: string;
+  salt: string;
   categoryId: string;
   categoryName: string;
   unit: string;
@@ -119,9 +120,15 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
   ];
   productForm: ProductForm = this.getEmptyProductForm();
   showBulkTip = false;
+  /** Selected an existing medicine from name typeahead — save adds stock lot only. */
+  stockAddMode = false;
+  nameSuggestions: ProductCatalogItem[] = [];
+  showNameSuggestions = false;
+  nameSuggestionIndex = -1;
 
   private readonly bulkTipStorageKey = 'hms-bulk-medicines-catalog-tip-seen';
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private nameSuggestTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -163,6 +170,10 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.nameSuggestTimer) {
+      clearTimeout(this.nameSuggestTimer);
+      this.nameSuggestTimer = null;
+    }
     this.unlockPageScroll();
   }
 
@@ -458,9 +469,12 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
     const storeId = this.currentStoreId();
     this.editingProductId = '';
     this.editingOriginalStock = '';
+    this.stockAddMode = false;
+    this.clearNameSuggestions();
     this.productForm = this.getEmptyProductForm();
     this.productForm.storeId = storeId;
     this.resetProductSections();
+    void this.medicineCatalog.ensureLoaded();
 
     this.productModalOpen = true;
     this.lockPageScroll();
@@ -477,7 +491,119 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
     const stock = this.productStock(product);
     this.editingProductId = product._id;
     this.editingOriginalStock = stock;
-    this.productForm = {
+    this.stockAddMode = false;
+    this.clearNameSuggestions();
+    this.productForm = this.fillProductForm(product, stock);
+    this.resetProductSections();
+    this.productModalOpen = true;
+    this.lockPageScroll();
+  }
+
+  onProductNameInput(): void {
+    this.onProductIdentityChange();
+    if (this.editingProductId && !this.stockAddMode) {
+      this.clearNameSuggestions();
+      return;
+    }
+    if (this.stockAddMode) {
+      return;
+    }
+
+    const query = this.productForm.name.trim();
+    if (this.nameSuggestTimer) {
+      clearTimeout(this.nameSuggestTimer);
+    }
+    if (query.length < 1) {
+      this.clearNameSuggestions();
+      return;
+    }
+
+    this.nameSuggestTimer = setTimeout(() => {
+      void this.medicineCatalog.ensureLoaded().then(() => {
+        if (!this.productModalOpen || this.stockAddMode) {
+          return;
+        }
+        this.nameSuggestions = this.medicineCatalog.search(query, 8);
+        this.showNameSuggestions = this.nameSuggestions.length > 0;
+        this.nameSuggestionIndex = this.showNameSuggestions ? 0 : -1;
+      });
+    }, 180);
+  }
+
+  onProductNameKeydown(event: KeyboardEvent): void {
+    if (!this.showNameSuggestions || !this.nameSuggestions.length) {
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.nameSuggestionIndex =
+        (this.nameSuggestionIndex + 1) % this.nameSuggestions.length;
+      return;
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.nameSuggestionIndex =
+        this.nameSuggestionIndex <= 0
+          ? this.nameSuggestions.length - 1
+          : this.nameSuggestionIndex - 1;
+      return;
+    }
+    if (event.key === 'Enter' && this.nameSuggestionIndex >= 0) {
+      event.preventDefault();
+      const item = this.nameSuggestions[this.nameSuggestionIndex];
+      if (item) {
+        this.selectNameSuggestion(item);
+      }
+      return;
+    }
+    if (event.key === 'Escape') {
+      this.clearNameSuggestions();
+    }
+  }
+
+  selectNameSuggestion(product: ProductCatalogItem): void {
+    if (!this.canAdjustInventory) {
+      this.toastr.error(
+        'This role needs inventory.adjust to add stock to an existing medicine.',
+      );
+      return;
+    }
+
+    this.stockAddMode = true;
+    this.editingProductId = product._id;
+    this.editingOriginalStock = this.productStock(product);
+    this.productForm = this.fillProductForm(product, '');
+    this.productForm.batchNumber = '';
+    this.productForm.expiryDate = '';
+    this.productForm.openingStock = '1';
+    this.clearNameSuggestions();
+    this.clearDuplicateWarnings();
+    this.productSections.batch = true;
+    this.productSections.pricing = true;
+  }
+
+  clearStockAddMode(): void {
+    if (this.savingProduct) {
+      return;
+    }
+    const storeId = this.productForm.storeId || this.currentStoreId();
+    const typedName = this.productForm.name;
+    this.stockAddMode = false;
+    this.editingProductId = '';
+    this.editingOriginalStock = '';
+    this.productForm = this.getEmptyProductForm();
+    this.productForm.storeId = storeId;
+    this.productForm.name = typedName;
+    this.clearDuplicateWarnings();
+    this.onProductNameInput();
+  }
+
+  private fillProductForm(
+    product: ProductCatalogItem,
+    openingStock: string,
+  ): ProductForm {
+    return {
       name: product.name || '',
       sku: product.sku || '',
       barcode: product.barcode || '',
@@ -485,6 +611,7 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
       expiryDate: this.toDateInputValue(product.expiryDate),
       mfdDate: this.toDateInputValue(product.mfdDate),
       brand: product.brand || '',
+      salt: product.salt || '',
       categoryId: product.categoryId || '',
       categoryName: '',
       unit: product.unit || 'tablet',
@@ -492,7 +619,7 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
       strengthUnit: product.strengthUnit || 'mg',
       costPrice: product.costPrice || '0',
       sellingPrice: product.sellingPrice || '0',
-      openingStock: stock,
+      openingStock,
       storeId: product.storeId || this.currentStoreId(),
       discountEligible: Boolean(product.discountEligible),
       maxDiscountType:
@@ -503,9 +630,12 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
           ? ''
           : String(product.maxDiscountValue),
     };
-    this.resetProductSections();
-    this.productModalOpen = true;
-    this.lockPageScroll();
+  }
+
+  private clearNameSuggestions(): void {
+    this.nameSuggestions = [];
+    this.showNameSuggestions = false;
+    this.nameSuggestionIndex = -1;
   }
 
   toggleProductSection(section: ProductFormSection): void {
@@ -561,6 +691,8 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
     this.unlockPageScroll();
     this.editingProductId = '';
     this.editingOriginalStock = '';
+    this.stockAddMode = false;
+    this.clearNameSuggestions();
     this.clearDuplicateWarnings();
     this.productForm = this.getEmptyProductForm();
     this.productForm.storeId = storeId;
@@ -587,6 +719,11 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
 
   saveProduct(): void {
     if (this.savingProduct) {
+      return;
+    }
+
+    if (this.stockAddMode) {
+      this.saveStockAdd();
       return;
     }
 
@@ -740,6 +877,7 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
               this.normalizeDateForPayload(this.productForm.mfdDate) ||
               undefined,
             brand: this.productForm.brand.trim() || undefined,
+            salt: this.productForm.salt.trim() || undefined,
             unit: this.productForm.unit || 'pcs',
             strengthValue: strengthValue || undefined,
             strengthUnit: strengthUnit || undefined,
@@ -772,6 +910,7 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
               openingStock,
               'OPENING_STOCK',
               'Opening stock from product management',
+              true,
             );
           }
 
@@ -782,6 +921,7 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
                 openingStock,
                 'MANUAL_ADJUSTMENT',
                 'Stock update from product management',
+                false,
               )
             : of(response.data);
         }),
@@ -798,6 +938,8 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
           this.unlockPageScroll();
           this.editingProductId = '';
           this.editingOriginalStock = '';
+          this.stockAddMode = false;
+          this.clearNameSuggestions();
           this.clearDuplicateWarnings();
           this.productForm = this.getEmptyProductForm();
           this.productForm.storeId = storeId;
@@ -817,6 +959,74 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
             err?.error?.message ||
               err?.message ||
               'Unable to add medicine/product.',
+          );
+        },
+      });
+  }
+
+  private saveStockAdd(): void {
+    const productId = this.editingProductId;
+    const storeId = this.productForm.storeId || this.currentStoreId();
+    const quantity = Number(this.productForm.openingStock || 0);
+    const lotNumber = this.productForm.batchNumber.trim();
+    const expiryDate =
+      this.normalizeDateForPayload(this.productForm.expiryDate) || undefined;
+
+    if (!productId) {
+      this.toastr.error('Select an existing medicine first.');
+      return;
+    }
+    if (!this.canAdjustInventory) {
+      this.toastr.error(
+        'This role needs inventory.adjust to add stock to an existing medicine.',
+      );
+      return;
+    }
+    if (!storeId) {
+      this.toastr.error('No store is available for stock update.');
+      return;
+    }
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      this.toastr.error('Quantity to add must be at least 1.');
+      return;
+    }
+    if (!lotNumber) {
+      this.toastr.error('Batch number is required when adding stock.');
+      return;
+    }
+
+    this.savingProduct = true;
+    this.backend
+      .adjustInventory({
+        productId,
+        locationType: 'store',
+        locationId: storeId,
+        adjustmentType: 'INCREASE',
+        quantity: String(Math.floor(quantity)),
+        reason: 'MANUAL_ADJUSTMENT',
+        note: 'Stock add from product management',
+        lotNumber,
+        expiryDate,
+      })
+      .pipe(finalize(() => (this.savingProduct = false)))
+      .subscribe({
+        next: () => {
+          this.toastr.success('Stock increased with batch lot.');
+          this.productModalOpen = false;
+          this.unlockPageScroll();
+          this.editingProductId = '';
+          this.editingOriginalStock = '';
+          this.stockAddMode = false;
+          this.clearNameSuggestions();
+          this.clearDuplicateWarnings();
+          this.productForm = this.getEmptyProductForm();
+          this.productForm.storeId = storeId;
+          this.loadProducts();
+          void this.medicineCatalog.refresh();
+        },
+        error: (err) => {
+          this.toastr.error(
+            err?.error?.message || err?.message || 'Unable to add stock.',
           );
         },
       });
@@ -980,6 +1190,7 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
     quantity: number,
     reason: 'OPENING_STOCK' | 'MANUAL_ADJUSTMENT',
     note: string,
+    preferIncreaseWithLot: boolean,
   ): Observable<ProductCatalogItem> {
     if (!Number.isFinite(quantity) || quantity < 0) {
       return of(product);
@@ -992,15 +1203,27 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
       return of(product);
     }
 
+    const lotNumber = this.productForm.batchNumber.trim() || undefined;
+    const expiryDate =
+      this.normalizeDateForPayload(this.productForm.expiryDate) || undefined;
+    const hasLot = Boolean(lotNumber || expiryDate);
+    const useIncrease = preferIncreaseWithLot && hasLot;
+
     return this.backend
       .adjustInventory({
         productId: product._id,
         locationType: 'store',
         locationId: storeId,
-        adjustmentType: 'SET',
+        adjustmentType: useIncrease ? 'INCREASE' : 'SET',
         quantity: String(Math.floor(quantity)),
         reason,
         note,
+        ...(hasLot
+          ? {
+              lotNumber,
+              expiryDate,
+            }
+          : {}),
       })
       .pipe(map(() => product));
   }
@@ -1028,6 +1251,7 @@ export class PharmacyProductsComponent implements OnInit, OnDestroy {
       expiryDate: '',
       mfdDate: '',
       brand: '',
+      salt: '',
       categoryId: '',
       categoryName: '',
       unit: 'tablet',

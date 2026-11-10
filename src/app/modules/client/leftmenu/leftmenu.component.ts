@@ -11,6 +11,7 @@ import {
   RouterLinkActive,
 } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { sidebarDropdownAnimation } from './sidebar-dropdown.animation';
 import {
   canViewWardAdminMenu,
   canViewWardManagementMenu,
@@ -29,6 +30,7 @@ import {
   isHospitalSetupModuleAllowed,
   isLaboratoryModuleEnabled,
   isPharmacyModuleEnabled,
+  isPharmacyOnlyModules,
   isPharmacyWardIntegrationAllowed,
   isWardModuleEnabled,
 } from '../../auth/hospital-modules';
@@ -53,7 +55,22 @@ type SidebarSectionKey =
   | 'rooms'
   | 'setup'
   | 'payments'
-  | 'accounts';
+  | 'accounts'
+  | 'accountsJournals';
+
+/** Top-level accordion sections — opening one collapses the others. */
+const TOP_LEVEL_SECTIONS: SidebarSectionKey[] = [
+  'doctors',
+  'prescriptions',
+  'pharmacy',
+  'laboratory',
+  'ward',
+  'patients',
+  'rooms',
+  'setup',
+  'payments',
+  'accounts',
+];
 
 @Component({
   selector: 'app-leftmenu',
@@ -61,6 +78,7 @@ type SidebarSectionKey =
   imports: [RouterLink, RouterLinkActive, CommonModule],
   templateUrl: './leftmenu.component.html',
   styleUrl: './leftmenu.component.scss',
+  animations: [sidebarDropdownAnimation],
 })
 export class LeftmenuComponent implements OnInit, AfterViewInit {
   isCollapsed = true;
@@ -80,6 +98,7 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   WardManagementCollapsed = true;
   SetupCollapsed = true;
   AccountsCollapsed = true;
+  AccountsJournalsCollapsed = true;
   /** Cached — must NOT be a getter. A fresh array each CD pass freezes the UI
    *  when Ward expands (`*ngFor` destroy/recreate loop). */
   wardNavSections: WardNavSection[] = [];
@@ -291,6 +310,10 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     );
   }
 
+  get canViewPharmacySettings(): boolean {
+    return this.canViewPharmacyInvoiceSettings;
+  }
+
   get canOpenPharmacyPos(): boolean {
     if (this.isLaboratoryEdition || !isPharmacyModuleEnabled()) {
       return false;
@@ -418,7 +441,90 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
       this.canViewAllRoutes ||
       this.hasPermission('accounts.read') ||
       this.hasPermission('accounts.reports.read') ||
-      this.hasPermission('accounts.journals.read')
+      this.hasPermission('accounts.journals.read') ||
+      this.hasPermission('accounts.cash_settlement.view')
+    );
+  }
+
+  get canViewDepartmentCash(): boolean {
+    return (
+      this.canViewAllRoutes ||
+      this.hasPermission('accounts.cash_settlement.view') ||
+      this.hasPermission('accounts.reports.read') ||
+      this.hasPermission('accounts.read')
+    );
+  }
+
+  get canViewPharmacyCash(): boolean {
+    if (this.isLaboratoryEdition || !isPharmacyModuleEnabled()) {
+      return false;
+    }
+    return this.canViewDepartmentCash;
+  }
+
+  get canViewWardCash(): boolean {
+    if (this.isLaboratoryEdition || !isWardModuleEnabled()) {
+      return false;
+    }
+    return this.canViewDepartmentCash;
+  }
+
+  get canViewOpdCash(): boolean {
+    // Pharmacy-only installs have no OPD till / OPD billing UI.
+    if (
+      this.isLaboratoryEdition ||
+      !isClinicalModuleEnabled() ||
+      isPharmacyOnlyModules()
+    ) {
+      return false;
+    }
+    return this.canViewDepartmentCash;
+  }
+
+  get canViewAppointmentPayments(): boolean {
+    // OPD / appointment fee audit needs clinical module — hide on pharmacy-only.
+    if (
+      this.isLaboratoryEdition ||
+      !isClinicalModuleEnabled() ||
+      isPharmacyOnlyModules()
+    ) {
+      return false;
+    }
+    return (
+      this.canViewDepartmentCash ||
+      this.hasPermission('appointments.read') ||
+      this.hasPermission('appointments.update') ||
+      this.hasPermission('ledger_payments.create')
+    );
+  }
+
+  get canViewClinicalOpdSection(): boolean {
+    return (
+      this.canViewAppointments ||
+      this.canViewClinicalRecords ||
+      this.canManageClinicalRecords ||
+      this.canViewPrescriptions ||
+      this.canManagePrescriptions ||
+      this.canViewAppointmentPayments
+    );
+  }
+
+  get canViewLabDayPayments(): boolean {
+    if (!isLaboratoryModuleEnabled()) {
+      return false;
+    }
+    return this.canViewLabOrders || this.canViewDepartmentCash;
+  }
+
+  get canViewWardDayCollections(): boolean {
+    if (this.isLaboratoryEdition || !isWardModuleEnabled()) {
+      return false;
+    }
+    return (
+      this.canViewWardAdmin ||
+      this.hasPermission('ward.billing.read') ||
+      this.hasPermission('ward.payments.collect') ||
+      this.canViewDepartmentCash
     );
   }
 
@@ -684,12 +790,37 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     );
   }
 
+  get canViewPharmacyLedger(): boolean {
+    if (this.isLaboratoryEdition || !isPharmacyModuleEnabled()) {
+      return false;
+    }
+    return (
+      this.canViewAllRoutes ||
+      this.hasPermission('accounts.cash_settlement.view') ||
+      this.hasPermission('accounts.reports.read') ||
+      this.hasPermission('accounts.read') ||
+      this.hasPermission('accounts.journals.create') ||
+      this.hasPermission('accounts.cash_settlement.manage')
+    );
+  }
+
   get showPharmacyAccountsGroup(): boolean {
     return (
+      this.canViewPharmacyCash ||
+      this.canViewPharmacyLedger ||
       this.canViewPharmacyPayments ||
       this.canViewPharmacyExpenses ||
       this.canViewPharmacyRegisterSessions ||
       this.canViewPosReports
+    );
+  }
+
+  get showAccountsJournalsGroup(): boolean {
+    return (
+      this.canViewAllRoutes ||
+      this.hasPermission('accounts.journals.read') ||
+      this.hasPermission('accounts.journals.create') ||
+      this.hasPermission('accounts.read')
     );
   }
 
@@ -720,7 +851,7 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     this.router.events.subscribe((event) => {
       if (event instanceof NavigationEnd) {
         this.refreshAccess();
-        this.syncPharmacyGroups(event.urlAfterRedirects);
+        this.syncOpenSectionsFromRoute(event.urlAfterRedirects);
         this.closeSidebarOnMobile();
       }
     });
@@ -731,34 +862,88 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   private initializeCollapsedStates(): void {
-    const url = this.router.url;
-    this.isCollapsed = !url.includes('doctors');
-    this.Pagecollapse = !url.includes('pages');
-    this.PaymentCollapsed = !url.includes('payments');
-    this.RoomCollapsed = !url.includes('room-allotment');
-    this.PatientCollapsed = !url.includes('patients');
-    this.PharmacyCollapsed = !(
-      url.includes('pharmacy') || url.includes('pos-reports')
-    );
-    this.syncPharmacyGroups(url);
-    this.LaboratoryCollapsed = !url.includes('laboratory');
-    this.WardCollapsed = !(url.includes('/ward') || url.includes('ward-admin') || url.includes('/operations'));
+    this.collapseAllTopLevel();
+    this.syncOpenSectionsFromRoute(this.router.url);
+  }
+
+  private collapseAllTopLevel(): void {
+    this.isCollapsed = true;
+    this.PrescriptionCollapsed = true;
+    this.PharmacyCollapsed = true;
+    this.LaboratoryCollapsed = true;
+    this.WardCollapsed = true;
+    this.PatientCollapsed = true;
+    this.RoomCollapsed = true;
+    this.SetupCollapsed = true;
+    this.PaymentCollapsed = true;
+    this.AccountsCollapsed = true;
+  }
+
+  private syncOpenSectionsFromRoute(url: string): void {
+    const path = url.split('?')[0].split('#')[0];
+    this.collapseAllTopLevel();
+
+    const pharmacyApptFees =
+      path.startsWith('/accounts/appointment-payments') &&
+      (url.includes('channel=pharmacy') || url.includes('channel%3Dpharmacy'));
+
+    if (
+      path.startsWith('/prescriptions') ||
+      path.startsWith('/appointments') ||
+      path.startsWith('/clinical-records') ||
+      (path.startsWith('/accounts/appointment-payments') && !pharmacyApptFees)
+    ) {
+      this.PrescriptionCollapsed = false;
+    } else if (path.includes('doctors') || path.startsWith('/doctors-schedule') || path.startsWith('/all-doctors') || path.startsWith('/add-doctors')) {
+      this.isCollapsed = false;
+    } else if (
+      path.startsWith('/pharmacy') ||
+      path.startsWith('/pos-reports') ||
+      path === '/accounts/pharmacy-cash' ||
+      pharmacyApptFees
+    ) {
+      this.PharmacyCollapsed = false;
+    } else if (path.startsWith('/laboratory')) {
+      this.LaboratoryCollapsed = false;
+    } else if (
+      path.startsWith('/ward') ||
+      path.includes('ward-admin') ||
+      path.startsWith('/operations') ||
+      path === '/accounts/ward-cash' ||
+      path.startsWith('/ward/day-collections')
+    ) {
+      this.WardCollapsed = false;
+    } else if (path.startsWith('/patients')) {
+      this.PatientCollapsed = false;
+    } else if (path.startsWith('/room-allotment')) {
+      this.RoomCollapsed = false;
+    } else if (path.startsWith('/hospital-setup') || path.startsWith('/hospital-forms')) {
+      this.SetupCollapsed = false;
+    } else if (path.startsWith('/payments')) {
+      this.PaymentCollapsed = false;
+    } else if (path.startsWith('/accounts')) {
+      this.AccountsCollapsed = false;
+    }
+
+    this.syncPharmacyGroups(path);
+    this.syncAccountsJournalsGroup(url);
     this.WardManagementCollapsed = !(
-      url.includes('/ward/dashboard') ||
-      url.includes('/ward/bed-management') ||
-      url.includes('/ward/duty-roster') ||
-      url.includes('/ward/inventory') ||
-      url.includes('/ward/nurses-staff') ||
-      url.includes('/ward/reports') ||
-      url.includes('ward-admin') ||
-      url.includes('/operations')
+      path.includes('/ward/dashboard') ||
+      path.includes('/ward/bed-management') ||
+      path.includes('/ward/duty-roster') ||
+      path.includes('/ward/inventory') ||
+      path.includes('/ward/nurses-staff') ||
+      path.includes('/ward/reports') ||
+      path.includes('ward-admin') ||
+      path.includes('/operations')
     );
-    this.SetupCollapsed = !url.includes('hospital-setup');
-    this.AccountsCollapsed = !url.includes('/accounts');
   }
 
   private syncPharmacyGroups(url: string): void {
     const path = url.split('?')[0].split('#')[0];
+    const pharmacyApptFees =
+      path.startsWith('/accounts/appointment-payments') &&
+      (url.includes('channel=pharmacy') || url.includes('channel%3Dpharmacy'));
     const matches = (prefixes: string[]) =>
       prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 
@@ -780,16 +965,107 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
       '/pharmacy/stock-movements',
       '/pharmacy/transfers',
     ]);
-    this.PharmacyAccountsCollapsed = !matches([
-      '/pharmacy/payments',
-      '/pharmacy/expenses',
-      '/pharmacy/register-sessions',
-      '/pharmacy/reports',
-    ]);
+    this.PharmacyAccountsCollapsed =
+      !pharmacyApptFees &&
+      !matches([
+        '/accounts/pharmacy-cash',
+        '/pharmacy/ledger',
+        '/pharmacy/payments',
+        '/pharmacy/expenses',
+        '/pharmacy/register-sessions',
+        '/pharmacy/reports',
+      ]);
     this.PharmacyWardCollapsed = !matches([
       '/pharmacy/ward-requests',
       '/pharmacy/ward-settlements',
     ]);
+  }
+
+  private syncAccountsJournalsGroup(url: string): void {
+    const path = url.split('?')[0].split('#')[0];
+    const matches = (prefixes: string[]) =>
+      prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+    this.AccountsJournalsCollapsed = !matches([
+      '/accounts/general-ledger',
+      '/accounts/journal',
+      '/accounts/cash-book',
+      '/accounts/bank-book',
+    ]);
+  }
+
+  private setTopLevelOpen(section: SidebarSectionKey, open: boolean): void {
+    const apply = (key: SidebarSectionKey, collapsed: boolean) => {
+      switch (key) {
+        case 'doctors':
+          this.isCollapsed = collapsed;
+          break;
+        case 'prescriptions':
+          this.PrescriptionCollapsed = collapsed;
+          break;
+        case 'pharmacy':
+          this.PharmacyCollapsed = collapsed;
+          break;
+        case 'laboratory':
+          this.LaboratoryCollapsed = collapsed;
+          break;
+        case 'ward':
+          this.WardCollapsed = collapsed;
+          break;
+        case 'patients':
+          this.PatientCollapsed = collapsed;
+          break;
+        case 'rooms':
+          this.RoomCollapsed = collapsed;
+          break;
+        case 'setup':
+          this.SetupCollapsed = collapsed;
+          break;
+        case 'payments':
+          this.PaymentCollapsed = collapsed;
+          break;
+        case 'accounts':
+          this.AccountsCollapsed = collapsed;
+          break;
+        default:
+          break;
+      }
+    };
+
+    if (open && TOP_LEVEL_SECTIONS.includes(section)) {
+      for (const key of TOP_LEVEL_SECTIONS) {
+        apply(key, key !== section);
+      }
+      return;
+    }
+
+    apply(section, !open);
+  }
+
+  isTopOpen(section: SidebarSectionKey): boolean {
+    switch (section) {
+      case 'doctors':
+        return !this.isCollapsed;
+      case 'prescriptions':
+        return !this.PrescriptionCollapsed;
+      case 'pharmacy':
+        return !this.PharmacyCollapsed;
+      case 'laboratory':
+        return !this.LaboratoryCollapsed;
+      case 'ward':
+        return !this.WardCollapsed;
+      case 'patients':
+        return !this.PatientCollapsed;
+      case 'rooms':
+        return !this.RoomCollapsed;
+      case 'setup':
+        return !this.SetupCollapsed;
+      case 'payments':
+        return !this.PaymentCollapsed;
+      case 'accounts':
+        return !this.AccountsCollapsed;
+      default:
+        return false;
+    }
   }
 
   private normalizeRole(role: string): string {
@@ -891,13 +1167,12 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     event?.preventDefault();
     event?.stopPropagation();
 
-    // Already open → collapse only (same as Laboratory / Ward toggles).
-    if (!this.PharmacyCollapsed) {
-      this.PharmacyCollapsed = true;
+    if (this.isTopOpen('pharmacy')) {
+      this.setTopLevelOpen('pharmacy', false);
       return;
     }
 
-    this.PharmacyCollapsed = false;
+    this.setTopLevelOpen('pharmacy', true);
     if (this.canViewPharmacy) {
       void this.router.navigate(['/pharmacy']);
       this.closeSidebarOnMobile();
@@ -919,16 +1194,12 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     event?.preventDefault();
     event?.stopPropagation();
 
+    if (TOP_LEVEL_SECTIONS.includes(section)) {
+      this.setTopLevelOpen(section, !this.isTopOpen(section));
+      return;
+    }
+
     switch (section) {
-      case 'doctors':
-        this.isCollapsed = !this.isCollapsed;
-        break;
-      case 'prescriptions':
-        this.PrescriptionCollapsed = !this.PrescriptionCollapsed;
-        break;
-      case 'pharmacy':
-        this.PharmacyCollapsed = !this.PharmacyCollapsed;
-        break;
       case 'pharmacySales':
         this.PharmacySalesCollapsed = !this.PharmacySalesCollapsed;
         break;
@@ -944,29 +1215,11 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
       case 'pharmacyWard':
         this.PharmacyWardCollapsed = !this.PharmacyWardCollapsed;
         break;
-      case 'laboratory':
-        this.LaboratoryCollapsed = !this.LaboratoryCollapsed;
-        break;
-      case 'ward':
-        this.WardCollapsed = !this.WardCollapsed;
+      case 'accountsJournals':
+        this.AccountsJournalsCollapsed = !this.AccountsJournalsCollapsed;
         break;
       case 'wardManagement':
         this.WardManagementCollapsed = !this.WardManagementCollapsed;
-        break;
-      case 'patients':
-        this.PatientCollapsed = !this.PatientCollapsed;
-        break;
-      case 'rooms':
-        this.RoomCollapsed = !this.RoomCollapsed;
-        break;
-      case 'setup':
-        this.SetupCollapsed = !this.SetupCollapsed;
-        break;
-      case 'payments':
-        this.PaymentCollapsed = !this.PaymentCollapsed;
-        break;
-      case 'accounts':
-        this.AccountsCollapsed = !this.AccountsCollapsed;
         break;
       default:
         break;

@@ -1,0 +1,59 @@
+<div id="main-content" class="hms-page pharmacy-settings-page">
+  <div class="container-fluid pharmacy-settings-wrap">
+    <header class="phs-hero">
+      <div>
+        <nav class="phs-crumb" aria-label="Breadcrumb">
+          <a routerLink="/pharmacy">Pharmacy Dashboard</a>
+          <span>/</span>
+          <em>Pharmacy Settings</em>
+        </nav>
+        <h1>Pharmacy Settings</h1>
+        <p>Control pharmacy-wide POS discount behaviour for your medical store.</p>
+      </div>
+      <button
+        type="button"
+        class="phs-save-btn"
+        *ngIf="canEdit"
+        [disabled]="saving || loading"
+        (click)="save()"
+      >
+        <i class="fa" [ngClass]="saving ? 'fa-spinner fa-spin' : 'fa-check'"></i>
+        {{ saving ? 'Saving…' : 'Save Settings' }}
+      </button>
+    </header>
+
+    <p class="phs-loading" *ngIf="loading"><i class="fa fa-spinner fa-spin"></i> Loading…</p>
+
+    <section class="phs-card" *ngIf="!loading">
+      <header class="phs-card__head">
+        <span class="phs-card__icon"><i class="fa fa-percent"></i></span>
+        <div>
+          <h2>Discount Settings</h2>
+          <p>
+            By default, only medicines marked discount-eligible can be discounted up to their max
+            value. Enable the option below to allow discount on any medicine (up to line total).
+          </p>
+        </div>
+      </header>
+
+      <label class="phs-check">
+        <input
+          type="checkbox"
+          [(ngModel)]="form.allowDiscountAnyMedicine"
+          [disabled]="!canEdit"
+        />
+        <span>
+          <strong>Allow discount on any medicine</strong>
+          <small>
+            When checked, cashiers can apply a discount on every medicine in POS without product
+            eligibility or max-discount caps. Discount still cannot exceed the line subtotal.
+          </small>
+        </span>
+      </label>
+
+      <p class="phs-hint" *ngIf="!canEdit">
+        You need <code>company.manage</code> permission to change these settings.
+      </p>
+    </section>
+  </div>
+</div>

@@ -1,0 +1,148 @@
+<div id="main-content" class="pharmacy-page ph-list ph-ledger-page">
+  <div class="pharmacy-shell pharmacy-admin-page">
+    <header class="pharmacy-hero">
+      <div class="pharmacy-hero-main">
+        <h1><i class="fa fa-book"></i> Pharmacy Ledger</h1>
+        <p>Till movements for sales, purchases, expenses, and owner-funded cash.</p>
+      </div>
+      <div class="pharmacy-hero-actions">
+        <a class="ph-btn ghost" routerLink="/accounts/pharmacy-cash">
+          <i class="fa fa-university"></i>
+          <span>Settlement</span>
+        </a>
+        <app-hms-document-toolbar
+          title="Pharmacy Ledger"
+          filename="pharmacy-ledger.pdf"
+          orientation="landscape"
+          [showExcel]="false"
+          [disabled]="loading || !lines.length"
+          [getHtml]="getExportHtml"
+        ></app-hms-document-toolbar>
+      </div>
+    </header>
+
+    <section class="ph-highlights" aria-label="Pharmacy ledger KPIs">
+      <article class="ph-stat ph-stat--cash">
+        <div class="ph-stat-icon amber"><i class="fa fa-money"></i></div>
+        <div>
+          <span>Pharmacy Cash in Hand</span>
+          <strong>{{ money(cashInHand) }}</strong>
+          <small>Current till</small>
+        </div>
+      </article>
+      <article class="ph-stat">
+        <div class="ph-stat-icon green"><i class="fa fa-arrow-down"></i></div>
+        <div>
+          <span>Period in</span>
+          <strong class="amt-in">{{ money(periodIn) }}</strong>
+          <small>Cash received</small>
+        </div>
+      </article>
+      <article class="ph-stat">
+        <div class="ph-stat-icon red"><i class="fa fa-arrow-up"></i></div>
+        <div>
+          <span>Period out</span>
+          <strong class="amt-out">{{ money(periodOut) }}</strong>
+          <small>Cash paid</small>
+        </div>
+      </article>
+      <article class="ph-stat">
+        <div class="ph-stat-icon blue"><i class="fa fa-balance-scale"></i></div>
+        <div>
+          <span>Net</span>
+          <strong [class.amt-in]="periodNet >= 0" [class.amt-out]="periodNet < 0">{{ money(periodNet) }}</strong>
+          <small>In − out</small>
+        </div>
+      </article>
+    </section>
+
+    <div class="pharmacy-filter-card">
+      <div class="pharmacy-filter-head">
+        <div>
+          <h2><i class="fa fa-filter"></i> Filters</h2>
+          <p>Filter by period and movement source.</p>
+        </div>
+      </div>
+
+      <div class="pharmacy-filter-body ph-ledger-filters">
+        <div class="ph-ledger-chips" role="tablist" aria-label="Period">
+          <button type="button" class="ph-chip" [class.active]="periodChip === 'week'" (click)="applyPeriod('week')">This week</button>
+          <button type="button" class="ph-chip" [class.active]="periodChip === 'month'" (click)="applyPeriod('month')">This month</button>
+          <button type="button" class="ph-chip" [class.active]="periodChip === 'custom'" (click)="periodChip = 'custom'">Custom</button>
+        </div>
+
+        <div class="ph-ledger-chips" role="tablist" aria-label="Source">
+          <button
+            type="button"
+            class="ph-chip"
+            *ngFor="let chip of sourceChips"
+            [class.active]="sourceFilter === chip.key"
+            (click)="setSource(chip.key)"
+          >
+            {{ chip.label }}
+          </button>
+        </div>
+
+        <div class="pharmacy-filter-grid" *ngIf="periodChip === 'custom'">
+          <label class="pharmacy-field">
+            <span>From</span>
+            <input class="form-control" type="date" [(ngModel)]="dateFrom" name="dateFrom" />
+          </label>
+          <label class="pharmacy-field">
+            <span>To</span>
+            <input class="form-control" type="date" [(ngModel)]="dateTo" name="dateTo" />
+          </label>
+          <div class="pharmacy-filter-actions">
+            <button class="ph-btn primary" type="button" (click)="applyCustom()" [disabled]="loading">Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="pharmacy-table-card ph-ledger-panel">
+      <div class="pharmacy-table-head">
+        <div>
+          <h2>Movements</h2>
+          <p>{{ lines.length }} row(s)</p>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <div class="table-responsive" *ngIf="!loading && lines.length">
+          <table class="table hms-table ph-ledger-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Reference</th>
+                <th>Description</th>
+                <th class="text-end">In</th>
+                <th class="text-end">Out</th>
+                <th class="text-end">Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let line of lines" [class.ph-ledger-row--owner]="line.highlight === 'owner_cash'">
+                <td>{{ dateTime(line.movementAt) }}</td>
+                <td>
+                  <span class="ph-type-badge" [attr.data-type]="line.type">{{ line.typeLabel }}</span>
+                </td>
+                <td>{{ line.referenceNo || '—' }}</td>
+                <td>{{ line.description || '—' }}</td>
+                <td class="text-end amt-in">{{ line.inAmount > 0 ? money(line.inAmount) : '—' }}</td>
+                <td class="text-end amt-out">{{ line.outAmount > 0 ? money(line.outAmount) : '—' }}</td>
+                <td class="text-end amt-balance">{{ money(line.balance) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pharmacy-empty-state" *ngIf="!loading && !lines.length">
+          No pharmacy till movements for this period and filter.
+        </div>
+
+        <div class="pharmacy-empty-state" *ngIf="loading">Loading ledger…</div>
+      </div>
+    </section>
+  </div>
+</div>

@@ -16,6 +16,7 @@ export type BulkIssueField =
   | 'mfdDate'
   | 'expiryDate'
   | 'brand'
+  | 'salt'
   | 'maxDiscountValue'
   | 'row';
 
@@ -45,6 +46,7 @@ export type BulkMedicineDraft = {
   mfdDate: string;
   expiryDate: string;
   brand: string;
+  salt: string;
   discountEligible: boolean;
   maxDiscountType: 'amount' | 'percentage';
   maxDiscountValue: string;
@@ -67,6 +69,7 @@ export type BulkCreateItemPayload = {
   strengthValue?: string;
   strengthUnit?: string;
   brand?: string;
+  salt?: string;
   costPrice: string | number;
   sellingPrice: string | number;
   openingStock: string | number;
@@ -145,6 +148,7 @@ export const BULK_TEMPLATE_COLUMNS = [
   { header: 'Manufacturing Date', key: 'mfdDate' },
   { header: 'Expiry Date', key: 'expiryDate' },
   { header: 'Brand', key: 'brand' },
+  { header: 'Salt / Formula', key: 'salt' },
   { header: 'Discount Eligible', key: 'discountEligible' },
   { header: 'Max Discount Type', key: 'maxDiscountType' },
   { header: 'Max Discount Value', key: 'maxDiscountValue' },

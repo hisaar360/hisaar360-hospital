@@ -549,6 +549,7 @@
             <small *ngIf="fieldIssueMessage(form, 'expiryDate')">{{ fieldIssueMessage(form, 'expiryDate') }}</small>
           </label>
           <label class="field"><span>Brand</span><input [(ngModel)]="form.brand" name="bulkEditBrand" /></label>
+          <label class="field"><span>Salt / Formula</span><input [(ngModel)]="form.salt" name="bulkEditSalt" /></label>
           <label class="bulk-discount"><input type="checkbox" [(ngModel)]="form.discountEligible" name="bulkEditDiscount" /><span>Discount Eligible</span></label>
           <label class="field" *ngIf="form.discountEligible" [class.has-error]="fieldSeverity(form, 'maxDiscountValue') === 'error'">
             <span>Max Discount Type</span>

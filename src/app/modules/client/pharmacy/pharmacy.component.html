@@ -239,6 +239,7 @@
                             <th>Doctor</th>
                             <th>Medicines</th>
                             <th>POS Match</th>
+                            <th>Fee</th>
                             <th>Follow Up</th>
                             <th>Action</th>
                         </tr>
@@ -272,19 +273,32 @@
                                     <span class="pd-match is-miss">Permission required</span>
                                 </ng-template>
                             </td>
+                            <td>
+                                <span class="pd-badge is-ok" *ngIf="appointmentFeeLabel(prescription) === 'paid'">Fee: Paid</span>
+                                <span class="pd-badge is-miss" *ngIf="appointmentFeeLabel(prescription) === 'unpaid'">Fee: Unpaid</span>
+                                <span *ngIf="appointmentFeeLabel(prescription) === 'none'">—</span>
+                            </td>
                             <td>{{ prescription.followUpDate ? (prescription.followUpDate | date:'mediumDate') : '—' }}</td>
                             <td class="pd-queue__actions">
                                 <button type="button" class="pd-btn pd-btn--teal pd-btn--sm" *ngIf="canOpenPharmacyPos" (click)="openPharmacyPos(prescription)">
                                     <i class="fa fa-shopping-cart"></i> Prepare Bill
                                 </button>
+                                <button
+                                    type="button"
+                                    class="pd-btn pd-btn--ghost pd-btn--sm"
+                                    *ngIf="canViewProducts && !hasAnyPosMatch(prescription)"
+                                    (click)="printQueuePrescription(prescription)"
+                                >
+                                    <i class="fa fa-print"></i> Print
+                                </button>
                                 <button type="button" class="pd-btn pd-btn--ghost pd-btn--sm" (click)="openPrintPreview(prescription)">View</button>
                             </td>
                         </tr>
                         <tr *ngIf="!loading && prescriptions.length === 0">
-                            <td colspan="6" class="pd-empty">No prescriptions found</td>
+                            <td colspan="7" class="pd-empty">No prescriptions found</td>
                         </tr>
                         <tr *ngIf="loading">
-                            <td colspan="6" class="pd-empty">Loading...</td>
+                            <td colspan="7" class="pd-empty">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -303,6 +317,10 @@
                         </ng-container>
                     </header>
                     <p class="pd-rx-card__doctor">{{ prescription.doctor?.name || '—' }}</p>
+                    <div class="pd-rx-card__fee">
+                        <span class="pd-badge is-ok" *ngIf="appointmentFeeLabel(prescription) === 'paid'">Fee: Paid</span>
+                        <span class="pd-badge is-miss" *ngIf="appointmentFeeLabel(prescription) === 'unpaid'">Fee: Unpaid</span>
+                    </div>
                     <div class="pd-med" *ngFor="let medicine of tableMedicines(prescription.medicines)">
                         <strong>{{ medicine.name }}</strong>
                         <small>{{ medicine.dosage || '—' }} | {{ medicine.duration || '—' }}</small>
@@ -310,6 +328,14 @@
                     <div class="pd-rx-card__actions">
                         <button type="button" class="pd-btn pd-btn--teal pd-btn--sm" *ngIf="canOpenPharmacyPos" (click)="openPharmacyPos(prescription)">
                             <i class="fa fa-shopping-cart"></i> Prepare Bill
+                        </button>
+                        <button
+                            type="button"
+                            class="pd-btn pd-btn--ghost pd-btn--sm"
+                            *ngIf="canViewProducts && !hasAnyPosMatch(prescription)"
+                            (click)="printQueuePrescription(prescription)"
+                        >
+                            <i class="fa fa-print"></i> Print
                         </button>
                         <button type="button" class="pd-btn pd-btn--ghost pd-btn--sm" (click)="openPrintPreview(prescription)">View</button>
                     </div>

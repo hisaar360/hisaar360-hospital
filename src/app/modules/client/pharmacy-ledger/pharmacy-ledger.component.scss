@@ -1,0 +1,211 @@
+@use '../pharmacy-shared.scss';
+
+.ph-ledger-page {
+  .pharmacy-hero {
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .pharmacy-hero-main h1 {
+    align-items: center;
+    color: #0f172a;
+    display: flex;
+    font-size: 24px;
+    font-weight: 800;
+    gap: 10px;
+    letter-spacing: -0.02em;
+
+    .fa {
+      color: #003e86;
+      font-size: 20px;
+    }
+  }
+
+  .pharmacy-hero-main p {
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 4px;
+  }
+
+  .pharmacy-hero-actions {
+    gap: 8px;
+  }
+
+  .ph-btn {
+    border-radius: 10px;
+    font-size: 13px;
+    min-height: 38px;
+  }
+
+  .ph-btn.primary {
+    background: #003e86;
+    border-color: #003e86;
+  }
+
+  .ph-btn.ghost {
+    background: #fff;
+    border-color: #dbe3f0;
+    color: #0f172a;
+  }
+
+  .ph-highlights {
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .ph-stat {
+    align-items: center;
+    border: 1px solid #e8eef7;
+    border-radius: 16px;
+    background: #fff;
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .ph-stat--cash {
+    border-color: #fcd34d;
+    background: linear-gradient(135deg, #fffbeb 0%, #fff 55%);
+  }
+
+  .amt-in {
+    color: #15803d !important;
+  }
+
+  .amt-out {
+    color: #dc2626 !important;
+  }
+
+  .amt-balance {
+    color: #0f172a;
+    font-weight: 700;
+  }
+
+  .ph-ledger-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-ledger-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ph-chip {
+    background: #fff;
+    border: 1px solid #dbe3f0;
+    border-radius: 999px;
+    color: #334155;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    min-height: 32px;
+    padding: 4px 12px;
+  }
+
+  .ph-chip.active {
+    background: #003e86;
+    border-color: #003e86;
+    color: #fff;
+  }
+
+  .ph-ledger-panel {
+    margin-top: 16px;
+  }
+
+  .pharmacy-table-card {
+    background: #fff;
+    border: 1px solid #e8eef7;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.03);
+    overflow: hidden;
+  }
+
+  .pharmacy-table-head {
+    border-bottom: 1px solid #eef2f7;
+    padding: 12px 16px 10px;
+
+    h2 {
+      color: #0f172a;
+      font-size: 16px;
+      font-weight: 800;
+      margin: 0;
+    }
+
+    p {
+      color: #64748b;
+      font-size: 12px;
+      margin: 4px 0 0;
+    }
+  }
+
+  .card-body {
+    padding: 0;
+  }
+
+  .ph-ledger-table {
+    font-size: 13px;
+
+    th,
+    td {
+      padding: 8px 12px;
+      vertical-align: middle;
+    }
+
+    th {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+  }
+
+  .ph-ledger-row--owner {
+    background: #fffbeb;
+
+    td {
+      border-color: #fde68a;
+    }
+  }
+
+  .ph-type-badge {
+    background: #eef2ff;
+    border-radius: 999px;
+    color: #3730a3;
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 8px;
+    white-space: nowrap;
+  }
+
+  .ph-type-badge[data-type='sale'] {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .ph-type-badge[data-type='purchase'] {
+    background: #e0f2fe;
+    color: #075985;
+  }
+
+  .ph-type-badge[data-type='expense'] {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .ph-type-badge[data-type='owner_cash'],
+  .ph-type-badge[data-type='owner_cash_in'] {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .ph-type-badge[data-type='settlement'] {
+    background: #f1f5f9;
+    color: #334155;
+  }
+}

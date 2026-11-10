@@ -41,6 +41,11 @@ import {
   PatientLastVisit,
 } from '../../../shared/models/hospital.model';
 import {
+  isClinicalModuleEnabled,
+  isPharmacyModuleEnabled,
+  isPharmacyOnlyModules,
+} from '../../auth/hospital-modules';
+import {
   buildVitalDisplayItems,
   buildVitalTrendVisits,
   getPatientAgeYears,
@@ -112,6 +117,26 @@ export class AppointmentComponent implements OnInit, OnDestroy {
     'no_show',
   ];
   readonly appointmentPaymentOptions: Array<NonNullable<Appointment['paymentStatus']>> = ['unpaid', 'paid'];
+
+  /**
+   * Pharmacy Settlement collection is only for cashiers with sales.create.
+   * OPD reception must not mark Paid at Pharmacy (corruption / wrong till).
+   */
+  get canCollectAppointmentFeeAtPharmacy(): boolean {
+    return (
+      isPharmacyModuleEnabled() &&
+      (this.backend.hasPermission('sales.create') || this.backend.hasPermission('*'))
+    );
+  }
+
+  /** Show collect-at control when clinical + pharmacy modules are on (not pharmacy-only). */
+  get showFeeCollectionPoint(): boolean {
+    return (
+      isClinicalModuleEnabled() &&
+      isPharmacyModuleEnabled() &&
+      !isPharmacyOnlyModules()
+    );
+  }
   editingId: string | null = null;
   currentHospitalId: string | null = null;
   hospitalProfile: Hospital | null = null;
@@ -183,6 +208,7 @@ export class AppointmentComponent implements OnInit, OnDestroy {
       discount: [0],
       discountReason: [''],
       paymentStatus: ['unpaid', Validators.required],
+      feeCollectionPoint: ['opd'],
       status: ['pending', Validators.required],
       notes: [''],
       vitals: this.fb.group({
@@ -949,6 +975,11 @@ export class AppointmentComponent implements OnInit, OnDestroy {
       discount,
       discountReason: discount > 0 ? discountReason : undefined,
       paymentStatus,
+      feeCollectionPoint:
+        this.canCollectAppointmentFeeAtPharmacy &&
+        String(value.feeCollectionPoint || '').toLowerCase() === 'pharmacy'
+          ? 'pharmacy'
+          : 'opd',
       visitType: this.visitType || 'Consultation',
       status: paymentStatus === 'paid' ? 'confirmed' : value.status || 'pending',
       notes: value.notes,
@@ -1035,6 +1066,10 @@ export class AppointmentComponent implements OnInit, OnDestroy {
       discount: appointment.discount ?? 0,
       discountReason: appointment.discountReason || '',
       paymentStatus: appointment.paymentStatus || 'unpaid',
+      feeCollectionPoint:
+        this.canCollectAppointmentFeeAtPharmacy && appointment.feeCollectionPoint === 'pharmacy'
+          ? 'pharmacy'
+          : 'opd',
       status: appointment.status,
       notes: appointment.notes || '',
       vitals: this.extractDefaultVitals(appointment.vitals || {}),
@@ -1174,6 +1209,7 @@ export class AppointmentComponent implements OnInit, OnDestroy {
       discount: 0,
       discountReason: '',
       paymentStatus: 'unpaid',
+      feeCollectionPoint: 'opd',
       status: 'pending',
     });
     this.patientPhone = '';
@@ -1381,6 +1417,10 @@ export class AppointmentComponent implements OnInit, OnDestroy {
   onPaymentStatusChange(): void {
     const paymentStatus = this.appointmentForm.value.paymentStatus;
 
+    if (!this.canCollectAppointmentFeeAtPharmacy) {
+      this.appointmentForm.patchValue({ feeCollectionPoint: 'opd' }, { emitEvent: false });
+    }
+
     if (paymentStatus === 'paid') {
       this.appointmentForm.patchValue({ status: 'confirmed' });
       return;
@@ -1388,6 +1428,12 @@ export class AppointmentComponent implements OnInit, OnDestroy {
 
     if (!this.editingId) {
       this.appointmentForm.patchValue({ status: 'pending' });
+    }
+  }
+
+  onFeeCollectionPointChange(): void {
+    if (!this.canCollectAppointmentFeeAtPharmacy) {
+      this.appointmentForm.patchValue({ feeCollectionPoint: 'opd' }, { emitEvent: false });
     }
   }
 
@@ -1419,6 +1465,16 @@ export class AppointmentComponent implements OnInit, OnDestroy {
     }
 
     return String(appointment.discountReason || '').trim() || '-';
+  }
+
+  feeReceivedByLabel(appointment: Appointment): string {
+    const user = appointment.feeReceivedByUser;
+    const name = String(user?.name || user?.fullName || '').trim();
+    return name;
+  }
+
+  feeReceivedChannelLabel(appointment: Appointment): string {
+    return appointment.feeReceivedChannel === 'pharmacy' ? 'Pharmacy' : 'OPD';
   }
 
   paymentStatusLabel(value?: string | null): string {

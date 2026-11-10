@@ -1,0 +1,186 @@
+<div class="psr-backdrop" *ngIf="open" (click)="close()">
+  <div class="psr-modal" role="dialog" aria-modal="true" aria-labelledby="psr-title" (click)="$event.stopPropagation()">
+    <div class="psr-head">
+      <div class="psr-badge" aria-hidden="true">
+        <i class="fa fa-undo"></i>
+      </div>
+      <div>
+        <strong id="psr-title">Return Sale</strong>
+        <span *ngIf="selectedReturnSale">Process return for {{ selectedReturnSale.invoiceNo }}</span>
+        <span *ngIf="!selectedReturnSale">Select a sale to return.</span>
+      </div>
+      <button type="button" class="psr-close" (click)="close()" aria-label="Close">×</button>
+    </div>
+
+    <div class="psr-body">
+      <div class="psr-loading" *ngIf="loading">Loading return sale...</div>
+      <div class="psr-message" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+      <ng-container *ngIf="!loading && !selectedReturnSale && enablePicker">
+        <div class="psr-filters">
+          <label>
+            <span>From date</span>
+            <input type="date" [(ngModel)]="fromDate" />
+          </label>
+          <label>
+            <span>To date</span>
+            <input type="date" [(ngModel)]="toDate" />
+          </label>
+          <div class="psr-filter-actions">
+            <button type="button" class="psr-btn is-primary" (click)="applyDateFilter()">Apply</button>
+            <button type="button" class="psr-btn" (click)="resetDateFilter()">Reset</button>
+          </div>
+        </div>
+
+        <label class="psr-field">
+          <span>Invoice Search</span>
+          <input type="text" [(ngModel)]="returnSaleSearch" placeholder="Search invoice number" />
+        </label>
+
+        <div class="psr-picker" *ngIf="returnablePickerSales.length">
+          <div class="psr-picker-head">
+            <span>Invoice</span>
+            <span>Date</span>
+            <span>Items</span>
+            <span>Status</span>
+            <span>Total</span>
+            <span>Paid</span>
+            <span>Action</span>
+          </div>
+          <div class="psr-picker-row" *ngFor="let sale of returnablePickerSales">
+            <strong>{{ sale.invoiceNo }}</strong>
+            <span>{{ sale.saleDate | date:'short' }}</span>
+            <span>{{ saleItemsSummary(sale) }}</span>
+            <span class="psr-status">{{ sale.status }}</span>
+            <span>{{ currency(sale.total) }}</span>
+            <span>{{ currency(sale.paidAmount) }}</span>
+            <div>
+              <button type="button" class="psr-btn is-primary" (click)="selectSaleForReturn(sale._id)">
+                Select
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="psr-loading" *ngIf="!returnablePickerSales.length">No returnable sales found.</div>
+      </ng-container>
+
+      <ng-container *ngIf="!loading && selectedReturnSale">
+        <div class="psr-summary">
+          <div>
+            <span>Invoice</span>
+            <strong>{{ selectedReturnSale.invoiceNo }}</strong>
+          </div>
+          <div>
+            <span>Selected Items</span>
+            <strong>{{ selectedReturnItemsCount }}</strong>
+          </div>
+          <div>
+            <span>Return Total</span>
+            <strong>{{ currency(saleReturnEstimatedTotal) }}</strong>
+          </div>
+          <div>
+            <span>Refund Limit</span>
+            <strong>{{ currency(saleReturnRefundLimit) }}</strong>
+          </div>
+        </div>
+
+        <div class="psr-toolbar" *ngIf="returnLines.length">
+          <strong>Medicines</strong>
+          <div>
+            <button type="button" class="psr-link" (click)="returnAllSaleLines()">Return all</button>
+            <button type="button" class="psr-link" (click)="clearReturnSaleQtys()">Clear</button>
+          </div>
+        </div>
+
+        <div class="psr-table-wrap" *ngIf="returnLines.length">
+          <table class="psr-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th class="text-end">Sold</th>
+                <th class="text-end">Returned</th>
+                <th class="text-end">Max</th>
+                <th>Qty</th>
+                <th class="text-end">Unit Price</th>
+                <th class="text-end">Value</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let line of returnLines" [class.is-active]="line.qty > 0">
+                <td class="psr-item">
+                  <strong>{{ line.name }}</strong>
+                  <small *ngIf="line.sku">{{ line.sku }}</small>
+                </td>
+                <td class="text-end">{{ line.soldQty }}</td>
+                <td class="text-end">{{ line.alreadyReturnedQty }}</td>
+                <td class="text-end">{{ line.maxQty }}</td>
+                <td>
+                  <input
+                    class="psr-qty"
+                    type="number"
+                    min="0"
+                    [max]="line.maxQty"
+                    [ngModel]="line.qty"
+                    (ngModelChange)="updateReturnLineQty(line, $event)"
+                  />
+                </td>
+                <td class="text-end">{{ currency(line.unitPrice) }}</td>
+                <td class="text-end fw-semibold">{{ currency(returnLineValue(line)) }}</td>
+                <td>
+                  <input
+                    class="psr-reason"
+                    type="text"
+                    [(ngModel)]="line.reason"
+                    placeholder="Optional reason"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="psr-refund">
+          <div class="psr-refund__head">
+            <span>Refund Amount</span>
+            <button type="button" class="psr-link" (click)="fillReturnRefundToLimit()">
+              Fill max {{ currency(saleReturnRefundLimit) }}
+            </button>
+          </div>
+          <input
+            type="number"
+            min="0"
+            [max]="saleReturnRefundLimit"
+            [ngModel]="returnRefundAmount"
+            (ngModelChange)="updateReturnRefundAmount($event)"
+          />
+          <small>Auto-fills when you enter Qty. You can still edit it.</small>
+        </div>
+
+        <label class="psr-field" *ngIf="returnRefundAmount > 0">
+          <span>Refund Method</span>
+          <select [(ngModel)]="returnPaymentMethod">
+            <option value="cash">Cash</option>
+            <option value="card">Card</option>
+            <option value="bank">Bank</option>
+            <option value="online">Online</option>
+            <option value="wallet">Wallet</option>
+          </select>
+        </label>
+
+        <div class="psr-actions">
+          <button type="button" class="psr-btn" (click)="close()">Cancel</button>
+          <button
+            type="button"
+            class="psr-btn is-primary"
+            [disabled]="submitting || !selectedReturnItemsCount"
+            (click)="submit()"
+          >
+            {{ submitting ? 'Submitting...' : 'Complete Return' }}
+          </button>
+        </div>
+      </ng-container>
+    </div>
+  </div>
+</div>

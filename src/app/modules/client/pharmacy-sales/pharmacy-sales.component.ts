@@ -9,14 +9,23 @@ import { AppDialogService } from '../../../core/services/app-dialog.service';
 import { BackendService } from '../../../core/services/backend.service';
 import { downloadExcelWorkbook } from '../../../core/utils/excel-export.util';
 import { HmsDocumentToolbarComponent } from '../../../shared/components/hms-document-toolbar/hms-document-toolbar.component';
-import { Sale, Store } from '../../../shared/models/hospital.model';
+import { PharmacySaleReturnModalComponent } from '../../../shared/components/pharmacy-sale-return-modal/pharmacy-sale-return-modal.component';
+import { PharmacyOpenReturnModalComponent } from '../../../shared/components/pharmacy-open-return-modal/pharmacy-open-return-modal.component';
+import { Sale, SalesReturn, Store } from '../../../shared/models/hospital.model';
 import { formatCurrency, formatDateTime, readAssignedStoreId } from '../pharmacy-admin.utils';
 import { buildPharmacyReportHtml } from '../pharmacy-export.util';
 
 @Component({
   selector: 'app-pharmacy-sales',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, HmsDocumentToolbarComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    HmsDocumentToolbarComponent,
+    PharmacySaleReturnModalComponent,
+    PharmacyOpenReturnModalComponent,
+  ],
   templateUrl: './pharmacy-sales.component.html',
   styleUrl: './pharmacy-sales.component.scss',
 })
@@ -29,6 +38,9 @@ export class PharmacySalesComponent implements OnInit {
   fromDate = '';
   toDate = '';
   nearExpiryOnly = false;
+  returnModalOpen = false;
+  returnSaleId: string | null = null;
+  openReturnModalOpen = false;
 
   readonly getExportHtml = () =>
     buildPharmacyReportHtml(
@@ -110,8 +122,88 @@ export class PharmacySalesComponent implements OnInit {
     return this.nearExpiryLineCount(sale) > 0;
   }
 
+  nearExpiryLabel(sale: Sale): string {
+    const count = this.nearExpiryLineCount(sale);
+    if (count <= 0) {
+      return 'None';
+    }
+    return count === 1 ? '1 near-expiry item' : `${count} near-expiry items`;
+  }
+
+  nearExpiryHint(sale: Sale): string {
+    const count = this.nearExpiryLineCount(sale);
+    if (count <= 0) {
+      return 'No medicines on this bill were sold from a near-expiry batch.';
+    }
+    return count === 1
+      ? '1 medicine on this bill was sold from a batch expiring within 6 months.'
+      : `${count} medicines on this bill were sold from batches expiring within 6 months.`;
+  }
+
   canCancel(sale: Sale): boolean {
     return this.backend.hasPermission('sales.cancel') && sale.status === 'completed';
+  }
+
+  canReturn(sale: Sale): boolean {
+    if (String(sale._id || '').startsWith('local-')) {
+      return false;
+    }
+    const canCreate =
+      this.backend.hasPermission('returns.create') ||
+      this.backend.hasPermission('*');
+    return canCreate && ['completed', 'returned'].includes(sale.status);
+  }
+
+  openReturn(sale: Sale): void {
+    if (!this.canReturn(sale)) {
+      return;
+    }
+    this.returnSaleId = sale._id;
+    this.returnModalOpen = true;
+  }
+
+  closeReturnModal(): void {
+    this.returnModalOpen = false;
+    this.returnSaleId = null;
+  }
+
+  onReturnCompleted(salesReturn: SalesReturn): void {
+    this.toastr.success(
+      `Sales return ${salesReturn.returnNo || salesReturn._id} completed successfully.`,
+    );
+    this.closeReturnModal();
+    this.loadSales();
+  }
+
+  canOpenRandomReturn(): boolean {
+    return this.backend.hasPermission('returns.create') || this.backend.hasPermission('*');
+  }
+
+  openRandomReturn(): void {
+    if (!this.canOpenRandomReturn()) {
+      this.toastr.warning('You do not have permission to create returns.');
+      return;
+    }
+    this.openReturnModalOpen = true;
+  }
+
+  closeOpenReturnModal(): void {
+    this.openReturnModalOpen = false;
+  }
+
+  onOpenReturnCompleted(salesReturn: SalesReturn): void {
+    const direction = salesReturn.settlementDirection || 'even';
+    const settleHint =
+      direction === 'collect'
+        ? `Received ${formatCurrency(salesReturn.collectAmount || 0)}`
+        : direction === 'refund'
+          ? `Refunded ${formatCurrency(salesReturn.refundAmount || 0)}`
+          : 'Even exchange';
+    this.toastr.success(
+      `Random return ${salesReturn.returnNo || salesReturn._id} completed. ${settleHint}.`,
+    );
+    this.closeOpenReturnModal();
+    this.loadSales();
   }
 
   get totalSales(): number {

@@ -554,6 +554,29 @@ export class AccountsPageComponent implements OnInit, OnDestroy {
     return raw || '—';
   }
 
+  /** Debit/receipt green, credit/payment red, negative running balance tint. */
+  amountToneClass(row: Record<string, unknown>, column: AccountsReportColumn): Record<string, boolean> {
+    if (!column.numeric) return {};
+    const keys = column.keys || [];
+    const isDebitCol = keys.some((k) =>
+      /^(debit|totalDebit|closingDebit)$/i.test(k)
+    );
+    const isCreditCol = keys.some((k) =>
+      /^(credit|totalCredit|closingCredit)$/i.test(k)
+    );
+    const isBalanceCol = keys.some((k) => /balance/i.test(k));
+    const raw = this.displayCell(row, keys);
+    const n = Number(raw);
+    const hasValue = raw !== '' && raw != null && Number.isFinite(n) && n !== 0;
+
+    return {
+      'accounts-amt--debit': isDebitCol && hasValue,
+      'accounts-amt--credit': isCreditCol && hasValue,
+      'accounts-amt--balance': isBalanceCol && hasValue,
+      'accounts-amt--balance-neg': isBalanceCol && hasValue && n < 0,
+    };
+  }
+
   displayCell(row: Record<string, unknown>, keys: string[]): string {
     for (const key of keys) {
       let current: unknown = row;

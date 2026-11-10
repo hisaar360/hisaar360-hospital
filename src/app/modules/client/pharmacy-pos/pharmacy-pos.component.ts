@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize, firstValueFrom } from 'rxjs';
@@ -13,6 +13,7 @@ import { printHtmlJob } from '../../../core/keyboard/print-job.util';
 import { BackendService } from '../../../core/services/backend.service';
 import { formatActiveCurrency } from '../../../core/services/currency.service';
 import { ReceiptLetterheadCacheService } from '../../../core/services/receipt-letterhead-cache.service';
+import { PharmacyDiscountSettingsCacheService } from '../../../core/services/pharmacy-discount-settings-cache.service';
 import { HmsDocumentService } from '../../../core/services/hms-document.service';
 import { resolveAssetUrl } from '../../../core/utils/asset.util';
 import {
@@ -20,14 +21,20 @@ import {
   MooliQueuedWork,
 } from '../../../core/services/mooli-offline.service';
 import { MedicineCatalogCacheService } from '../../../core/services/medicine-catalog-cache.service';
+import { PharmacySaleReturnModalComponent } from '../../../shared/components/pharmacy-sale-return-modal/pharmacy-sale-return-modal.component';
+import { PharmacyOpenReturnModalComponent } from '../../../shared/components/pharmacy-open-return-modal/pharmacy-open-return-modal.component';
+import {
+  PharmacyPosBatchPickerComponent,
+  PharmacyPosBatchPickResult,
+} from '../../../shared/components/pharmacy-pos-batch-picker/pharmacy-pos-batch-picker.component';
 import {
   CompanyProfile,
   ReceiptLetterheadSettings,
 } from '../../../shared/models/company.model';
 import {
+  Appointment,
   Customer,
   CreateHeldSalePayload,
-  CreateSalesReturnPayload,
   CreateSalePayload,
   HeldSale,
   Encounter,
@@ -40,6 +47,7 @@ import {
   Sale,
   SalePaymentMethod,
   SalesReturn,
+  StockLot,
   Store,
   User,
 } from '../../../shared/models/hospital.model';
@@ -50,6 +58,7 @@ import {
   pharmacyExpiryBadgeClass,
   pharmacyExpiryLabel,
 } from '../pharmacy-expiry.util';
+import { formatDateShort } from '../pharmacy-admin.utils';
 
 const POS_CATALOG_PAGE_SIZE = 500;
 const POS_CATALOG_MAX_PAGES = 40;
@@ -166,6 +175,10 @@ interface PharmacyBillLine {
   discountType: ProductDiscountType;
   qtyBreakdown?: string;
   shortBy?: number;
+  lotId?: string | null;
+  lotNumber?: string | null;
+  expiryDate?: string | null;
+  nearExpiry?: boolean;
 }
 
 interface UnavailableMedicine {
@@ -232,26 +245,30 @@ interface PharmacyReportCard {
   note?: string;
 }
 
-interface PharmacyReturnLine {
-  productId: string;
-  name: string;
-  sku: string;
-  soldQty: number;
-  alreadyReturnedQty: number;
-  maxQty: number;
-  qty: number;
-  unitPrice: number;
-  reason: string;
-}
-
 @Component({
   selector: 'app-pharmacy-pos',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, HmsSelectKeyboardDirective],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    HmsSelectKeyboardDirective,
+    PharmacySaleReturnModalComponent,
+    PharmacyOpenReturnModalComponent,
+    PharmacyPosBatchPickerComponent,
+  ],
   templateUrl: './pharmacy-pos.component.html',
   styleUrl: './pharmacy-pos.component.scss',
 })
 export class PharmacyPosComponent implements OnInit, OnDestroy {
+  @ViewChild(PharmacySaleReturnModalComponent)
+  private saleReturnModal?: PharmacySaleReturnModalComponent;
+
+  batchPickerOpen = false;
+  batchPickerProduct: ProductCatalogItem | null = null;
+  batchPickerLots: StockLot[] = [];
+  batchPickerDefaultPrice = 0;
+  private batchPickerLoading = false;
   companyProfile: CompanyProfile | null = null;
   stores: Store[] = [];
   customers: Customer[] = [];
@@ -259,6 +276,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   billLines: PharmacyBillLine[] = [];
   unavailableMedicines: UnavailableMedicine[] = [];
   prescription: Prescription | null = null;
+  /** Collect unpaid appointment consultation fee with this pharmacy visit. */
+  collectConsultationFee = true;
+  consultationFeeCollecting = false;
   selectedStoreId = '';
   selectedCustomerId = '';
   customerModalOpen = false;
@@ -321,17 +341,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   recentSales: Sale[] = [];
   heldSales: HeldSale[] = [];
   saleReturnOpen = false;
-  saleReturnLoading = false;
-  saleReturnSubmitting = false;
-  saleReturnErrorMessage = '';
-  returnSaleSearch = '';
-  selectedReturnSale: Sale | null = null;
-  selectedReturnHistory: SalesReturn[] = [];
-  selectedReturnRefundCeiling = 0;
-  returnLines: PharmacyReturnLine[] = [];
-  returnRefundAmount = 0;
-  returnRefundTouched = false;
-  returnPaymentMethod: Exclude<SalePaymentMethod, 'check'> = 'cash';
+  openReturnOpen = false;
+  saleReturnInitialId: string | null = null;
   receiptPreviewOpen = false;
   receiptPreview: ReceiptPreviewData | null = null;
   shortcutInfoOpen = false;
@@ -433,6 +444,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     private keyboard: HmsKeyboardService,
     private docs: HmsDocumentService,
     private letterheadCache: ReceiptLetterheadCacheService,
+    private discountSettingsCache: PharmacyDiscountSettingsCacheService,
   ) {}
 
   ngOnInit(): void {
@@ -448,6 +460,14 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         return event.defaultPrevented;
       },
       onEscape: () => {
+        if (this.batchPickerOpen) {
+          this.closeBatchPicker();
+          return true;
+        }
+        if (this.openReturnOpen) {
+          this.closeOpenReturn();
+          return true;
+        }
         this.closeSaleReturn();
         this.closeReports();
         this.closeShortcutInfo();
@@ -690,6 +710,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.backend.getMyCompany().subscribe({
       next: (company) => {
         this.letterheadCache.write(company);
+        this.discountSettingsCache.write(company);
         this.companyProfile = company;
       },
       error: () => {
@@ -698,6 +719,13 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         }
       },
     });
+  }
+
+  private allowDiscountAnyMedicine(): boolean {
+    return (
+      Boolean(this.companyProfile?.pharmacyDiscountSettings?.allowDiscountAnyMedicine) ||
+      this.discountSettingsCache.allowDiscountAnyMedicine(this.companyProfile?._id)
+    );
   }
 
   private applyCachedLetterhead(): void {
@@ -790,8 +818,50 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     );
   }
 
+  get linkedAppointment(): Appointment | null {
+    const appt = this.prescription?.appointment;
+    return appt && typeof appt === 'object' ? appt : null;
+  }
+
+  get consultationFeeAmount(): number {
+    const appt = this.linkedAppointment;
+    if (!appt) {
+      return 0;
+    }
+    if (String(appt.paymentStatus || '').toLowerCase() === 'paid') {
+      return 0;
+    }
+    const net = Number(
+      appt.netFee ??
+        Math.max(Number(appt.consultationFee || 0) - Number(appt.discount || 0), 0),
+    );
+    return Number.isFinite(net) && net > 0 ? this.roundMoney(net) : 0;
+  }
+
+  get consultationFeeDue(): boolean {
+    return this.consultationFeeAmount > 0;
+  }
+
+  get consultationFeeIncluded(): number {
+    return this.collectConsultationFee && this.consultationFeeDue
+      ? this.consultationFeeAmount
+      : 0;
+  }
+
+  get amountToCollect(): number {
+    return this.roundMoney(this.subtotal + this.consultationFeeIncluded);
+  }
+
   get payableAmount(): string {
     return this.subtotal.toFixed(2);
+  }
+
+  get consultationDoctorLabel(): string {
+    return this.prescription?.doctor?.name || 'Doctor';
+  }
+
+  get consultationAppointmentNo(): string {
+    return this.linkedAppointment?.appointmentNo || '—';
   }
 
   get readyForBilling(): boolean {
@@ -804,9 +874,24 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       this.registerOpened &&
       !this.registerClosed &&
       !this.saleSaving &&
+      !this.consultationFeeCollecting &&
       this.billLines.some((line) => line.billQty > 0) &&
       !!this.currentStoreId()
     );
+  }
+
+  get canCollectFeeOnly(): boolean {
+    return (
+      this.consultationFeeDue &&
+      this.collectConsultationFee &&
+      !this.consultationFeeCollecting &&
+      !this.saleSaving &&
+      !!this.linkedAppointment?._id
+    );
+  }
+
+  get canPrintUnavailableSlip(): boolean {
+    return Boolean(this.prescription) && this.unavailableMedicines.length > 0;
   }
 
   get cashierName(): string {
@@ -834,7 +919,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
 
     return Math.max(
-      Number(this.cashReceivedAmount || this.paidAmount || 0) - this.subtotal,
+      Number(this.cashReceivedAmount || this.paidAmount || 0) -
+        this.amountToCollect,
       0,
     );
   }
@@ -939,62 +1025,25 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     ];
   }
 
-  get returnableRecentSales(): Sale[] {
-    const search = this.returnSaleSearch.trim().toLowerCase();
-    return this.recentSales
-      .filter((sale) => this.canReturnSale(sale))
-      .filter((sale) => ['completed', 'returned'].includes(sale.status))
-      .filter((sale) => this.saleHasRemainingReturnQuantity(sale))
-      .filter((sale) => {
-        if (!search) {
-          return true;
-        }
-
-        return [
-          sale.invoiceNo,
-          sale._id,
-          sale.paymentStatus,
-          sale.status,
-        ]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(search));
-      });
-  }
-
-  get selectedReturnItemsCount(): number {
-    return this.returnLines.filter((line) => line.qty > 0).length;
-  }
-
-  get saleReturnEstimatedTotal(): number {
-    return this.returnLines.reduce(
-      (sum, line) => sum + Number(line.qty || 0) * Number(line.unitPrice || 0),
-      0,
-    );
-  }
-
   get balanceDueAmount(): number {
-    return Math.max(this.roundMoney(this.subtotal) - this.roundMoney(this.paidAmount), 0);
+    const paidTowardTotal =
+      this.roundMoney(this.paidAmount) + this.consultationFeeIncluded;
+    return Math.max(this.roundMoney(this.amountToCollect) - paidTowardTotal, 0);
   }
 
   get paymentStatusPreview(): 'paid' | 'partial' | 'unpaid' {
-    const paid = this.roundMoney(this.paidAmount);
-    const due = this.roundMoney(this.subtotal);
-    if (paid <= 0) {
+    const paidTowardTotal =
+      this.roundMoney(this.paidAmount) + this.consultationFeeIncluded;
+    const due = this.roundMoney(this.amountToCollect);
+    if (paidTowardTotal <= 0) {
       return 'unpaid';
     }
 
-    if (paid < due) {
+    if (paidTowardTotal < due) {
       return 'partial';
     }
 
     return 'paid';
-  }
-
-  get saleReturnRefundLimit(): number {
-    return Math.min(
-      this.saleReturnEstimatedTotal,
-      this.selectedReturnRefundCeiling,
-    );
   }
 
   receiptBrandTitle(receipt: ReceiptPreviewData | null | undefined): string {
@@ -1227,6 +1276,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             this.prescriptionCacheKey(id),
             prescription,
           );
+          this.syncConsultationFeeCollectDefault(prescription);
           this.rebuildPrescriptionBill();
           const prescriptionPatientId = String(prescription.patientId || '').trim();
           if (prescriptionPatientId) {
@@ -2028,6 +2078,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.billLines = [];
     this.unavailableMedicines = [];
     this.prescription = null;
+    this.collectConsultationFee = true;
+    this.consultationFeeCollecting = false;
     this.selectedCustomerId = '';
     this.settlementMode = 'COUNTER';
     this.selectedPatientId = '';
@@ -2050,6 +2102,65 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.paymentTransactionId = '';
     this.paidAmountTouched = false;
     this.cashReceivedTouched = false;
+  }
+
+  onCollectConsultationFeeToggle(): void {
+    this.refreshPaidAmount();
+  }
+
+  collectConsultationFeeOnly(): void {
+    if (!this.canCollectFeeOnly) {
+      return;
+    }
+    void this.collectAndPrintConsultationInvoice();
+  }
+
+  printUnavailableSlip(): void {
+    if (
+      !this.canPrintUnavailableSlip &&
+      this.billLines.length === 0 &&
+      !this.consultationFeeDue
+    ) {
+      this.toastr.info('Nothing to print for this prescription.');
+      return;
+    }
+    // Always surface unpaid Dr fee on the same slip when due.
+    this.openReceiptPrintWindow(this.buildDispenseSlipReceipt());
+  }
+
+  printAndCollectFeeWhenNoMeds(): void {
+    if (this.canCollectFeeOnly) {
+      void this.collectAndPrintConsultationInvoice();
+      return;
+    }
+    this.printUnavailableSlip();
+  }
+
+  private async collectAndPrintConsultationInvoice(): Promise<void> {
+    const feeAmount = this.consultationFeeAmount;
+    const collected = await this.collectLinkedAppointmentFee(false);
+    if (collected == null) {
+      // Collection failed or skipped — still print slip with fee due if any.
+      if (this.unavailableMedicines.length || feeAmount > 0) {
+        this.openReceiptPrintWindow(
+          this.buildDispenseSlipReceipt(null, {
+            feeAmount: feeAmount > 0 ? feeAmount : undefined,
+            feePaid: false,
+          }),
+          true,
+        );
+      }
+      return;
+    }
+
+    // One invoice: not-available medicines (if any) + Doctor consultation fee.
+    this.openReceiptPrintWindow(
+      this.buildDispenseSlipReceipt(null, {
+        feeAmount: collected,
+        feePaid: true,
+      }),
+      true,
+    );
   }
 
   onPaymentMethodChange(): void {
@@ -2152,9 +2263,51 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.saleReturnInitialId = null;
+    this.saleReturnOpen = true;
+    this.focusOverlayControl('.psr-close');
+  }
+
+  openRandomReturn(): void {
+    if (!this.registerSession || this.registerSession.status !== 'open') {
+      this.showPosMessage(
+        'Open the register before processing a random return.',
+        'warning',
+      );
+      return;
+    }
+
+    if (!this.currentStoreId()) {
+      this.showPosMessage('Select a store before processing a random return.', 'warning');
+      return;
+    }
+
+    this.openReturnOpen = true;
+    this.focusOverlayControl('.por-close');
+  }
+
+  closeOpenReturn(): void {
+    const wasOpen = this.openReturnOpen;
+    this.openReturnOpen = false;
+    if (wasOpen && !this.saleHistoryOpen && !this.saleReturnOpen) {
+      this.restoreSearchFocusAfterOverlayClose();
+    }
+  }
+
+  onOpenReturnCompleted(salesReturn: SalesReturn): void {
+    this.refreshLocalStockAfterTransaction();
     this.loadRecentSales();
-    this.prepareSaleReturnModal();
-    this.focusOverlayControl('.sale-return-modal .modal-close');
+    const direction = salesReturn.settlementDirection || 'even';
+    const settleHint =
+      direction === 'collect'
+        ? `Received ${this.formatCurrency(salesReturn.collectAmount || 0)}`
+        : direction === 'refund'
+          ? `Refunded ${this.formatCurrency(salesReturn.refundAmount || 0)}`
+          : 'Even exchange';
+    this.showPosMessage(
+      `Random return ${salesReturn.returnNo || salesReturn._id} completed. ${settleHint}.`,
+      'success',
+    );
   }
 
   openSaleReturn(sale: Sale): void {
@@ -2167,32 +2320,29 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
 
     this.saleHistoryOpen = false;
-    this.prepareSaleReturnModal(sale._id);
-    this.loadSaleReturnSale(sale._id);
+    this.saleReturnInitialId = sale._id;
+    this.saleReturnOpen = true;
+    this.focusOverlayControl('.psr-close');
   }
 
   closeSaleReturn(): void {
-    if (this.saleReturnSubmitting) {
-      return;
-    }
-
     const wasOpen = this.saleReturnOpen;
     this.saleReturnOpen = false;
-    this.saleReturnLoading = false;
-    this.saleReturnSubmitting = false;
-    this.saleReturnErrorMessage = '';
-    this.returnSaleSearch = '';
-    this.selectedReturnSale = null;
-    this.selectedReturnHistory = [];
-    this.selectedReturnRefundCeiling = 0;
-    this.returnLines = [];
-    this.returnRefundAmount = 0;
-    this.returnRefundTouched = false;
-    this.returnPaymentMethod = 'cash';
+    this.saleReturnInitialId = null;
 
     if (wasOpen && !this.saleHistoryOpen) {
       this.restoreSearchFocusAfterOverlayClose();
     }
+  }
+
+  onSaleReturnCompleted(salesReturn: SalesReturn): void {
+    this.closeSaleHistory();
+    this.refreshLocalStockAfterTransaction();
+    this.loadRecentSales();
+    this.showPosMessage(
+      `Sales return ${salesReturn.returnNo || salesReturn._id} completed successfully.`,
+      'success',
+    );
   }
 
   openReports(): void {
@@ -2433,10 +2583,6 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   addProduct(product: ProductCatalogItem): void {
-    const existingIndex = this.billLines.findIndex(
-      (line) => line.product._id === product._id,
-    );
-    const existing = existingIndex >= 0 ? this.billLines[existingIndex] : null;
     const availableQty = this.productAvailableQty(product);
     this.productSearch = '';
     this.searchResults = null;
@@ -2453,18 +2599,147 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const storeId = this.currentStoreId();
+    if (!storeId || this.batchPickerLoading) {
+      this.pushOrBumpBillLine(product, {
+        unitPrice: this.productPrice(product),
+        availableQty,
+      });
+      return;
+    }
+
+    this.batchPickerLoading = true;
+    this.backend.getProductStockOptions(product._id, { storeId }).subscribe({
+      next: (result) => {
+        this.batchPickerLoading = false;
+        const namedLots = (result.lots || []).filter(
+          (lot) =>
+            String(lot.lotNumber || '').trim() &&
+            Number(lot.availableQuantity ?? lot.quantity ?? 0) > 0,
+        );
+        const hasNearExpiry = namedLots.some(
+          (lot) =>
+            lot.nearExpiry === true ||
+            getPharmacyExpiryTone(lot.expiryDate) === 'near' ||
+            getPharmacyExpiryTone(lot.expiryDate) === 'expired',
+        );
+
+        if (namedLots.length >= 2 || hasNearExpiry) {
+          this.batchPickerProduct = product;
+          this.batchPickerLots = namedLots;
+          this.batchPickerDefaultPrice = this.productPrice(product);
+          this.batchPickerOpen = true;
+          return;
+        }
+
+        if (namedLots.length === 1) {
+          const lot = namedLots[0];
+          this.pushOrBumpBillLine(product, {
+            unitPrice: this.lotSellingPrice(lot, product),
+            availableQty: Number(lot.availableQuantity ?? lot.quantity ?? 0) || 0,
+            lotId: lot._id,
+            lotNumber: lot.lotNumber || '',
+            expiryDate: lot.expiryDate || null,
+            nearExpiry:
+              lot.nearExpiry === true ||
+              getPharmacyExpiryTone(lot.expiryDate) === 'near' ||
+              getPharmacyExpiryTone(lot.expiryDate) === 'expired',
+          });
+          return;
+        }
+
+        // No named batch → default product price.
+        this.pushOrBumpBillLine(product, {
+          unitPrice: this.productPrice(product),
+          availableQty,
+        });
+      },
+      error: () => {
+        this.batchPickerLoading = false;
+        this.pushOrBumpBillLine(product, {
+          unitPrice: this.productPrice(product),
+          availableQty,
+        });
+      },
+    });
+  }
+
+  closeBatchPicker(): void {
+    this.batchPickerOpen = false;
+    this.batchPickerProduct = null;
+    this.batchPickerLots = [];
+    this.batchPickerDefaultPrice = 0;
+    this.focusProductSearch(true);
+  }
+
+  onBatchPicked(result: PharmacyPosBatchPickResult): void {
+    const product = this.batchPickerProduct;
+    const lot = result.lot;
+    this.closeBatchPicker();
+    if (!product || !lot) {
+      return;
+    }
+    this.pushOrBumpBillLine(product, {
+      unitPrice: result.unitPrice,
+      availableQty: Number(lot.availableQuantity ?? lot.quantity ?? 0) || 0,
+      lotId: lot._id,
+      lotNumber: lot.lotNumber || '',
+      expiryDate: lot.expiryDate || null,
+      nearExpiry:
+        lot.nearExpiry === true ||
+        getPharmacyExpiryTone(lot.expiryDate) === 'near' ||
+        getPharmacyExpiryTone(lot.expiryDate) === 'expired',
+    });
+  }
+
+  lineExpiryLabel(line: PharmacyBillLine): string {
+    return formatDateShort(line.expiryDate || null);
+  }
+
+  formatPosDate(value?: string | null): string {
+    return formatDateShort(value || null);
+  }
+
+  private lotSellingPrice(lot: StockLot, product: ProductCatalogItem): number {
+    const fromLot = Number(lot.sellingPrice ?? 0);
+    if (Number.isFinite(fromLot) && fromLot > 0) {
+      return fromLot;
+    }
+    return this.productPrice(product);
+  }
+
+  private pushOrBumpBillLine(
+    product: ProductCatalogItem,
+    options: {
+      unitPrice: number;
+      availableQty: number;
+      lotId?: string | null;
+      lotNumber?: string | null;
+      expiryDate?: string | null;
+      nearExpiry?: boolean;
+    },
+  ): void {
+    const lotKey = String(options.lotId || '');
+    const existingIndex = this.billLines.findIndex(
+      (line) =>
+        line.product._id === product._id &&
+        String(line.lotId || '') === lotKey,
+    );
+    const existing = existingIndex >= 0 ? this.billLines[existingIndex] : null;
+    const availableQty = Math.max(options.availableQty, 0);
+
     if (existing) {
       if (existing.billQty >= availableQty) {
         this.toastr.warning(
-          `Only ${availableQty} in stock for ${this.productDisplay(product)}. Tell the patient the rest is not available.`,
+          `Only ${availableQty} in stock for ${this.productDisplay(product)}${
+            options.lotNumber ? ` (batch ${options.lotNumber})` : ''
+          }.`,
         );
         this.focusProductSearch(true);
         return;
       }
-      existing.billQty = Math.min(
-        existing.billQty + 1,
-        Math.max(availableQty, 0),
-      );
+      existing.billQty = Math.min(existing.billQty + 1, availableQty);
+      existing.availableQty = availableQty;
       this.syncLineDiscount(existing);
       this.refreshPaidAmount();
       this.focusCartRow(existingIndex, true, this.cartQtyCellIndex());
@@ -2477,11 +2752,15 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       requestedQty: 1,
       billQty: 1,
       availableQty,
-      unitPrice: this.productPrice(product),
+      unitPrice: options.unitPrice,
       discount: 0,
       discountInput: 0,
       discountType:
         product.maxDiscountType === 'percentage' ? 'percentage' : 'amount',
+      lotId: options.lotId || null,
+      lotNumber: options.lotNumber || null,
+      expiryDate: options.expiryDate || null,
+      nearExpiry: Boolean(options.nearExpiry),
     });
     this.refreshPaidAmount();
     this.focusCartRow(this.billLines.length - 1, true, this.cartQtyCellIndex());
@@ -2541,6 +2820,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   itemDiscountEligible(index: number): boolean {
+    if (this.allowDiscountAnyMedicine()) {
+      return Boolean(this.billLines[index]);
+    }
     return Boolean(this.billLines[index]?.product.discountEligible);
   }
 
@@ -2569,6 +2851,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return '';
     }
 
+    if (this.allowDiscountAnyMedicine()) {
+      return 'Any discount up to line total';
+    }
+
     if (!product.discountEligible) {
       return 'Discount locked for this product';
     }
@@ -2584,6 +2870,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   productDiscountSummary(product: ProductCatalogItem): string {
+    if (this.allowDiscountAnyMedicine()) {
+      return 'Discount allowed (store setting)';
+    }
     if (!product.discountEligible) {
       return 'No discount';
     }
@@ -2645,7 +2934,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     let appliedCount = 0;
 
     this.billLines.forEach((line, index) => {
-      if (!line.product.discountEligible || Number(line.billQty || 0) <= 0) {
+      if (
+        (!this.allowDiscountAnyMedicine() && !line.product.discountEligible) ||
+        Number(line.billQty || 0) <= 0
+      ) {
         return;
       }
 
@@ -2702,13 +2994,23 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
     const saleItems = this.billLines
       .filter((line) => line.billQty > 0)
-      .map((line) => ({
-        productId: line.product._id,
-        qty: line.billQty,
-        unitPrice: Number(line.unitPrice || 0),
-        discount: Number(line.discount || 0),
-        tax: 0,
-      }));
+      .map((line) => {
+        const namedBatch = Boolean(String(line.lotNumber || '').trim());
+        return {
+          productId: line.product._id,
+          qty: line.billQty,
+          unitPrice: Number(line.unitPrice || 0),
+          discount: Number(line.discount || 0),
+          tax: 0,
+          ...(namedBatch
+            ? {
+                lotId: line.lotId || undefined,
+                lotNumber: line.lotNumber || undefined,
+                expiryDate: line.expiryDate || undefined,
+              }
+            : {}),
+        };
+      });
 
     if (saleItems.length === 0) {
       this.toastr.error('No available medicine is selected for billing.');
@@ -2842,6 +3144,21 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         delta: -Number(line.billQty || 0),
       }));
 
+    const shouldCollectFeeAfterSale =
+      this.collectConsultationFee && this.consultationFeeDue;
+    const pendingFeeAmount = this.consultationFeeDue
+      ? this.consultationFeeAmount
+      : 0;
+    const hasUnavailableForSlip = this.unavailableMedicines.length > 0;
+    // Snapshot slip before cart clears; fee line patched after collect.
+    const dispenseSlipBase =
+      hasUnavailableForSlip || pendingFeeAmount > 0
+        ? this.buildDispenseSlipReceipt(null, {
+            feeAmount: pendingFeeAmount > 0 ? pendingFeeAmount : undefined,
+            feePaid: false,
+          })
+        : null;
+
     this.saleSaving = true;
     this.backend
       .createSale(payload)
@@ -2860,10 +3177,39 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
               : 'Sale completed successfully.',
             'success',
           );
-          this.clearSale();
-          this.applyOptimisticStockDeltas(soldStockDeltas);
-          this.refreshLocalStockAfterTransaction();
-          this.refreshRegisterState();
+          const printFollowUpSlip = (feePaidAmount: number | null) => {
+            if (!dispenseSlipBase && !(feePaidAmount && feePaidAmount > 0)) {
+              return;
+            }
+            const slip =
+              feePaidAmount && feePaidAmount > 0
+                ? this.buildDispenseSlipReceipt(completedSale, {
+                    feeAmount: feePaidAmount,
+                    feePaid: true,
+                  })
+                : dispenseSlipBase;
+            if (!slip) {
+              return;
+            }
+            window.setTimeout(() => {
+              this.openReceiptPrintWindow(slip, true);
+            }, 1300);
+          };
+          const finishSale = (feePaidAmount: number | null = null) => {
+            // Build paid-fee slip before clearSale wipes prescription context.
+            printFollowUpSlip(feePaidAmount);
+            this.clearSale();
+            this.applyOptimisticStockDeltas(soldStockDeltas);
+            this.refreshLocalStockAfterTransaction();
+            this.refreshRegisterState();
+          };
+          if (shouldCollectFeeAfterSale) {
+            void this.collectLinkedAppointmentFee(false).then((collected) => {
+              finishSale(collected);
+            });
+          } else {
+            finishSale(null);
+          }
         },
         error: (err) => {
           if (this.offline.shouldQueue(err)) {
@@ -2968,92 +3314,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     });
   }
 
-  selectSaleForReturn(saleId: string): void {
-    if (!saleId) {
-      this.saleReturnErrorMessage = 'Select a sale to continue with the return.';
-      return;
-    }
-
-    this.loadSaleReturnSale(saleId);
-  }
-
-  updateReturnRefundAmount(value: string | number): void {
-    this.returnRefundTouched = true;
-    const numericValue = Number(value || 0);
-    this.returnRefundAmount = this.roundMoney(
-      Math.min(
-        Math.max(Number.isFinite(numericValue) ? numericValue : 0, 0),
-        this.saleReturnRefundLimit,
-      ),
-    );
-  }
-
-  fillReturnRefundToLimit(): void {
-    this.returnRefundTouched = true;
-    this.returnRefundAmount = this.roundMoney(this.saleReturnRefundLimit);
-  }
-
   submitSaleReturn(): void {
-    if (!this.selectedReturnSale) {
-      this.saleReturnErrorMessage = 'Select a sale to continue with the return.';
-      return;
-    }
-
-    const items = this.returnLines
-      .filter((line) => line.qty > 0)
-      .map((line) => ({
-        productId: line.productId,
-        qty: Number(line.qty || 0),
-        reason: line.reason.trim() || undefined,
-      }));
-
-    if (!items.length) {
-      this.saleReturnErrorMessage = 'Select at least one return item quantity.';
-      return;
-    }
-
-    if (this.returnRefundAmount > this.saleReturnRefundLimit) {
-      this.saleReturnErrorMessage =
-        'Refund amount cannot exceed the selected return total.';
-      return;
-    }
-
-    const payload: CreateSalesReturnPayload = {
-      saleId: this.selectedReturnSale._id,
-      returnDate: new Date().toISOString(),
-      items,
-      refundAmount: this.returnRefundAmount || 0,
-      paymentMethod:
-        this.returnRefundAmount > 0 ? this.returnPaymentMethod : undefined,
-    };
-
-    const returnedStockDeltas = items.map((item) => ({
-      productId: String(item.productId),
-      delta: Number(item.qty || 0),
-    }));
-
-    this.saleReturnSubmitting = true;
-    this.saleReturnErrorMessage = '';
-    this.backend
-      .createSalesReturn(payload)
-      .pipe(finalize(() => (this.saleReturnSubmitting = false)))
-      .subscribe({
-        next: (salesReturn) => {
-          this.closeSaleReturn();
-          this.closeSaleHistory();
-          this.applyOptimisticStockDeltas(returnedStockDeltas);
-          this.refreshLocalStockAfterTransaction();
-          this.loadRecentSales();
-          this.showPosMessage(
-            `Sales return ${salesReturn.returnNo || salesReturn._id} completed successfully.`,
-            'success',
-          );
-        },
-        error: (err) => {
-          this.saleReturnErrorMessage =
-            err?.error?.message || 'Unable to complete sales return.';
-        },
-      });
+    this.saleReturnModal?.submit();
   }
 
   patientName(): string {
@@ -3079,41 +3341,6 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return String(this.prescription.patient.phone || '').trim();
     }
     return String(this.selectedCustomer?.phone || '').trim();
-  }
-
-  updateReturnLineQty(line: PharmacyReturnLine, value: string | number): void {
-    const qty = Math.max(0, Math.min(Number(value || 0), line.maxQty));
-    line.qty = Number.isFinite(qty) ? qty : 0;
-    this.syncReturnRefundFromLines();
-  }
-
-  returnAllSaleLines(): void {
-    this.returnLines.forEach((line) => {
-      line.qty = line.maxQty;
-    });
-    this.syncReturnRefundFromLines();
-  }
-
-  clearReturnSaleQtys(): void {
-    this.returnLines.forEach((line) => {
-      line.qty = 0;
-    });
-    this.syncReturnRefundFromLines();
-  }
-
-  returnLineValue(line: PharmacyReturnLine): number {
-    return this.roundMoney(Number(line.qty || 0) * Number(line.unitPrice || 0));
-  }
-
-  private syncReturnRefundFromLines(): void {
-    const limit = this.roundMoney(this.saleReturnRefundLimit);
-    if (!this.returnRefundTouched) {
-      this.returnRefundAmount = limit;
-      return;
-    }
-    if (this.returnRefundAmount > limit) {
-      this.returnRefundAmount = limit;
-    }
   }
 
   canReturnSale(sale: Sale): boolean {
@@ -3319,13 +3546,23 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   private buildSaleItemsFromCart() {
     return this.billLines
       .filter((line) => line.billQty > 0)
-      .map((line) => ({
-        productId: line.product._id,
-        qty: line.billQty,
-        unitPrice: line.unitPrice,
-        discount: Number(line.discount || 0),
-        tax: 0,
-      }));
+      .map((line) => {
+        const namedBatch = Boolean(String(line.lotNumber || '').trim());
+        return {
+          productId: line.product._id,
+          qty: line.billQty,
+          unitPrice: line.unitPrice,
+          discount: Number(line.discount || 0),
+          tax: 0,
+          ...(namedBatch
+            ? {
+                lotId: line.lotId || undefined,
+                lotNumber: line.lotNumber || undefined,
+                expiryDate: line.expiryDate || undefined,
+              }
+            : {}),
+        };
+      });
   }
 
   private buildReceiptFromSale(sale: Sale): ReceiptPreviewData {
@@ -3390,6 +3627,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       const qty = Number(item.qty || 0) || 0;
       const discount = Number(item.discount || 0) || 0;
       const availableQty = this.productAvailableQty(product);
+      const lotNumber = String(item.lotNumber || '').trim();
       const line: PharmacyBillLine = {
         sourceMedicineName: product.name,
         product,
@@ -3400,6 +3638,13 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         discount,
         discountInput: discount,
         discountType: 'amount',
+        lotId: lotNumber ? item.lotId || null : null,
+        lotNumber: lotNumber || null,
+        expiryDate: lotNumber ? item.expiryDate || null : null,
+        nearExpiry: lotNumber
+          ? getPharmacyExpiryTone(item.expiryDate) === 'near' ||
+            getPharmacyExpiryTone(item.expiryDate) === 'expired'
+          : false,
       };
       this.syncLineDiscount(line);
       this.billLines.push(line);
@@ -3411,9 +3656,12 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
   }
 
-  private openReceiptPrintWindow(receipt: ReceiptPreviewData): void {
+  private openReceiptPrintWindow(
+    receipt: ReceiptPreviewData,
+    force = false,
+  ): void {
     const now = Date.now();
-    if (now - this.lastReceiptPrintAt < 1200) {
+    if (!force && now - this.lastReceiptPrintAt < 1200) {
       return;
     }
     this.lastReceiptPrintAt = now;
@@ -3699,7 +3947,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             </div>
             <div class="meta">
               <div><span>Invoice</span><span class="meta-val">${this.escapeHtml(receipt.reference)}</span></div>
-              <div><span>Date</span><span class="meta-val">${new Date(receipt.saleDate).toLocaleString()}</span></div>
+              <div><span>Date</span><span class="meta-val">${formatDateShort(receipt.saleDate)}</span></div>
               <div><span>Customer</span><span class="meta-val">${this.escapeHtml(receipt.customerName)}</span></div>
             </div>
             <table>
@@ -3782,6 +4030,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       this.prescriptionCacheKey(id),
       null,
     );
+    if (this.prescription) {
+      this.syncConsultationFeeCollectDefault(this.prescription);
+    }
     this.rebuildPrescriptionBill();
 
     if (!this.offline.shouldQueue(error) && !this.prescription) {
@@ -3821,87 +4072,6 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       ...(await this.localQueuedSales()),
       ...items,
     ]);
-  }
-
-  private prepareSaleReturnModal(saleId = ''): void {
-    this.saleReturnOpen = true;
-    this.saleReturnLoading = false;
-    this.saleReturnSubmitting = false;
-    this.saleReturnErrorMessage = '';
-    this.returnSaleSearch = '';
-    this.selectedReturnSale = null;
-    this.selectedReturnHistory = [];
-    this.selectedReturnRefundCeiling = 0;
-    this.returnLines = [];
-    this.returnRefundAmount = 0;
-    this.returnRefundTouched = false;
-    this.returnPaymentMethod = 'cash';
-
-    if (saleId) {
-      this.focusOverlayControl('.sale-return-modal .modal-close');
-    }
-  }
-
-  private loadSaleReturnSale(saleId: string): void {
-    this.saleReturnLoading = true;
-    this.saleReturnErrorMessage = '';
-    this.selectedReturnSale = null;
-    this.selectedReturnHistory = [];
-    this.selectedReturnRefundCeiling = 0;
-    this.returnLines = [];
-    this.returnRefundAmount = 0;
-    this.returnRefundTouched = false;
-
-    this.backend.getSaleById(saleId).subscribe({
-      next: (sale) => {
-        this.backend.listSalesReturns({ saleId, limit: 100 }).subscribe({
-          next: (result) => {
-            this.selectedReturnSale = sale;
-            this.selectedReturnHistory = result.items || [];
-            this.selectedReturnRefundCeiling = Math.max(
-              Number(sale.paidAmount || 0) -
-                this.selectedReturnHistory.reduce(
-                  (sum, item) => sum + Number(item.refundAmount || 0),
-                  0,
-                ),
-              0,
-            );
-            this.returnLines = (sale.items || [])
-              .map((item) => {
-                const soldQty = Number(item.qty || 0) || 0;
-                const returnedQty = this.returnedQuantityForSaleItem(
-                  item.productId,
-                  this.selectedReturnHistory,
-                );
-                const maxQty = Math.max(soldQty - returnedQty, 0);
-                return {
-                  productId: item.productId,
-                  name: item.name || 'Product',
-                  sku: item.sku || '',
-                  soldQty,
-                  alreadyReturnedQty: returnedQty,
-                  maxQty,
-                  qty: 0,
-                  unitPrice: Number(item.unitPrice || 0),
-                  reason: '',
-                };
-              })
-              .filter((line) => line.maxQty > 0);
-            this.saleReturnLoading = false;
-          },
-          error: (err) => {
-            this.saleReturnLoading = false;
-            this.saleReturnErrorMessage =
-              err?.error?.message || 'Unable to load previous return history.';
-          },
-        });
-      },
-      error: (err) => {
-        this.saleReturnLoading = false;
-        this.saleReturnErrorMessage =
-          err?.error?.message || 'Unable to load sale for return.';
-      },
-    });
   }
 
   private async queueOfflineSale(payload: CreateSalePayload): Promise<void> {
@@ -4269,22 +4439,6 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     );
   }
 
-  private returnedQuantityForSaleItem(
-    productId: string,
-    returns: SalesReturn[],
-  ): number {
-    return returns.reduce((sum, salesReturn) => {
-      const returned = (salesReturn.items || [])
-        .filter((item) => item.productId === productId)
-        .reduce((itemSum, item) => itemSum + Number(item.qty || 0), 0);
-      return sum + returned;
-    }, 0);
-  }
-
-  private saleHasRemainingReturnQuantity(sale: Sale): boolean {
-    return ['completed', 'returned'].includes(sale.status);
-  }
-
   private storesCacheKey(): string {
     return this.offline.cacheKey('pos-stores');
   }
@@ -4348,6 +4502,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       }
 
       const billQty = Math.min(requestedQty, availableQty);
+      const shortBy = Math.max(requestedQty - billQty, 0);
       lines.push({
         sourceMedicineName: medicine.name,
         product,
@@ -4355,18 +4510,238 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         billQty,
         availableQty,
         qtyBreakdown: dispense.breakdown,
-        shortBy: Math.max(requestedQty - billQty, 0),
+        shortBy,
         unitPrice: this.productPrice(product),
         discount: 0,
         discountInput: 0,
         discountType:
           product.maxDiscountType === 'percentage' ? 'percentage' : 'amount',
       });
+
+      if (shortBy > 0) {
+        unavailable.push({
+          medicineName: medicine.name,
+          requestedQty: shortBy,
+          qtyBreakdown: dispense.breakdown,
+          reason: `Only ${billQty} of ${requestedQty} available — rest not available`,
+          patientMessage: `Tell the patient: ${shortBy} of ${medicine.name} cannot be dispensed today.`,
+        });
+      }
     }
 
     this.billLines = lines;
     this.unavailableMedicines = unavailable;
     this.refreshPaidAmount();
+  }
+
+  private syncConsultationFeeCollectDefault(prescription: Prescription): void {
+    const appt =
+      prescription?.appointment && typeof prescription.appointment === 'object'
+        ? prescription.appointment
+        : null;
+    if (!appt) {
+      this.collectConsultationFee = false;
+      return;
+    }
+    const unpaid = String(appt.paymentStatus || '').toLowerCase() !== 'paid';
+    const net = Number(
+      appt.netFee ??
+        Math.max(Number(appt.consultationFee || 0) - Number(appt.discount || 0), 0),
+    );
+    if (!unpaid || !(net > 0)) {
+      this.collectConsultationFee = false;
+      return;
+    }
+    // Default on for pharmacy collection point; unpaid OPD fees stay optional at counter.
+    this.collectConsultationFee =
+      String(appt.feeCollectionPoint || '').toLowerCase() === 'pharmacy';
+  }
+
+  /** @returns collected fee amount, or null if not collected */
+  private async collectLinkedAppointmentFee(
+    printStandaloneFeeReceipt: boolean,
+  ): Promise<number | null> {
+    const appointmentId = String(this.linkedAppointment?._id || '').trim();
+    if (!appointmentId || !this.consultationFeeDue || !this.collectConsultationFee) {
+      return null;
+    }
+
+    const feeAmount = this.consultationFeeAmount;
+    const method =
+      this.paymentMethod === 'credit' ? 'cash' : this.paymentMethod || 'cash';
+
+    this.consultationFeeCollecting = true;
+    try {
+      await firstValueFrom(
+        this.backend.collectAppointmentFee(appointmentId, {
+          method,
+          collectedByChannel: 'pharmacy',
+        }),
+      );
+      if (this.prescription?.appointment) {
+        this.prescription = {
+          ...this.prescription,
+          appointment: {
+            ...this.prescription.appointment,
+            paymentStatus: 'paid',
+            netFee: 0,
+          },
+        };
+      }
+      this.showPosMessage(
+        `Consultation fee ${this.formatCurrency(feeAmount)} collected · Pharmacy Settlement updated.`,
+        'success',
+      );
+      if (printStandaloneFeeReceipt) {
+        this.openReceiptPrintWindow(
+          this.buildDispenseSlipReceipt(null, {
+            feeAmount,
+            feePaid: true,
+          }),
+          true,
+        );
+      }
+      this.refreshPaidAmount();
+      return feeAmount;
+    } catch (err: unknown) {
+      const message =
+        (err as { error?: { message?: string } })?.error?.message ||
+        'Unable to collect consultation fee.';
+      this.toastr.error(message);
+      return null;
+    } finally {
+      this.consultationFeeCollecting = false;
+    }
+  }
+
+  private buildDispenseSlipReceipt(
+    sale?: Sale | null,
+    options?: { feeAmount?: number; feePaid?: boolean },
+  ): ReceiptPreviewData {
+    const store = this.stores.find((item) => item._id === this.currentStoreId());
+    const appt = this.linkedAppointment;
+    const issued = (sale?.items || []).length
+      ? (sale?.items || []).map((item) => ({
+          name: item.name || 'Product',
+          sku: item.sku || '',
+          strength: '',
+          qty: Number(item.qty || 0),
+          discountLabel: '0',
+          unitPrice: Number(item.unitPrice || 0),
+          discount: Number(item.discount || 0),
+          total: Number(item.total || 0),
+        }))
+      : this.billLines
+          .filter((line) => line.billQty > 0)
+          .map((line) => ({
+            name: `${line.product.name} (issued)`,
+            sku: line.product.sku || '',
+            strength: this.productStrengthLabel(line.product),
+            qty: Number(line.billQty || 0),
+            discountLabel: '0',
+            unitPrice: Number(line.unitPrice || 0),
+            discount: Number(line.discount || 0),
+            total: this.lineTotal(line),
+          }));
+
+    const unavailableItems = this.unavailableMedicines.map((item) => ({
+      name: `${item.medicineName} — Not available`,
+      sku: '',
+      strength: item.reason || '',
+      qty: Number(item.requestedQty || 0),
+      discountLabel: '0',
+      unitPrice: 0,
+      discount: 0,
+      total: 0,
+    }));
+
+    const items = [...issued, ...unavailableItems];
+
+    const explicitFee = options?.feeAmount;
+    const feeAmount = this.roundMoney(
+      explicitFee != null
+        ? Number(explicitFee)
+        : this.consultationFeeDue
+          ? this.consultationFeeAmount
+          : 0,
+    );
+    const feePaid = Boolean(options?.feePaid && feeAmount > 0);
+
+    if (feeAmount > 0) {
+      items.push({
+        name: `Doctor consultation fee — ${this.consultationDoctorLabel}`,
+        sku: appt?.appointmentNo || '',
+        strength: feePaid
+          ? `Paid at Pharmacy · Appt ${appt?.appointmentNo || '—'}`
+          : `Due · Collect at Pharmacy · Appt ${appt?.appointmentNo || '—'}`,
+        qty: 1,
+        discountLabel: '0',
+        unitPrice: feeAmount,
+        discount: 0,
+        total: feeAmount,
+      });
+    }
+
+    const medicinesTotal = [...issued].reduce(
+      (sum, item) => sum + Number(item.total || 0),
+      0,
+    );
+    const subtotal = this.roundMoney(medicinesTotal + feeAmount);
+    const medicinesPaid = Number(sale?.paidAmount || 0);
+    const paidAmount = this.roundMoney(medicinesPaid + (feePaid ? feeAmount : 0));
+
+    return {
+      reference: feePaid && appt?.appointmentNo
+        ? `INV-${appt.appointmentNo}`
+        : sale?.invoiceNo
+          ? `SLIP-${sale.invoiceNo}`
+          : `RX-${this.prescription?._id || Date.now()}`,
+      saleDate: new Date().toISOString(),
+      companyName: this.companyProfile?.name || 'Hisaar360 Pharmacy',
+      companyAddress: this.currentCompanyAddress(),
+      companyPhone: this.companyProfile?.phone || '',
+      companyEmail: this.companyProfile?.email || '',
+      companyTaxNumber: this.companyProfile?.taxNumber || '',
+      companyLogoUrl: this.companyProfile?.logoUrl || '',
+      storeName: store?.name || this.selectedStoreLabel,
+      storeAddress: [store?.address, store?.city].filter(Boolean).join(', '),
+      storePhone: store?.phone || '',
+      cashierName: this.cashierName,
+      customerName: this.currentPosCustomerName(),
+      customerPhone: this.prescription?.patient?.phone || '',
+      paymentMethod: feePaid
+        ? this.formatPaymentMethodLabel(
+            this.paymentMethod === 'credit' ? 'cash' : this.paymentMethod || 'cash',
+          )
+        : sale
+          ? 'Dispense slip'
+          : feeAmount > 0
+            ? 'Fee due / dispense slip'
+            : 'Dispense slip',
+      paymentStatus: feePaid || paidAmount >= subtotal ? 'paid' : sale?.paymentStatus || 'unpaid',
+      items,
+      subtotal,
+      discount: 0,
+      total: subtotal,
+      paidAmount,
+      cashReceivedAmount: paidAmount,
+      changeDueAmount: 0,
+      note: feeAmount > 0
+        ? `Doctor consultation fee ${feePaid ? 'collected' : 'due'} at Pharmacy. Medicines listed as issued / not available.`
+        : 'Issued vs not available medicines for this prescription.',
+      receiptLetterhead: this.receiptLetterheadSnapshot(),
+    };
+  }
+
+  private currentPosCustomerName(): string {
+    const fromPrescription = this.patientName();
+    if (fromPrescription && fromPrescription !== '-') {
+      return fromPrescription;
+    }
+    const customer = this.customers.find(
+      (item) => item._id === this.selectedCustomerId,
+    );
+    return customer?.name || 'Walk-in';
   }
 
   private findProductForMedicine(
@@ -4415,14 +4790,26 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   private lineMaxDiscountAmount(index: number): number {
     const line = this.billLines[index];
     const product = line?.product;
-    if (!line || !product?.discountEligible) {
+    if (!line || !product) {
       return 0;
     }
 
     const lineSubtotal =
       Number(line.billQty || 0) * Number(line.unitPrice || 0);
+    if (lineSubtotal <= 0) {
+      return 0;
+    }
+
+    if (this.allowDiscountAnyMedicine()) {
+      return Number(lineSubtotal.toFixed(2));
+    }
+
+    if (!product.discountEligible) {
+      return 0;
+    }
+
     const configuredValue = Number(product.maxDiscountValue || 0) || 0;
-    if (lineSubtotal <= 0 || configuredValue <= 0) {
+    if (configuredValue <= 0) {
       return 0;
     }
 
@@ -4451,7 +4838,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     line.discountType =
       product.maxDiscountType === 'percentage' ? 'percentage' : 'amount';
 
-    if (!product.discountEligible) {
+    if (!this.allowDiscountAnyMedicine() && !product.discountEligible) {
       line.discount = 0;
       line.discountInput = 0;
       return;
@@ -4587,20 +4974,24 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         return;
       }
 
-      // Cash/card/etc stay in sync with the bill. Do not lock Paid from ngModel echo.
+      // Cash/card/etc stay in sync with the medicine bill. Do not lock Paid from ngModel echo.
       this.paidAmountTouched = false;
       this.paidAmount = this.payableAmount;
+      const cashTarget = this.amountToCollect.toFixed(2);
 
       if (this.paymentMethod === 'cash') {
         if (!this.cashReceivedTouched) {
-          this.cashReceivedAmount = this.paidAmount;
+          this.cashReceivedAmount = cashTarget;
         } else {
           this.cashReceivedAmount = String(
-            Math.max(Number(this.cashReceivedAmount || 0), Number(this.paidAmount || 0)),
+            Math.max(
+              Number(this.cashReceivedAmount || 0),
+              Number(cashTarget || 0),
+            ),
           );
         }
       } else {
-        this.cashReceivedAmount = this.paidAmount;
+        this.cashReceivedAmount = cashTarget;
         this.cashReceivedTouched = false;
       }
     } finally {
@@ -5718,7 +6109,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       tagName === 'textarea' ||
       tagName === 'button' ||
       tagName === 'a' ||
-      (this.saleReturnOpen && (tagName === 'input' || tagName === 'select'))
+      ((this.saleReturnOpen || this.openReturnOpen) &&
+        (tagName === 'input' || tagName === 'select'))
     ) {
       return false;
     }
@@ -5727,6 +6119,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
     if (this.receiptPreviewOpen && this.receiptPreview) {
       this.printReceipt();
+      return true;
+    }
+    if (this.openReturnOpen) {
       return true;
     }
     if (this.saleReturnOpen) {
@@ -5754,6 +6149,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       this.reportsOpen ||
       this.saleHistoryOpen ||
       this.saleReturnOpen ||
+      this.openReturnOpen ||
+      this.batchPickerOpen ||
       this.receiptPreviewOpen ||
       this.closeRegisterOpen ||
       this.shortcutInfoOpen ||
@@ -6199,6 +6596,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         product.barcode,
         product.batchNumber,
         product.brand,
+        product.salt,
         product.unit,
         product.strengthValue,
         product.strengthUnit,
@@ -6207,19 +6605,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   private formatProductDate(value?: string | null): string {
-    if (!value) {
-      return '-';
-    }
-
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-      return value;
-    }
-
-    const year = parsed.getFullYear();
-    const month = String(parsed.getMonth() + 1).padStart(2, '0');
-    const day = String(parsed.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return formatDateShort(value || null);
   }
 
   private normalizeText(value: string): string {

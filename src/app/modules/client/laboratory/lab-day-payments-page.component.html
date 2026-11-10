@@ -1,0 +1,96 @@
+<section class="lab-day">
+  <header class="lab-day__hero">
+    <div>
+      <h1>Lab Day Payments</h1>
+      <p>
+        Day-wise laboratory payments by source — walk-in, doctor referred, ward admission, or emergency.
+      </p>
+    </div>
+  </header>
+
+  <div class="lab-day__filters">
+    <label>
+      <span>From</span>
+      <input type="date" [(ngModel)]="dateFrom" name="from" />
+    </label>
+    <label>
+      <span>To</span>
+      <input type="date" [(ngModel)]="dateTo" name="to" />
+    </label>
+    <label>
+      <span>Source</span>
+      <select [(ngModel)]="source" name="source">
+        <option value="">All</option>
+        <option value="walk-in">Walk-in</option>
+        <option value="doctor">Doctor referred</option>
+        <option value="admission">Ward / admission</option>
+        <option value="emergency">Emergency</option>
+      </select>
+    </label>
+    <label>
+      <span>Payment</span>
+      <select [(ngModel)]="paymentStatus" name="paymentStatus">
+        <option value="">All</option>
+        <option value="paid">Paid</option>
+        <option value="partial">Partial</option>
+        <option value="unpaid">Unpaid</option>
+      </select>
+    </label>
+    <div class="lab-day__actions">
+      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="setToday()">Today</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="setWeek()">This week</button>
+      <button type="button" class="btn btn-sm btn-primary" (click)="reload()">Apply</button>
+    </div>
+  </div>
+
+  <div class="lab-day__kpis">
+    <article class="kpi--navy"><span>Orders</span><strong>{{ totals['count'] || 0 }}</strong></article>
+    <article class="kpi--teal"><span>Billed</span><strong>{{ money(totals['billedTotal'] || 0) }}</strong></article>
+    <article class="kpi--green"><span>Paid</span><strong>{{ money(totals['paidTotal'] || 0) }}</strong></article>
+    <article class="kpi--red"><span>Balance</span><strong>{{ money(totals['balanceTotal'] || 0) }}</strong></article>
+    <article class="kpi--slate"><span>Walk-in</span><strong>{{ sourceCount('walk-in') }}</strong></article>
+    <article class="kpi--amber"><span>Doctor</span><strong>{{ sourceCount('doctor') }}</strong></article>
+    <article class="kpi--teal"><span>Ward</span><strong>{{ sourceCount('admission') }}</strong></article>
+    <article class="kpi--red"><span>Emergency</span><strong>{{ sourceCount('emergency') }}</strong></article>
+  </div>
+
+  <div class="lab-day__panel">
+    <header><h2>Orders</h2></header>
+    <div *ngIf="loading" class="lab-day__empty">Loading…</div>
+    <div class="table-responsive" *ngIf="!loading">
+      <table class="table table-sm" *ngIf="items.length; else empty">
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Patient</th>
+            <th>Source</th>
+            <th>Referred by</th>
+            <th class="num">Billed</th>
+            <th class="num">Paid</th>
+            <th>Status</th>
+            <th>When</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of items">
+            <td>{{ row['orderNo'] || '—' }}</td>
+            <td>{{ patientName(row) }}</td>
+            <td>{{ row['source'] || '—' }}</td>
+            <td>{{ row['referredBy'] || '—' }}</td>
+            <td class="num">{{ money(row['totalAmount'] || 0) }}</td>
+            <td class="num amt-in">{{ money(row['paidAmount'] || 0) }}</td>
+            <td>{{ row['paymentStatus'] || '—' }}</td>
+            <td>{{ row['createdAt'] ? dateTime($any(row['createdAt'])) : '—' }}</td>
+            <td>
+              <a class="btn btn-sm btn-outline-secondary" [routerLink]="['/laboratory/orders', row['_id']]">Open</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #empty>
+        <p class="lab-day__empty">No lab orders for these filters.</p>
+      </ng-template>
+    </div>
+  </div>
+</section>

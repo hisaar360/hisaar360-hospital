@@ -18,6 +18,7 @@ interface PurchaseLineForm {
   sku: string;
   qty: number;
   unitCost: number;
+  sellingPrice: number;
   discount: number;
   tax: number;
   batchNumber: string;
@@ -136,7 +137,16 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
 
   payOpen = false;
   payTarget: Record<string, unknown> | null = null;
-  payForm = { amount: 0, method: 'cash', paymentDate: toDateInputValue(new Date()), referenceNo: '', note: '' };
+  payForm = {
+    amount: 0,
+    method: 'cash',
+    paidBy: 'pharmacy' as 'pharmacy' | 'owner',
+    paymentDate: toDateInputValue(new Date()),
+    referenceNo: '',
+    note: '',
+  };
+  pharmacyCashInHand: number | null = null;
+  pharmacyCashLoading = false;
 
   returnOpen = false;
   returnSearch = '';
@@ -652,6 +662,8 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
       line.qty = 1;
       const cost = Number(product.costPrice ?? 0);
       line.unitCost = Number.isFinite(cost) && cost > 0 ? cost : 0;
+      const sell = Number(product.sellingPrice ?? 0);
+      line.sellingPrice = Number.isFinite(sell) && sell > 0 ? sell : 0;
       this.form.items.push(line);
     }
     this.quickSearch = '';
@@ -684,11 +696,16 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
     if (!this.form.paymentMethod) {
       this.form.paymentMethod = 'cash';
     }
+    if (this.form.paymentMethod === 'cash') {
+      this.loadPharmacyCashInHand();
+    }
   }
 
   onCreateStatusChange(): void {
     if (this.form.status !== 'received') {
       this.form.paidAmount = 0;
+    } else if (this.form.paymentMethod === 'cash') {
+      this.loadPharmacyCashInHand();
     }
   }
 
@@ -736,6 +753,10 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
         status: this.form.status,
         paidAmount,
         paymentMethod: paidAmount > 0 ? this.form.paymentMethod || 'cash' : undefined,
+        paidBy:
+          paidAmount > 0 && (this.form.paymentMethod || 'cash') === 'cash'
+            ? this.form.paidBy || 'pharmacy'
+            : undefined,
         items: this.form.items.map((item) => ({
           productId: item.productId,
           qty: item.qty,
@@ -744,6 +765,10 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
           tax: item.tax || 0,
           batchNumber: item.batchNumber || undefined,
           expiryDate: item.expiryDate || undefined,
+          sellingPrice:
+            item.batchNumber?.trim() && Number(item.sellingPrice) > 0
+              ? item.sellingPrice
+              : undefined,
         })),
       })
       .pipe(finalize(() => (this.saving = false)))
@@ -793,6 +818,25 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
       });
   }
 
+  /** Repair: push already-received warehouse stock onto the POS store. */
+  syncStockToPos(id: string): void {
+    if (this.saving || !id) {
+      return;
+    }
+    this.saving = true;
+    this.backend
+      .receivePurchase(id)
+      .pipe(finalize(() => (this.saving = false)))
+      .subscribe({
+        next: () => {
+          this.toastr.success('Stock synced to pharmacy store. Refresh POS to see updated qty.');
+          this.loadPurchase(id);
+        },
+        error: (err) =>
+          this.toastr.error(err?.error?.message || 'Unable to sync stock to POS'),
+      });
+  }
+
   cancel(id: string): void {
     if (this.saving) {
       return;
@@ -832,11 +876,41 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
     this.payForm = {
       amount: this.balance(record),
       method: 'cash',
+      paidBy: 'pharmacy',
       paymentDate: toDateInputValue(new Date()),
       referenceNo: '',
       note: '',
     };
     this.payOpen = true;
+    this.loadPharmacyCashInHand();
+  }
+
+  onCreatePaymentMethodChange(): void {
+    if (this.form.paymentMethod === 'cash') {
+      this.loadPharmacyCashInHand();
+    }
+  }
+
+  onPayMethodChange(): void {
+    if (this.payForm.method === 'cash') {
+      this.loadPharmacyCashInHand();
+    }
+  }
+
+  loadPharmacyCashInHand(): void {
+    this.pharmacyCashLoading = true;
+    this.backend
+      .getDepartmentCash({ department: 'pharmacy' })
+      .pipe(finalize(() => (this.pharmacyCashLoading = false)))
+      .subscribe({
+        next: (data) => {
+          const value = Number(data?.['cashInHand']);
+          this.pharmacyCashInHand = Number.isFinite(value) ? value : null;
+        },
+        error: () => {
+          this.pharmacyCashInHand = null;
+        },
+      });
   }
 
   openPayById(purchaseId: string): void {
@@ -879,6 +953,8 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
         referenceType: 'purchase',
         referenceId: purchaseId,
         method: this.payForm.method,
+        paidBy:
+          this.payForm.method === 'cash' ? this.payForm.paidBy || 'pharmacy' : undefined,
         amount,
         paymentDate: this.payForm.paymentDate,
         referenceNo: this.payForm.referenceNo.trim() || undefined,
@@ -1309,7 +1385,10 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
   }
 
   private productSearchText(product: ProductCatalogItem): string {
-    return [product.name, product.sku, product.barcode, product.brand].filter(Boolean).join(' ').toLowerCase();
+    return [product.name, product.sku, product.barcode, product.brand, product.salt]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
   }
 
   private mergeProductIntoCatalog(product: ProductCatalogItem): void {
@@ -1335,6 +1414,7 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
       sku: '',
       qty: 1,
       unitCost: 0,
+      sellingPrice: 0,
       discount: 0,
       tax: 0,
       batchNumber: '',
@@ -1352,6 +1432,7 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
       status: 'received',
       paidAmount: 0,
       paymentMethod: 'cash',
+      paidBy: 'pharmacy' as 'pharmacy' | 'owner',
       items: [] as PurchaseLineForm[],
     };
   }

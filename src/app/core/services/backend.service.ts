@@ -27,6 +27,7 @@ import {
   CloseRegisterPayload,
   Customer,
   CreateHeldSalePayload,
+  CreateOpenSalesExchangePayload,
   CreateSalesReturnPayload,
   CreateSalePayload,
   CreateSaleResponse,
@@ -895,6 +896,19 @@ export class BackendService {
     return this.patch<Appointment>(`${CONFIG.appointments}/${id}/status`, payload);
   }
 
+  collectAppointmentFee(
+    id: string,
+    payload?: Record<string, unknown>
+  ): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.appointments}/${id}/collect-fee`, payload || {});
+  }
+
+  getAppointmentPaymentsAudit(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.appointments}/payments-audit`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
   deleteAppointment(id: string): Observable<ApiResponse<Appointment>> {
     return this.delete<Appointment>(`${CONFIG.appointments}/${id}`);
   }
@@ -980,6 +994,18 @@ export class BackendService {
 
   updateLabSettings(payload: Record<string, unknown>): Observable<ApiResponse<LabSettingsResponse>> {
     return this.patch<LabSettingsResponse>(`${CONFIG.laboratory}/settings`, payload);
+  }
+
+  getLabPaymentsAudit(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.laboratory}/orders/payments-audit`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getWardPaymentsAudit(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.wardBilling}/payments-audit`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
   }
 
   getLabOrders(params?: Record<string, unknown>): Observable<ListResult<LabOrder>> {
@@ -1265,6 +1291,18 @@ export class BackendService {
         const data = response.data;
         return ('salesReturn' in data ? data.salesReturn : data) as SalesReturn;
       })
+    );
+  }
+
+  createOpenSalesExchange(payload: CreateOpenSalesExchangePayload): Observable<SalesReturn> {
+    return this.post<SalesReturn | { salesReturn?: SalesReturn }>(
+      CONFIG.returns.salesOpen,
+      payload,
+    ).pipe(
+      map((response) => {
+        const data = response.data;
+        return ('salesReturn' in data ? data.salesReturn : data) as SalesReturn;
+      }),
     );
   }
 
@@ -1894,6 +1932,42 @@ export class BackendService {
     return this.get<Record<string, unknown>>(`${CONFIG.accounts}/cash-book`, params).pipe(
       map((response) => this.unwrapData(response))
     );
+  }
+
+  getPharmacyLedger(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/pharmacy-ledger`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getDepartmentCash(params: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/department-cash`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  getAllDepartmentCash(params?: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/department-cash/all`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listDepartmentCashMovements(params: Record<string, unknown>): Observable<Array<Record<string, unknown>>> {
+    return this.get<Array<Record<string, unknown>>>(`${CONFIG.accounts}/department-cash/movements`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  listDepartmentCashSettlements(params: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(`${CONFIG.accounts}/department-cash/settlements`, params).pipe(
+      map((response) => this.unwrapData(response))
+    );
+  }
+
+  createDepartmentCashSettlement(
+    payload: Record<string, unknown>
+  ): Observable<ApiResponse<Record<string, unknown>>> {
+    return this.post<Record<string, unknown>>(`${CONFIG.accounts}/department-cash/settlements`, payload);
   }
 
   getBankBook(params?: Record<string, unknown>): Observable<Record<string, unknown>> {

@@ -471,6 +471,11 @@ export interface Appointment {
   discountReason?: string | null;
   netFee?: number;
   paymentStatus?: 'unpaid' | 'paid';
+  feeCollectionPoint?: 'opd' | 'pharmacy';
+  feeReceivedBy?: string | null;
+  feeReceivedByUser?: { _id?: string; name?: string; fullName?: string } | null;
+  feeReceivedAt?: string | null;
+  feeReceivedChannel?: 'opd' | 'pharmacy' | null;
   vitals?: Record<string, string>;
   notes?: string | null;
   createdAt?: string;
@@ -1100,6 +1105,9 @@ export interface StockLot {
   quantity?: string | number | null;
   reservedQuantity?: string | number | null;
   availableQuantity?: string | number | null;
+  costPrice?: string | number | null;
+  sellingPrice?: string | number | null;
+  nearExpiry?: boolean;
 }
 
 export interface ProductCatalogItem {
@@ -1116,6 +1124,7 @@ export interface ProductCatalogItem {
   strengthValue?: string | null;
   strengthUnit?: string | null;
   brand?: string | null;
+  salt?: string | null;
   unit?: string | null;
   costPrice?: string | null;
   sellingPrice?: string | null;
@@ -1271,15 +1280,23 @@ export interface ReturnItem {
 export interface SalesReturn {
   _id: string;
   companyId?: string;
-  saleId: string;
+  saleId?: string | null;
   invoiceNo?: string | null;
+  returnType?: 'against_sale' | 'open';
   storeId: string;
   customerId?: string | null;
+  registerSessionId?: string | null;
   returnNo: string;
   returnDate: string;
   items: ReturnItem[];
+  issueItems?: ReturnItem[];
   total: number | string;
+  issueTotal?: number | string;
+  netAmount?: number | string;
   refundAmount: number | string;
+  collectAmount?: number | string;
+  settlementDirection?: 'refund' | 'collect' | 'even';
+  note?: string;
   status: string;
   createdBy?: string | null;
   createdAt?: string;
@@ -1296,6 +1313,36 @@ export interface CreateSalesReturnPayload {
   refundAmount?: number;
   paymentMethod?: Exclude<SalePaymentMethod, 'check'>;
   paymentReferenceNo?: string;
+}
+
+export interface CreateOpenSalesExchangePayload {
+  storeId: string;
+  returnDate: string;
+  items: Array<{
+    productId: string;
+    qty: number;
+    unitPrice?: number;
+    reason?: string;
+    lotId?: string | null;
+    lotNumber?: string;
+    expiryDate?: string | null;
+  }>;
+  issueItems?: Array<{
+    productId: string;
+    qty: number;
+    unitPrice?: number;
+    reason?: string;
+    lotId?: string | null;
+    lotNumber?: string;
+    expiryDate?: string | null;
+  }>;
+  refundAmount?: number;
+  collectAmount?: number;
+  paymentMethod?: Exclude<SalePaymentMethod, 'check'>;
+  paymentReferenceNo?: string;
+  customerId?: string | null;
+  registerSessionId?: string | null;
+  note?: string;
 }
 
 export interface RegisterSessionSummary {

@@ -516,6 +516,7 @@
                 *ngFor="let column of accountsTableColumns"
                 [class.text-end]="column.numeric"
                 [class.accounts-amt]="column.numeric"
+                [ngClass]="amountToneClass(row, column)"
               >
                 {{ formatTableCell(row, column) }}
               </td>
@@ -530,7 +531,7 @@
             <strong *ngIf="i === 0">{{ formatTableCell(row, column) }}</strong>
             <p *ngIf="i > 0">
               <span class="accounts-mobile-label">{{ column.label }}:</span>
-              {{ formatTableCell(row, column) }}
+              <span [ngClass]="amountToneClass(row, column)">{{ formatTableCell(row, column) }}</span>
             </p>
           </ng-container>
           <i *ngIf="view === 'profit-loss'" class="fa fa-angle-right profit-loss-row-chevron" aria-hidden="true"></i>

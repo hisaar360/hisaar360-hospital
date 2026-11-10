@@ -71,15 +71,18 @@
   margin-top: 0;
 }
 
-.clinical-workspace-tabs button small {
-  color: #6b7280;
+.clinical-workspace-tabs .rx-tab small {
+  color: inherit;
   display: block;
-  font-size: 10px;
-  font-weight: 500;
-}
-
-.clinical-workspace-tabs button.active small {
-  color: #1168c8;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.15;
+  margin-top: 1px;
+  max-width: 100%;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .clinical-orders-subtabs,
@@ -263,7 +266,7 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  padding: 10px;
+  padding: 8px;
 }
 
 .panel-heading,
@@ -407,9 +410,9 @@
   border: 0;
   border-bottom: 1px solid var(--rx-soft-line);
   display: grid;
-  gap: 8px;
-  grid-template-columns: 56px minmax(0, 1fr) 68px;
-  padding: 8px 6px;
+  gap: 6px;
+  grid-template-columns: 52px minmax(0, 1fr) 64px;
+  padding: 5px 4px;
   text-align: left;
   transition: background-color 0.15s ease, color 0.15s ease;
   width: 100%;
@@ -470,19 +473,19 @@
 .patient-card {
   border-top: 1px solid var(--rx-line);
   flex: 1 1 auto;
-  margin-top: 6px;
+  margin-top: 4px;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-top: 10px;
+  padding-top: 6px;
 }
 
 .patient-identity {
   align-items: center;
   display: flex;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
 .avatar {
@@ -492,11 +495,11 @@
   color: #0f5ea8;
   display: inline-flex;
   flex: 0 0 auto;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
-  height: 44px;
+  height: 34px;
   justify-content: center;
-  width: 44px;
+  width: 34px;
 }
 
 .patient-identity h3 {
@@ -518,7 +521,7 @@
 
 dl {
   display: grid;
-  gap: 8px;
+  gap: 4px;
   margin: 0;
 }
 
@@ -711,10 +714,10 @@ dd {
 .vitals-dashboard-panel {
   background: var(--rx-panel);
   border: 1px solid var(--rx-line);
-  border-radius: 0 0 10px 10px;
+  border-radius: 0 0 8px 8px;
   display: grid;
-  gap: 14px;
-  padding: 14px;
+  gap: 8px;
+  padding: 8px 10px;
 }
 
 .vitals-workspace-panel .vitals-dashboard-panel {
@@ -723,51 +726,51 @@ dd {
 
 .vitals-dashboard-sub {
   color: var(--rx-muted);
-  font-size: 12px;
-  margin: 4px 0 0;
+  font-size: 11px;
+  margin: 2px 0 0;
 }
 
 .vitals-dashboard-head__actions {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 6px;
   justify-content: flex-end;
 }
 
 .vitals-overview-grid {
   display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
 }
 
 .vitals-overview-card {
   background: #f8fbff;
   border: 1px solid var(--rx-line);
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   display: grid;
-  gap: 4px;
-  padding: 12px;
+  gap: 2px;
+  padding: 7px 8px;
   text-align: left;
 }
 
 .vitals-overview-card__label {
   color: var(--rx-muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
 }
 
 .vitals-overview-card__value {
   color: var(--rx-ink);
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 800;
   line-height: 1.1;
 }
 
 .vitals-overview-card__status {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -775,13 +778,13 @@ dd {
 .vitals-history-head {
   align-items: center;
   display: flex;
-  gap: 12px;
+  gap: 8px;
   justify-content: space-between;
 }
 
 .vitals-dashboard-head h3,
 .vitals-history-head h3 {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 800;
   margin: 0;
 }
@@ -813,16 +816,16 @@ dd {
 
 .vitals-charts-grid {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .vital-chart-card {
   background: #fff;
   border: 1px solid var(--rx-line);
-  border-radius: 10px;
-  min-height: 220px;
-  padding: 12px;
+  border-radius: 8px;
+  min-height: 160px;
+  padding: 8px;
 }
 
 .vital-chart-card-head {
@@ -2189,7 +2192,7 @@ dd {
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  padding: 8px 10px 0;
+  padding: 6px 8px 0;
 }
 
 .consultation-idle {
@@ -2305,17 +2308,17 @@ dd {
 }
 
 .consultation-header {
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .consultation-header h1 {
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .consultation-header p {
   color: var(--rx-muted);
-  font-size: 12px;
-  margin: 3px 0 0;
+  font-size: 11px;
+  margin: 2px 0 0;
 }
 
 .prescription-save-validation {
@@ -2381,9 +2384,9 @@ dd {
 .section-heading button {
   border: 1px solid var(--rx-line);
   border-radius: 4px;
-  font-size: 12px;
-  min-height: 30px;
-  padding: 5px 12px;
+  font-size: 11px;
+  min-height: 28px;
+  padding: 4px 10px;
 }
 
 .btn-light,
@@ -2415,7 +2418,127 @@ dd {
   resize: vertical;
 }
 
-.rx-tabs {
+.rx-tabs.clinical-workspace-tabs {
+  background: linear-gradient(180deg, #f1f5f9 0%, #e8eef5 100%);
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  display: grid;
+  flex: 0 0 auto;
+  gap: 6px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 6px 0 8px;
+  overflow-x: auto;
+  padding: 6px;
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab {
+  align-items: center;
+  background: #fff;
+  border: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  color: #334155;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  font-weight: 800;
+  gap: 2px;
+  justify-content: center;
+  letter-spacing: 0.01em;
+  min-height: 52px;
+  padding: 6px 6px 5px;
+  text-align: center;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  white-space: nowrap;
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab i {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab span {
+  line-height: 1.15;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab:hover {
+  transform: translateY(-1px);
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab.tone-vitals {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab.tone-visit {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab.tone-specialty {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #6d28d9;
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab.tone-orders {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab.tone-history {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #c2410c;
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab.active {
+  border-width: 2px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  font-weight: 900;
+  transform: translateY(-1px);
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab.tone-vitals.active {
+  background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%);
+  border-color: #be123c;
+  color: #fff;
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab.tone-visit.active {
+  background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+  border-color: #1d4ed8;
+  color: #fff;
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab.tone-specialty.active {
+  background: linear-gradient(180deg, #a78bfa 0%, #7c3aed 100%);
+  border-color: #6d28d9;
+  color: #fff;
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab.tone-orders.active {
+  background: linear-gradient(180deg, #34d399 0%, #059669 100%);
+  border-color: #047857;
+  color: #fff;
+}
+
+.rx-tabs.clinical-workspace-tabs .rx-tab.tone-history.active {
+  background: linear-gradient(180deg, #fb923c 0%, #ea580c 100%);
+  border-color: #c2410c;
+  color: #fff;
+}
+
+/* Fallback for any other .rx-tabs usage */
+.rx-tabs:not(.clinical-workspace-tabs) {
   background: #f8fafc;
   border: 1px solid var(--rx-line);
   border-radius: 6px 6px 0 0;
@@ -2425,7 +2548,7 @@ dd {
   overflow-x: auto;
 }
 
-.rx-tabs button {
+.rx-tabs:not(.clinical-workspace-tabs) button {
   background: transparent;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -2436,7 +2559,7 @@ dd {
   white-space: nowrap;
 }
 
-.rx-tabs button.active {
+.rx-tabs:not(.clinical-workspace-tabs) button.active {
   border-bottom-color: var(--rx-blue);
   color: var(--rx-blue);
   font-weight: 700;
@@ -3902,7 +4025,16 @@ dd {
     position: static;
   }
 
-  .rx-tabs button {
+  .rx-tabs.clinical-workspace-tabs {
+    grid-template-columns: repeat(5, minmax(88px, 1fr));
+  }
+
+  .rx-tabs.clinical-workspace-tabs .rx-tab {
+    min-height: 48px;
+    padding: 5px 4px;
+  }
+
+  .rx-tabs:not(.clinical-workspace-tabs) button {
     padding: 0 12px;
   }
 

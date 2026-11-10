@@ -63,6 +63,7 @@ export const CONFIG = {
   sales: API_BASE_URL + '/sales',
   returns: {
     sales: API_BASE_URL + '/returns/sales',
+    salesOpen: API_BASE_URL + '/returns/sales/open',
     purchases: API_BASE_URL + '/returns/purchases',
   },
   registerSessions: API_BASE_URL + '/register-sessions',

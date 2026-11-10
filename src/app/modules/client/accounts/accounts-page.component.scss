@@ -485,9 +485,23 @@
     white-space: nowrap;
   }
 
+  .accounts-amt--debit {
+    color: #15803d;
+    font-weight: 700;
+  }
+
+  .accounts-amt--credit {
+    color: #dc2626;
+    font-weight: 700;
+  }
+
   .accounts-amt--balance {
     font-weight: 700;
     color: var(--accounts-navy, #0f172a);
+  }
+
+  .accounts-amt--balance-neg {
+    color: #dc2626;
   }
 
   .accounts-mobile-label {

@@ -40,7 +40,7 @@ import { PackageReminderService } from '../../../core/services/package-reminder.
           </div>
 
           <div class="package-reminder-modal__content">
-            <h2 id="package-reminder-title">Package Reminder</h2>
+            <h2 id="package-reminder-title">Subscription Renewal Notice</h2>
             <p>{{ row.message }}</p>
 
             @if (reminders.packageExpiryLabel() || expiryLabel(row.expiryDate); as dateLabel) {
@@ -62,7 +62,7 @@ import { PackageReminderService } from '../../../core/services/package-reminder.
               <span class="package-reminder-modal__done-check" aria-hidden="true">
                 <i class="fa fa-check"></i>
               </span>
-              Got it
+              Acknowledge
             </button>
           </div>
         </aside>

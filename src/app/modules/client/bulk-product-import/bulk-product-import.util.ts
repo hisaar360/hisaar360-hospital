@@ -69,6 +69,13 @@ const COLUMN_ALIASES: Record<string, keyof BulkMedicineDraft | 'ignore'> = {
   expirydate: 'expiryDate',
   expiry_date: 'expiryDate',
   brand: 'brand',
+  salt: 'salt',
+  'salt / formula': 'salt',
+  formula: 'salt',
+  generic: 'salt',
+  'generic name': 'salt',
+  'active ingredient': 'salt',
+  inn: 'salt',
   'discount eligible': 'discountEligible',
   discounteligible: 'discountEligible',
   discount_eligible: 'discountEligible',
@@ -104,6 +111,7 @@ export const createEmptyBulkRow = (
     mfdDate: '',
     expiryDate: '',
     brand: '',
+    salt: '',
     discountEligible: false,
     maxDiscountType: 'percentage',
     maxDiscountValue: '',
@@ -826,6 +834,7 @@ export const buildBulkCreatePayload = (
     if (row.barcode.trim()) item.barcode = row.barcode.trim();
     if (row.batchNumber.trim()) item.batchNumber = row.batchNumber.trim();
     if (row.brand.trim()) item.brand = row.brand.trim();
+    if (row.salt.trim()) item.salt = row.salt.trim();
     if (row.strengthValue.trim()) item.strengthValue = row.strengthValue.trim();
     if (row.strengthUnit.trim()) item.strengthUnit = row.strengthUnit.trim();
     else item.strengthUnit = 'mg';

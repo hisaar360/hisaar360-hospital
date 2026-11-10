@@ -6,8 +6,18 @@ import { ToastrService } from 'ngx-toastr';
 
 import { AppDialogService } from '../../../core/services/app-dialog.service';
 import { BackendService } from '../../../core/services/backend.service';
-import { Sale } from '../../../shared/models/hospital.model';
-import { formatCurrency, formatDate, formatDateTime } from '../pharmacy-admin.utils';
+import { Sale, SaleItem } from '../../../shared/models/hospital.model';
+import {
+  formatCurrency,
+  formatDate,
+  formatDateShort,
+  formatDateTime,
+} from '../pharmacy-admin.utils';
+import {
+  getPharmacyExpiryTone,
+  pharmacyExpiryBadgeClass,
+  pharmacyExpiryLabel,
+} from '../pharmacy-expiry.util';
 
 @Component({
   selector: 'app-pharmacy-sale-detail',
@@ -94,6 +104,10 @@ export class PharmacySaleDetailComponent implements OnInit {
     return formatDate(value);
   }
 
+  dateShort(value: string | null | undefined): string {
+    return formatDateShort(value);
+  }
+
   dateTime(value: string | null | undefined): string {
     return formatDateTime(value);
   }
@@ -106,5 +120,29 @@ export class PharmacySaleDetailComponent implements OnInit {
     const total = Number(sale.total) || 0;
     const paid = Number(sale.paidAmount) || 0;
     return total - paid;
+  }
+
+  nearExpiryCount(sale: Sale): number {
+    return (sale.items || []).filter((item) => this.isNearExpiryItem(item)).length;
+  }
+
+  isNearExpiryItem(item: SaleItem): boolean {
+    if (item.nearExpirySale) {
+      return true;
+    }
+    const tone = getPharmacyExpiryTone(item.expiryDate);
+    return tone === 'near' || tone === 'expired';
+  }
+
+  expiryTone(item: SaleItem): string {
+    return getPharmacyExpiryTone(item.expiryDate);
+  }
+
+  expiryLabel(item: SaleItem): string {
+    return pharmacyExpiryLabel(getPharmacyExpiryTone(item.expiryDate));
+  }
+
+  expiryBadgeClass(item: SaleItem): string {
+    return pharmacyExpiryBadgeClass(getPharmacyExpiryTone(item.expiryDate));
   }
 }

@@ -609,6 +609,35 @@ export class PharmacyComponent implements OnInit {
     return this.getMedicineMatches(medicineName).length > 0;
   }
 
+  hasAnyPosMatch(prescription: Prescription): boolean {
+    const medicines = prescription?.medicines || [];
+    if (!medicines.length) {
+      return false;
+    }
+    return medicines.some((medicine) => this.hasPosMatch(medicine.name));
+  }
+
+  appointmentFeeLabel(prescription: Prescription): 'paid' | 'unpaid' | 'none' {
+    const appt = prescription?.appointment;
+    if (!appt || typeof appt !== 'object') {
+      return 'none';
+    }
+    if (String(appt.paymentStatus || '').toLowerCase() === 'paid') {
+      return 'paid';
+    }
+    const net = Number(
+      appt.netFee ??
+        Math.max(Number(appt.consultationFee || 0) - Number(appt.discount || 0), 0),
+    );
+    return net > 0 ? 'unpaid' : 'none';
+  }
+
+  printQueuePrescription(prescription: Prescription): void {
+    this.openPrintPreview(prescription);
+    // Give the preview a moment to bind, then print.
+    window.setTimeout(() => this.printPrescription(), 350);
+  }
+
   get pharmacyPosHint(): string {
     if (this.canOpenPharmacyPos) {
       return 'POS is ready for this pharmacy user.';

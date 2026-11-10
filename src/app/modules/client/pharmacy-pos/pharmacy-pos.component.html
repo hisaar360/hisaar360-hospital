@@ -30,6 +30,7 @@
                             role="option"
                             [attr.aria-selected]="i === selectedProductIndex"
                             [class.is-active]="i === selectedProductIndex"
+                            [class.is-near-expiry]="isNearExpiryProduct(product)"
                             (mousedown)="selectSearchSuggestion($event, product)"
                         >
                             <span class="storepos-search-dropdown__main">
@@ -37,6 +38,16 @@
                                 <small>
                                     <ng-container *ngIf="product.sku">SKU {{ product.sku }}</ng-container>
                                     <ng-container *ngIf="product.barcode"> · {{ product.barcode }}</ng-container>
+                                </small>
+                                <small
+                                    *ngIf="productBatchExpiryLabel(product)"
+                                    [class.is-near-expiry-text]="isNearExpiryProduct(product)"
+                                >
+                                    {{ productBatchExpiryLabel(product) }}
+                                    <em
+                                        class="storepos-expiry-badge"
+                                        [ngClass]="productExpiryBadgeClass(product)"
+                                    >{{ productExpiryLabel(product) }}</em>
                                 </small>
                             </span>
                             <span class="storepos-search-dropdown__meta">
@@ -108,6 +119,12 @@
                     data-tooltip="Process a medicine return / refund against a past sale"
                     [disabled]="saleSaving || !registerOpened" (click)="openSaleReturnPicker()">
                     <i class="fa fa-undo"></i>
+                </button>
+                <button type="button" class="storepos-icon-btn" aria-label="Random return"
+                    data-tour="pos-open-return"
+                    data-tooltip="Return any medicine without a bill, with optional replacement"
+                    [disabled]="saleSaving || !registerOpened" (click)="openRandomReturn()">
+                    <i class="fa fa-exchange"></i>
                 </button>
                 <button type="button" class="storepos-icon-btn" aria-label="Pharmacy reports"
                     data-tour="pos-reports"
@@ -292,8 +309,31 @@
             </div>
         </div>
 
+        <div class="consultation-fee-banner" *ngIf="consultationFeeDue">
+            <div class="consultation-fee-banner__main">
+                <span class="consultation-fee-banner__eyebrow">Collect payment</span>
+                <strong>{{ consultationDoctorLabel }} · Consultation fee {{ formatCurrency(consultationFeeAmount) }}</strong>
+                <small>
+                    Appointment {{ consultationAppointmentNo }}
+                    · Collect at Pharmacy
+                    <ng-container *ngIf="linkedAppointment?.feeCollectionPoint === 'opd'">
+                        (OPD fee still unpaid — patient is at the counter)
+                    </ng-container>
+                </small>
+            </div>
+            <label class="consultation-fee-banner__check">
+                <input
+                    type="checkbox"
+                    [(ngModel)]="collectConsultationFee"
+                    (ngModelChange)="onCollectConsultationFeeToggle()"
+                />
+                Include with this visit
+            </label>
+            <strong class="consultation-fee-banner__amount">{{ formatCurrency(consultationFeeAmount) }}</strong>
+        </div>
+
         <div class="storepos-main-grid">
-            <section class="storepos-cart-panel">
+            <section class="storepos-cart-panel" [class.has-unavailable]="unavailableMedicines.length > 0">
                 <div class="storepos-table-head">
                     <span>Product Name</span>
                     <span>Unit</span>
@@ -306,76 +346,110 @@
                     <span></span>
                 </div>
 
-                <div class="storepos-empty-table" *ngIf="billLines.length === 0">
-                    <i class="fa fa-shopping-cart"></i>
-                    <p>Scan, search, or open from a prescription to start billing.</p>
-                </div>
-
-                <div class="storepos-table-body" *ngIf="billLines.length">
-                    <div class="storepos-table-row" *ngFor="let line of billLines; let i = index" tabindex="0"
-                        [attr.data-kb-cart-index]="i"
-                        [class.keyboard-active]="keyboardZone === 'cart' && selectedCartIndex === i"
-                        [class.is-short]="lineIsShort(line)"
-                        (focus)="setKeyboardZone('cart', i)">
-                        <div class="storepos-product-cell">
-                            <p>{{ productDisplay(line.product) }}</p>
-                            <small>{{ line.product.sku || 'No SKU' }} · {{ line.sourceMedicineName }}</small>
-                            <small *ngIf="line.qtyBreakdown">Rx {{ line.qtyBreakdown }}</small>
-                            <small class="stock-warn" *ngIf="lineIsShort(line)">{{ stockShortageMessage(line) }}</small>
-                        </div>
-                        <span>{{ line.product.unit || 'unit' }}</span>
-                        <span>
-                            {{ line.requestedQty }}
-                            <small class="need-sub" *ngIf="line.qtyBreakdown">{{ line.qtyBreakdown }}</small>
-                        </span>
-                        <span class="storepos-stock-cell" [class.is-low]="line.availableQty < line.requestedQty">
-                            {{ formatCompactNumber(line.availableQty) }}
-                        </span>
-                        <div class="qty-stepper">
-                            <button type="button" data-kb-cart-cell (focus)="setCartCellFocus(i, 0)"
-                                (click)="decrementLineQty(i)">-</button>
-                            <input type="number" min="0" step="1" data-kb-cart-cell aria-label="Line quantity"
-                                (focus)="setCartCellFocus(i, 1)"
-                                [(ngModel)]="line.billQty" (ngModelChange)="onQtyChange(line)" />
-                            <button type="button" data-kb-cart-cell (focus)="setCartCellFocus(i, 2)"
-                                (click)="incrementLineQty(i)">+</button>
-                        </div>
-                        <input type="number" min="0" data-kb-cart-cell aria-label="Line unit price"
-                            (focus)="setCartCellFocus(i, 3)"
-                            [(ngModel)]="line.unitPrice" (ngModelChange)="onUnitPriceChange(line)" />
-                        <div class="storepos-discount-cell">
-                            <ng-container *ngIf="itemDiscountEligible(i); else discountLocked">
-                                <div class="storepos-discount-entry">
-                                    <input type="number" min="0" step="0.5" data-kb-cart-cell
-                                        [value]="lineDiscountDisplayValue(i)" (focus)="setCartCellFocus(i, 4)"
-                                        [max]="lineDiscountMaxValue(i)" title="Line discount"
-                                        aria-label="Line discount value" (paste)="$event.preventDefault()"
-                                        (input)="updateLineDiscountInput(i, $any($event.target).value)" />
-                                </div>
-                            </ng-container>
-                            <ng-template #discountLocked>
-                                <div class="storepos-discount-na">
-                                    <span>N/A</span>
-                                </div>
-                            </ng-template>
-                            <!-- <small>{{ lineDiscountHint(i) }}</small> -->
-                        </div>
-                        <strong>{{ formatCurrency(lineTotal(line)) }}</strong>
-                        <button type="button" class="storepos-line-remove" data-kb-cart-cell
-                            (focus)="setCartCellFocus(i, itemDiscountEligible(i) ? 5 : 4)" (click)="removeLine(i)">
-                            <i class="fa fa-trash"></i>
-                        </button>
+                <div class="storepos-cart-scroll">
+                    <div
+                        class="storepos-empty-table"
+                        [class.is-compact]="unavailableMedicines.length > 0"
+                        *ngIf="billLines.length === 0"
+                    >
+                        <i class="fa fa-shopping-cart"></i>
+                        <p *ngIf="unavailableMedicines.length === 0">
+                            Scan, search, or open from a prescription to start billing.
+                        </p>
+                        <p *ngIf="unavailableMedicines.length > 0">
+                            No stocked medicines in cart — see not-available list below.
+                        </p>
                     </div>
-                </div>
 
-                <div class="unavailable-panel" *ngIf="unavailableMedicines.length">
-                    <h3>Cannot dispense from this store</h3>
-                    <div *ngFor="let item of unavailableMedicines">
-                        <div>
-                            <span>{{ item.medicineName }}</span>
-                            <small>Need {{ item.requestedQty }}<ng-container *ngIf="item.qtyBreakdown"> · {{ item.qtyBreakdown }}</ng-container></small>
-                            <small>{{ item.reason }}</small>
-                            <strong>{{ item.patientMessage }}</strong>
+                    <div class="storepos-table-body" *ngIf="billLines.length">
+                        <div class="storepos-table-row" *ngFor="let line of billLines; let i = index" tabindex="0"
+                            [attr.data-kb-cart-index]="i"
+                            [class.keyboard-active]="keyboardZone === 'cart' && selectedCartIndex === i"
+                            [class.is-short]="lineIsShort(line)"
+                            (focus)="setKeyboardZone('cart', i)">
+                            <div class="storepos-product-cell">
+                                <p>{{ productDisplay(line.product) }}</p>
+                                <small>{{ line.product.sku || 'No SKU' }} · {{ line.sourceMedicineName }}</small>
+                                <small *ngIf="line.lotNumber">
+                                  Batch {{ line.lotNumber }}
+                                  <span
+                                    *ngIf="line.expiryDate"
+                                    class="pos-lot-expiry"
+                                    [class.is-blink]="line.nearExpiry"
+                                  >
+                                    · Exp {{ lineExpiryLabel(line) }}
+                                  </span>
+                                </small>
+                                <small *ngIf="line.qtyBreakdown">Rx {{ line.qtyBreakdown }}</small>
+                                <small class="stock-warn" *ngIf="lineIsShort(line)">{{ stockShortageMessage(line) }}</small>
+                            </div>
+                            <span>{{ line.product.unit || 'unit' }}</span>
+                            <span>
+                                {{ line.requestedQty }}
+                                <small class="need-sub" *ngIf="line.qtyBreakdown">{{ line.qtyBreakdown }}</small>
+                            </span>
+                            <span class="storepos-stock-cell" [class.is-low]="line.availableQty < line.requestedQty">
+                                {{ formatCompactNumber(line.availableQty) }}
+                            </span>
+                            <div class="qty-stepper">
+                                <button type="button" data-kb-cart-cell (focus)="setCartCellFocus(i, 0)"
+                                    (click)="decrementLineQty(i)">-</button>
+                                <input type="number" min="0" step="1" data-kb-cart-cell aria-label="Line quantity"
+                                    (focus)="setCartCellFocus(i, 1)"
+                                    [(ngModel)]="line.billQty" (ngModelChange)="onQtyChange(line)" />
+                                <button type="button" data-kb-cart-cell (focus)="setCartCellFocus(i, 2)"
+                                    (click)="incrementLineQty(i)">+</button>
+                            </div>
+                            <input type="number" min="0" data-kb-cart-cell aria-label="Line unit price"
+                                (focus)="setCartCellFocus(i, 3)"
+                                [(ngModel)]="line.unitPrice" (ngModelChange)="onUnitPriceChange(line)" />
+                            <div class="storepos-discount-cell">
+                                <ng-container *ngIf="itemDiscountEligible(i); else discountLocked">
+                                    <div class="storepos-discount-entry">
+                                        <input type="number" min="0" step="0.5" data-kb-cart-cell
+                                            [value]="lineDiscountDisplayValue(i)" (focus)="setCartCellFocus(i, 4)"
+                                            [max]="lineDiscountMaxValue(i)" title="Line discount"
+                                            aria-label="Line discount value" (paste)="$event.preventDefault()"
+                                            (input)="updateLineDiscountInput(i, $any($event.target).value)" />
+                                    </div>
+                                </ng-container>
+                                <ng-template #discountLocked>
+                                    <div class="storepos-discount-na">
+                                        <span>N/A</span>
+                                    </div>
+                                </ng-template>
+                            </div>
+                            <strong>{{ formatCurrency(lineTotal(line)) }}</strong>
+                            <button type="button" class="storepos-line-remove" data-kb-cart-cell
+                                (focus)="setCartCellFocus(i, itemDiscountEligible(i) ? 5 : 4)" (click)="removeLine(i)">
+                                <i class="fa fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="unavailable-panel" *ngIf="unavailableMedicines.length">
+                        <div class="unavailable-panel__head">
+                            <h3>
+                                Not available in this store
+                                <small>({{ unavailableMedicines.length }})</small>
+                            </h3>
+                            <button
+                                type="button"
+                                class="unavailable-print-btn"
+                                *ngIf="canPrintUnavailableSlip"
+                                (click)="printUnavailableSlip()"
+                            >
+                                <i class="fa fa-print"></i> Print slip
+                            </button>
+                        </div>
+                        <div class="unavailable-panel__list">
+                            <div class="unavailable-panel__item" *ngFor="let item of unavailableMedicines">
+                                <span>{{ item.medicineName }}</span>
+                                <em class="unavailable-tag">Not available</em>
+                                <small>Need {{ item.requestedQty }}<ng-container *ngIf="item.qtyBreakdown"> · {{ item.qtyBreakdown }}</ng-container></small>
+                                <small>{{ item.reason }}</small>
+                                <strong>{{ item.patientMessage }}</strong>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -425,9 +499,14 @@
 
         <div class="storepos-dock" data-tour="pos-checkout">
             <div class="dock-summary">
-                <span>Subtotal <strong>{{ formatCurrency(subtotal + totalDiscount) }}</strong></span>
-                <span>Discount <strong>{{ formatCurrency(totalDiscount) }}</strong></span>
-                <span>Total <strong>{{ formatCurrency(subtotal) }}</strong></span>
+                <span>Medicines <strong>{{ formatCurrency(subtotal) }}</strong></span>
+                <span *ngIf="consultationFeeIncluded > 0">
+                    Consultation fee <strong>{{ formatCurrency(consultationFeeIncluded) }}</strong>
+                </span>
+                <span *ngIf="totalDiscount > 0">Discount <strong>{{ formatCurrency(totalDiscount) }}</strong></span>
+                <span class="dock-summary__collect">
+                    Amount to collect <strong>{{ formatCurrency(amountToCollect) }}</strong>
+                </span>
             </div>
 
             <div class="dock-payment">
@@ -505,6 +584,36 @@
                         [class.keyboard-active]="keyboardZone === 'actions' && selectedDockIndex === 4"
                         (focus)="setKeyboardZone('actions', 4)" [disabled]="!canCheckout" (click)="checkoutCredit()">
                         Credit
+                    </button>
+                    <button
+                        type="button"
+                        class="pay-btn fee-btn"
+                        *ngIf="billLines.length === 0 && canCollectFeeOnly"
+                        [disabled]="consultationFeeCollecting"
+                        (click)="printAndCollectFeeWhenNoMeds()"
+                    >
+                        <i class="fa fa-spinner fa-spin" *ngIf="consultationFeeCollecting"></i>
+                        <i class="fa fa-money" *ngIf="!consultationFeeCollecting"></i>
+                        Collect fee &amp; print
+                    </button>
+                    <button
+                        type="button"
+                        class="pay-btn fee-btn"
+                        *ngIf="billLines.length === 0 && !canCollectFeeOnly && canPrintUnavailableSlip"
+                        (click)="printUnavailableSlip()"
+                    >
+                        <i class="fa fa-print"></i>
+                        Print slip
+                    </button>
+                    <button
+                        type="button"
+                        class="pay-btn fee-btn"
+                        *ngIf="billLines.length > 0 && canCollectFeeOnly"
+                        [disabled]="consultationFeeCollecting || saleSaving"
+                        (click)="collectConsultationFeeOnly()"
+                    >
+                        <i class="fa fa-spinner fa-spin" *ngIf="consultationFeeCollecting"></i>
+                        Collect consultation fee
                     </button>
                 </ng-container>
                 <ng-template #openRegisterDock>
@@ -663,7 +772,7 @@
                 </div>
                 <div class="history-row" *ngFor="let heldSale of heldSales">
                     <strong>{{ heldSale.holdNo }}</strong>
-                    <span>{{ heldSale.createdAt | date:'short' }}</span>
+                    <span>{{ formatPosDate(heldSale.createdAt) }}</span>
                     <span>{{ saleItemsSummary($any(heldSale)) }}</span>
                     <span class="status-pill">held</span>
                     <span>{{ formatCurrency(heldSale.total) }}</span>
@@ -696,7 +805,7 @@
                 </div>
                 <div class="history-row" *ngFor="let sale of recentSales">
                     <strong>{{ sale.invoiceNo }}</strong>
-                    <span>{{ sale.saleDate | date:'short' }}</span>
+                    <span>{{ formatPosDate(sale.saleDate) }}</span>
                     <span>{{ saleItemsSummary(sale) }}</span>
                     <span class="status-pill">{{ sale.paymentStatus }}</span>
                     <span>{{ formatCurrency(sale.total) }}</span>
@@ -718,174 +827,24 @@
     </div>
 </div>
 
-<div class="modern-modal-backdrop" *ngIf="saleReturnOpen">
-    <div class="modern-register-modal sale-return-modal">
-        <div class="modern-register-head">
-            <div class="modern-register-badge">
-                <i class="fa fa-undo"></i>
-            </div>
-            <div>
-                <strong>Return Sale</strong>
-                <span *ngIf="selectedReturnSale">Process return for {{ selectedReturnSale.invoiceNo }}</span>
-                <span *ngIf="!selectedReturnSale">Select a recent sale to return.</span>
-            </div>
-            <button type="button" class="modal-close" (click)="closeSaleReturn()">×</button>
-        </div>
+<app-pharmacy-sale-return-modal
+    [open]="saleReturnOpen"
+    [initialSaleId]="saleReturnInitialId"
+    [enablePicker]="true"
+    [storeId]="selectedStoreId"
+    [registerSessionId]="registerSession?.status === 'open' ? registerSession?._id || null : null"
+    [preferRegisterSession]="true"
+    (closed)="closeSaleReturn()"
+    (completed)="onSaleReturnCompleted($event)"
+></app-pharmacy-sale-return-modal>
 
-        <div class="modern-register-body">
-            <div class="history-loading" *ngIf="saleReturnLoading">Loading return sale...</div>
-            <div class="storepos-message warning" *ngIf="saleReturnErrorMessage">{{ saleReturnErrorMessage }}</div>
-
-            <ng-container *ngIf="!saleReturnLoading && !selectedReturnSale">
-                <div class="modern-register-field">
-                    <span>Invoice Search</span>
-                    <input type="text" [(ngModel)]="returnSaleSearch" placeholder="Search invoice number" />
-                </div>
-
-                <div class="history-table" *ngIf="returnableRecentSales.length">
-                    <div class="history-head">
-                        <span>Invoice</span>
-                        <span>Date</span>
-                        <span>Items</span>
-                        <span>Status</span>
-                        <span>Total</span>
-                        <span>Paid</span>
-                        <span>Action</span>
-                    </div>
-                    <div class="history-row" *ngFor="let sale of returnableRecentSales">
-                        <strong>{{ sale.invoiceNo }}</strong>
-                        <span>{{ sale.saleDate | date:'short' }}</span>
-                        <span>{{ saleItemsSummary(sale) }}</span>
-                        <span class="status-pill">{{ sale.status }}</span>
-                        <span>{{ formatCurrency(sale.total) }}</span>
-                        <span>{{ formatCurrency(sale.paidAmount) }}</span>
-                        <div class="history-action-cell">
-                            <button type="button" class="history-print" [disabled]="!canReturnSale(sale)"
-                                (click)="selectSaleForReturn(sale._id)">
-                                Select
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="history-loading" *ngIf="!returnableRecentSales.length">No returnable sales found.</div>
-            </ng-container>
-
-            <ng-container *ngIf="!saleReturnLoading && selectedReturnSale">
-                <div class="sale-return-summary">
-                    <div>
-                        <span>Invoice</span>
-                        <strong>{{ selectedReturnSale.invoiceNo }}</strong>
-                    </div>
-                    <div>
-                        <span>Selected Items</span>
-                        <strong>{{ selectedReturnItemsCount }}</strong>
-                    </div>
-                    <div>
-                        <span>Return Total</span>
-                        <strong>{{ formatCurrency(saleReturnEstimatedTotal) }}</strong>
-                    </div>
-                    <div>
-                        <span>Refund Limit</span>
-                        <strong>{{ formatCurrency(saleReturnRefundLimit) }}</strong>
-                    </div>
-                </div>
-
-                <div class="sale-return-toolbar" *ngIf="returnLines.length">
-                    <strong>Medicines</strong>
-                    <div>
-                        <button type="button" class="sale-return-link" (click)="returnAllSaleLines()">Return all</button>
-                        <button type="button" class="sale-return-link" (click)="clearReturnSaleQtys()">Clear</button>
-                    </div>
-                </div>
-
-                <div class="sale-return-table-wrap" *ngIf="returnLines.length">
-                    <table class="sale-return-table">
-                        <thead>
-                            <tr>
-                                <th>Item</th>
-                                <th class="text-end">Sold</th>
-                                <th class="text-end">Returned</th>
-                                <th class="text-end">Max</th>
-                                <th>Qty</th>
-                                <th class="text-end">Unit Price</th>
-                                <th class="text-end">Value</th>
-                                <th>Reason</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr *ngFor="let line of returnLines" [class.is-active]="line.qty > 0">
-                                <td class="sale-return-item">
-                                    <strong>{{ line.name }}</strong>
-                                    <small *ngIf="line.sku">{{ line.sku }}</small>
-                                </td>
-                                <td class="text-end">{{ line.soldQty }}</td>
-                                <td class="text-end">{{ line.alreadyReturnedQty }}</td>
-                                <td class="text-end">{{ line.maxQty }}</td>
-                                <td>
-                                    <input
-                                        class="sale-return-qty"
-                                        type="number"
-                                        min="0"
-                                        [max]="line.maxQty"
-                                        [ngModel]="line.qty"
-                                        (ngModelChange)="updateReturnLineQty(line, $event)"
-                                    />
-                                </td>
-                                <td class="text-end">{{ formatCurrency(line.unitPrice) }}</td>
-                                <td class="text-end fw-semibold">{{ formatCurrency(returnLineValue(line)) }}</td>
-                                <td>
-                                    <input
-                                        class="sale-return-reason"
-                                        type="text"
-                                        [(ngModel)]="line.reason"
-                                        placeholder="Optional reason"
-                                    />
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="sale-return-refund">
-                    <div class="sale-return-refund__head">
-                        <span>Refund Amount</span>
-                        <button type="button" class="sale-return-link" (click)="fillReturnRefundToLimit()">
-                            Fill max {{ formatCurrency(saleReturnRefundLimit) }}
-                        </button>
-                    </div>
-                    <input
-                        type="number"
-                        min="0"
-                        [max]="saleReturnRefundLimit"
-                        [ngModel]="returnRefundAmount"
-                        (ngModelChange)="updateReturnRefundAmount($event)"
-                    />
-                    <small>Auto-fills when you enter Qty. You can still edit it.</small>
-                </div>
-
-                <div class="modern-register-field" *ngIf="returnRefundAmount > 0">
-                    <span>Refund Method</span>
-                    <select [(ngModel)]="returnPaymentMethod">
-                        <option value="cash">Cash</option>
-                        <option value="card">Card</option>
-                        <option value="bank">Bank</option>
-                        <option value="online">Online</option>
-                        <option value="wallet">Wallet</option>
-                    </select>
-                </div>
-
-                <div class="receipt-actions">
-                    <button type="button" class="btn btn-default" (click)="closeSaleReturn()">Cancel</button>
-                    <button type="button" class="btn btn-primary" [disabled]="saleReturnSubmitting || !selectedReturnItemsCount"
-                        (click)="submitSaleReturn()">
-                        {{ saleReturnSubmitting ? 'Submitting...' : 'Complete Return' }}
-                    </button>
-                </div>
-            </ng-container>
-        </div>
-    </div>
-</div>
+<app-pharmacy-open-return-modal
+    [open]="openReturnOpen"
+    [storeId]="selectedStoreId"
+    [registerSessionId]="registerSession?.status === 'open' ? registerSession?._id || null : null"
+    (closed)="closeOpenReturn()"
+    (completed)="onOpenReturnCompleted($event)"
+></app-pharmacy-open-return-modal>
 
 <div class="modern-modal-backdrop" *ngIf="receiptPreviewOpen && receiptPreview as receipt">
     <div class="modern-register-modal receipt-modal">
@@ -895,7 +854,7 @@
             </div>
             <div>
                 <strong>Receipt Preview</strong>
-                <span>{{ receipt.reference }} · {{ receipt.saleDate | date:'short' }}</span>
+                <span>{{ receipt.reference }} · {{ formatPosDate(receipt.saleDate) }}</span>
             </div>
             <button type="button" class="modal-close" (click)="closeReceiptPreview()">×</button>
         </div>
@@ -911,7 +870,7 @@
 
                 <div class="receipt-preview-meta">
                     <div><span>Invoice</span><em class="meta-val">{{ receipt.reference }}</em></div>
-                    <div><span>Date</span><em class="meta-val">{{ receipt.saleDate | date:'short' }}</em></div>
+                    <div><span>Date</span><em class="meta-val">{{ formatPosDate(receipt.saleDate) }}</em></div>
                     <div><span>Customer</span><em class="meta-val">{{ receipt.customerName }}</em></div>
                 </div>
 
@@ -1157,3 +1116,12 @@
     </div>
   </div>
 </div>
+
+<app-pharmacy-pos-batch-picker
+  [open]="batchPickerOpen"
+  [product]="batchPickerProduct"
+  [lots]="batchPickerLots"
+  [defaultUnitPrice]="batchPickerDefaultPrice"
+  (closed)="closeBatchPicker()"
+  (selected)="onBatchPicked($event)"
+></app-pharmacy-pos-batch-picker>

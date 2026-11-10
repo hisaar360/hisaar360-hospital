@@ -1,0 +1,267 @@
+<section class="dept-cash accounts-page">
+  <div class="accounts-shell">
+    <header class="dept-cash__hero">
+      <div>
+        <h1>{{ copy.title }}</h1>
+        <p>{{ copy.blurb }}</p>
+        <p class="dept-cash__audit-link" *ngIf="department === 'opd'">
+          <a routerLink="/accounts/appointment-payments">Open OPD Fees Audit</a>
+        </p>
+        <p class="dept-cash__audit-link" *ngIf="department === 'pharmacy'">
+          <a routerLink="/accounts/appointment-payments" [queryParams]="{ channel: 'pharmacy' }">
+            Appointment fees collected here
+          </a>
+        </p>
+        <p class="dept-cash__audit-link" *ngIf="department === 'ward'">
+          <a routerLink="/ward/day-collections">Open Ward Day Collections</a>
+        </p>
+      </div>
+      <div class="dept-cash__hero-actions" *ngIf="canManage">
+        <button type="button" class="btn btn-outline-secondary" [disabled]="loading" (click)="openAddCash()">
+          Add cash
+        </button>
+        <button type="button" class="btn btn-primary" [disabled]="loading" (click)="openSettle()">
+          Settle
+        </button>
+      </div>
+    </header>
+
+    <div class="accounts-filter-card">
+      <div class="dept-cash__chips">
+        <button
+          type="button"
+          class="chip"
+          [class.active]="periodChip === 'week'"
+          (click)="applyPeriod('week')"
+        >
+          This week
+        </button>
+        <button
+          type="button"
+          class="chip"
+          [class.active]="periodChip === 'month'"
+          (click)="applyPeriod('month')"
+        >
+          This month
+        </button>
+        <button
+          type="button"
+          class="chip"
+          [class.active]="periodChip === 'custom'"
+          (click)="periodChip = 'custom'"
+        >
+          Custom
+        </button>
+      </div>
+      <div class="dept-cash__dates">
+        <label>
+          <span>From</span>
+          <input type="date" [(ngModel)]="dateFrom" name="dateFrom" />
+        </label>
+        <label>
+          <span>To</span>
+          <input type="date" [(ngModel)]="dateTo" name="dateTo" />
+        </label>
+        <div class="dept-cash__date-actions">
+          <button type="button" class="btn btn-sm btn-primary" (click)="applyCustom()">Apply</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="reload()">Refresh</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="dept-cash__error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+    <div class="dept-cash__loading" *ngIf="loading">Loading…</div>
+
+    <ng-container *ngIf="!loading">
+      <div class="dept-cash__kpis">
+        <article class="kpi" data-tone="green">
+          <p class="kpi__label">Period income</p>
+          <strong>{{ money(summary?.['periodIncome'] || 0) }}</strong>
+          <span>Cash in this period</span>
+        </article>
+        <article class="kpi" data-tone="green" *ngIf="department === 'pharmacy'">
+          <p class="kpi__label">Medicine sales</p>
+          <strong>{{ money(summary?.['medicineCollected'] || 0) }}</strong>
+          <span>POS / pharmacy payments</span>
+        </article>
+        <article class="kpi" data-tone="teal" *ngIf="department === 'pharmacy'">
+          <p class="kpi__label">Appointment fees</p>
+          <strong>{{ money(summary?.['appointmentFeesCollected'] || 0) }}</strong>
+          <span>OPD fees taken at pharmacy</span>
+        </article>
+        <article class="kpi" data-tone="red">
+          <p class="kpi__label">Period expense</p>
+          <strong>{{ money(summary?.['periodExpense'] || 0) }}</strong>
+          <span>Cash out this period</span>
+        </article>
+        <article class="kpi" data-tone="navy">
+          <p class="kpi__label">Net</p>
+          <strong>{{ money(summary?.['periodNet'] || 0) }}</strong>
+          <span>Income minus expense</span>
+        </article>
+        <article class="kpi" data-tone="teal">
+          <p class="kpi__label">Settled</p>
+          <strong>{{ money(summary?.['periodSettled'] || 0) }}</strong>
+          <span>Taken out this period</span>
+        </article>
+        <article class="kpi kpi--hero" data-tone="gold">
+          <p class="kpi__label">{{ copy.tillLabel }}</p>
+          <strong>{{ money(summary?.['cashInHand'] || 0) }}</strong>
+          <span>Cash till · settle below</span>
+        </article>
+      </div>
+
+      <div class="dept-cash__grid">
+        <section class="accounts-panel">
+          <header class="accounts-filter-head">
+            <h2>Cash movements</h2>
+          </header>
+          <div class="table-responsive" *ngIf="movements.length; else noMovements">
+            <table class="table table-sm dept-cash__table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Type</th>
+                  <th>Detail</th>
+                  <th class="num">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of movements">
+                  <td>{{ dateTime($any(row['movementAt'])) }}</td>
+                  <td>{{ sourceLabel(row) }}</td>
+                  <td>{{ row['description'] || row['referenceNo'] || '—' }}</td>
+                  <td
+                    class="num"
+                    [class.is-in]="signedAmount(row) > 0"
+                    [class.is-out]="signedAmount(row) < 0"
+                  >
+                    {{ signedAmount(row) >= 0 ? '+' : '−' }}{{ money(row['amount']) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ng-template #noMovements>
+            <p class="dept-cash__empty">No cash movements for these dates.</p>
+          </ng-template>
+        </section>
+
+        <section class="accounts-panel">
+          <header class="accounts-filter-head">
+            <h2>Settle history</h2>
+          </header>
+          <div class="table-responsive" *ngIf="settlements.length; else noSettlements">
+            <table class="table table-sm dept-cash__table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Ref</th>
+                  <th>Type</th>
+                  <th class="num">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of settlements">
+                  <td>{{ dateTime($any(row['settledAt'])) }}</td>
+                  <td>
+                    {{ row['settlementNo'] || '—' }}
+                    <div class="muted" *ngIf="settlementBreakdown(row) as split">{{ split }}</div>
+                  </td>
+                  <td
+                    [class.is-in]="row['direction'] === 'in'"
+                    [class.is-out]="row['direction'] !== 'in'"
+                  >
+                    {{ settleToLabel(row) }}
+                  </td>
+                  <td class="num">{{ money(row['amount']) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ng-template #noSettlements>
+            <p class="dept-cash__empty">
+              Use Add cash to put money in the till, or Settle when you take cash or deposit to bank.
+            </p>
+          </ng-template>
+        </section>
+      </div>
+    </ng-container>
+  </div>
+
+  <div class="dept-cash__modal" *ngIf="settleOpen" role="dialog" aria-modal="true">
+    <button type="button" class="dept-cash__scrim" (click)="closeModals()" aria-label="Close"></button>
+    <div class="dept-cash__dialog">
+      <header>
+        <h2>Settle {{ copy.title }}</h2>
+        <button type="button" class="btn btn-sm btn-link" (click)="closeModals()">Close</button>
+      </header>
+      <p>
+        Available: <strong>{{ money(summary?.['cashInHand'] || 0) }}</strong>
+      </p>
+      <p class="dept-cash__settle-split" *ngIf="department === 'pharmacy'">
+        Period split —
+        Medicine: <strong>{{ money(summary?.['medicineCollected'] || 0) }}</strong>
+        · Appointment fees:
+        <strong>{{ money(summary?.['appointmentFeesCollected'] || 0) }}</strong>
+      </p>
+      <label>
+        <span>Amount</span>
+        <input type="number" min="1" [(ngModel)]="settleForm.amount" name="settleAmt" />
+      </label>
+      <label>
+        <span>Settle to</span>
+        <select [(ngModel)]="settleForm.settleTo" name="settleTo">
+          <option value="cash">Take cash</option>
+          <option value="bank">Deposit to bank</option>
+        </select>
+      </label>
+      <label>
+        <span>Custom message</span>
+        <input type="text" maxlength="200" [(ngModel)]="settleForm.note" name="settleNote" placeholder="Optional" />
+      </label>
+      <footer>
+        <button type="button" class="btn btn-outline-secondary" (click)="closeModals()">Cancel</button>
+        <button type="button" class="btn btn-primary" [disabled]="saving" (click)="submitSettle()">
+          {{ saving ? 'Saving…' : 'Confirm settle' }}
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <div class="dept-cash__modal" *ngIf="addCashOpen" role="dialog" aria-modal="true">
+    <button type="button" class="dept-cash__scrim" (click)="closeModals()" aria-label="Close"></button>
+    <div class="dept-cash__dialog">
+      <header>
+        <h2>Add cash</h2>
+        <button type="button" class="btn btn-sm btn-link" (click)="closeModals()">Close</button>
+      </header>
+      <p>
+        Puts money into {{ copy.tillLabel }}. Current till:
+        <strong>{{ money(summary?.['cashInHand'] || 0) }}</strong>
+      </p>
+      <label>
+        <span>Amount</span>
+        <input type="number" min="1" [(ngModel)]="addCashForm.amount" name="addAmt" />
+      </label>
+      <label>
+        <span>From</span>
+        <select [(ngModel)]="addCashForm.settleTo" name="addFrom">
+          <option value="cash">Owner pocket</option>
+          <option value="bank">Bank account</option>
+        </select>
+      </label>
+      <label>
+        <span>Custom message</span>
+        <input type="text" maxlength="200" [(ngModel)]="addCashForm.note" name="addNote" placeholder="Optional" />
+      </label>
+      <footer>
+        <button type="button" class="btn btn-outline-secondary" (click)="closeModals()">Cancel</button>
+        <button type="button" class="btn btn-primary" [disabled]="saving" (click)="submitAddCash()">
+          {{ saving ? 'Saving…' : 'Confirm add cash' }}
+        </button>
+      </footer>
+    </div>
+  </div>
+</section>

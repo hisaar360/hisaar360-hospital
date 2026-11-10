@@ -50,16 +50,23 @@
         <div class="pharmacy-table-head">
           <div>
             <h2>Sale Items</h2>
-            <p>{{ current.items.length }} line items are included in this invoice.</p>
+            <p>
+              {{ current.items.length }} line items are included in this invoice.
+              <ng-container *ngIf="nearExpiryCount(current) > 0">
+                · {{ nearExpiryCount(current) }} near-expiry
+              </ng-container>
+            </p>
           </div>
         </div>
 
         <div class="card-body">
           <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table align-middle sale-items-table">
               <thead>
                 <tr>
                   <th>Product</th>
+                  <th>Batch</th>
+                  <th>Expiry</th>
                   <th>Qty</th>
                   <th>Unit Price</th>
                   <th>Discount</th>
@@ -68,10 +75,25 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let item of current.items">
+                <tr
+                  *ngFor="let item of current.items"
+                  [class.is-near-expiry]="isNearExpiryItem(item)"
+                  [class.is-expired]="expiryTone(item) === 'expired'"
+                >
                   <td>
-                    <div class="fw-semibold">{{ item.name || item.productId }}</div>
-                    <small class="text-muted">{{ item.sku || item.productId }}</small>
+                    <div class="sale-item-product">
+                      <strong>{{ item.name || item.productId }}</strong>
+                      <small>{{ item.sku || item.productId }}</small>
+                      <span *ngIf="isNearExpiryItem(item)" class="sale-near-tag">{{ expiryLabel(item) }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="sale-batch">{{ item.lotNumber || '—' }}</span>
+                  </td>
+                  <td>
+                    <span class="sale-expiry" [ngClass]="expiryBadgeClass(item)">
+                      {{ item.expiryDate ? dateShort(item.expiryDate) : '—' }}
+                    </span>
                   </td>
                   <td>{{ item.qty }}</td>
                   <td>{{ currency(item.unitPrice) }}</td>

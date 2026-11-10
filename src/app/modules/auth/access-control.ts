@@ -18,6 +18,27 @@ const DEFAULT_ROUTE_ACCESS: RouteAccess[] = [
   // Pharmacy before Accounts — Company Owner often has both; prefer Pharmacy hub.
   { path: '/pharmacy', access: ['products.read', 'sales.read', 'purchases.read', 'reports.read'] },
   { path: '/accounts/dashboard', access: ['accounts.read', 'accounts.reports.read'] },
+  {
+    path: '/accounts/pharmacy-cash',
+    access: ['accounts.cash_settlement.view', 'accounts.reports.read', 'accounts.read'],
+  },
+  {
+    path: '/accounts/ward-cash',
+    access: ['accounts.cash_settlement.view', 'accounts.reports.read', 'accounts.read'],
+  },
+  {
+    path: '/accounts/opd-cash',
+    access: ['accounts.cash_settlement.view', 'accounts.reports.read', 'accounts.read'],
+  },
+  {
+    path: '/accounts/appointment-payments',
+    access: [
+      'accounts.cash_settlement.view',
+      'accounts.reports.read',
+      'accounts.read',
+      'appointments.read',
+    ],
+  },
   { path: '/laboratory', access: ['lab_orders.read'] },
   { path: '/laboratory/catalog', access: ['lab_tests.read'] },
   { path: '/appointments', access: ['appointments.read'] },

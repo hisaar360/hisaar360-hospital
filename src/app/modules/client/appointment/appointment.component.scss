@@ -22,7 +22,7 @@
   min-height: 100vh;
   min-width: 0;
   overflow-x: hidden;
-  padding: 26px 22px 40px;
+  padding: 14px 14px 24px;
 }
 
 .appointments-shell {
@@ -46,9 +46,9 @@
 
 .page-heading {
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 
 .offline-actions {
@@ -137,18 +137,18 @@
 
 .stats-grid {
   display: grid;
-  gap: 18px;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
-  margin-bottom: 20px;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  margin-bottom: 12px;
 }
 
 .stat-card {
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   display: flex;
-  gap: 16px;
-  min-height: 82px;
-  padding: 18px 20px;
+  gap: 10px;
+  min-height: 64px;
+  padding: 10px 12px;
 }
 
 .stat-green {
@@ -172,9 +172,9 @@
   border-radius: 50%;
   display: inline-flex;
   flex: 0 0 auto;
-  height: 42px;
+  height: 34px;
   justify-content: center;
-  width: 42px;
+  width: 34px;
 }
 
 .stat-green .stat-icon {
@@ -205,14 +205,14 @@
 
 .stat-card strong {
   display: block;
-  font-size: 25px;
+  font-size: 20px;
   line-height: 1.1;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .appointment-layout {
   display: grid;
-  gap: 16px;
+  gap: 10px;
   grid-template-columns: minmax(360px, 0.88fr) minmax(580px, 1.52fr);
 }
 
@@ -223,14 +223,14 @@
 .panel {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: 0 12px 32px rgb(15 23 42 / 0.04);
-  padding: 18px;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgb(15 23 42 / 0.03);
+  padding: 10px;
 }
 
 .panel-title {
-  gap: 10px;
-  margin-bottom: 18px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .panel-title h2 {
@@ -245,15 +245,15 @@
 
 .form-step {
   color: var(--green);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .details-step {
   border-top: 1px solid var(--line);
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 8px;
+  padding-top: 8px;
 }
 
 .form-error-banner {
@@ -289,9 +289,9 @@
 .modal-grid label span {
   color: #374151;
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  margin-bottom: 6px;
+  margin-bottom: 3px;
 }
 
 .phone-search {
@@ -310,10 +310,10 @@
 .modal-grid select,
 .modal-grid textarea {
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: 6px;
   color: var(--ink);
-  font-size: 13px;
-  min-height: 40px;
+  font-size: 12px;
+  min-height: 30px;
   outline: none;
 }
 
@@ -698,21 +698,22 @@
 .selected-patient {
   background: #f8fafc;
   border: 1px solid #dbeafe;
-  border-radius: 8px;
+  border-radius: 6px;
   justify-content: space-between;
-  margin-bottom: 12px;
-  padding: 12px;
+  margin-bottom: 6px;
+  padding: 7px 10px;
 }
 
 .selected-patient button {
-  padding: 8px 12px;
+  min-height: 28px;
+  padding: 4px 10px;
 }
 
 .field-error {
   color: #dc2626;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
 .phone-search.is-invalid input,
@@ -731,53 +732,130 @@
 
 .form-grid {
   display: grid;
-  gap: 12px;
+  gap: 6px 8px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-grid > label {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  min-width: 0;
 }
 
 .form-grid input,
 .form-grid select,
 .modal-grid input,
 .modal-grid select {
-  padding: 0 12px;
+  padding: 0 8px;
   width: 100%;
+}
+
+.form-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.payment-status-row {
+  display: grid;
+  gap: 6px 8px;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.payment-status-row.has-fee-point {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.payment-status-row label {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  min-width: 0;
+}
+
+.field-hint {
+  color: #64748b;
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-row {
+  display: grid;
+  gap: 6px 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 6px;
+}
+
+.notes-row .reason-field {
+  margin-top: 0;
+}
+
+.fee-row {
+  align-items: stretch;
+  display: grid;
+  gap: 6px;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) minmax(0, 0.9fr);
+  margin: 0;
+}
+
+.fee-discount-field {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  margin: 0;
 }
 
 .consultation-fee-card {
   align-items: flex-start;
   background: linear-gradient(135deg, #e8f7f7, #f7fbff);
   border: 1px solid #b9e8e8;
-  border-radius: 8px;
+  border-radius: 6px;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  grid-column: 1 / -1;
+  gap: 2px;
   justify-content: flex-start;
-  min-height: 48px;
-  padding: 12px 14px;
+  min-height: 0;
+  padding: 5px 7px;
 }
 
 .consultation-fee-card span {
   color: #374151;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
+  line-height: 1.2;
+}
+
+.fee-input-row {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  width: 100%;
 }
 
 .consultation-fee-card .fee-input {
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  font-size: 16px;
+  border-radius: 6px;
+  flex: 1 1 auto;
+  font-size: 13px;
   font-weight: 800;
-  max-width: 180px;
-  min-height: 40px;
-  padding: 0 12px;
+  max-width: none;
+  min-height: 30px;
+  padding: 0 8px;
   width: 100%;
 }
 
 .consultation-fee-card .fee-hint {
   color: #0f766e;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
+  line-height: 1.25;
 }
 
 .consultation-fee-card .fee-hint.is-follow-up {
@@ -785,26 +863,30 @@
 }
 
 .consultation-fee-card .fee-reset {
-  align-self: flex-start;
   background: #fff;
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #334155;
   cursor: pointer;
-  font-size: 11px;
+  flex: 0 0 auto;
+  font-size: 10px;
   font-weight: 700;
-  padding: 4px 10px;
+  min-height: 28px;
+  padding: 0 8px;
+  white-space: nowrap;
 }
 
 .consultation-fee-card strong {
   color: #003E86;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
+  line-height: 1.2;
 }
 
 .net-fee-card {
   background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
   border-color: #bbf7d0;
+  justify-content: center;
 }
 
 .net-fee-card strong {
@@ -815,14 +897,14 @@
   align-items: center;
   background: #eff6ff;
   border: 1px solid #bfdbfe;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #1d4ed8;
   display: flex;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 10px 12px;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding: 6px 8px;
 }
 
 .last-visit-banner i {
@@ -832,9 +914,9 @@
 .status-hint {
   color: #019C9D;
   display: block;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  margin-top: 6px;
+  margin-top: 3px;
 }
 
 .payment-pill {
@@ -878,6 +960,38 @@
   width: 130px;
 }
 
+.fee-received-cell {
+  min-width: 110px;
+
+  strong {
+    display: block;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
+  .muted {
+    color: var(--muted);
+    font-size: 12px;
+  }
+}
+
+.fee-channel-badge {
+  background: #e8f7f7;
+  border-radius: 999px;
+  color: #003e86;
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  margin-top: 2px;
+  padding: 1px 7px;
+}
+
+.fee-channel-badge.is-pharmacy {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
 .inline-payment-select.is-paid,
 .inline-status-select.status-confirmed {
   background: #e8f7f7;
@@ -913,46 +1027,53 @@
 }
 
 .slot-row {
-  margin-top: 16px;
+  margin-top: 6px;
 }
 
-.slot-row > span {
-  color: #374151;
-  display: block;
-  font-size: 12px;
-  font-weight: 800;
+.slot-row__head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-bottom: 4px;
+}
+
+.slot-row__head > span {
+  color: #374151;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .slot-hint {
   color: #64748b;
-  display: block;
-  font-size: 12px;
-  margin-bottom: 8px;
+  display: inline;
+  font-size: 10px;
+  margin: 0;
 }
 
 .slot-empty {
   color: #64748b;
-  font-size: 13px;
-  margin: 0 0 8px;
+  font-size: 11px;
+  margin: 0 0 4px;
 }
 
+.slot-row__chips,
 .slot-row div {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 5px;
 }
 
 .slot-row button {
   background: white;
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: 6px;
   color: #0f172a;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  min-height: 36px;
-  min-width: 88px;
-  padding: 0 10px;
+  min-height: 28px;
+  min-width: 72px;
+  padding: 0 8px;
   white-space: nowrap;
 }
 
@@ -964,19 +1085,19 @@
 
 .reason-field {
   display: block;
-  margin-top: 16px;
+  margin: 0;
   position: relative;
 }
 
 .reason-field textarea {
-  min-height: 74px;
-  padding: 12px;
+  min-height: 42px;
+  padding: 6px 8px;
   resize: vertical;
   width: 100%;
 }
 
 .reason-field.compact textarea {
-  min-height: 52px;
+  min-height: 42px;
 }
 
 .reason-field small {
@@ -989,17 +1110,17 @@
 
 .form-actions {
   border-top: 1px solid var(--line);
-  gap: 12px;
+  gap: 8px;
   justify-content: space-between;
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 8px;
+  padding-top: 8px;
 }
 
 .btn-light,
 .btn-confirm {
-  border-radius: 7px;
-  min-height: 42px;
-  padding: 0 20px;
+  border-radius: 6px;
+  min-height: 32px;
+  padding: 0 12px;
 }
 
 .btn-confirm {
@@ -1470,11 +1591,15 @@
 
 @media (max-width: 900px) {
   .appointments-page {
-    padding: 18px 12px 28px;
+    padding: 12px 10px 20px;
   }
 
   .stats-grid,
-  .form-grid {
+  .form-grid,
+  .fee-row,
+  .payment-status-row,
+  .payment-status-row.has-fee-point,
+  .notes-row {
     grid-template-columns: 1fr;
   }
 
@@ -1620,9 +1745,9 @@
 .appointment-vitals-panel {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  margin-top: 12px;
-  padding: 12px 14px;
+  border-radius: 8px;
+  margin-top: 8px;
+  padding: 8px 10px;
 }
 
 .appointment-vitals-head {

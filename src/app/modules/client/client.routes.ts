@@ -42,6 +42,8 @@ import { AuditLogsComponent } from './audit-logs/audit-logs.component';
 import { AccountsPageComponent } from './accounts/accounts-page.component';
 import { DoctorPerformancePageComponent } from './accounts/doctor-performance-page.component';
 import { DepartmentPerformancePageComponent } from './accounts/department-performance-page.component';
+import { DepartmentCashSettlementsPageComponent } from './accounts/department-cash-settlements-page.component';
+import { AppointmentPaymentsPageComponent } from './accounts/appointment-payments-page.component';
 import { HelpCenterComponent } from './help/help-center.component';
 import { NotificationsPageComponent } from './notifications/notifications-page.component';
 
@@ -58,7 +60,21 @@ const BILL_MANAGE_ACCESS: AccessRequirement = {
   any: ['ledger_payments.create', 'bills.create', 'bills.update_payment'],
 };
 const ACCOUNTS_ACCESS: AccessRequirement = {
-  any: ['accounts.read', 'accounts.reports.read', 'accounts.journals.read'],
+  any: [
+    'accounts.read',
+    'accounts.reports.read',
+    'accounts.journals.read',
+    'accounts.cash_settlement.view',
+  ],
+};
+const ACCOUNTS_CASH_SETTLEMENT_ACCESS: AccessRequirement = {
+  any: [
+    'accounts.cash_settlement.view',
+    'accounts.reports.read',
+    'accounts.read',
+    'accounts.journals.create',
+    'accounts.cash_settlement.manage',
+  ],
 };
 const ACCOUNTS_JOURNAL_ACCESS = ['accounts.journals.read', 'accounts.journals.create'];
 const ACCOUNTS_RECONCILIATION_ACCESS = ['financial_reconciliation.read'];
@@ -114,6 +130,15 @@ const LAB_SETTINGS_ACCESS: AccessRequirement = {
 };
 const LAB_ACCESS = LAB_ORDER_READ_ACCESS;
 const WARD_ADMIN_ACCESS = ['ward.read'];
+const WARD_DAY_COLLECTIONS_ACCESS: AccessRequirement = {
+  any: [
+    'ward.read',
+    'ward.billing.read',
+    'ward.payments.collect',
+    'accounts.cash_settlement.view',
+    'accounts.reports.read',
+  ],
+};
 
 const wardModuleRoute = (path: string, title: string, wardModuleKey: string) => ({
   path,
@@ -281,6 +306,41 @@ export const clientRoutes: Routes = [
           title: 'Hisaar360 Hospital Management System | Department Performance',
         },
         canActivate: [roleGuard(ACCOUNTS_ACCESS)],
+      },
+      {
+        path: 'accounts/pharmacy-cash',
+        component: DepartmentCashSettlementsPageComponent,
+        data: {
+          title: 'Hisaar360 Hospital Management System | Pharmacy Settlement',
+          department: 'pharmacy',
+        },
+        canActivate: [roleGuard(ACCOUNTS_CASH_SETTLEMENT_ACCESS)],
+      },
+      {
+        path: 'accounts/ward-cash',
+        component: DepartmentCashSettlementsPageComponent,
+        data: {
+          title: 'Hisaar360 Hospital Management System | Ward Till',
+          department: 'ward',
+        },
+        canActivate: [roleGuard(ACCOUNTS_CASH_SETTLEMENT_ACCESS)],
+      },
+      {
+        path: 'accounts/opd-cash',
+        component: DepartmentCashSettlementsPageComponent,
+        data: {
+          title: 'Hisaar360 Hospital Management System | OPD Till',
+          department: 'opd',
+        },
+        canActivate: [roleGuard(ACCOUNTS_CASH_SETTLEMENT_ACCESS)],
+      },
+      {
+        path: 'accounts/appointment-payments',
+        component: AppointmentPaymentsPageComponent,
+        data: {
+          title: 'Hisaar360 Hospital Management System | Appointment Payments',
+        },
+        canActivate: [roleGuard(ACCOUNTS_CASH_SETTLEMENT_ACCESS)],
       },
       {
         path: 'payments',
@@ -504,6 +564,13 @@ export const clientRoutes: Routes = [
         canActivate: [roleGuard(LAB_ORDER_READ_ACCESS)],
       },
       {
+        path: 'laboratory/day-payments',
+        loadComponent: () =>
+          import('./laboratory/lab-day-payments-page.component').then((m) => m.LabDayPaymentsPageComponent),
+        data: { title: 'Hisaar360 Hospital Management System | Lab Day Payments' },
+        canActivate: [roleGuard(LAB_ORDER_READ_ACCESS)],
+      },
+      {
         path: 'laboratory/records',
         component: CareRecordsComponent,
         data: {
@@ -525,6 +592,15 @@ export const clientRoutes: Routes = [
           import('./ward/ward-home.component').then((m) => m.WardHomeComponent),
         data: { title: 'Hisaar360 Hospital Management System | Ward Home' },
         canActivate: [roleGuard(WARD_ADMIN_ACCESS)],
+      },
+      {
+        path: 'ward/day-collections',
+        loadComponent: () =>
+          import('./ward/ward-day-collections-page.component').then(
+            (m) => m.WardDayCollectionsPageComponent
+          ),
+        data: { title: 'Hisaar360 Hospital Management System | Ward Day Collections' },
+        canActivate: [roleGuard(WARD_DAY_COLLECTIONS_ACCESS)],
       },
       {
         path: 'ward/my-work',
@@ -762,6 +838,15 @@ export const clientRoutes: Routes = [
         redirectTo: 'pharmacy/returns/sales',
       },
       {
+        path: 'pharmacy/ledger',
+        loadComponent: () =>
+          import('./pharmacy-ledger/pharmacy-ledger.component').then(
+            (m) => m.PharmacyLedgerComponent
+          ),
+        data: { title: 'Hisaar360 Hospital Management System | Pharmacy Ledger' },
+        canActivate: [roleGuard(ACCOUNTS_CASH_SETTLEMENT_ACCESS)],
+      },
+      {
         path: 'pharmacy/payments',
         loadComponent: () =>
           import('./pharmacy-payments/pharmacy-payments.component').then(
@@ -873,6 +958,15 @@ export const clientRoutes: Routes = [
           ),
         data: { title: 'Hisaar360 Hospital Management System | Pharmacy Invoice Settings' },
         canActivate: [roleGuard({ any: ['products.read', 'company.manage', '*'] })],
+      },
+      {
+        path: 'pharmacy/settings',
+        loadComponent: () =>
+          import('./pharmacy/pharmacy-settings.component').then(
+            (m) => m.PharmacySettingsComponent
+          ),
+        data: { title: 'Hisaar360 Hospital Management System | Pharmacy Settings' },
+        canActivate: [roleGuard({ any: ['company.manage', 'products.read', '*'] })],
       },
       {
         path: 'pharmacy',

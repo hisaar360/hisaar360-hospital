@@ -1,1 +1,114 @@
 @use '../pharmacy-shared.scss';
+
+.pharmacy-summary-card .card-body {
+  padding: 14px 16px;
+}
+
+.pharmacy-summary-card .row.g-4 {
+  --bs-gutter-y: 0.65rem;
+  --bs-gutter-x: 0.85rem;
+}
+
+.pharmacy-summary-card strong {
+  color: #64748b;
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+}
+
+.pharmacy-summary-card strong + div {
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.pharmacy-table-card .table {
+  margin-bottom: 0;
+}
+
+.pharmacy-table-card .table > :not(caption) > * > * {
+  padding: 0.45rem 0.65rem;
+  vertical-align: middle;
+}
+
+.pharmacy-table-card .table thead th {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pharmacy-table-card .table tbody td {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.sale-item-product {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  min-width: 0;
+}
+
+.sale-item-product strong {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.sale-item-product small {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.sale-near-tag {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  color: #c2410c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
+.sale-batch {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sale-expiry {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+
+  &.is-near-expiry,
+  &.badge-danger.is-near-expiry {
+    color: #c2410c;
+  }
+
+  &.is-expired,
+  &.badge-danger.is-expired {
+    color: #b91c1c;
+  }
+}
+
+.sale-items-table tbody tr.is-near-expiry {
+  background: #fff8f5;
+}
+
+.sale-items-table tbody tr.is-expired {
+  background: #fff1f2;
+}
