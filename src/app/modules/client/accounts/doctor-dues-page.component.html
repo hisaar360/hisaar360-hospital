@@ -1,0 +1,161 @@
+<section class="dept-cash accounts-page dept-cash--slim">
+  <div class="accounts-shell">
+    <header class="dept-cash__hero">
+      <div>
+        <h1>Doctor Dues</h1>
+        <p>
+          Doctor share of collected consultation fees. Pay from Hospital Cash.
+        </p>
+      </div>
+      <div class="dept-cash__hero-actions">
+        <button type="button" class="btn btn-stmt" [disabled]="loading" (click)="printStatement()">
+          <i class="fa fa-print"></i> Print
+        </button>
+        <button type="button" class="btn btn-stmt btn-stmt--pdf" [disabled]="loading || pdfLoading" (click)="downloadPdf()">
+          <i class="fa fa-file-pdf-o"></i> {{ pdfLoading ? 'PDF…' : 'PDF' }}
+        </button>
+        <button type="button" class="btn btn-primary" [disabled]="loading" (click)="reload()">Refresh</button>
+      </div>
+    </header>
+
+    <div class="accounts-filter-card">
+      <div class="dept-cash__dates">
+        <label>
+          <span>From</span>
+          <input type="date" [(ngModel)]="dateFrom" name="df" />
+        </label>
+        <label>
+          <span>To</span>
+          <input type="date" [(ngModel)]="dateTo" name="dt" />
+        </label>
+        <div class="dept-cash__date-actions">
+          <button type="button" class="btn btn-sm btn-primary" (click)="reload()">Apply</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="dept-cash__error" *ngIf="errorMessage">{{ errorMessage }}</p>
+    <div class="dept-cash__loading" *ngIf="loading">Loading…</div>
+
+    <ng-container *ngIf="!loading">
+      <div class="dept-cash__kpis">
+        <article class="kpi kpi--hero" data-tone="gold">
+          <p class="kpi__label">Hospital Cash in Hand</p>
+          <strong>{{ money(hospitalCash) }}</strong>
+          <span><a routerLink="/accounts/hospital-cash">Open Hospital Settlement</a></span>
+        </article>
+        <article class="kpi" data-tone="navy">
+          <p class="kpi__label">Collected fees</p>
+          <strong>{{ money(totals['collectedTotal'] || 0) }}</strong>
+        </article>
+        <article class="kpi" data-tone="teal">
+          <p class="kpi__label">Doctor share</p>
+          <strong>{{ money(totals['doctorShareTotal'] || 0) }}</strong>
+        </article>
+        <article class="kpi" data-tone="green">
+          <p class="kpi__label">Paid to doctors</p>
+          <strong>{{ money(totals['paidTotal'] || 0) }}</strong>
+        </article>
+        <article class="kpi" data-tone="amber">
+          <p class="kpi__label">Still due</p>
+          <strong>{{ money(totals['dueTotal'] || 0) }}</strong>
+        </article>
+      </div>
+
+      <div class="doctor-fee-cards" *ngIf="items.length; else noDoctorCards">
+        <article class="doctor-fee-card" *ngFor="let row of items" [class.is-due]="($any(row['dueTotal']) || 0) > 0">
+          <header>
+            <button type="button" class="doctor-fee-card__name" (click)="toggleDoctor($any(row['doctorId']))">
+              {{ row['doctorName'] || 'Doctor' }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-primary"
+              *ngIf="canPay && ($any(row['dueTotal']) || 0) > 0"
+              [disabled]="payingId === row['doctorId']"
+              (click)="payDoctor(row)"
+            >
+              {{ payingId === row['doctorId'] ? 'Paying…' : 'Pay due' }}
+            </button>
+          </header>
+          <div class="doctor-fee-card__metrics">
+            <div>
+              <span>Collected</span>
+              <strong>{{ money(row['collectedTotal'] || 0) }}</strong>
+            </div>
+            <div>
+              <span>Share</span>
+              <strong>{{ money(row['doctorShareTotal'] || 0) }}</strong>
+            </div>
+            <div>
+              <span>Paid</span>
+              <strong>{{ money(row['paidTotal'] || 0) }}</strong>
+            </div>
+            <div class="is-due-metric">
+              <span>Due</span>
+              <strong>{{ money(row['dueTotal'] || 0) }}</strong>
+            </div>
+          </div>
+          <div class="doctor-fee-card__lines" *ngIf="expandedDoctorId === row['doctorId']">
+            <table class="table table-sm mb-0">
+              <thead>
+                <tr>
+                  <th>Appt</th>
+                  <th>Patient</th>
+                  <th class="num">Fee</th>
+                  <th class="num">Share %</th>
+                  <th class="num">Doctor</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let line of $any(row['lines']) || []">
+                  <td>{{ line.appointmentNo }}</td>
+                  <td>{{ line.patientName }}</td>
+                  <td class="num">{{ money(line.feeAmountCollected) }}</td>
+                  <td class="num">{{ line.doctorSharePercent }}%</td>
+                  <td class="num">{{ money(line.doctorShareAmount) }}</td>
+                  <td>{{ line.due ? 'Due' : 'Paid' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+      <ng-template #noDoctorCards>
+        <div class="accounts-panel">
+          <p class="dept-cash__empty">No collected fees with doctor share in this period.</p>
+        </div>
+      </ng-template>
+
+      <div class="accounts-panel">
+        <div class="accounts-filter-head"><h2>Payout history</h2></div>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Payout #</th>
+                <th>Doctor</th>
+                <th class="num">Amount</th>
+                <th>By</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of payouts">
+                <td>{{ dateTime($any(row['paidAt'])) }}</td>
+                <td>{{ row['payoutNo'] }}</td>
+                <td>{{ row['doctorName'] }}</td>
+                <td class="num">{{ money(row['amount'] || 0) }}</td>
+                <td>{{ row['createdByName'] || '—' }}</td>
+              </tr>
+              <tr *ngIf="!payouts.length">
+                <td colspan="5" class="muted">No payouts in this period</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </ng-container>
+  </div>
+</section>

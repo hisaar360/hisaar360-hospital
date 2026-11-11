@@ -80,8 +80,12 @@ export class GynaeWomensHealthPrintPageComponent implements OnChanges {
 
   ngOnChanges(): void {
     this.activeMode = this.preview.gynaeMode || 'antenatal';
-    this.contactPhoneValue = resolveGynaePrintContactPhone(this.preview.prescriptionFooterLines);
-    this.contactEmailValue = resolveGynaePrintContactEmail(this.preview.prescriptionFooterLines);
+    this.contactPhoneValue =
+      String(this.preview?.contactPhone || '').trim() ||
+      resolveGynaePrintContactPhone(this.preview.prescriptionFooterLines);
+    this.contactEmailValue =
+      String(this.preview?.contactEmail || '').trim() ||
+      resolveGynaePrintContactEmail(this.preview.prescriptionFooterLines);
     this.doctorSpecialtyLabel = String(this.preview.doctorSpecialty || '').trim();
     this.doctorTitleLabel = String(
       this.preview.doctorTitleEnglish || this.doctorSpecialtyLabel || ''

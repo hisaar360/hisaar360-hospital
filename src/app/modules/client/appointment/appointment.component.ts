@@ -119,14 +119,19 @@ export class AppointmentComponent implements OnInit, OnDestroy {
   readonly appointmentPaymentOptions: Array<NonNullable<Appointment['paymentStatus']>> = ['unpaid', 'paid'];
 
   /**
-   * Pharmacy Settlement collection is only for cashiers with sales.create.
-   * OPD reception must not mark Paid at Pharmacy (corruption / wrong till).
+   * Mark Paid at Pharmacy Settlement — pharmacy cashiers only (sales.create).
+   * Reception may route unpaid fees to Pharmacy, but must not cash them into Pharmacy Till.
    */
   get canCollectAppointmentFeeAtPharmacy(): boolean {
     return (
       isPharmacyModuleEnabled() &&
       (this.backend.hasPermission('sales.create') || this.backend.hasPermission('*'))
     );
+  }
+
+  /** Reception/OPD may choose Pharmacy as the unpaid collection destination. */
+  get canRouteAppointmentFeeToPharmacy(): boolean {
+    return this.showFeeCollectionPoint;
   }
 
   /** Show collect-at control when clinical + pharmacy modules are on (not pharmacy-only). */
@@ -954,7 +959,18 @@ export class AppointmentComponent implements OnInit, OnDestroy {
       this.normalizeClockTime(value.endTime) ||
       (startTime ? this.addMinutesToTime(startTime, this.selectedSlotDurationMinutes) : '');
     const selectedDoctor = this.findDoctorByUserId(value.doctorId);
-    const paymentStatus = value.paymentStatus || 'unpaid';
+    let paymentStatus = value.paymentStatus || 'unpaid';
+    const feeCollectionPoint = this.resolveFeeCollectionPoint(
+      String(value.feeCollectionPoint || ''),
+    );
+    // Reception may route unpaid fees to Pharmacy, but cannot cash Paid into Pharmacy Till.
+    if (
+      feeCollectionPoint === 'pharmacy' &&
+      paymentStatus === 'paid' &&
+      !this.canCollectAppointmentFeeAtPharmacy
+    ) {
+      paymentStatus = 'unpaid';
+    }
     const consultationFee = Number(value.consultationFee || selectedDoctor?.consultationFee || 0);
     const discount = Number(value.discount || 0);
     const discountReason = String(value.discountReason || '').trim();
@@ -975,11 +991,7 @@ export class AppointmentComponent implements OnInit, OnDestroy {
       discount,
       discountReason: discount > 0 ? discountReason : undefined,
       paymentStatus,
-      feeCollectionPoint:
-        this.canCollectAppointmentFeeAtPharmacy &&
-        String(value.feeCollectionPoint || '').toLowerCase() === 'pharmacy'
-          ? 'pharmacy'
-          : 'opd',
+      feeCollectionPoint,
       visitType: this.visitType || 'Consultation',
       status: paymentStatus === 'paid' ? 'confirmed' : value.status || 'pending',
       notes: value.notes,
@@ -1066,10 +1078,7 @@ export class AppointmentComponent implements OnInit, OnDestroy {
       discount: appointment.discount ?? 0,
       discountReason: appointment.discountReason || '',
       paymentStatus: appointment.paymentStatus || 'unpaid',
-      feeCollectionPoint:
-        this.canCollectAppointmentFeeAtPharmacy && appointment.feeCollectionPoint === 'pharmacy'
-          ? 'pharmacy'
-          : 'opd',
+      feeCollectionPoint: appointment.feeCollectionPoint === 'pharmacy' ? 'pharmacy' : 'opd',
       status: appointment.status,
       notes: appointment.notes || '',
       vitals: this.extractDefaultVitals(appointment.vitals || {}),
@@ -1416,12 +1425,20 @@ export class AppointmentComponent implements OnInit, OnDestroy {
 
   onPaymentStatusChange(): void {
     const paymentStatus = this.appointmentForm.value.paymentStatus;
+    const feePoint = String(this.appointmentForm.value.feeCollectionPoint || '').toLowerCase();
 
-    if (!this.canCollectAppointmentFeeAtPharmacy) {
-      this.appointmentForm.patchValue({ feeCollectionPoint: 'opd' }, { emitEvent: false });
+    // Reception can keep Pharmacy as destination while Unpaid; Paid@Pharmacy is cashiers only.
+    if (
+      paymentStatus === 'paid' &&
+      feePoint === 'pharmacy' &&
+      !this.canCollectAppointmentFeeAtPharmacy
+    ) {
+      this.appointmentForm.patchValue({ paymentStatus: 'unpaid' }, { emitEvent: false });
+      this.toastr.info('Pharmacy users collect Paid at Pharmacy Settlement. Keep Unpaid to route fee there.');
     }
 
-    if (paymentStatus === 'paid') {
+    const nextPayment = this.appointmentForm.value.paymentStatus;
+    if (nextPayment === 'paid') {
       this.appointmentForm.patchValue({ status: 'confirmed' });
       return;
     }
@@ -1432,9 +1449,31 @@ export class AppointmentComponent implements OnInit, OnDestroy {
   }
 
   onFeeCollectionPointChange(): void {
-    if (!this.canCollectAppointmentFeeAtPharmacy) {
+    const feePoint = String(this.appointmentForm.value.feeCollectionPoint || '').toLowerCase();
+    const paymentStatus = this.appointmentForm.value.paymentStatus;
+
+    if (feePoint === 'pharmacy' && !this.canRouteAppointmentFeeToPharmacy) {
       this.appointmentForm.patchValue({ feeCollectionPoint: 'opd' }, { emitEvent: false });
+      return;
     }
+
+    if (
+      feePoint === 'pharmacy' &&
+      paymentStatus === 'paid' &&
+      !this.canCollectAppointmentFeeAtPharmacy
+    ) {
+      this.appointmentForm.patchValue({ paymentStatus: 'unpaid', status: 'pending' }, { emitEvent: false });
+      this.toastr.info('Fee will stay Unpaid until Pharmacy Settlement collects it.');
+    }
+  }
+
+  private resolveFeeCollectionPoint(rawPoint: string): 'opd' | 'pharmacy' {
+    const point = String(rawPoint || '').toLowerCase();
+    // Unpaid routing to Pharmacy is allowed for reception; Paid@Pharmacy is gated on submit.
+    if (point === 'pharmacy' && this.canRouteAppointmentFeeToPharmacy) {
+      return 'pharmacy';
+    }
+    return 'opd';
   }
 
   get currencyLabel(): string {
@@ -1469,12 +1508,27 @@ export class AppointmentComponent implements OnInit, OnDestroy {
 
   feeReceivedByLabel(appointment: Appointment): string {
     const user = appointment.feeReceivedByUser;
-    const name = String(user?.name || user?.fullName || '').trim();
+    const name = String(
+      appointment.feeReceivedByName ||
+        user?.name ||
+        user?.fullName ||
+        (appointment as Appointment & { receivedByName?: string }).receivedByName ||
+        '',
+    ).trim();
     return name;
   }
 
   feeReceivedChannelLabel(appointment: Appointment): string {
-    return appointment.feeReceivedChannel === 'pharmacy' ? 'Pharmacy' : 'OPD';
+    if (appointment.feeReceivedChannel === 'pharmacy') {
+      return 'Pharmacy';
+    }
+    if (appointment.feeReceivedChannel === 'opd') {
+      return 'OPD';
+    }
+    if (appointment.paymentStatus === 'paid') {
+      return appointment.feeCollectionPoint === 'pharmacy' ? 'Pharmacy' : 'OPD';
+    }
+    return 'OPD';
   }
 
   paymentStatusLabel(value?: string | null): string {

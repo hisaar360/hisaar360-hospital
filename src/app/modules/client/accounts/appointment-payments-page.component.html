@@ -5,7 +5,7 @@
         <h1>{{ pharmacyMode ? 'Appointment fees (Pharmacy)' : 'OPD Fees Audit' }}</h1>
         <p *ngIf="!pharmacyMode">
           Day-wise OPD consultation fee audit by doctor. Fees collected at reception go to the
-          <a routerLink="/accounts/opd-cash">OPD Till</a>; fees collected at pharmacy go to the
+          <a routerLink="/accounts/opd-cash">OPD Settlement</a>; fees collected at pharmacy go to the
           <a routerLink="/accounts/pharmacy-cash">Pharmacy Settlement</a> (separate from medicine sales).
         </p>
         <p *ngIf="pharmacyMode">
@@ -15,6 +15,14 @@
           (separate from medicine sales). Use Status
           <strong>Due at pharmacy</strong> only for unpaid queue.
         </p>
+      </div>
+      <div class="appt-pay__hero-actions">
+        <button type="button" class="btn btn-stmt" [disabled]="loading" (click)="printStatement()">
+          <i class="fa fa-print"></i> Print
+        </button>
+        <button type="button" class="btn btn-stmt btn-stmt--pdf" [disabled]="loading || pdfLoading" (click)="downloadPdf()">
+          <i class="fa fa-file-pdf-o"></i> {{ pdfLoading ? 'PDF…' : 'PDF' }}
+        </button>
       </div>
     </header>
 
@@ -67,6 +75,47 @@
             <button type="button" class="btn btn-sm btn-outline-secondary" (click)="setWeek()">This week</button>
             <button type="button" class="btn btn-sm btn-primary" (click)="reload()">Apply</button>
           </div>
+        </div>
+      </div>
+
+      <div class="appt-pay__kpis appt-pay__holding" *ngIf="!pharmacyMode || holdingTotals.pharmacy || holdingTotals.hospital">
+        <article class="kpi--teal">
+          <span>With Pharmacy counters</span>
+          <strong>{{ money(holdingTotals.pharmacy) }}</strong>
+        </article>
+        <article class="kpi--amber" *ngIf="!pharmacyMode">
+          <span>With OPD / appointment staff</span>
+          <strong>{{ money(holdingTotals.opd) }}</strong>
+        </article>
+        <article class="kpi--green">
+          <span>Already in Hospital Cash</span>
+          <strong>{{ money(holdingTotals.hospital) }}</strong>
+        </article>
+      </div>
+
+      <div class="accounts-panel" *ngIf="collectorHoldings.length">
+        <header class="accounts-filter-head">
+          <h2>Unsettled cash by collector</h2>
+        </header>
+        <div class="table-responsive">
+          <table class="table table-sm appt-pay__table">
+            <thead>
+              <tr>
+                <th>Received by</th>
+                <th>Channel</th>
+                <th class="num">Patients</th>
+                <th class="num">Amount held</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of collectorHoldings">
+                <td><strong>{{ row.name }}</strong></td>
+                <td>{{ row.channel === 'pharmacy' ? 'Pharmacy' : 'OPD' }}</td>
+                <td class="num">{{ row.count }}</td>
+                <td class="num">{{ money(row.amount) }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 

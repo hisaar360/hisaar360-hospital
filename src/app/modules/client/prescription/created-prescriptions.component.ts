@@ -37,14 +37,26 @@ import {
   SpecialtyKey,
   specialtyDisplayName,
 } from '../clinical-workspace';
-import { resolvePrintSlotDose } from './medicine-instruction-formatter';
+import {
+  resolveMealFoodLabel,
+  resolvePrintInstructionLabel,
+  resolvePrintSlotDose,
+} from './medicine-instruction-formatter';
 import {
   buildClinicalRxPrintPages,
   ClinicalRxPrintPage,
 } from './clinical-rx-print-pages';
 import {
+  normalizePrescriptionPrintCopy,
+  resolvePrintCopyValue,
+} from './prescription-print-copy';
+import {
   DEFAULT_PRESCRIPTION_STYLE,
+  PrescriptionCustomSection,
+  PrescriptionLayoutSection,
   PrescriptionStyleSettings,
+  normalizePrescriptionCustomSections,
+  normalizePrescriptionLayout,
   normalizePrescriptionStyle,
   prescriptionStyleToCssVars,
   splitPrescriptionNoteLines,
@@ -104,6 +116,9 @@ type CreatedPrescriptionPreviewData = {
   doctorTitleUrdu: string;
   doctorSpecialty?: string;
   clinicTagline?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  rxTitle?: string;
   visitType?: string;
   hospitalName: string;
   hospitalNameUrdu: string;
@@ -141,6 +156,9 @@ type CreatedPrescriptionPreviewData = {
   patientBloodGroup: string;
   prescriptionStyle: PrescriptionStyleSettings;
   prescriptionStyleCssVars: Record<string, string>;
+  styleCssVars?: Record<string, string>;
+  layout?: PrescriptionLayoutSection[];
+  customSections?: PrescriptionCustomSection[];
 };
 
 type DoseSlot = 'morning' | 'noon' | 'evening' | 'night';
@@ -185,6 +203,9 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
   readonly prescriptionTemplates: Array<{ id: PrescriptionTemplate; name: string }> = [
     { id: 'classic', name: 'Classic' },
     { id: 'clinical-blue', name: 'Clinical Blue' },
+    { id: 'gynae-clinical', name: 'Gynae Theme 1 · Clinical Teal' },
+    { id: 'gynae-womens-health', name: "Gynae Theme 2 · Women's Health" },
+    { id: 'gynae-modern', name: 'Gynae Theme 3 · Modern Purple' },
     { id: 'minimal-teal', name: 'Structure B · Green' },
     { id: 'compact-mono', name: 'Structure C · Purple' },
   ];
@@ -577,19 +598,27 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
   }
 
   printMedicineDensityClass(medicineCount: number): string {
-    if (medicineCount >= 8) {
+    if (medicineCount >= 14) {
       return 'medicine-density-ultra';
     }
 
-    if (medicineCount >= 6) {
+    if (medicineCount >= 10) {
       return 'medicine-density-dense';
     }
 
-    if (medicineCount >= 4) {
+    if (medicineCount >= 7) {
       return 'medicine-density-compact';
     }
 
     return 'medicine-density-normal';
+  }
+
+  mealFoodLabel(medicine: Record<string, unknown> | null | undefined): { en: string; ur: string } {
+    return resolveMealFoodLabel(medicine);
+  }
+
+  instructionLabel(medicine: Record<string, unknown> | null | undefined): { en: string; ur: string } {
+    return resolvePrintInstructionLabel(medicine);
   }
 
   trackHistoryGroup(_index: number, group: { dateKey: string }): string {
@@ -716,14 +745,23 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
     const vitals = this.safeStringRecord(prescription.vitals);
     const hospitalName = hospital?.name || 'MediLink City Care Hospital';
     const hospitalAddress = this.hospitalAddressLine(hospital);
-    const hospitalLogoUrl = this.safeHospitalLogoUrl(hospital?.logoUrl);
-    const doctorDisplayName = prescription.doctor?.name || this.doctorName(doctor);
-    const doctorQualification =
+    const hospitalLogoUrl = this.resolveHospitalLogoUrl(hospital);
+    const printCopy = normalizePrescriptionPrintCopy(doctor?.prescriptionPrintCopy || null);
+    const doctorDisplayName = resolvePrintCopyValue(
+      printCopy.doctorDisplayName,
+      prescription.doctor?.name || this.doctorName(doctor)
+    );
+    const doctorQualification = resolvePrintCopyValue(
+      printCopy.qualification,
       doctor?.qualification ||
-      (doctor?.specialization && !/consultant|physician/i.test(doctor.specialization)
-        ? doctor.specialization
-        : 'M.B.B.S., F.C.P.S.');
-    const doctorSpecialty = String(doctor?.specialization || '').trim();
+        (doctor?.specialization && !/consultant|physician/i.test(doctor.specialization)
+          ? doctor.specialization
+          : 'M.B.B.S., F.C.P.S.')
+    );
+    const doctorSpecialty = resolvePrintCopyValue(
+      printCopy.specialtyTitle,
+      String(doctor?.specialization || '').trim()
+    );
     const specialtyPreview = this.resolveViewSpecialtyPreview(prescription, doctor);
     const doctorTitleEnglish = doctorSpecialty
       ? doctorSpecialty
@@ -735,20 +773,34 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
       : specialtyPreview.specialtySection === 'gynae'
         ? 'کنسلٹنٹ گائناکالوجسٹ اینڈ اوبسٹٹریشن'
         : formatUrduDoctorTitle();
-    const clinicTagline = String(settings.contactLine || '').trim();
+    const clinicTagline = resolvePrintCopyValue(
+      printCopy.clinicTagline,
+      String(settings.contactLine || '').trim()
+    );
+    const contactPhone = resolvePrintCopyValue(printCopy.contactPhone, '');
+    const contactEmail = resolvePrintCopyValue(printCopy.contactEmail, '');
+    const rxTitle = resolvePrintCopyValue(printCopy.rxTitle, 'PRESCRIPTION', 'PRESCRIPTION');
+    const hospitalDisplayName = resolvePrintCopyValue(
+      printCopy.hospitalLine,
+      formatEnglishOrganizationName(hospitalName) || hospitalName
+    );
     const visitType = String(prescription.visitType || 'opd').trim().toUpperCase() || 'OPD';
     const medicines = (prescription.medicines || []).map((medicine) => ({ ...medicine }));
     const patientNote =
-      prescription.specialtySection === 'gynae'
+      specialtyPreview.specialtySection === 'gynae'
         ? resolveGynaePatientNote(
             {
               advice: prescription.advice,
+              history: prescription.history,
+              examination: prescription.examination,
+              chiefComplaint: prescription.chiefComplaint,
+              diagnosis: prescription.diagnosis,
             },
             (prescription.specialtyData || {}) as Record<string, unknown>
           )
         : String(prescription.advice || '').trim();
     const gynaeConsultationRows =
-      prescription.specialtySection === 'gynae'
+      specialtyPreview.specialtySection === 'gynae'
         ? resolveGynaeConsultationStripRows({
             chiefComplaint: prescription.chiefComplaint,
             history: prescription.history,
@@ -761,6 +813,9 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
       logoScale: settings.logoScale,
       ...(doctor?.prescriptionStyle || {}),
     });
+    const styleCssVars = prescriptionStyleToCssVars(prescriptionStyle);
+    const layout = normalizePrescriptionLayout(doctor?.prescriptionLayout as PrescriptionLayoutSection[]);
+    const customSections = normalizePrescriptionCustomSections(doctor?.prescriptionCustomSections || []);
 
     return {
       template: this.resolvePrescriptionTemplate(prescription, fallbackTemplate),
@@ -780,15 +835,19 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
       doctorTitleUrdu,
       doctorSpecialty,
       clinicTagline,
+      contactPhone,
+      contactEmail,
+      rxTitle,
       visitType,
-      hospitalName: formatEnglishOrganizationName(hospitalName) || hospitalName,
+      hospitalName: hospitalDisplayName,
       hospitalNameUrdu:
         formatUrduOrganizationName(hospitalName, hospital?.nameUrdu) ||
         transliterateLatinToUrdu(hospitalName),
       hospitalAddress: formatEnglishAddress(hospitalAddress),
       hospitalAddressUrdu: formatUrduAddress(hospitalAddress) || formatEnglishAddress(hospitalAddress),
       hospitalLogoUrl,
-      showHospitalLogo: settings.showLogo !== false && Boolean(hospitalLogoUrl),
+      // Always prefer hospital logo on Rx when available (Settings → Hospital logo).
+      showHospitalLogo: Boolean(hospitalLogoUrl),
       hospitalLogoScale: prescriptionStyle.logoScale || settings.logoScale,
       prescriptionRevisionNote: settings.revisionNote || '* Rx to be revised after Reports.',
       prescriptionFollowUpLine:
@@ -832,7 +891,10 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
       gynaeMode: normalizeGynaeConsultMode((prescription.specialtyData || {})['gynaeMode']),
       patientBloodGroup: patient.bloodGroup || '-',
       prescriptionStyle,
-      prescriptionStyleCssVars: prescriptionStyleToCssVars(prescriptionStyle),
+      prescriptionStyleCssVars: styleCssVars,
+      styleCssVars,
+      layout,
+      customSections,
       clinicalPages: buildClinicalRxPrintPages({
         medicines,
         specialtySection: specialtyPreview.specialtySection,
@@ -955,12 +1017,13 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
     const doctorTemplate = doctor?.prescriptionTemplate;
     const specialtySection = (prescription?.specialtySection || '') as SpecialtyTemplateKey | '';
 
-    if (this.isPrescriptionTemplate(savedTemplate)) {
-      return normalizeGynaePrescriptionTemplate(savedTemplate, specialtySection);
+    // Prefer doctor's current Prescription Studio design for pharmacy / reprints.
+    if (this.isPrescriptionTemplate(doctorTemplate)) {
+      return normalizeGynaePrescriptionTemplate(doctorTemplate, specialtySection);
     }
 
-    if (this.isPrescriptionTemplate(doctorTemplate) && doctorTemplate !== 'classic') {
-      return normalizeGynaePrescriptionTemplate(doctorTemplate, specialtySection);
+    if (this.isPrescriptionTemplate(savedTemplate)) {
+      return normalizeGynaePrescriptionTemplate(savedTemplate, specialtySection);
     }
 
     if (this.isPrescriptionTemplate(fallbackTemplate)) {
@@ -1005,6 +1068,16 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
         this.currentHospitalId = user.hospitalId || this.currentHospitalId;
         this.currentHospital = user.hospital || this.currentHospital;
         this.refreshOpenViewPreview();
+
+        if (this.currentHospitalId && this.backend.hasPermission('hospitals.read')) {
+          this.backend.getHospital(this.currentHospitalId).subscribe({
+            next: (hospital) => {
+              this.currentHospital = hospital;
+              this.refreshOpenViewPreview();
+            },
+            error: () => undefined,
+          });
+        }
       },
       error: () => undefined,
     });
@@ -1265,7 +1338,32 @@ export class CreatedPrescriptionsComponent implements OnInit, OnDestroy {
       return '';
     }
 
-    return resolveAssetUrl(logoUrl.startsWith('data:image/') && logoUrl.length > 1000000 ? '' : logoUrl);
+    if (logoUrl.startsWith('data:image/') && logoUrl.length > 1000000) {
+      return '';
+    }
+
+    return resolveAssetUrl(logoUrl);
+  }
+
+  private resolveHospitalLogoUrl(hospital: Hospital | null | undefined): string {
+    if (!hospital) {
+      return '';
+    }
+
+    const record = hospital as Hospital & {
+      logo?: string;
+      logoPath?: string;
+      hospitalLogo?: string;
+      logoURL?: string;
+    };
+
+    return (
+      this.safeHospitalLogoUrl(record.logoUrl) ||
+      this.safeHospitalLogoUrl(record.logo) ||
+      this.safeHospitalLogoUrl(record.logoPath) ||
+      this.safeHospitalLogoUrl(record.hospitalLogo) ||
+      this.safeHospitalLogoUrl(record.logoURL)
+    );
   }
 
   private formatVitalLabel(key: string): string {

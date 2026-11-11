@@ -16,10 +16,10 @@
                         <h2>Doctor Information</h2>
                     </div>
 
-                    <div class="body">
-                        <form [formGroup]="doctorForm" (ngSubmit)="submitDoctor()">
-                            <div class="row clearfix">
-                                <div class="col-md-12 form-group">
+                    <div class="body doctor-form-body">
+                        <form class="doctor-form" [formGroup]="doctorForm" (ngSubmit)="submitDoctor()">
+                            <div class="doctor-form-top">
+                                <div class="doctor-photo-col">
                                     <app-profile-photo-field
                                         label="Doctor Photo"
                                         [currentUrl]="displayPhotoUrl"
@@ -40,6 +40,7 @@
                                     </button>
                                 </div>
 
+                                <div class="row clearfix doctor-form-grid">
                                 <div class="col-md-4 form-group" *ngIf="canSelectHospital && !currentHospitalId">
                                     <label>Hospital</label>
                                     <select class="form-control" formControlName="hospitalId"
@@ -50,7 +51,7 @@
                                         </option>
                                     </select>
 
-                                    <small class="text-danger"
+                                    <small class="text-danger form-hint"
                                         *ngIf="doctorForm.get('hospitalId')?.touched && doctorForm.get('hospitalId')?.invalid">
                                         Hospital is required
                                     </small>
@@ -60,7 +61,7 @@
                                     <label>Name</label>
                                     <input class="form-control" formControlName="name" placeholder="Dr. Ayesha Khan">
 
-                                    <small class="text-danger"
+                                    <small class="text-danger form-hint"
                                         *ngIf="doctorForm.get('name')?.touched && doctorForm.get('name')?.invalid">
                                         Name is required
                                     </small>
@@ -79,8 +80,8 @@
                                             <i class="fa fa-language"></i>
                                         </button>
                                     </div>
-                                    <small class="text-muted">
-                                        The Urdu name fills automatically as you type the English name. You can also edit the spelling manually.
+                                    <small class="text-muted form-hint">
+                                        Auto-fills from English name; edit spelling if needed.
                                     </small>
                                 </div>
 
@@ -89,7 +90,7 @@
                                     <input class="form-control" formControlName="email"
                                         placeholder="doctor@example.com">
 
-                                    <small class="text-danger"
+                                    <small class="text-danger form-hint"
                                         *ngIf="doctorForm.get('email')?.touched && doctorForm.get('email')?.invalid">
                                         Valid email is required
                                     </small>
@@ -99,12 +100,12 @@
                                     <label>Password</label>
                                     <input class="form-control" type="password" formControlName="password">
 
-                                    <small class="text-danger"
+                                    <small class="text-danger form-hint"
                                         *ngIf="doctorForm.get('password')?.touched && doctorForm.get('password')?.invalid">
                                         Password minimum 8 characters required
                                     </small>
-                                    <small class="text-muted" *ngIf="editingDoctor">
-                                        Leave blank while editing to keep the existing password.
+                                    <small class="text-muted form-hint" *ngIf="editingDoctor">
+                                        Leave blank to keep existing password.
                                     </small>
                                 </div>
 
@@ -145,13 +146,16 @@
                                         </div>
                                     </div>
 
-                                    <small class="text-danger"
+                                    <small class="text-danger form-hint"
                                         *ngIf="doctorForm.get('clinicalDepartment')?.touched && doctorForm.get('clinicalDepartment')?.invalid">
                                         Department is required
                                     </small>
                                 </div>
+                                </div>
+                            </div>
 
-                                <div class="col-md-4 form-group" *ngIf="can('departments.read')">
+                            <div class="row clearfix doctor-form-grid">
+                                <div class="col-md-6 form-group" *ngIf="can('departments.read')">
                                     <label>Hospital Unit</label>
                                     <select class="form-control" formControlName="departmentId">
                                         <option value="">Select hospital unit (optional)</option>
@@ -159,18 +163,17 @@
                                             {{ department.name }}
                                         </option>
                                     </select>
-                                    <small class="text-muted d-block">
-                                        Internal ward / unit mapping.
-                                        <a routerLink="/departments">Manage units in Departments</a>
+                                    <small class="text-muted form-hint d-block">
+                                        Ward / unit mapping.
+                                        <a routerLink="/departments">Manage units</a>
                                     </small>
-                                    <small class="text-warning d-block" *ngIf="departments.length === 0">
-                                        No units yet. Open
-                                        <a routerLink="/departments">Departments</a>
-                                        to add OPD, Emergency, Ward, etc.
+                                    <small class="text-warning form-hint d-block" *ngIf="departments.length === 0">
+                                        No units yet —
+                                        <a routerLink="/departments">add in Departments</a>.
                                     </small>
                                 </div>
 
-                                <div class="col-md-4 form-group catalog-select-field">
+                                <div class="col-md-6 form-group catalog-select-field">
                                     <label>Designation <span class="text-danger">*</span></label>
                                     <div class="catalog-select">
                                         <button type="button" class="catalog-select-trigger form-control"
@@ -222,15 +225,6 @@
 
                                 <div class="col-md-6 form-group catalog-select-field">
                                     <label>Specialization <span class="text-danger">*</span></label>
-                                    <div class="catalog-chips" *ngIf="selectedSpecializations.length">
-                                        <span class="catalog-chip" *ngFor="let chip of selectedSpecializations">
-                                            {{ chip }}
-                                            <button type="button" class="catalog-chip-remove"
-                                                (click)="removeSpecialization(chip)" aria-label="Remove">
-                                                <i class="fa fa-times"></i>
-                                            </button>
-                                        </span>
-                                    </div>
                                     <div class="catalog-select">
                                         <button type="button" class="catalog-select-trigger form-control"
                                             [class.is-open]="specializationDropdownOpen"
@@ -275,8 +269,17 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="catalog-chips" *ngIf="selectedSpecializations.length">
+                                        <span class="catalog-chip" *ngFor="let chip of selectedSpecializations">
+                                            {{ chip }}
+                                            <button type="button" class="catalog-chip-remove"
+                                                (click)="removeSpecialization(chip)" aria-label="Remove">
+                                                <i class="fa fa-times"></i>
+                                            </button>
+                                        </span>
+                                    </div>
 
-                                    <small class="text-danger"
+                                    <small class="text-danger form-hint"
                                         *ngIf="clinicalMultiTouched && selectedSpecializations.length === 0">
                                         At least one specialization is required
                                     </small>
@@ -284,15 +287,6 @@
 
                                 <div class="col-md-6 form-group catalog-select-field">
                                     <label>Qualification <span class="text-danger">*</span></label>
-                                    <div class="catalog-chips" *ngIf="selectedQualifications.length">
-                                        <span class="catalog-chip" *ngFor="let chip of selectedQualifications">
-                                            {{ chip }}
-                                            <button type="button" class="catalog-chip-remove"
-                                                (click)="removeQualification(chip)" aria-label="Remove">
-                                                <i class="fa fa-times"></i>
-                                            </button>
-                                        </span>
-                                    </div>
                                     <div class="catalog-select">
                                         <button type="button" class="catalog-select-trigger form-control"
                                             [class.is-open]="qualificationDropdownOpen"
@@ -336,57 +330,58 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="catalog-chips" *ngIf="selectedQualifications.length">
+                                        <span class="catalog-chip" *ngFor="let chip of selectedQualifications">
+                                            {{ chip }}
+                                            <button type="button" class="catalog-chip-remove"
+                                                (click)="removeQualification(chip)" aria-label="Remove">
+                                                <i class="fa fa-times"></i>
+                                            </button>
+                                        </span>
+                                    </div>
 
-                                    <small class="text-danger"
+                                    <small class="text-danger form-hint"
                                         *ngIf="clinicalMultiTouched && selectedQualifications.length === 0">
                                         At least one qualification is required
                                     </small>
                                 </div>
 
-                                <div class="col-md-2 form-group">
+                                <div class="col-md-3 form-group">
                                     <label>Experience Years</label>
                                     <input class="form-control" type="number" formControlName="experienceYears">
                                 </div>
 
-                                <div class="col-md-2 form-group">
+                                <div class="col-md-3 form-group">
                                     <label>Consultation Fee</label>
                                     <input class="form-control" type="number" formControlName="consultationFee">
 
-                                    <small class="text-danger"
+                                    <small class="text-danger form-hint"
                                         *ngIf="doctorForm.get('consultationFee')?.touched && doctorForm.get('consultationFee')?.invalid">
                                         Consultation fee is required
                                     </small>
                                 </div>
 
-                                <div class="col-md-12 form-group follow-up-fee-box">
-                                    <label class="d-flex align-items-center gap-2">
-                                        <input type="checkbox" formControlName="followUpFeeEnabled" />
-                                        Follow-up / recheck fee (same doctor)
-                                    </label>
-                                    <small class="text-muted d-block mb-2">
-                                        If the patient returns within N days to this doctor, booking suggests a lower fee. Reception can still override.
+                                <div class="col-md-3 form-group">
+                                    <label>Doctor share % (consultation)</label>
+                                    <input class="form-control" type="number" min="0" max="100"
+                                        formControlName="consultationSharePercent">
+                                    <small class="text-muted form-hint">
+                                        Doctor gets this % of fee; hospital keeps the rest (e.g. 60 = doctor 60%, hospital 40%).
                                     </small>
-                                    <div class="row g-2" *ngIf="doctorForm.value.followUpFeeEnabled">
-                                        <div class="col-md-3">
-                                            <label>Within days</label>
-                                            <input class="form-control" type="number" min="1" max="90" formControlName="followUpWithinDays" />
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label>Fee type</label>
-                                            <select class="form-control" formControlName="followUpFeeType">
-                                                <option value="half">Half of full fee</option>
-                                                <option value="fixed">Fixed amount ({{ currencyLabel }})</option>
-                                                <option value="percent">Percent of full fee</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-3" *ngIf="doctorForm.value.followUpFeeType !== 'half'">
-                                            <label>{{ doctorForm.value.followUpFeeType === 'percent' ? 'Percent to charge' : 'Follow-up fee (' + currencyLabel + ')' }}</label>
-                                            <input class="form-control" type="number" min="0" formControlName="followUpFeeAmount" />
-                                        </div>
-                                    </div>
                                 </div>
 
-                                <div class="col-md-2 form-group">
+                                <div class="col-md-3 form-group">
+                                    <label>Operation fee</label>
+                                    <input class="form-control" type="number" min="0" formControlName="operationFee">
+                                </div>
+
+                                <div class="col-md-3 form-group">
+                                    <label>Doctor share % (operation)</label>
+                                    <input class="form-control" type="number" min="0" max="100"
+                                        formControlName="operationSharePercent">
+                                </div>
+
+                                <div class="col-md-3 form-group">
                                     <label>Minutes per patient</label>
                                     <select class="form-control" formControlName="slotDurationMinutes">
                                         <option [ngValue]="5">5 minutes</option>
@@ -397,12 +392,42 @@
                                     </select>
                                 </div>
 
-                                <div class="col-md-4 form-group">
+                                <div class="col-md-3 form-group">
                                     <label>Status</label>
                                     <select class="form-control" formControlName="status">
                                         <option value="active">Active</option>
                                         <option value="inactive">Inactive</option>
                                     </select>
+                                </div>
+
+                                <div class="col-md-12 form-group follow-up-fee-box">
+                                    <div class="follow-up-fee-head">
+                                        <label class="mb-0">
+                                            <input type="checkbox" formControlName="followUpFeeEnabled" />
+                                            Follow-up / recheck fee (same doctor)
+                                        </label>
+                                        <small class="text-muted">
+                                            Return within N days → lower fee suggestion. Reception can override.
+                                        </small>
+                                    </div>
+                                    <div class="row g-2 follow-up-fee-fields" *ngIf="doctorForm.value.followUpFeeEnabled">
+                                        <div class="col-md-3 form-group mb-0">
+                                            <label>Within days</label>
+                                            <input class="form-control" type="number" min="1" max="90" formControlName="followUpWithinDays" />
+                                        </div>
+                                        <div class="col-md-3 form-group mb-0">
+                                            <label>Fee type</label>
+                                            <select class="form-control" formControlName="followUpFeeType">
+                                                <option value="half">Half of full fee</option>
+                                                <option value="fixed">Fixed amount ({{ currencyLabel }})</option>
+                                                <option value="percent">Percent of full fee</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3 form-group mb-0" *ngIf="doctorForm.value.followUpFeeType !== 'half'">
+                                            <label>{{ doctorForm.value.followUpFeeType === 'percent' ? 'Percent to charge' : 'Follow-up fee (' + currencyLabel + ')' }}</label>
+                                            <input class="form-control" type="number" min="0" formControlName="followUpFeeAmount" />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="col-md-12 form-group prescription-specialty-field">
@@ -475,15 +500,18 @@
                                     </div>
                                 </div>
 
-                                <div class="col-md-12 form-group">
+                                <div class="col-md-12 form-group mb-2">
                                     <label>Weekly hours</label>
-                                    <p class="text-muted small mb-2">Set a start and end time for each working day. Unchecked days are not available.</p>
+                                    <p class="text-muted small mb-2">Tick a day to enable hours. Unticked days stay off.</p>
                                     <div class="day-hours-list">
-                                        <div class="day-hours-row" *ngFor="let day of days">
-                                            <label class="fancy-checkbox mb-0 day-hours-day">
-                                                <input type="checkbox" [checked]="isDaySelected(day)"
+                                        <div class="day-hours-row" *ngFor="let day of days"
+                                            [class.is-off]="!isDaySelected(day)">
+                                            <label class="day-hours-day">
+                                                <input type="checkbox" class="day-hours-check"
+                                                    [checked]="isDaySelected(day)"
                                                     (change)="toggleDay(day, $event)">
-                                                <span class="text-capitalize">{{ day }}</span>
+                                                <span class="day-hours-box" aria-hidden="true"></span>
+                                                <span class="day-hours-name text-capitalize">{{ day }}</span>
                                             </label>
                                             <div class="day-hours-times">
                                                 <input class="form-control" type="time" [value]="dayStart(day)"
@@ -497,7 +525,7 @@
                                 </div>
                             </div>
 
-                            <button class="btn btn-primary" type="submit" [disabled]="saving">
+                            <button class="btn btn-primary btn-sm doctor-form-submit" type="submit" [disabled]="saving">
                                 {{ saving ? 'Saving...' : editingDoctor ? 'Update Doctor' : 'Save Doctor' }}
                             </button>
                         </form>

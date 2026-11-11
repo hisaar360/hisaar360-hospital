@@ -385,6 +385,9 @@ export interface Doctor {
   nameUrdu?: string | null;
   experienceYears?: number;
   consultationFee?: number;
+  consultationSharePercent?: number;
+  operationFee?: number;
+  operationSharePercent?: number;
   followUpFeeEnabled?: boolean;
   followUpWithinDays?: number;
   followUpFeeType?: 'half' | 'fixed' | 'percent';
@@ -396,6 +399,23 @@ export interface Doctor {
     column: 'left' | 'right' | 'full';
   }>;
   prescriptionStyle?: Record<string, number | string | boolean>;
+  prescriptionCustomSections?: Array<{
+    id: string;
+    title: string;
+    body: string;
+    visible: boolean;
+    column: 'left' | 'right' | 'full';
+  }>;
+  prescriptionPrintCopy?: {
+    doctorDisplayName?: string;
+    qualification?: string;
+    specialtyTitle?: string;
+    contactPhone?: string;
+    contactEmail?: string;
+    hospitalLine?: string;
+    rxTitle?: string;
+    clinicTagline?: string;
+  };
   prescriptionSpecialtyTemplate?: PrescriptionSpecialtyTemplate;
   availableDays?: string[];
   availableSlots?: Array<{ day: string; startTime: string; endTime: string }>;
@@ -467,6 +487,9 @@ export interface Appointment {
   visitType?: 'Consultation' | 'Follow-up' | 'Walk-in' | 'Emergency' | string | null;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
   consultationFee?: number;
+  consultationSharePercent?: number;
+  operationFee?: number;
+  operationSharePercent?: number;
   discount?: number;
   discountReason?: string | null;
   netFee?: number;
@@ -474,6 +497,7 @@ export interface Appointment {
   feeCollectionPoint?: 'opd' | 'pharmacy';
   feeReceivedBy?: string | null;
   feeReceivedByUser?: { _id?: string; name?: string; fullName?: string } | null;
+  feeReceivedByName?: string | null;
   feeReceivedAt?: string | null;
   feeReceivedChannel?: 'opd' | 'pharmacy' | null;
   vitals?: Record<string, string>;
@@ -1481,6 +1505,12 @@ export interface DashboardSummary {
   totalRevenue: number;
   todayRevenue?: number;
   todayFeesCollected?: number;
+  doctorFeeShare?: {
+    collectedFees: number;
+    doctorShareTotal: number;
+    receivedFromHospital: number;
+    remainingDue: number;
+  };
   todayLabOrders?: number;
   todayPrescriptions?: number;
   totalPrescriptions?: number;

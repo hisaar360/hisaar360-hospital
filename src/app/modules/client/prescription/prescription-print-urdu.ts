@@ -13,6 +13,9 @@ const URDU_WORD_MAP: Record<string, string> = {
   demo: 'ڈیمو',
   medicare: 'میڈی کیئر',
   medilink: 'میڈی لنک',
+  qayum: 'قیوم',
+  qayyum: 'قیوم',
+  qaim: 'قائم',
   main: 'مین',
   boulevard: 'بلیوارڈ',
   road: 'روڈ',
@@ -253,7 +256,8 @@ export const formatUrduOrganizationName = (
 ): string => {
   const manual = String(manualUrduName || '').trim();
   if (manual) {
-    return manual;
+    // Normalize common Qayum misspellings that include an unwanted Alif.
+    return manual.replace(/قایوم/g, 'قیوم').replace(/قےوم/g, 'قیوم');
   }
 
   const raw = String(value || '').trim();
@@ -263,6 +267,9 @@ export const formatUrduOrganizationName = (
 
   return splitAddressWords(raw).map(translateWordToUrdu).join(' ');
 };
+
+/** Urdu comma + space between degrees (not pipe). */
+const URDU_DEGREE_SEPARATOR = '، ';
 
 export const toPrescriptionUrduText = (value?: string | null): string => {
   const raw = String(value || '').trim();
@@ -289,7 +296,7 @@ export const toPrescriptionUrduText = (value?: string | null): string => {
       return splitAddressWords(trimmed.replace(/\//g, ' / ')).map(translateWordToUrdu).join(' ');
     })
     .filter(Boolean)
-    .join(' | ');
+    .join(URDU_DEGREE_SEPARATOR);
 };
 
 export const stripDoctorPrefix = (name?: string | null): string =>
@@ -336,14 +343,25 @@ export const formatUrduDoctorTitle = (specialization?: string | null): string =>
 export const formatUrduQualification = (qualification?: string | null): string => {
   const value = String(qualification || '').trim();
   if (!value) {
-    return 'ایم بی بی ایس، ایف سی پی ایس';
+    return `ایم بی بی ایس${URDU_DEGREE_SEPARATOR}ایف سی پی ایس`;
   }
 
   return value
     .split(/\s*\|\s*|\s*,\s*/)
-    .map((segment) => splitAddressWords(segment.trim()).map(translateWordToUrdu).join(' '))
+    .map((segment) => {
+      const cleaned = segment.trim().replace(/\./g, '');
+      if (!cleaned) {
+        return '';
+      }
+      // Whole token first (MBBS, FRCS) then word-wise fallback.
+      const asToken = translateWordToUrdu(cleaned.replace(/\s+/g, ''));
+      if (URDU_WORD_MAP[cleaned.replace(/\s+/g, '').toLowerCase()]) {
+        return asToken;
+      }
+      return splitAddressWords(cleaned).map(translateWordToUrdu).join(' ');
+    })
     .filter(Boolean)
-    .join(' | ');
+    .join(URDU_DEGREE_SEPARATOR);
 };
 
 /** Print medicine duration as English + Urdu (e.g. "1 Month" → urdu "1 ماہ"). */

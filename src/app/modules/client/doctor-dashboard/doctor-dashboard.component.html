@@ -17,7 +17,7 @@
     </div>
 
     <div class="doctor-stat-grid">
-      <div class="card" *ngFor="let card of statCards">
+      <div class="card doctor-stat-card" *ngFor="let card of statCards" [attr.data-tone]="card.tone">
         <div class="body">
           <div class="top_counter">
             <div class="icon"><i class="fa" [ngClass]="card.icon"></i></div>
@@ -30,6 +30,71 @@
             </div>
           </div>
           <small class="text-muted">{{ card.hint }}</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="row clearfix row-deck fee-share-row">
+      <div class="col-lg-4 col-md-12">
+        <div class="card fee-share-card">
+          <div class="header">
+            <h2>My Fee Share <small>Received vs remaining from Hospital</small></h2>
+            <ul class="header-dropdown">
+              <li><a routerLink="/accounts/doctor-dues" class="badge badge-default">Open Doctor Dues</a></li>
+            </ul>
+          </div>
+          <div class="body">
+            <apx-chart
+              [series]="feeShareDonut.series"
+              [chart]="feeShareDonut.chart"
+              [labels]="feeShareDonut.labels"
+              [colors]="feeShareDonut.colors"
+              [legend]="feeShareDonut.legend"
+              [dataLabels]="feeShareDonut.dataLabels"
+              [stroke]="feeShareDonut.stroke"
+              [plotOptions]="feeShareDonut.plotOptions"
+            ></apx-chart>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4 col-md-12">
+        <div class="card fee-share-card">
+          <div class="header">
+            <h2>Fee Totals <small>Collected · paid · due</small></h2>
+          </div>
+          <div class="body">
+            <apx-chart
+              [series]="feeShareBar.series"
+              [chart]="feeShareBar.chart"
+              [xaxis]="feeShareBar.xaxis"
+              [colors]="feeShareBar.colors"
+              [plotOptions]="feeShareBar.plotOptions"
+              [dataLabels]="feeShareBar.dataLabels"
+              [stroke]="feeShareBar.stroke"
+            ></apx-chart>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4 col-md-12">
+        <div class="card fee-share-card fee-share-kpis">
+          <div class="header">
+            <h2>Share Snapshot <small>Your consultation income</small></h2>
+          </div>
+          <div class="body">
+            <div class="fee-kpi" data-tone="navy">
+              <span>Collected fees</span>
+              <strong>{{ (summary.doctorFeeShare?.collectedFees || 0) | hmsCurrency }}</strong>
+            </div>
+            <div class="fee-kpi" data-tone="green">
+              <span>Received from Hospital</span>
+              <strong>{{ (summary.doctorFeeShare?.receivedFromHospital || 0) | hmsCurrency }}</strong>
+            </div>
+            <div class="fee-kpi" data-tone="amber">
+              <span>Remaining due</span>
+              <strong>{{ (summary.doctorFeeShare?.remainingDue || 0) | hmsCurrency }}</strong>
+            </div>
+            <a routerLink="/accounts/doctor-dues" class="btn btn-primary btn-block mt-2">View Doctor Dues</a>
+          </div>
         </div>
       </div>
     </div>

@@ -55,6 +55,7 @@ type SidebarSectionKey =
   | 'rooms'
   | 'setup'
   | 'payments'
+  | 'settlements'
   | 'accounts'
   | 'accountsJournals';
 
@@ -69,6 +70,7 @@ const TOP_LEVEL_SECTIONS: SidebarSectionKey[] = [
   'rooms',
   'setup',
   'payments',
+  'settlements',
   'accounts',
 ];
 
@@ -97,6 +99,7 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   WardCollapsed = true;
   WardManagementCollapsed = true;
   SetupCollapsed = true;
+  SettlementsCollapsed = true;
   AccountsCollapsed = true;
   AccountsJournalsCollapsed = true;
   /** Cached — must NOT be a getter. A fresh array each CD pass freezes the UI
@@ -470,7 +473,7 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
   }
 
   get canViewOpdCash(): boolean {
-    // Pharmacy-only installs have no OPD till / OPD billing UI.
+    // Pharmacy-only installs have no OPD settlement / OPD billing UI.
     if (
       this.isLaboratoryEdition ||
       !isClinicalModuleEnabled() ||
@@ -479,6 +482,37 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
       return false;
     }
     return this.canViewDepartmentCash;
+  }
+
+  get canViewLabCash(): boolean {
+    if (!isLaboratoryModuleEnabled()) {
+      return false;
+    }
+    return this.canViewDepartmentCash;
+  }
+
+  get canViewHospitalCash(): boolean {
+    return this.canViewDepartmentCash;
+  }
+
+  get canViewDoctorDues(): boolean {
+    return (
+      this.canViewDepartmentCash ||
+      this.hasPermission('doctors.read') ||
+      this.hasPermission('appointments.read')
+    );
+  }
+
+  get canViewSettlementsSection(): boolean {
+    return (
+      this.canViewPharmacyCash ||
+      this.canViewWardCash ||
+      this.canViewOpdCash ||
+      this.canViewLabCash ||
+      this.canViewHospitalCash ||
+      this.canViewDoctorDues ||
+      this.canViewAppointmentPayments
+    );
   }
 
   get canViewAppointmentPayments(): boolean {
@@ -876,6 +910,7 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     this.RoomCollapsed = true;
     this.SetupCollapsed = true;
     this.PaymentCollapsed = true;
+    this.SettlementsCollapsed = true;
     this.AccountsCollapsed = true;
   }
 
@@ -887,11 +922,19 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
       path.startsWith('/accounts/appointment-payments') &&
       (url.includes('channel=pharmacy') || url.includes('channel%3Dpharmacy'));
 
+    const isSettlementRoute =
+      path === '/accounts/pharmacy-cash' ||
+      path === '/accounts/ward-cash' ||
+      path === '/accounts/opd-cash' ||
+      path === '/accounts/lab-cash' ||
+      path === '/accounts/hospital-cash' ||
+      path === '/accounts/doctor-dues' ||
+      path.startsWith('/accounts/appointment-payments');
+
     if (
       path.startsWith('/prescriptions') ||
       path.startsWith('/appointments') ||
-      path.startsWith('/clinical-records') ||
-      (path.startsWith('/accounts/appointment-payments') && !pharmacyApptFees)
+      path.startsWith('/clinical-records')
     ) {
       this.PrescriptionCollapsed = false;
     } else if (path.includes('doctors') || path.startsWith('/doctors-schedule') || path.startsWith('/all-doctors') || path.startsWith('/add-doctors')) {
@@ -899,7 +942,6 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
     } else if (
       path.startsWith('/pharmacy') ||
       path.startsWith('/pos-reports') ||
-      path === '/accounts/pharmacy-cash' ||
       pharmacyApptFees
     ) {
       this.PharmacyCollapsed = false;
@@ -909,7 +951,6 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
       path.startsWith('/ward') ||
       path.includes('ward-admin') ||
       path.startsWith('/operations') ||
-      path === '/accounts/ward-cash' ||
       path.startsWith('/ward/day-collections')
     ) {
       this.WardCollapsed = false;
@@ -921,6 +962,8 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
       this.SetupCollapsed = false;
     } else if (path.startsWith('/payments')) {
       this.PaymentCollapsed = false;
+    } else if (isSettlementRoute) {
+      this.SettlementsCollapsed = false;
     } else if (path.startsWith('/accounts')) {
       this.AccountsCollapsed = false;
     }
@@ -1023,6 +1066,9 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
         case 'payments':
           this.PaymentCollapsed = collapsed;
           break;
+        case 'settlements':
+          this.SettlementsCollapsed = collapsed;
+          break;
         case 'accounts':
           this.AccountsCollapsed = collapsed;
           break;
@@ -1061,6 +1107,8 @@ export class LeftmenuComponent implements OnInit, AfterViewInit {
         return !this.SetupCollapsed;
       case 'payments':
         return !this.PaymentCollapsed;
+      case 'settlements':
+        return !this.SettlementsCollapsed;
       case 'accounts':
         return !this.AccountsCollapsed;
       default:

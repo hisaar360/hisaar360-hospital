@@ -309,13 +309,16 @@
                   (change)="onFeeCollectionPointChange()"
                 >
                   <option value="opd">OPD / Reception</option>
-                  <option value="pharmacy" *ngIf="canCollectAppointmentFeeAtPharmacy">Pharmacy</option>
+                  <option value="pharmacy" *ngIf="canRouteAppointmentFeeToPharmacy">Pharmacy</option>
                 </select>
-                <small class="status-hint" *ngIf="appointmentForm.value.feeCollectionPoint === 'pharmacy'">
-                  Pharmacy Settlement · received by logged-in pharmacy user
-                </small>
-                <small class="status-hint" *ngIf="!canCollectAppointmentFeeAtPharmacy">
-                  Only pharmacy users can mark fees paid at Pharmacy Settlement.
+                <small
+                  class="status-hint status-hint--compact"
+                  *ngIf="appointmentForm.value.feeCollectionPoint === 'pharmacy'"
+                >
+                  <ng-container *ngIf="canCollectAppointmentFeeAtPharmacy && appointmentForm.value.paymentStatus === 'paid'; else routePharmacyHint">
+                    Pharmacy Settlement · logged-in pharmacy user
+                  </ng-container>
+                  <ng-template #routePharmacyHint>Unpaid · collect at Pharmacy Settlement</ng-template>
                 </small>
               </label>
               <label>
@@ -561,9 +564,10 @@
                   </select>
                 </td>
                 <td class="fee-received-cell" (click)="$event.stopPropagation()">
-                  <ng-container *ngIf="feeReceivedByLabel(appointment) as receiver; else feeNotReceived">
-                    <strong>{{ receiver }}</strong>
-                    <small class="fee-channel-badge" [class.is-pharmacy]="appointment.feeReceivedChannel === 'pharmacy'">
+                  <ng-container *ngIf="appointment.paymentStatus === 'paid'; else feeNotReceived">
+                    <strong>{{ feeReceivedByLabel(appointment) || 'Staff' }}</strong>
+                    <small class="fee-channel-badge"
+                      [class.is-pharmacy]="feeReceivedChannelLabel(appointment) === 'Pharmacy'">
                       {{ feeReceivedChannelLabel(appointment) }}
                     </small>
                   </ng-container>

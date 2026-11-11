@@ -18,24 +18,41 @@
     </div>
   </header>
 
-  <div class="rx-designer__error" *ngIf="errorMessage">{{ errorMessage }}</div>
+  <div class="rx-designer__error" *ngIf="errorMessage">
+    <p>{{ errorMessage }}</p>
+    <button type="button" class="btn primary" (click)="retryLoad()">Refresh / Retry</button>
+  </div>
 
   <div class="rx-designer__grid" *ngIf="!errorMessage">
     <aside class="rx-designer__panel">
       <section class="panel-card">
         <h2>1. Layout theme</h2>
+        <label class="template-select-label">
+          Choose print template
+          <select
+            class="template-select"
+            [ngModel]="selectedTemplate"
+            (ngModelChange)="onTemplateSelect($event)">
+            <option *ngFor="let template of templates" [value]="template.id">
+              {{ template.name }} — {{ template.description }}
+            </option>
+          </select>
+        </label>
         <div class="theme-grid">
           <button
             type="button"
             class="theme-card"
             *ngFor="let template of templates"
             [class.active]="selectedTemplate === template.id"
-            (click)="selectedTemplate = template.id">
+            (click)="onTemplateSelect(template.id)">
             <strong>{{ template.name }}</strong>
             <small>{{ template.description }}</small>
           </button>
         </div>
-        <p class="hint">Detected specialty pack: <strong>{{ specialtyLabel }}</strong> — preview uses matching sample data.</p>
+        <p class="hint">
+          Selected: <strong>{{ selectedTemplate }}</strong> · Specialty pack:
+          <strong>{{ specialtyLabel }}</strong> — preview uses matching sample data. Save ke baad pharmacy/print isi design ko use karega.
+        </p>
       </section>
 
       <section class="panel-card">
@@ -228,20 +245,225 @@
           </div>
         </div>
       </section>
+
+      <section class="panel-card">
+        <h2>8. Print text (editable)</h2>
+        <p class="hint">
+          Yeh texts print-only overrides hain. Khali chhodo to doctor/hospital profile se fallback hoga.
+        </p>
+        <label>Doctor display name
+          <input type="text" [(ngModel)]="printCopy.doctorDisplayName" maxlength="150" placeholder="Dr. Izza khan" />
+        </label>
+        <label>Qualification
+          <input type="text" [(ngModel)]="printCopy.qualification" maxlength="200" placeholder="MBBS | FCPS" />
+        </label>
+        <label>Specialty / title
+          <input type="text" [(ngModel)]="printCopy.specialtyTitle" maxlength="200" placeholder="Consultant Gynecologist & Obstetrician" />
+        </label>
+        <label>Contact phone
+          <input type="text" [(ngModel)]="printCopy.contactPhone" maxlength="40" placeholder="0300-0000000" />
+        </label>
+        <label>Contact email
+          <input type="text" [(ngModel)]="printCopy.contactEmail" maxlength="120" placeholder="clinic@example.com" />
+        </label>
+        <label>Hospital / clinic line
+          <input type="text" [(ngModel)]="printCopy.hospitalLine" maxlength="200" placeholder="Qayum Hospital" />
+        </label>
+        <label>RX title (center heading)
+          <input type="text" [(ngModel)]="printCopy.rxTitle" maxlength="80" placeholder="PRESCRIPTION" />
+        </label>
+        <label>Clinic tagline
+          <input type="text" [(ngModel)]="printCopy.clinicTagline" maxlength="200" placeholder="Women's health focused care" />
+        </label>
+      </section>
+
+      <section class="panel-card">
+        <h2>9. Selected block edit</h2>
+        <p class="hint">
+          Preview pe block select karein (ya yahan choose karein):
+          <strong>{{ selectedEditBlockLabel }}</strong>
+        </p>
+        <div class="theme-presets">
+          <button type="button" class="preset-chip" [class.active]="selectedEditBlock === 'header'" (click)="selectEditBlock('header')">Header</button>
+          <button type="button" class="preset-chip" [class.active]="selectedEditBlock === 'logo'" (click)="selectEditBlock('logo')">Logo</button>
+          <button type="button" class="preset-chip" [class.active]="selectedEditBlock === 'meta'" (click)="selectEditBlock('meta')">Meta</button>
+          <button type="button" class="preset-chip" [class.active]="selectedEditBlock === 'patient'" (click)="selectEditBlock('patient')">Patient</button>
+          <button type="button" class="preset-chip" [class.active]="selectedEditBlock === 'medicines'" (click)="selectEditBlock('medicines')">Medicines</button>
+          <button type="button" class="preset-chip" [class.active]="selectedEditBlock === 'instructions'" (click)="selectEditBlock('instructions')">Notes</button>
+          <button type="button" class="preset-chip" [class.active]="selectedEditBlock === 'footer'" (click)="selectEditBlock('footer')">Footer</button>
+          <button type="button" class="preset-chip" [class.active]="selectedEditBlock === 'custom'" (click)="selectEditBlock('custom')">Custom</button>
+        </div>
+
+        <ng-container *ngIf="selectedEditBlock === 'header'">
+          <label>Doctor name font ({{ style.englishHeadingFontSize }}px)
+            <input type="range" min="10" max="28" [(ngModel)]="style.englishHeadingFontSize" />
+          </label>
+          <label>Header vertical offset ({{ style.offsetHeaderY }}mm)
+            <input type="range" min="-20" max="40" step="0.5" [(ngModel)]="style.offsetHeaderY" />
+          </label>
+          <label>Header inner spacing / line gap ({{ style.lineGap }}mm) — drag handle se bhi
+            <input type="range" min="0" max="12" step="0.5" [(ngModel)]="style.lineGap" />
+          </label>
+          <label>Section gap ({{ style.sectionGap }}mm)
+            <input type="range" min="0" max="16" step="0.5" [(ngModel)]="style.sectionGap" />
+          </label>
+        </ng-container>
+
+        <ng-container *ngIf="selectedEditBlock === 'logo'">
+          <label>Logo scale ({{ style.logoScale }}%)
+            <input type="range" min="50" max="200" [(ngModel)]="style.logoScale" />
+          </label>
+          <label>Logo X ({{ style.logoOffsetX }}mm)
+            <input type="range" min="-60" max="60" step="0.5" [(ngModel)]="style.logoOffsetX" />
+          </label>
+          <label>Logo Y ({{ style.logoOffsetY }}mm)
+            <input type="range" min="-40" max="40" step="0.5" [(ngModel)]="style.logoOffsetY" />
+          </label>
+        </ng-container>
+
+        <ng-container *ngIf="selectedEditBlock === 'meta'">
+          <label>Meta / date offset ({{ style.offsetDateY }}mm)
+            <input type="range" min="-20" max="40" step="0.5" [(ngModel)]="style.offsetDateY" />
+          </label>
+        </ng-container>
+
+        <ng-container *ngIf="selectedEditBlock === 'patient'">
+          <label>Patient block offset ({{ style.offsetPatientY }}mm)
+            <input type="range" min="-20" max="40" step="0.5" [(ngModel)]="style.offsetPatientY" />
+          </label>
+          <label>Section gap ({{ style.sectionGap }}mm)
+            <input type="range" min="0" max="16" step="0.5" [(ngModel)]="style.sectionGap" />
+          </label>
+        </ng-container>
+
+        <ng-container *ngIf="selectedEditBlock === 'medicines'">
+          <label>Medicine font ({{ style.medicineFontSize }}px)
+            <input type="range" min="7" max="14" [(ngModel)]="style.medicineFontSize" />
+          </label>
+          <label>Body / medicines offset ({{ style.offsetBodyY }}mm)
+            <input type="range" min="-20" max="40" step="0.5" [(ngModel)]="style.offsetBodyY" />
+          </label>
+        </ng-container>
+
+        <ng-container *ngIf="selectedEditBlock === 'instructions'">
+          <label>Notes offset ({{ style.offsetNotesY }}mm)
+            <input type="range" min="-20" max="40" step="0.5" [(ngModel)]="style.offsetNotesY" />
+          </label>
+        </ng-container>
+
+        <ng-container *ngIf="selectedEditBlock === 'footer'">
+          <label>Footer offset ({{ style.offsetFooterY }}mm)
+            <input type="range" min="-20" max="40" step="0.5" [(ngModel)]="style.offsetFooterY" />
+          </label>
+        </ng-container>
+      </section>
+
+      <section class="panel-card">
+        <h2>10. Custom sections</h2>
+        <p class="hint">Naya free-text block add karein — har template pe medicines ke baad print hoga.</p>
+        <button type="button" class="btn primary" (click)="addCustomSection()">+ Add section</button>
+        <div class="custom-section-editor" *ngFor="let section of customSections; let i = index; trackBy: trackCustomSection">
+          <label>Title
+            <input type="text" [(ngModel)]="section.title" maxlength="120" />
+          </label>
+          <label>Body
+            <textarea rows="3" [(ngModel)]="section.body" maxlength="2000"></textarea>
+          </label>
+          <div class="layout-row">
+            <label class="check">
+              <input type="checkbox" [(ngModel)]="section.visible" /> Visible
+            </label>
+            <select [(ngModel)]="section.column">
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+              <option value="full">Full</option>
+            </select>
+            <button type="button" class="btn ghost" (click)="removeCustomSection(i)">Remove</button>
+          </div>
+        </div>
+      </section>
     </aside>
 
     <main class="rx-designer__preview-wrap">
       <div class="preview-toolbar">
-        <strong>Live Classic print preview · {{ specialtyLabel }}</strong>
-        <span>Same sheet layout as consultation Print Preview. Scroll inside this panel to see the full page.</span>
+        <strong>Live {{ selectedTemplateLabel }} preview · {{ specialtyLabel }}</strong>
+        <span *ngIf="usesInteractiveClassicPreview">
+          Classic sheet with drag handles for heading/logo offsets. Scroll inside this panel to see the full page.
+        </span>
+        <span *ngIf="!usesInteractiveClassicPreview">
+          Selected theme ka real print layout. Save ke baad pharmacy/consultation isi design ko use karega.
+        </span>
       </div>
 
-      <div class="preview-match-banner">
-        Same Classic print blocks as consultation Prescription View (Gynae sidebar + OBS Details + Note to Patient).
-        Preview panel ke andar niche scroll karke poori page check karein.
+      <div class="preview-match-banner" *ngIf="usesInteractiveClassicPreview">
+        Classic interactive preview — drag blue/green handles to tune margins and logo.
+      </div>
+
+      <div class="preview-match-banner" *ngIf="!usesInteractiveClassicPreview">
+        Live preview for <strong>{{ selectedTemplateLabel }}</strong>
+        <span *ngIf="isGynaeTemplateSelected"> (dedicated gynae sheet with pregnancy / OBS blocks)</span>.
+        Theme card select karte hi yeh sheet change hoti hai.
+      </div>
+
+      <div
+        class="designer-theme-print-preview"
+        *ngIf="!usesInteractiveClassicPreview"
+        [ngStyle]="cssVars">
+        <div class="designer-edit-toolbar">
+          <button type="button" [class.active]="selectedEditBlock === 'header'" (click)="selectEditBlock('header')">Header</button>
+          <button type="button" [class.active]="selectedEditBlock === 'logo'" (click)="selectEditBlock('logo')">Logo</button>
+          <button type="button" [class.active]="selectedEditBlock === 'meta'" (click)="selectEditBlock('meta')">Meta</button>
+          <button type="button" [class.active]="selectedEditBlock === 'patient'" (click)="selectEditBlock('patient')">Patient</button>
+          <button type="button" [class.active]="selectedEditBlock === 'medicines'" (click)="selectEditBlock('medicines')">Medicines</button>
+          <button type="button" [class.active]="selectedEditBlock === 'instructions'" (click)="selectEditBlock('instructions')">Notes</button>
+          <button type="button" [class.active]="selectedEditBlock === 'footer'" (click)="selectEditBlock('footer')">Footer</button>
+          <button type="button" [class.active]="selectedEditBlock === 'custom'" (click)="selectEditBlock('custom')">Custom</button>
+          <span class="drag-hint">Har section ke right edge pe drag handle — spacing/position manage karein</span>
+        </div>
+        <div class="designer-section-drag-board">
+          <div class="designer-section-lane" [class.active]="selectedEditBlock === 'header' || selectedEditBlock === 'logo' || selectedEditBlock === 'meta'">
+            <div class="lane-label">Header</div>
+            <div class="lane-handles">
+              <span class="drag-handle left" (pointerdown)="startMarginDrag('header-y', $event); selectEditBlock('header')" title="Move header up/down"></span>
+              <span class="drag-handle logo" (pointerdown)="startMarginDrag('logo-x', $event); selectEditBlock('logo')" title="Move logo"></span>
+              <span class="drag-handle right green" (pointerdown)="startMarginDrag('meta-y', $event); selectEditBlock('meta')" title="Move meta cards"></span>
+              <span class="drag-handle right" (pointerdown)="startMarginDrag('line-gap', $event); selectEditBlock('header')" title="Header inner spacing"></span>
+            </div>
+          </div>
+          <div class="designer-section-lane" [class.active]="selectedEditBlock === 'patient'">
+            <div class="lane-label">Patient</div>
+            <div class="lane-handles">
+              <span class="drag-handle left" (pointerdown)="startMarginDrag('patient-y', $event); selectEditBlock('patient')" title="Move patient block"></span>
+              <span class="drag-handle right" (pointerdown)="startMarginDrag('section-gap', $event); selectEditBlock('patient')" title="Section gap"></span>
+            </div>
+          </div>
+          <div class="designer-section-lane" [class.active]="selectedEditBlock === 'medicines'">
+            <div class="lane-label">Medicines / Body</div>
+            <div class="lane-handles">
+              <span class="drag-handle left" (pointerdown)="startMarginDrag('body-y', $event); selectEditBlock('medicines')" title="Move medicines/body"></span>
+            </div>
+          </div>
+          <div class="designer-section-lane" [class.active]="selectedEditBlock === 'instructions' || selectedEditBlock === 'custom'">
+            <div class="lane-label">Notes / Custom</div>
+            <div class="lane-handles">
+              <span class="drag-handle left" (pointerdown)="startMarginDrag('notes-y', $event); selectEditBlock('instructions')" title="Move notes"></span>
+            </div>
+          </div>
+          <div class="designer-section-lane" [class.active]="selectedEditBlock === 'footer'">
+            <div class="lane-label">Footer</div>
+            <div class="lane-handles">
+              <span class="drag-handle left" (pointerdown)="startMarginDrag('footer-y', $event); selectEditBlock('footer')" title="Move footer"></span>
+            </div>
+          </div>
+        </div>
+        <app-prescription-print-sheet
+          [preview]="designerPrintPreview"
+          [template]="selectedTemplate">
+        </app-prescription-print-sheet>
       </div>
 
       <div class="a4-sheet prescription-print-sheet prescription-template-classic rx-style-host"
+        *ngIf="usesInteractiveClassicPreview"
         [ngStyle]="cssVars"
         [attr.data-logo-pos]="style.logoPosition"
         [class.rx-hide-urdu-advice]="!style.showUrduAdvice"
@@ -265,13 +487,13 @@
           </div>
 
           <div class="print-logo-mark rx-logo"
-            [class.has-logo]="!!hospital?.logoUrl"
+            [class.has-logo]="!!hospitalLogoSrc"
             [style.transform]="
               'translate(' + style.logoOffsetX + 'mm,' + style.logoOffsetY + 'mm) scale(' + previewLogoScale + ')'
             ">
             <span class="drag-handle logo" (pointerdown)="startMarginDrag('logo-x', $event)" title="Move logo"></span>
-            <img *ngIf="hospital?.logoUrl" [src]="hospital?.logoUrl" alt="Logo" />
-            <span *ngIf="!hospital?.logoUrl">Rx</span>
+            <img *ngIf="hospitalLogoSrc" [src]="hospitalLogoSrc" alt="Logo" />
+            <span *ngIf="!hospitalLogoSrc">Rx</span>
           </div>
 
           <div class="doctor-print-right print-urdu-block rx-ur-heading"
@@ -428,6 +650,15 @@
             <p *ngFor="let line of samplePatientNoteLines">{{ line }}</p>
           </div>
         </div>
+
+        <section class="print-custom-sections" *ngIf="customSections.length">
+          <article class="print-custom-section" *ngFor="let section of customSections; trackBy: trackCustomSection">
+            <ng-container *ngIf="section.visible !== false">
+              <strong>{{ section.title }}</strong>
+              <p>{{ section.body || '-' }}</p>
+            </ng-container>
+          </article>
+        </section>
 
         <footer class="print-footer" *ngIf="sectionVisible('footer')">
           <p>Sample preview · saved design applies to this doctor only ({{ specialtyLabel }}).</p>

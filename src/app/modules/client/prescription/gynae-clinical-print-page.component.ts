@@ -1,6 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
-import { resolvePrintSlotDose } from './medicine-instruction-formatter';
+import {
+  resolveMealFoodLabel,
+  resolvePrintInstructionLabel,
+  resolvePrintSlotDose,
+} from './medicine-instruction-formatter';
 import {
   ClinicalRxPrintPage,
   GynaePrintPreview,
@@ -47,11 +51,27 @@ export class GynaeClinicalPrintPageComponent {
     return fallback?.value?.trim() || '-';
   }
 
+  foodLabel(medicine: Record<string, unknown> | null | undefined): { en: string; ur: string } {
+    return resolveMealFoodLabel(medicine);
+  }
+
+  instructionLabel(medicine: Record<string, unknown> | null | undefined): { en: string; ur: string } {
+    return resolvePrintInstructionLabel(medicine);
+  }
+
   contactPhone(): string {
+    const override = String(this.preview?.contactPhone || '').trim();
+    if (override) {
+      return override;
+    }
     return resolveGynaePrintContactPhone(this.preview.prescriptionFooterLines);
   }
 
   contactEmail(): string {
+    const override = String(this.preview?.contactEmail || '').trim();
+    if (override) {
+      return override;
+    }
     return resolveGynaePrintContactEmail(this.preview.prescriptionFooterLines);
   }
 }

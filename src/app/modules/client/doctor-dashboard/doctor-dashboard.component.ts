@@ -73,6 +73,8 @@ export class DoctorDashboardComponent implements OnInit {
 
   appointmentDonut: DonutChartOptions = this.buildDonutChart(this.emptyBreakdown());
   workloadBar: BarChartOptions = this.buildWorkloadBar(this.emptyBreakdown());
+  feeShareDonut: DonutChartOptions = this.buildFeeShareDonut(0, 0);
+  feeShareBar: BarChartOptions = this.buildFeeShareBar(0, 0, 0);
 
   constructor(
     private backend: BackendService,
@@ -200,12 +202,19 @@ export class DoctorDashboardComponent implements OnInit {
       { label: 'Consultation', route: '/prescriptions', icon: 'fa-stethoscope', visible: this.canOpenPrescriptions },
       { label: 'Clinical Records', route: '/clinical-records', icon: 'fa-stethoscope', visible: this.canOpenClinicalRecords },
       { label: 'My Patients', route: '/patients/all-patients', icon: 'fa-users', visible: this.canOpenPatients },
+      { label: 'Doctor Dues', route: '/accounts/doctor-dues', icon: 'fa-handshake-o', visible: true },
       { label: 'Operation Calendar', route: '/operations', icon: 'fa-heartbeat', visible: this.canOpenOperations },
     ];
   }
 
   private syncDashboardState(): void {
     const breakdown = this.summary.todayAppointmentBreakdown || this.emptyBreakdown();
+    const fees = this.summary.doctorFeeShare || {
+      collectedFees: 0,
+      doctorShareTotal: 0,
+      receivedFromHospital: 0,
+      remainingDue: 0,
+    };
 
     this.statCards = [
       {
@@ -251,10 +260,35 @@ export class DoctorDashboardComponent implements OnInit {
         tone: 'tone-navy',
         isCurrency: true,
       },
+      {
+        label: 'Received from Hospital',
+        value: fees.receivedFromHospital || 0,
+        hint: 'Already paid to you',
+        icon: 'fa-university',
+        tone: 'tone-green',
+        isCurrency: true,
+      },
+      {
+        label: 'Remaining Due',
+        value: fees.remainingDue || 0,
+        hint: 'Still payable to you',
+        icon: 'fa-hourglass-half',
+        tone: 'tone-rose',
+        isCurrency: true,
+      },
     ];
 
     this.appointmentDonut = this.buildDonutChart(breakdown);
     this.workloadBar = this.buildWorkloadBar(breakdown);
+    this.feeShareDonut = this.buildFeeShareDonut(
+      Number(fees.receivedFromHospital || 0),
+      Number(fees.remainingDue || 0)
+    );
+    this.feeShareBar = this.buildFeeShareBar(
+      Number(fees.collectedFees || 0),
+      Number(fees.receivedFromHospital || 0),
+      Number(fees.remainingDue || 0)
+    );
   }
 
   private buildDonutChart(breakdown: DashboardStatusBreakdown): DonutChartOptions {
@@ -297,8 +331,49 @@ export class DoctorDashboardComponent implements OnInit {
       series: [{ name: 'Appointments', data: [breakdown.pending, breakdown.confirmed, breakdown.completed] }],
       chart: { type: 'bar', height: 280, toolbar: { show: false }, fontFamily: 'inherit' },
       xaxis: { categories: ['Pending', 'Confirmed', 'Completed'] },
-      colors: ['#003e86'],
-      plotOptions: { bar: { borderRadius: 8, columnWidth: '48%' } },
+      colors: ['#019c9d'],
+      plotOptions: { bar: { borderRadius: 8, columnWidth: '48%', distributed: true } },
+      dataLabels: { enabled: false },
+      stroke: { show: true, width: 2, colors: ['transparent'] },
+    };
+  }
+
+  private buildFeeShareDonut(received: number, remaining: number): DonutChartOptions {
+    const series = [received, remaining];
+    const total = received + remaining;
+    return {
+      series: total > 0 ? series : [0, 0],
+      chart: { type: 'donut', height: 300, fontFamily: 'inherit' },
+      labels: ['Received from Hospital', 'Remaining Due'],
+      colors: ['#16a34a', '#f59e0b'],
+      legend: { position: 'bottom', fontSize: '12px' },
+      dataLabels: { enabled: true },
+      stroke: { width: 1 },
+      plotOptions: {
+        pie: {
+          donut: {
+            size: '68%',
+            labels: {
+              show: true,
+              total: {
+                show: true,
+                label: 'Share',
+                formatter: () => String(Math.round(total)),
+              },
+            },
+          },
+        },
+      },
+    };
+  }
+
+  private buildFeeShareBar(collected: number, received: number, remaining: number): BarChartOptions {
+    return {
+      series: [{ name: 'Amount', data: [collected, received, remaining] }],
+      chart: { type: 'bar', height: 300, toolbar: { show: false }, fontFamily: 'inherit' },
+      xaxis: { categories: ['Collected fees', 'Received', 'Remaining'] },
+      colors: ['#003e86', '#16a34a', '#f59e0b'],
+      plotOptions: { bar: { borderRadius: 8, columnWidth: '52%', distributed: true } },
       dataLabels: { enabled: false },
       stroke: { show: true, width: 2, colors: ['transparent'] },
     };
@@ -322,6 +397,12 @@ export class DoctorDashboardComponent implements OnInit {
       totalRevenue: 0,
       todayRevenue: 0,
       todayFeesCollected: 0,
+      doctorFeeShare: {
+        collectedFees: 0,
+        doctorShareTotal: 0,
+        receivedFromHospital: 0,
+        remainingDue: 0,
+      },
       todayPrescriptions: 0,
       totalPrescriptions: 0,
       appointmentBreakdown: this.emptyBreakdown(),

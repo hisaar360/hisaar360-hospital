@@ -249,11 +249,12 @@
 .print-address-urdu {
   color: #334155;
   font-family:
-    "Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", "Urdu Typesetting", Georgia,
+    "Jameel Noori Nastaleeq", "Noto Nastaliq Urdu", "Urdu Typesetting", Georgia,
     "Times New Roman", serif;
   font-size: 11px;
   letter-spacing: 0;
-  line-height: 1.8;
+  line-height: 1.9;
+  padding-top: 1px;
   unicode-bidi: plaintext;
 }
 
@@ -283,11 +284,12 @@
 .print-urdu-cell,
 .print-urdu-inline {
   font-family:
-    "Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", "Urdu Typesetting", serif;
+    "Jameel Noori Nastaleeq", "Noto Nastaliq Urdu", "Urdu Typesetting", serif;
 }
 
 .print-urdu-block {
-  line-height: 1.8;
+  line-height: 1.9;
+  padding-top: 1px;
 }
 
 .doctor-print-right {
@@ -331,12 +333,18 @@
 .print-logo-mark.has-logo {
   background: transparent;
   border: 0;
+  border-radius: 8px;
+  height: auto;
+  min-height: 56px;
+  overflow: visible;
+  width: auto;
 }
 
 .print-logo-mark img {
   background: transparent;
-  max-height: 62px;
-  max-width: 72px;
+  display: block;
+  max-height: 72px;
+  max-width: 88px;
   object-fit: contain;
   transform: scale(var(--prescription-logo-scale, 1));
   transform-origin: center;
@@ -1510,8 +1518,29 @@
     font-size: 8px;
   }
 
-  .print-instruction-cell {
+  .print-instruction-cell,
+  .print-inst-cell {
     text-align: left !important;
+    white-space: normal;
+  }
+
+  .print-inst-en {
+    display: block;
+    font-size: 7px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .print-inst-ur {
+    color: #555;
+    display: block;
+    font-family: "Jameel Noori Nastaleeq", "Noto Nastaliq Urdu", "Urdu Typesetting", serif;
+    font-size: 7.2px;
+    font-weight: 600;
+    line-height: 1.9;
+    margin-top: 1.2px;
+    padding-top: 1px;
+    unicode-bidi: plaintext;
   }
 
   .print-medicine-area.medicine-density-compact .print-medicine-table th,
@@ -2092,8 +2121,10 @@
   --clinical-soft: #f4f7fa;
   color: var(--clinical-ink);
   font-family: Arial, Helvetica, sans-serif;
-  height: 251.8mm;
-  overflow: hidden;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 251.8mm;
+  overflow: visible !important;
   padding: 5mm 4.5mm 4mm;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
@@ -2104,6 +2135,41 @@
   flex-direction: column;
   gap: 18px;
   width: 100%;
+}
+
+.prescription-print-sheet .print-custom-sections {
+  display: grid;
+  gap: 2mm;
+  margin: 2mm 0;
+  transform: translateY(var(--rx-offset-notes, 0mm));
+}
+
+.prescription-print-sheet .print-custom-section {
+  border: 1px solid var(--rx-table-border, #cbd5e1);
+  border-radius: 2mm;
+  padding: 2mm 2.5mm;
+}
+
+.prescription-print-sheet .print-custom-section strong {
+  color: var(--rx-section-title, #0f172a);
+  display: block;
+  font-size: 9pt;
+  margin-bottom: 1mm;
+}
+
+.prescription-print-sheet .print-custom-section p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.prescription-print-sheet .clinical-rx-header,
+.prescription-print-sheet .print-header {
+  transform: translateY(var(--rx-offset-header, 0mm));
+}
+
+.prescription-print-sheet .clinical-rx-page,
+.prescription-print-sheet .print-body-grid {
+  transform: translateY(var(--rx-offset-body, 0mm));
 }
 
 .prescription-print-host
@@ -2204,10 +2270,42 @@
 .clinical-rx-page {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: auto;
   justify-content: flex-start;
-  min-height: 0;
+  min-height: 100%;
   overflow: visible;
+}
+
+.clinical-rx-gynae-metrics {
+  display: grid;
+  gap: 2mm 3mm;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 0 3mm;
+  padding: 0 1mm;
+}
+
+.clinical-rx-gynae-metrics > div {
+  background: #f8fafc;
+  border: 1px solid #dbe3ec;
+  border-radius: 1.5mm;
+  display: grid;
+  gap: 0.5mm;
+  padding: 1.5mm 2mm;
+}
+
+.clinical-rx-gynae-metrics strong {
+  color: var(--clinical-blue, #063b78);
+  font-size: 2.4mm;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.clinical-rx-gynae-metrics span {
+  color: #0f172a;
+  font-size: 3mm;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .clinical-rx-page--split {
@@ -2294,15 +2392,23 @@
 
 .clinical-rx-logo.has-logo {
   border: 0;
+  border-radius: 2mm;
+  height: auto;
+  min-height: 22mm;
+  overflow: visible;
+  width: auto;
 }
 
 .clinical-rx-logo img {
   background: transparent;
-  height: 23mm;
+  display: block;
+  height: auto;
+  max-height: 26mm;
+  max-width: 34mm;
   object-fit: contain;
   transform: scale(var(--prescription-logo-scale, 1));
   transform-origin: center;
-  width: 28mm;
+  width: auto;
 }
 
 .clinical-rx-doctor-ur {
@@ -3168,9 +3274,16 @@
 
   .prescription-template-clinical-blue {
     box-sizing: border-box;
-    height: 251.8mm;
-    overflow: hidden;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0;
+    overflow: visible !important;
     page-break-after: always;
+    page-break-inside: auto;
+  }
+
+  .clinical-rx-gynae-metrics {
+    break-inside: avoid;
     page-break-inside: avoid;
   }
 
@@ -3274,14 +3387,14 @@
   display: grid;
   grid-template-rows: 7mm auto;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .clinical-rx-medicines-body,
 .stacked-rx-medicines-body,
 .sectioned-rx-medicines-body {
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .clinical-rx-medicines > header {
@@ -3572,13 +3685,13 @@
 }
 
 .clinical-rx-page:not(.clinical-rx-page--split) .clinical-rx-main {
-  flex: 1 1 auto;
-  max-height: 116mm;
+  flex: 0 1 auto;
+  max-height: none;
 }
 
 .clinical-rx-page:not(.clinical-rx-page--split)
   .clinical-rx-main.clinical-rx-main-gynae {
-  max-height: 108mm;
+  max-height: none;
 }
 
 .clinical-rx-page--split.medicine-density-compact .clinical-rx-main,
@@ -3588,7 +3701,7 @@
 }
 
 .clinical-rx-page.medicine-density-compact .clinical-rx-main {
-  max-height: 122mm;
+  max-height: none;
 }
 
 .clinical-rx-medicines.medicine-density-compact th,
@@ -3626,7 +3739,7 @@
 }
 
 .clinical-rx-page.medicine-density-dense .clinical-rx-main {
-  max-height: 128mm;
+  max-height: none;
 }
 
 .clinical-rx-page.medicine-density-dense .clinical-rx-content {
@@ -3689,7 +3802,7 @@
 }
 
 .clinical-rx-page.medicine-density-ultra .clinical-rx-main {
-  max-height: 132mm;
+  max-height: none;
 }
 
 .clinical-rx-page.medicine-density-ultra .clinical-rx-content {
@@ -3773,8 +3886,10 @@
   --theme-ink: #1b4332;
   color: var(--theme-ink);
   font-family: Arial, Helvetica, sans-serif;
-  height: 297mm;
-  overflow: hidden;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 297mm;
+  overflow: visible !important;
   padding: 5mm 5mm 4mm;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
@@ -4320,8 +4435,10 @@
   --theme-ink: #311b92;
   color: var(--theme-ink);
   font-family: Arial, Helvetica, sans-serif;
-  height: 297mm;
-  overflow: hidden;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 297mm;
+  overflow: visible !important;
   padding: 5mm 5mm 4mm;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;

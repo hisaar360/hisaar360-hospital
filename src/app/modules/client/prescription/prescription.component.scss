@@ -2380,6 +2380,7 @@ dd {
 }
 
 .btn-light,
+.btn-save,
 .btn-primary,
 .section-heading button {
   border: 1px solid var(--rx-line);
@@ -2393,6 +2394,26 @@ dd {
 .section-heading button {
   background: var(--rx-panel);
   color: #1f2937;
+}
+
+.btn-save {
+  align-items: center;
+  background: #e8f7f7;
+  border-color: #019c9d;
+  color: #003e86;
+  display: inline-flex;
+  gap: 5px;
+}
+
+.btn-save:hover:not(:disabled) {
+  background: #d5f1f1;
+}
+
+.btn-save:disabled,
+.btn-primary:disabled,
+.btn-light:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .btn-primary {
@@ -2862,35 +2883,93 @@ dd {
   text-align: center;
 }
 
+.medicine-table td.tick-td {
+  padding: 4px !important;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.medicine-table td.tick-td--meal {
+  cursor: pointer;
+}
+
 .tick-cell {
   align-items: center;
   cursor: pointer;
   display: inline-flex;
   justify-content: center;
-  margin: 0;
+  margin: 0 auto;
+  min-height: 32px;
+  min-width: 32px;
+  padding: 6px;
   position: relative;
+  user-select: none;
 }
 
-.tick-cell input {
-  height: 1px !important;
+.tick-td--meal .tick-cell {
+  height: 100%;
+  min-height: 44px;
+  min-width: 100%;
+  width: 100%;
+}
+
+.medicine-table .tick-cell input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  height: 100% !important;
+  left: 0;
+  margin: 0 !important;
+  max-height: none !important;
+  max-width: none !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
   opacity: 0;
+  outline: 0 !important;
+  padding: 0 !important;
   position: absolute;
-  width: 1px !important;
+  top: 0;
+  width: 100% !important;
+  z-index: 2;
 }
 
-.tick-cell span {
+.tick-cell .tick-box,
+.tick-cell span.tick-box {
   align-items: center;
-  color: var(--rx-green);
-  display: inline-flex;
-  font-size: 14px;
+  background: #fff;
+  border: 2px solid #94a3b8;
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: #fff;
+  display: inline-flex !important;
+  flex-shrink: 0;
+  font-size: 12px;
   font-weight: 800;
-  height: 18px;
+  height: 18px !important;
   justify-content: center;
-  width: 18px;
+  line-height: 1;
+  pointer-events: none;
+  width: 18px !important;
 }
 
-.tick-cell input:checked + span::before {
-  content: "\2713";
+.tick-cell input[type='checkbox']:checked + .tick-box {
+  background: #019c9d;
+  border-color: #019c9d;
+}
+
+.tick-cell input[type='checkbox']:checked + .tick-box::before {
+  content: '\2713';
+}
+
+.tick-cell input[type='checkbox']:focus-visible + .tick-box {
+  box-shadow: 0 0 0 3px rgb(1 156 157 / 0.22);
+}
+
+.tick-cell:hover .tick-box {
+  border-color: #019c9d;
 }
 
 .slot-dose-cell {
@@ -2898,6 +2977,12 @@ dd {
   display: grid;
   gap: 3px;
   justify-items: center;
+}
+
+.slot-dose-cell .tick-cell {
+  min-height: 28px;
+  min-width: 100%;
+  width: 100%;
 }
 
 .slot-dose-input {
@@ -4004,6 +4089,7 @@ dd {
   }
 
   .header-actions .btn-light,
+  .header-actions .btn-save,
   .header-actions .btn-primary,
   .header-actions a {
     width: 100%;

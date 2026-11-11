@@ -3,13 +3,19 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
-import { forkJoin } from 'rxjs';
-import { finalize } from 'rxjs/operators';
+import { forkJoin, of } from 'rxjs';
+import { catchError, finalize } from 'rxjs/operators';
 import { BackendService } from '../../../core/services/backend.service';
 import { formatCurrency, formatDateTime } from '../pharmacy-admin.utils';
 import { todayYmd, toCalendarYmd } from '../../../core/utils/calendar-date';
+import {
+  downloadSettlementStatementPdf,
+  openSettlementStatementPrint,
+  StatementLine,
+  StatementPayload,
+} from './settlement-statement.print';
 
-type DeptKey = 'pharmacy' | 'ward' | 'opd';
+type DeptKey = 'pharmacy' | 'ward' | 'opd' | 'laboratory';
 type PeriodChip = 'week' | 'month' | 'custom';
 
 const DEPT_COPY: Record<
@@ -19,18 +25,23 @@ const DEPT_COPY: Record<
   pharmacy: {
     title: 'Pharmacy Settlement',
     blurb:
-      'Pharmacy counter cash drawer. Medicine sales and appointment fees collected here stay as separate lines for audit — one till, clear split when you settle.',
+      'Pharmacy counter cash in hand. Medicine sales and appointment fees stay as separate lines — settle to Hospital Cash when you audit.',
     tillLabel: 'Pharmacy Cash in Hand',
   },
   ward: {
-    title: 'Ward Till',
-    blurb: 'Ward admission collections drawer. Separate from Hospital Accounts — owner take / bank deposit settle here.',
+    title: 'Ward Settlement',
+    blurb: 'Ward admission collections cash in hand. Settle to Hospital Cash after day / multi-day audit.',
     tillLabel: 'Ward Cash in Hand',
   },
   opd: {
-    title: 'OPD Till',
-    blurb: 'OPD consultation fee cash drawer. Separate from Hospital Accounts — settle OPD collections to owner or bank.',
+    title: 'OPD Settlement',
+    blurb: 'OPD consultation fee cash in hand. Settle reception collections to Hospital Cash.',
     tillLabel: 'OPD Cash in Hand',
+  },
+  laboratory: {
+    title: 'Laboratory Settlement',
+    blurb: 'Lab test fee cash in hand. Settle laboratory collections to Hospital Cash.',
+    tillLabel: 'Laboratory Cash in Hand',
   },
 };
 
@@ -45,6 +56,7 @@ const DEPT_COPY: Record<
 export class DepartmentCashSettlementsPageComponent implements OnInit {
   department: DeptKey = 'pharmacy';
   loading = true;
+  pdfLoading = false;
   saving = false;
   errorMessage = '';
   periodChip: PeriodChip = 'month';
@@ -53,6 +65,7 @@ export class DepartmentCashSettlementsPageComponent implements OnInit {
   summary: Record<string, unknown> | null = null;
   movements: Array<Record<string, unknown>> = [];
   settlements: Array<Record<string, unknown>> = [];
+  doctorFees: Array<Record<string, unknown>> = [];
   settleOpen = false;
   addCashOpen = false;
   settleForm = { amount: 0, settleTo: 'cash' as 'cash' | 'bank', note: '' };
@@ -70,7 +83,8 @@ export class DepartmentCashSettlementsPageComponent implements OnInit {
 
   ngOnInit(): void {
     const dept = String(this.route.snapshot.data['department'] || 'pharmacy').toLowerCase();
-    this.department = dept === 'ward' || dept === 'opd' ? dept : 'pharmacy';
+    this.department =
+      dept === 'ward' || dept === 'opd' || dept === 'laboratory' ? (dept as DeptKey) : 'pharmacy';
     this.applyPeriod('month', false);
     this.reload();
   }
@@ -117,21 +131,32 @@ export class DepartmentCashSettlementsPageComponent implements OnInit {
       dateTo: this.dateTo,
       limit: 100,
     };
+    const loadDoctorFees =
+      this.department === 'pharmacy' || this.department === 'opd'
+        ? this.backend.getDepartmentDoctorFees(query).pipe(
+            catchError(() => of({ items: [] as Array<Record<string, unknown>> }))
+          )
+        : of({ items: [] as Array<Record<string, unknown>> });
+
     forkJoin({
       cash: this.backend.getDepartmentCash(query),
       movements: this.backend.listDepartmentCashMovements(query),
       settlements: this.backend.listDepartmentCashSettlements({ ...query, limit: 50 }),
+      doctorFees: loadDoctorFees,
     })
       .pipe(finalize(() => {
         this.loading = false;
         this.cdr.markForCheck();
       }))
       .subscribe({
-        next: ({ cash, movements, settlements }) => {
+        next: ({ cash, movements, settlements, doctorFees }) => {
           this.summary = cash || null;
           this.movements = Array.isArray(movements) ? movements : [];
           const items = (settlements as { items?: Array<Record<string, unknown>> })?.items;
           this.settlements = Array.isArray(items) ? items : [];
+          this.doctorFees = Array.isArray(doctorFees?.['items'])
+            ? (doctorFees['items'] as Array<Record<string, unknown>>)
+            : [];
         },
         error: (error) => {
           this.errorMessage =
@@ -179,7 +204,79 @@ export class DepartmentCashSettlementsPageComponent implements OnInit {
     if (row['settleTo'] === 'bank') {
       return isIn ? 'Added from bank' : 'To bank';
     }
-    return isIn ? 'Added by owner' : 'Taken as cash';
+    return isIn ? 'Added by owner' : 'To Hospital Cash';
+  }
+
+  printStatement(): void {
+    openSettlementStatementPrint(this.statementPayload());
+  }
+
+  async downloadPdf(): Promise<void> {
+    this.pdfLoading = true;
+    this.cdr.markForCheck();
+    try {
+      await downloadSettlementStatementPdf(
+        this.statementPayload(),
+        `${this.department}-settlement-${this.dateFrom}-${this.dateTo}.pdf`
+      );
+    } catch {
+      this.toastr.error('Unable to download PDF.');
+    } finally {
+      this.pdfLoading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private statementPayload(): StatementPayload {
+    let balance = 0;
+    const lines: StatementLine[] = [...this.movements]
+      .reverse()
+      .map((row) => {
+        const signed = this.signedAmount(row);
+        balance += signed;
+        return {
+          date: this.dateTime(
+            (row['movementAt'] || row['createdAt'] || null) as string | null | undefined
+          ),
+          ref: String(row['referenceNo'] || '—'),
+          description: `${this.sourceLabel(row)} · ${row['description'] || ''}`.trim(),
+          credit: signed > 0 ? signed : 0,
+          debit: signed < 0 ? Math.abs(signed) : 0,
+          balance,
+        };
+      });
+
+    return {
+      title: `${this.copy.title} — Cash Ledger`,
+      hospitalName: 'Hisaar360 Hospital',
+      periodLabel: `${this.dateFrom} → ${this.dateTo}`,
+      dateFrom: this.dateFrom,
+      dateTo: this.dateTo,
+      kpis: [
+        {
+          label: this.copy.tillLabel,
+          value: this.money(this.summary?.['cashInHand'] || 0),
+          tone: 'teal',
+        },
+        {
+          label: 'Period income',
+          value: this.money(this.summary?.['periodIncome'] || 0),
+          tone: 'green',
+        },
+        {
+          label: 'Period expense',
+          value: this.money(this.summary?.['periodExpense'] || 0),
+          tone: 'red',
+        },
+        {
+          label: 'Settled out',
+          value: this.money(this.summary?.['periodSettled'] || 0),
+          tone: 'navy',
+        },
+      ],
+      lines,
+      footerNote: 'Credits increase cash in hand; settlements move cash to Hospital Cash.',
+    };
   }
 
   sourceLabel(row: Record<string, unknown>): string {
@@ -199,8 +296,11 @@ export class DepartmentCashSettlementsPageComponent implements OnInit {
       appointment: 'Appointment fee',
       appointment_fee: 'Appointment fee',
       ledger_payment: 'Ledger payment',
-      settlement: 'Settlement',
-      owner_draw: 'Owner take',
+      lab_payment: 'Lab payment',
+      settlement: 'Settled to Hospital',
+      module_settle_in: 'Module settlement in',
+      doctor_payout: 'Doctor payout',
+      owner_draw: 'Owner take / bank',
       owner_cash_in: 'Owner add',
       manual: 'Manual',
     };
@@ -260,7 +360,9 @@ export class DepartmentCashSettlementsPageComponent implements OnInit {
       )
       .subscribe({
         next: () => {
-          this.toastr.success(direction === 'in' ? 'Cash added to till.' : 'Cash settled.');
+          this.toastr.success(
+            direction === 'in' ? 'Cash added to cash in hand.' : 'Cash settled to Hospital Cash.'
+          );
           this.closeModals();
           this.reload();
         },

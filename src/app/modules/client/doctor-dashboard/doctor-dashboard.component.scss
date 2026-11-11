@@ -17,15 +17,129 @@
   }
 }
 
-@media (min-width: 1400px) {
+@media (min-width: 1200px) {
   .doctor-stat-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1600px) {
+  .doctor-stat-grid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
   }
 }
 
 .doctor-stat-grid .card {
+  border: 1px solid transparent;
+  border-radius: 12px;
   margin-bottom: 0;
   min-width: 0;
+  overflow: hidden;
+}
+
+.doctor-stat-card[data-tone='tone-blue'] {
+  background: linear-gradient(160deg, #eff6ff 0%, #fff 75%);
+  border-color: #bfdbfe;
+  .icon { background: #dbeafe !important; }
+  .icon i { color: #1d4ed8 !important; }
+  .number { color: #1e3a8a; }
+}
+
+.doctor-stat-card[data-tone='tone-teal'] {
+  background: linear-gradient(160deg, #ecfeff 0%, #fff 75%);
+  border-color: #99f6e4;
+  .icon { background: #ccfbf1 !important; }
+  .icon i { color: #0f766e !important; }
+  .number { color: #0f766e; }
+}
+
+.doctor-stat-card[data-tone='tone-green'] {
+  background: linear-gradient(160deg, #f0fdf4 0%, #fff 75%);
+  border-color: #bbf7d0;
+  .icon { background: #dcfce7 !important; }
+  .icon i { color: #15803d !important; }
+  .number { color: #15803d; }
+}
+
+.doctor-stat-card[data-tone='tone-amber'] {
+  background: linear-gradient(160deg, #fffbeb 0%, #fff 75%);
+  border-color: #fde68a;
+  .icon { background: #fef3c7 !important; }
+  .icon i { color: #b45309 !important; }
+  .number { color: #b45309; }
+}
+
+.doctor-stat-card[data-tone='tone-purple'] {
+  background: linear-gradient(160deg, #f5f3ff 0%, #fff 75%);
+  border-color: #ddd6fe;
+  .icon { background: #ede9fe !important; }
+  .icon i { color: #6d28d9 !important; }
+  .number { color: #5b21b6; }
+}
+
+.doctor-stat-card[data-tone='tone-navy'] {
+  background: linear-gradient(160deg, #eef4ff 0%, #fff 75%);
+  border-color: #bfdbfe;
+  .icon { background: #dbeafe !important; }
+  .icon i { color: #003e86 !important; }
+  .number { color: #003e86; }
+}
+
+.doctor-stat-card[data-tone='tone-rose'] {
+  background: linear-gradient(160deg, #fff1f2 0%, #fff 75%);
+  border-color: #fecdd3;
+  .icon { background: #ffe4e6 !important; }
+  .icon i { color: #be123c !important; }
+  .number { color: #be123c; }
+}
+
+.fee-share-row {
+  margin-bottom: 8px;
+}
+
+.fee-share-card {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.fee-share-kpis .fee-kpi {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+
+  span {
+    color: #64748b;
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  strong {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin-top: 2px;
+  }
+
+  &[data-tone='navy'] {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    strong { color: #003e86; }
+  }
+
+  &[data-tone='green'] {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    strong { color: #15803d; }
+  }
+
+  &[data-tone='amber'] {
+    background: #fffbeb;
+    border-color: #fde68a;
+    strong { color: #b45309; }
+  }
 }
 
 .doctor-stat-grid .card .body {

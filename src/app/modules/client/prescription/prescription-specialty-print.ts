@@ -433,6 +433,24 @@ function hasEyeSpecialtyData(record: Record<string, unknown>): boolean {
   ].some((key) => String(record[key] || '').trim());
 }
 
+function hasGynaeSpecialtyData(data: Record<string, unknown>): boolean {
+  return [
+    'gynaeMode',
+    'lmp',
+    'edd',
+    'gestationalAge',
+    'gravida',
+    'para',
+    'abortion',
+    'living',
+    'fetalHeartRate',
+    'fundalHeight',
+    'presentation',
+    'fetalMovement',
+    'previousCSection',
+  ].some((key) => String(data[key] || '').trim());
+}
+
 export function resolvePrintSpecialtyTemplate(
   source: Record<string, unknown>,
   doctor?: Doctor | null
@@ -442,9 +460,34 @@ export function resolvePrintSpecialtyTemplate(
     return SPECIALTY_TEMPLATES[section];
   }
 
+  const specialtyKey = String(source['specialtyKey'] || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '');
+  if (specialtyKey === 'OBGYN' || specialtyKey === 'GYNAE' || specialtyKey === 'GYN' || specialtyKey === 'OBS') {
+    return SPECIALTY_TEMPLATES.gynae;
+  }
+
   const data = source['specialtyData'];
-  if (data && typeof data === 'object' && !Array.isArray(data) && hasEyeSpecialtyData(data as Record<string, unknown>)) {
-    return SPECIALTY_TEMPLATES.eye;
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const record = data as Record<string, unknown>;
+    if (hasEyeSpecialtyData(record)) {
+      return SPECIALTY_TEMPLATES.eye;
+    }
+    if (hasGynaeSpecialtyData(record)) {
+      return SPECIALTY_TEMPLATES.gynae;
+    }
+  }
+
+  const diagnosisHint = [
+    source['diagnosis'],
+    source['chiefComplaint'],
+    source['history'],
+  ]
+    .map((value) => String(value || '').toLowerCase())
+    .join(' ');
+  if (/pregnan|antenatal|anc\b|obstetric|gyna?e|lmp|edd|gravida/.test(diagnosisHint)) {
+    return SPECIALTY_TEMPLATES.gynae;
   }
 
   return SPECIALTY_TEMPLATES[inferSpecialtyTemplateKey(doctor || null)];

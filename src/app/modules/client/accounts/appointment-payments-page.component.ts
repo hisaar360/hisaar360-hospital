@@ -8,6 +8,12 @@ import { BackendService } from '../../../core/services/backend.service';
 import { formatCurrency, formatDateTime } from '../pharmacy-admin.utils';
 import { todayYmd, toCalendarYmd } from '../../../core/utils/calendar-date';
 import { isClinicalModuleEnabled } from '../../auth/hospital-modules';
+import {
+  downloadSettlementStatementPdf,
+  openSettlementStatementPrint,
+  StatementLine,
+  StatementPayload,
+} from './settlement-statement.print';
 
 type AuditStatus =
   | ''
@@ -36,6 +42,7 @@ interface ReportDoctor {
 })
 export class AppointmentPaymentsPageComponent implements OnInit {
   loading = false;
+  pdfLoading = false;
   collectingId: string | null = null;
   dateFrom = '';
   dateTo = '';
@@ -47,6 +54,12 @@ export class AppointmentPaymentsPageComponent implements OnInit {
   doctorSummary: Array<Record<string, unknown>> = [];
   totals: Record<string, number> = {};
   clinicalEnabled = isClinicalModuleEnabled();
+  collectorHoldings: Array<{ name: string; channel: string; amount: number; count: number }> = [];
+  holdingTotals = {
+    pharmacy: 0,
+    opd: 0,
+    hospital: 0,
+  };
 
   readonly money = formatCurrency;
   readonly dateTime = formatDateTime;
@@ -164,13 +177,126 @@ export class AppointmentPaymentsPageComponent implements OnInit {
             ? (data['doctorSummary'] as Array<Record<string, unknown>>)
             : [];
           this.totals = (data?.['totals'] as Record<string, number>) || {};
+          this.rebuildCollectorHoldings();
         },
         error: (error) => {
           this.toastr.error(error?.error?.message || 'Unable to load appointment payments.');
           this.items = [];
           this.doctorSummary = [];
+          this.collectorHoldings = [];
+          this.holdingTotals = { pharmacy: 0, opd: 0, hospital: 0 };
         },
       });
+  }
+
+  private rebuildCollectorHoldings(): void {
+    const byKey = new Map<string, { name: string; channel: string; amount: number; count: number }>();
+    let pharmacy = 0;
+    let opd = 0;
+    let hospital = 0;
+
+    for (const row of this.items) {
+      const status = String(row['auditStatus'] || '');
+      const paid = status === 'paid' || status === 'pharmacy_paid';
+      if (!paid) {
+        continue;
+      }
+      const amount = Number(row['paidAmount'] || row['feeAmountCollected'] || row['netFee'] || 0);
+      if (!(amount > 0)) {
+        continue;
+      }
+      const settled = Boolean(row['settledToHospitalAt']);
+      const channel =
+        String(row['feeReceivedChannel'] || row['paidChannel'] || '').toLowerCase() === 'pharmacy'
+          ? 'pharmacy'
+          : 'opd';
+      if (settled) {
+        hospital += amount;
+        continue;
+      }
+      if (channel === 'pharmacy') {
+        pharmacy += amount;
+      } else {
+        opd += amount;
+      }
+      const name = this.receivedByLabel(row);
+      if (!name || name === '—') {
+        continue;
+      }
+      const key = `${channel}::${name.toLowerCase()}`;
+      const existing = byKey.get(key);
+      if (existing) {
+        existing.amount += amount;
+        existing.count += 1;
+      } else {
+        byKey.set(key, { name, channel, amount, count: 1 });
+      }
+    }
+
+    this.holdingTotals = {
+      pharmacy: Math.round(pharmacy * 100) / 100,
+      opd: Math.round(opd * 100) / 100,
+      hospital: Math.round(hospital * 100) / 100,
+    };
+    this.collectorHoldings = Array.from(byKey.values()).sort((a, b) => b.amount - a.amount);
+  }
+
+  printStatement(): void {
+    openSettlementStatementPrint(this.statementPayload());
+  }
+
+  async downloadPdf(): Promise<void> {
+    this.pdfLoading = true;
+    this.cdr.markForCheck();
+    try {
+      await downloadSettlementStatementPdf(
+        this.statementPayload(),
+        `opd-fees-audit-${this.dateFrom}-${this.dateTo}.pdf`
+      );
+    } catch {
+      this.toastr.error('Unable to download PDF.');
+    } finally {
+      this.pdfLoading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private statementPayload(): StatementPayload {
+    let balance = 0;
+    const lines: StatementLine[] = this.items.map((row) => {
+      const paid = Number(row['paidAmount'] || row['feeAmountCollected'] || 0);
+      const unpaid =
+        String(row['auditStatus'] || '') === 'unpaid' ||
+        String(row['auditStatus'] || '') === 'due_at_pharmacy' ||
+        String(row['auditStatus'] || '') === 'unchecked'
+          ? Number(row['netFee'] || 0)
+          : 0;
+      balance += paid - unpaid;
+      return {
+        date: String(row['appointmentDate'] || ''),
+        ref: String(row['appointmentNo'] || ''),
+        description: `${this.patientName(row)} · ${this.doctorName(row)} · ${this.receivedByLabel(row)} · ${this.receivedChannelLabel(row)}`,
+        credit: paid > 0 ? paid : 0,
+        debit: unpaid > 0 ? unpaid : 0,
+        balance,
+      };
+    });
+
+    return {
+      title: this.pharmacyMode ? 'Appointment Fees (Pharmacy)' : 'OPD Fees Audit',
+      hospitalName: 'Hisaar360 Hospital',
+      periodLabel: `${this.dateFrom} → ${this.dateTo}`,
+      dateFrom: this.dateFrom,
+      dateTo: this.dateTo,
+      kpis: [
+        { label: 'Fee total', value: this.money(this.totals['feeTotal'] || 0), tone: 'navy' },
+        { label: 'With Pharmacy', value: this.money(this.holdingTotals.pharmacy), tone: 'teal' },
+        { label: 'With OPD staff', value: this.money(this.holdingTotals.opd), tone: 'amber' },
+        { label: 'In Hospital Cash', value: this.money(this.holdingTotals.hospital), tone: 'green' },
+      ],
+      lines,
+      footerNote: 'Credit = collected fee · Debit = still unpaid · Received by is the collector username.',
+    };
   }
 
   badgeClass(status: unknown): string {
@@ -212,9 +338,18 @@ export class AppointmentPaymentsPageComponent implements OnInit {
   receivedByLabel(row: Record<string, unknown>): string {
     const fromUser = row['feeReceivedByUser'] as Record<string, unknown> | null;
     const name = String(
-      row['receivedByName'] || fromUser?.['name'] || fromUser?.['fullName'] || ''
+      row['receivedByName'] ||
+        row['feeReceivedByName'] ||
+        fromUser?.['name'] ||
+        fromUser?.['fullName'] ||
+        ''
     ).trim();
-    return name || '—';
+    // Never show hospital / org name as the collector.
+    const lower = name.toLowerCase();
+    if (!name || /\bhospital\b/i.test(name) || lower === 'hisaar360') {
+      return '—';
+    }
+    return name;
   }
 
   receivedChannelLabel(row: Record<string, unknown>): string {
@@ -282,7 +417,7 @@ export class AppointmentPaymentsPageComponent implements OnInit {
           this.toastr.success(
             channel === 'pharmacy'
               ? 'Appointment fee collected · Pharmacy Settlement updated (separate from medicine sales).'
-              : 'Appointment fee collected · OPD Till updated.'
+              : 'Appointment fee collected · OPD Settlement updated.'
           );
           // Collected fees leave the "Due at pharmacy" list — show them under Pharmacy paid.
           if (this.auditStatus === 'due_at_pharmacy') {

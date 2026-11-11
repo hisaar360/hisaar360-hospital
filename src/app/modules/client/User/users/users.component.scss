@@ -7,4 +7,17 @@
 .adm-users-page {
   @include adm-page-vars;
   @include adm-shared-styles;
+
+  .adm-row-actions {
+    gap: 10px;
+
+    button {
+      font-size: 13px;
+    }
+  }
+
+  .adm-role-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
 }

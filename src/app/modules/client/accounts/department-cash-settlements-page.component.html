@@ -16,13 +16,21 @@
           <a routerLink="/ward/day-collections">Open Ward Day Collections</a>
         </p>
       </div>
-      <div class="dept-cash__hero-actions" *ngIf="canManage">
-        <button type="button" class="btn btn-outline-secondary" [disabled]="loading" (click)="openAddCash()">
-          Add cash
+      <div class="dept-cash__hero-actions">
+        <button type="button" class="btn btn-stmt" [disabled]="loading" (click)="printStatement()">
+          <i class="fa fa-print"></i> Print
         </button>
-        <button type="button" class="btn btn-primary" [disabled]="loading" (click)="openSettle()">
-          Settle
+        <button type="button" class="btn btn-stmt btn-stmt--pdf" [disabled]="loading || pdfLoading" (click)="downloadPdf()">
+          <i class="fa fa-file-pdf-o"></i> {{ pdfLoading ? 'PDF…' : 'PDF' }}
         </button>
+        <ng-container *ngIf="canManage">
+          <button type="button" class="btn btn-outline-secondary" [disabled]="loading" (click)="openAddCash()">
+            Add cash
+          </button>
+          <button type="button" class="btn btn-primary" [disabled]="loading" (click)="openSettle()">
+            Settle
+          </button>
+        </ng-container>
       </div>
     </header>
 
@@ -108,7 +116,25 @@
         <article class="kpi kpi--hero" data-tone="gold">
           <p class="kpi__label">{{ copy.tillLabel }}</p>
           <strong>{{ money(summary?.['cashInHand'] || 0) }}</strong>
-          <span>Cash till · settle below</span>
+          <span>Cash in hand · settle below</span>
+        </article>
+      </div>
+
+      <div class="doctor-fee-cards" *ngIf="(department === 'pharmacy' || department === 'opd') && doctorFees.length">
+        <article class="doctor-fee-card" *ngFor="let row of doctorFees">
+          <header>
+            <span class="doctor-fee-card__name">{{ row['doctorName'] || 'Doctor' }}</span>
+          </header>
+          <div class="doctor-fee-card__metrics">
+            <div>
+              <span>Appointment fees</span>
+              <strong>{{ money(row['feeTotal'] || 0) }}</strong>
+            </div>
+            <div>
+              <span>Patients</span>
+              <strong>{{ row['count'] || 0 }}</strong>
+            </div>
+          </div>
         </article>
       </div>
 
@@ -182,7 +208,7 @@
           </div>
           <ng-template #noSettlements>
             <p class="dept-cash__empty">
-              Use Add cash to put money in the till, or Settle when you take cash or deposit to bank.
+              Use Add cash to put money in cash in hand, or Settle to move cash into Hospital Cash / bank.
             </p>
           </ng-template>
         </section>
@@ -213,10 +239,13 @@
       <label>
         <span>Settle to</span>
         <select [(ngModel)]="settleForm.settleTo" name="settleTo">
-          <option value="cash">Take cash</option>
+          <option value="cash">Hospital Cash in Hand</option>
           <option value="bank">Deposit to bank</option>
         </select>
       </label>
+      <p class="muted" *ngIf="settleForm.settleTo === 'cash'">
+        Amount leaves this module and credits Hospital Settlement.
+      </p>
       <label>
         <span>Custom message</span>
         <input type="text" maxlength="200" [(ngModel)]="settleForm.note" name="settleNote" placeholder="Optional" />
@@ -238,7 +267,7 @@
         <button type="button" class="btn btn-sm btn-link" (click)="closeModals()">Close</button>
       </header>
       <p>
-        Puts money into {{ copy.tillLabel }}. Current till:
+        Puts money into {{ copy.tillLabel }}. Current cash in hand:
         <strong>{{ money(summary?.['cashInHand'] || 0) }}</strong>
       </p>
       <label>

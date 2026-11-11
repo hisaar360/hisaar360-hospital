@@ -37,8 +37,29 @@ export interface FormattedMedicineInstruction {
   human: string;
   shorthand: string;
   combined: string;
+  /** Compact English line for print (ہدایات). */
+  printEn: string;
+  /** Compact Urdu line for print. */
+  printUr: string;
   schedule: SlotSchedule;
 }
+
+export type PrintInstructionLabel = { en: string; ur: string };
+
+const FREQUENCY_URDU: Record<string, string> = {
+  od: 'روزانہ 1 بار',
+  qd: 'روزانہ 1 بار',
+  bd: 'روزانہ 2 بار',
+  bid: 'روزانہ 2 بار',
+  tds: 'روزانہ 3 بار',
+  tid: 'روزانہ 3 بار',
+  qid: 'روزانہ 4 بار',
+  hs: 'رات کو',
+  am: 'صبح',
+  noon: 'دوپہر',
+  pm: 'شام',
+  sos: 'ضرورت پر',
+};
 
 const EMPTY_SLOTS: SlotSchedule = {
   morning: false,
@@ -389,6 +410,64 @@ const appendMealTiming = (text: string, shorthand: boolean, beforeMeal?: boolean
   return text;
 };
 
+const buildUrduPrintInstruction = (
+  schedule: FrequencySchedule,
+  slots: SlotSchedule,
+  beforeMeal?: boolean,
+  afterMeal?: boolean
+): string => {
+  const parts: string[] = [];
+  const freqUr = FREQUENCY_URDU[schedule.key];
+  if (freqUr) {
+    parts.push(freqUr);
+  }
+
+  const times: string[] = [];
+  if (slots.morning) times.push('صبح');
+  if (slots.noon) times.push('دوپہر');
+  if (slots.evening) times.push('شام');
+  if (slots.night) times.push('رات');
+  if (times.length && schedule.key !== 'sos' && schedule.key !== 'hs') {
+    parts.push(`(${times.join('+')})`);
+  }
+
+  if (beforeMeal) {
+    parts.push('کھانے سے پہلے');
+  } else if (afterMeal) {
+    parts.push('کھانے کے بعد');
+  }
+
+  return parts.join(' · ');
+};
+
+const shortenStoredInstruction = (value: string): string => {
+  const text = String(value || '').trim();
+  if (!text) {
+    return '';
+  }
+
+  const arrowParts = text.split(/\n?\s*→\s*/);
+  if (arrowParts.length > 1) {
+    return arrowParts[arrowParts.length - 1].trim();
+  }
+
+  return text
+    .replace(/^Take\s+/i, '')
+    .replace(/\bonce daily\b/gi, 'OD')
+    .replace(/\btwice daily\b/gi, 'BD')
+    .replace(/\bthree times daily\b/gi, 'TDS')
+    .replace(/\bfour times daily\b/gi, 'QID')
+    .replace(/\bmorning\b/gi, 'AM')
+    .replace(/\bafternoon|noon\b/gi, 'Noon')
+    .replace(/\bevening\b/gi, 'PM')
+    .replace(/\bnight\b/gi, 'HS')
+    .replace(/\bbefore meals?\b/gi, 'AC')
+    .replace(/\bafter meals?\b/gi, 'PC')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 56);
+};
+
 export const buildMedicineInstructions = (input: MedicineInstructionInput): FormattedMedicineInstruction | null => {
   const schedule = resolveSchedule(input);
   if (!schedule) {
@@ -417,14 +496,110 @@ export const buildMedicineInstructions = (input: MedicineInstructionInput): Form
     human = `${schedule.instructionNote}. ${human}`;
   }
 
+  const printEn = shorthand;
+  const printUr = buildUrduPrintInstruction(schedule, slots, input.beforeMeal, input.afterMeal);
+
   return {
     frequencyLabel: schedule.label,
     shorthandCode: schedule.shorthandCode,
     human,
     shorthand,
-    combined: `${human}\n→ ${shorthand}`,
+    // Keep UI readable, but prefer short print line after arrow.
+    combined: `${printEn}${printUr ? `\n${printUr}` : ''}`,
+    printEn,
+    printUr,
     schedule: slots,
   };
+};
+
+/** Compact bilingual instruction for every print template ہدایات column. */
+export const resolvePrintInstructionLabel = (
+  medicine: Record<string, unknown> | null | undefined
+): PrintInstructionLabel => {
+  const input: MedicineInstructionInput = {
+    dosage: String(medicine?.['dosage'] || medicine?.['dose'] || '').trim(),
+    frequency: String(medicine?.['frequency'] || medicine?.['dosageFrequency'] || '').trim(),
+    morning: Boolean(medicine?.['morning'] || medicine?.['morningDose']),
+    noon: Boolean(medicine?.['noon'] || medicine?.['noonDose']),
+    evening: Boolean(medicine?.['evening'] || medicine?.['eveningDose']),
+    night: Boolean(medicine?.['night'] || medicine?.['nightDose']),
+    morningDose: String(medicine?.['morningDose'] || '').trim(),
+    noonDose: String(medicine?.['noonDose'] || '').trim(),
+    eveningDose: String(medicine?.['eveningDose'] || '').trim(),
+    nightDose: String(medicine?.['nightDose'] || '').trim(),
+    beforeMeal: Boolean(medicine?.['beforeMeal']),
+    afterMeal: Boolean(medicine?.['afterMeal']),
+  };
+
+  const built = buildMedicineInstructions(input);
+  if (built?.printEn) {
+    return { en: built.printEn, ur: built.printUr };
+  }
+
+  const explicitUrdu = String(
+    medicine?.['instructionUrdu'] || medicine?.['instructionsUrdu'] || medicine?.['urduInstructions'] || ''
+  ).trim();
+  const stored = String(medicine?.['instructions'] || medicine?.['instruction'] || '').trim();
+  const storedLines = stored
+    .split(/\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const trailingUrdu =
+    storedLines.length > 1 && /[\u0600-\u06FF]/.test(storedLines[storedLines.length - 1])
+      ? storedLines[storedLines.length - 1]
+      : '';
+  const enSource = trailingUrdu ? storedLines.slice(0, -1).join(' ') : stored;
+  const en = shortenStoredInstruction(enSource) || '-';
+
+  if (explicitUrdu || trailingUrdu) {
+    return { en, ur: explicitUrdu || trailingUrdu };
+  }
+
+  // Best-effort Urdu from meal flags when schedule could not be built.
+  if (input.beforeMeal) {
+    return { en, ur: 'کھانے سے پہلے' };
+  }
+  if (input.afterMeal) {
+    return { en, ur: 'کھانے کے بعد' };
+  }
+
+  return { en, ur: '' };
+};
+
+export type MealFoodLabel = { en: string; ur: string };
+
+/** Bilingual before/after food label for every print template. */
+export const resolveMealFoodLabel = (
+  medicine: Record<string, unknown> | null | undefined
+): MealFoodLabel => {
+  if (medicine?.['beforeMeal']) {
+    return { en: 'Before Food', ur: 'کھانے سے پہلے' };
+  }
+  if (medicine?.['afterMeal']) {
+    return { en: 'After Food', ur: 'کھانے کے بعد' };
+  }
+
+  const instruction = String(
+    medicine?.['instructions'] || medicine?.['food'] || medicine?.['mealTiming'] || ''
+  ).toLowerCase();
+  if (/before\s*(food|meal)|ac\b|کھانے سے پہلے/.test(instruction)) {
+    return { en: 'Before Food', ur: 'کھانے سے پہلے' };
+  }
+  if (/after\s*(food|meal)|pc\b|کھانے کے بعد/.test(instruction)) {
+    return { en: 'After Food', ur: 'کھانے کے بعد' };
+  }
+
+  return { en: '-', ur: '' };
+};
+
+export const formatMealFoodLabel = (
+  medicine: Record<string, unknown> | null | undefined
+): string => {
+  const label = resolveMealFoodLabel(medicine);
+  if (!label.ur || label.en === '-') {
+    return label.en;
+  }
+  return `${label.en}\n${label.ur}`;
 };
 
 export const resolvePrintSlotDose = (

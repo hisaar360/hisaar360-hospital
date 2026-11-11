@@ -22,6 +22,46 @@ export interface PrescriptionLayoutSection {
   column: PrescriptionLayoutColumn;
 }
 
+export interface PrescriptionCustomSection {
+  id: string;
+  title: string;
+  body: string;
+  visible: boolean;
+  column: PrescriptionLayoutColumn;
+}
+
+export function createPrescriptionCustomSection(
+  partial?: Partial<PrescriptionCustomSection>
+): PrescriptionCustomSection {
+  const id =
+    String(partial?.id || '').trim() ||
+    `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  return {
+    id,
+    title: String(partial?.title || 'New Section').trim() || 'New Section',
+    body: String(partial?.body || '').trim(),
+    visible: partial?.visible !== false,
+    column: (['left', 'right', 'full'] as PrescriptionLayoutColumn[]).includes(
+      partial?.column as PrescriptionLayoutColumn
+    )
+      ? (partial?.column as PrescriptionLayoutColumn)
+      : 'full',
+  };
+}
+
+export function normalizePrescriptionCustomSections(
+  sections?: Array<Partial<PrescriptionCustomSection>> | null
+): PrescriptionCustomSection[] {
+  if (!Array.isArray(sections)) {
+    return [];
+  }
+
+  return sections
+    .slice(0, 12)
+    .map((item) => createPrescriptionCustomSection(item))
+    .filter((item) => item.title || item.body);
+}
+
 export interface PrescriptionStyleSettings {
   englishHeadingMarginLeft: number;
   englishHeadingMarginRight: number;
@@ -432,7 +472,19 @@ export function prescriptionStyleToCssVars(
     '--rx-ur-spec': normalized.urSpecialtyColor,
     '--rx-ur-hosp': normalized.urHospitalColor,
     '--rx-ur-addr': normalized.urAddressColor,
+    '--prescription-logo-scale': String(normalized.logoScale / 100),
   };
+}
+
+export function isPrescriptionLayoutSectionVisible(
+  layout: PrescriptionLayoutSection[] | null | undefined,
+  key: PrescriptionLayoutSectionKey
+): boolean {
+  if (!Array.isArray(layout) || layout.length === 0) {
+    return true;
+  }
+  const item = layout.find((entry) => entry.key === key);
+  return item?.visible !== false;
 }
 
 export const THEME_COLOR_PRESETS: Array<{

@@ -1,4 +1,10 @@
 import { Patient, PrescriptionTemplate } from '../../../shared/models/hospital.model';
+import { ClinicalRxPrintPage } from './clinical-rx-print-pages';
+import { GynaeConsultMode } from './gynae-prescription-data';
+import {
+  PrescriptionCustomSection,
+  PrescriptionLayoutSection,
+} from './prescription-style';
 
 export type PrescriptionPrintDoseSlot = 'morning' | 'noon' | 'evening' | 'night';
 
@@ -18,6 +24,12 @@ export interface PrescriptionPrintPreviewData {
   doctorQualificationUrdu: string;
   doctorTitleEnglish: string;
   doctorTitleUrdu: string;
+  doctorSpecialty?: string;
+  clinicTagline?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  rxTitle?: string;
+  visitType?: string;
   hospitalName: string;
   hospitalNameUrdu: string;
   hospitalAddress: string;
@@ -44,6 +56,15 @@ export interface PrescriptionPrintPreviewData {
   specialtyTitle?: string;
   specialtySection?: string;
   specialtyRows?: Array<{ label: string; value: string; wide?: boolean }>;
+  gynaeConsultationRows?: Array<{ label: string; value: string }>;
+  gynaeSidebarRows?: Array<{ label: string; value: string; wide?: boolean }>;
+  gynaeExtendedRows?: Array<{ label: string; value: string; wide?: boolean }>;
   gynaeSummaryRows?: Array<{ label: string; value: string }>;
   ultrasoundRows?: Array<{ label: string; value: string }>;
+  clinicalPages?: ClinicalRxPrintPage[];
+  gynaeMode?: GynaeConsultMode;
+  patientBloodGroup?: string;
+  styleCssVars?: Record<string, string>;
+  layout?: PrescriptionLayoutSection[];
+  customSections?: PrescriptionCustomSection[];
 }

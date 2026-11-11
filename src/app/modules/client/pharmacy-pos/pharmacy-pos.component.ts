@@ -4483,8 +4483,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
           medicineName: medicine.name,
           requestedQty,
           qtyBreakdown: dispense.breakdown,
-          reason: 'No matching product in selected store',
-          patientMessage: `Tell the patient: ${medicine.name} is not available in this store.`,
+          reason: 'Not available',
+          patientMessage: `Tell the patient: ${medicine.name} is not available.`,
         });
         continue;
       }
@@ -4495,8 +4495,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
           medicineName: medicine.name,
           requestedQty,
           qtyBreakdown: dispense.breakdown,
-          reason: 'Out of stock in selected store',
-          patientMessage: `Tell the patient: ${medicine.name} is out of stock right now.`,
+          reason: 'Not available',
+          patientMessage: `Tell the patient: ${medicine.name} is not available.`,
         });
         continue;
       }
@@ -4523,8 +4523,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
           medicineName: medicine.name,
           requestedQty: shortBy,
           qtyBreakdown: dispense.breakdown,
-          reason: `Only ${billQty} of ${requestedQty} available — rest not available`,
-          patientMessage: `Tell the patient: ${shortBy} of ${medicine.name} cannot be dispensed today.`,
+          reason: 'Not available',
+          patientMessage: `Tell the patient: ${shortBy} of ${medicine.name} is not available.`,
         });
       }
     }
@@ -4647,7 +4647,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     const unavailableItems = this.unavailableMedicines.map((item) => ({
       name: `${item.medicineName} — Not available`,
       sku: '',
-      strength: item.reason || '',
+      strength: '',
       qty: Number(item.requestedQty || 0),
       discountLabel: '0',
       unitPrice: 0,

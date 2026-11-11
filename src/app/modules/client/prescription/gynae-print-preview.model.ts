@@ -1,5 +1,9 @@
 import { GynaeConsultMode } from './gynae-prescription-data';
 import { ClinicalRxPrintPage } from './clinical-rx-print-pages';
+import {
+  PrescriptionCustomSection,
+  PrescriptionLayoutSection,
+} from './prescription-style';
 
 export type GynaePrintPreview = {
   doctorName: string;
@@ -18,6 +22,9 @@ export type GynaePrintPreview = {
   showHospitalLogo: boolean;
   hospitalLogoScale: number;
   clinicTagline?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  rxTitle?: string;
   visitType?: string;
   prescriptionNo: string;
   patientNo: string;
@@ -45,6 +52,9 @@ export type GynaePrintPreview = {
   prescriptionFooterLines: string[];
   followUpDate: string;
   gynaeMode: GynaeConsultMode;
+  styleCssVars?: Record<string, string>;
+  layout?: PrescriptionLayoutSection[];
+  customSections?: PrescriptionCustomSection[];
 };
 
 export type GynaeWhMetric = { label: string; labelUr: string; value: string; unit?: string };

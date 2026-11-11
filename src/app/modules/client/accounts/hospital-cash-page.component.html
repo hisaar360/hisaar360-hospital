@@ -1,0 +1,131 @@
+<section class="dept-cash accounts-page dept-cash--slim">
+  <div class="accounts-shell">
+    <header class="dept-cash__hero">
+      <div>
+        <h1>Hospital Settlement</h1>
+        <p>
+          Main cash after module settlements. Doctor payouts reduce Hospital Cash.
+        </p>
+        <p class="dept-cash__audit-link">
+          <a routerLink="/accounts/doctor-dues">Doctor Dues</a>
+          ·
+          <a routerLink="/accounts/appointment-payments">OPD Fees Audit</a>
+        </p>
+      </div>
+      <div class="dept-cash__hero-actions">
+        <button type="button" class="btn btn-stmt" [disabled]="loading" (click)="printStatement()">
+          <i class="fa fa-print"></i> Print
+        </button>
+        <button type="button" class="btn btn-stmt btn-stmt--pdf" [disabled]="loading || pdfLoading" (click)="downloadPdf()">
+          <i class="fa fa-file-pdf-o"></i> {{ pdfLoading ? 'PDF…' : 'PDF' }}
+        </button>
+        <button type="button" class="btn btn-primary" [disabled]="loading" (click)="reload()">Refresh</button>
+      </div>
+    </header>
+
+    <div class="accounts-filter-card">
+      <div class="dept-cash__dates">
+        <label>
+          <span>From</span>
+          <input type="date" [(ngModel)]="dateFrom" name="dateFrom" />
+        </label>
+        <label>
+          <span>To</span>
+          <input type="date" [(ngModel)]="dateTo" name="dateTo" />
+        </label>
+        <div class="dept-cash__date-actions">
+          <button type="button" class="btn btn-sm btn-primary" (click)="reload()">Apply</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="dept-cash__error" *ngIf="errorMessage">{{ errorMessage }}</p>
+    <div class="dept-cash__loading" *ngIf="loading">Loading…</div>
+
+    <ng-container *ngIf="!loading">
+      <div class="dept-cash__kpis">
+        <article class="kpi kpi--hero" data-tone="gold">
+          <p class="kpi__label">Hospital Cash in Hand</p>
+          <strong>{{ money(summary?.['cashInHand'] || 0) }}</strong>
+          <span>Available now</span>
+        </article>
+        <article class="kpi" data-tone="green">
+          <p class="kpi__label">From modules</p>
+          <strong class="amt-in">{{ money(moduleInTotal()) }}</strong>
+          <span>Credit · period</span>
+        </article>
+        <article class="kpi" data-tone="red">
+          <p class="kpi__label">Doctor payouts</p>
+          <strong class="amt-out">{{ money(doctorPayoutTotal()) }}</strong>
+          <span>Debit · period</span>
+        </article>
+        <article class="kpi" data-tone="teal">
+          <p class="kpi__label">Total credit</p>
+          <strong class="amt-in">{{ money(totalCredit()) }}</strong>
+        </article>
+        <article class="kpi" data-tone="amber">
+          <p class="kpi__label">Total debit</p>
+          <strong class="amt-out">{{ money(totalDebit()) }}</strong>
+        </article>
+      </div>
+
+      <div class="module-cash-cards" *ngIf="moduleCash.length">
+        <article class="module-cash-card" *ngFor="let row of moduleCash">
+          <div class="module-cash-card__top">
+            <strong>{{ row['label'] || row['department'] }}</strong>
+            <a *ngIf="row['department'] === 'opd'" routerLink="/accounts/opd-cash">Settle</a>
+            <a *ngIf="row['department'] === 'pharmacy'" routerLink="/accounts/pharmacy-cash">Settle</a>
+            <a *ngIf="row['department'] === 'laboratory'" routerLink="/accounts/lab-cash">Settle</a>
+            <a *ngIf="row['department'] === 'ward'" routerLink="/accounts/ward-cash">Settle</a>
+          </div>
+          <p class="module-cash-card__label">Cash in hand</p>
+          <p class="module-cash-card__amt" [class.amt-in]="($any(row['cashInHand']) || 0) > 0"
+            [class.is-zero]="!($any(row['cashInHand']) > 0)">
+            {{ money(row['cashInHand'] || 0) }}
+          </p>
+        </article>
+      </div>
+
+      <div class="accounts-panel">
+        <div class="accounts-filter-head">
+          <h2>Main ledger · bank statement</h2>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm dept-cash__table ledger-table">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Ref</th>
+                <th>Description</th>
+                <th class="num">Credit</th>
+                <th class="num">Debit</th>
+                <th class="num">Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of ledgerRows">
+                <td>{{ row.date }}</td>
+                <td>{{ row.ref }}</td>
+                <td>{{ row.description }}</td>
+                <td class="num amt-in">{{ (row.credit || 0) > 0 ? money(row.credit || 0) : '—' }}</td>
+                <td class="num amt-out">{{ (row.debit || 0) > 0 ? money(row.debit || 0) : '—' }}</td>
+                <td class="num">{{ money(row.balance) }}</td>
+              </tr>
+              <tr *ngIf="!ledgerRows.length">
+                <td colspan="6" class="muted">No hospital ledger movements in this period</td>
+              </tr>
+            </tbody>
+            <tfoot *ngIf="ledgerRows.length">
+              <tr>
+                <td colspan="3"><strong>Totals</strong></td>
+                <td class="num amt-in"><strong>{{ money(totalCredit()) }}</strong></td>
+                <td class="num amt-out"><strong>{{ money(totalDebit()) }}</strong></td>
+                <td class="num"><strong>{{ money(closingBalance()) }}</strong></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </ng-container>
+  </div>
+</section>

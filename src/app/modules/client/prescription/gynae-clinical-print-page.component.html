@@ -1,5 +1,7 @@
 <section class="prescription-print-sheet prescription-template-gynae-clinical"
-  [class.gynae-clinical-page-last]="page.isLastPage">
+  [class.gynae-clinical-page-last]="page.isLastPage"
+  [ngStyle]="preview.styleCssVars || {}"
+  [style.--prescription-logo-scale]="preview.hospitalLogoScale / 100">
   <div class="gynae-clinical-page" [ngClass]="medicineDensityClass">
 
     <header class="gynae-clinical-header">
@@ -11,7 +13,7 @@
         <div class="gynae-clinical-doctor-copy">
           <h1>{{ preview.doctorName }}</h1>
           <p class="gynae-clinical-qualification">{{ preview.doctorQualification }}</p>
-          <span class="gynae-clinical-badge">Consultant Gynaecologist &amp; Obstetrician</span>
+          <span class="gynae-clinical-badge">{{ preview.doctorTitleEnglish || 'Consultant Gynaecologist & Obstetrician' }}</span>
           <div class="gynae-clinical-contact">
             <span><i class="fa fa-map-marker"></i>{{ preview.hospitalAddress || preview.hospitalName }}</span>
             <span><i class="fa fa-phone"></i>{{ contactPhone() }}</span>
@@ -203,8 +205,18 @@
                 <td class="gynae-td-time">{{ slotDose(medicine, 'noon') || '-' }}</td>
                 <td class="gynae-td-time">{{ slotDose(medicine, 'evening') || '-' }}</td>
                 <td class="gynae-td-time">{{ slotDose(medicine, 'night') || '-' }}</td>
-                <td class="gynae-td-food">{{ medicine['beforeMeal'] ? 'Before' : medicine['afterMeal'] ? 'After' : '-' }}</td>
-                <td class="gynae-td-inst">{{ medicine['instructions'] || '-' }}</td>
+                <td class="gynae-td-food">
+                  <ng-container *ngIf="foodLabel(medicine) as food">
+                    <span>{{ food.en }}</span>
+                    <small *ngIf="food.ur" dir="rtl">{{ food.ur }}</small>
+                  </ng-container>
+                </td>
+                <td class="gynae-td-inst">
+                  <ng-container *ngIf="instructionLabel(medicine) as inst">
+                    <span class="print-inst-en">{{ inst.en }}</span>
+                    <span class="print-inst-ur" *ngIf="inst.ur" dir="rtl">{{ inst.ur }}</span>
+                  </ng-container>
+                </td>
               </tr>
               <tr *ngIf="page.medicines.length === 0">
                 <td colspan="10">No medicine prescribed</td>

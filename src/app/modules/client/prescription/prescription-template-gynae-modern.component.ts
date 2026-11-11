@@ -1,12 +1,21 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Input, OnChanges } from '@angular/core';
-import { resolvePrintSlotDose } from './medicine-instruction-formatter';
+import {
+  resolveMealFoodLabel,
+  resolvePrintInstructionLabel,
+  resolvePrintSlotDose,
+} from './medicine-instruction-formatter';
 import {
   ClinicalRxPrintPage,
   GynaePrintPreview,
   resolveGynaePrintContactEmail,
   resolveGynaePrintContactPhone,
 } from './gynae-print-preview.model';
+import {
+  isPrescriptionLayoutSectionVisible,
+  PrescriptionCustomSection,
+  PrescriptionLayoutSectionKey,
+} from './prescription-style';
 
 type DoseSlot = 'morning' | 'noon' | 'evening' | 'night';
 
@@ -26,25 +35,35 @@ export class PrescriptionTemplateGynaeModernComponent implements OnChanges {
   contactPhoneValue = '-';
   contactEmailValue = '-';
   patientNoteLinesList: string[] = [];
+  visibleCustomSections: PrescriptionCustomSection[] = [];
 
   ngOnChanges(): void {
-    this.contactPhoneValue = resolveGynaePrintContactPhone(this.preview?.prescriptionFooterLines || []);
-    this.contactEmailValue = resolveGynaePrintContactEmail(this.preview?.prescriptionFooterLines || []);
+    this.contactPhoneValue =
+      String(this.preview?.contactPhone || '').trim() ||
+      resolveGynaePrintContactPhone(this.preview?.prescriptionFooterLines || []);
+    this.contactEmailValue =
+      String(this.preview?.contactEmail || '').trim() ||
+      resolveGynaePrintContactEmail(this.preview?.prescriptionFooterLines || []);
     this.patientNoteLinesList = this.buildPatientNoteLines(this.preview?.patientNote || '');
+    this.visibleCustomSections = (this.preview?.customSections || []).filter(
+      (section) => section.visible !== false
+    );
+  }
+
+  sectionVisible(key: PrescriptionLayoutSectionKey): boolean {
+    return isPrescriptionLayoutSectionVisible(this.preview?.layout, key);
   }
 
   slotDose(medicine: Record<string, unknown> | null | undefined, slot: DoseSlot): string {
     return resolvePrintSlotDose(medicine, slot);
   }
 
-  foodLabel(medicine: Record<string, unknown> | null | undefined): string {
-    if (medicine?.['beforeMeal']) {
-      return 'Before Food';
-    }
-    if (medicine?.['afterMeal']) {
-      return 'After Food';
-    }
-    return '-';
+  foodLabel(medicine: Record<string, unknown> | null | undefined): { en: string; ur: string } {
+    return resolveMealFoodLabel(medicine);
+  }
+
+  instructionLabel(medicine: Record<string, unknown> | null | undefined): { en: string; ur: string } {
+    return resolvePrintInstructionLabel(medicine);
   }
 
   isDangerRow(label: string): boolean {

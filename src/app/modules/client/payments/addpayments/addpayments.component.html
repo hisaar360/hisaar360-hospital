@@ -4,22 +4,21 @@
       <div class="pay-page-header__copy">
         <a class="pay-back-link" routerLink="/payments">&larr; Back to Payments</a>
         <h1>Add Payments / Create Invoice</h1>
-        <p>Create a patient bill and optionally record payment. Amounts use the hospital currency from Settings.</p>
+        <p>Create a patient bill and optionally record payment. Currency from Settings.</p>
       </div>
     </div>
 
     <form [formGroup]="billForm" (ngSubmit)="submitBill()">
       <div class="pay-layout-with-side">
-        <div>
+        <div class="add-payments-main">
           <section class="pay-numbered-section">
             <div class="pay-numbered-section__head">
               <span class="pay-numbered-section__num">1</span>
               <div>
                 <h2>Patient Information</h2>
-                <p>Select the patient. Appointment is optional.</p>
               </div>
             </div>
-            <div class="pay-filter-row">
+            <div class="pay-filter-row patient-row">
               <label class="pay-filter-field">
                 <span>Patient</span>
                 <select class="form-select" formControlName="patientId">
@@ -49,7 +48,6 @@
               <span class="pay-numbered-section__num">2</span>
               <div>
                 <h2>Bill Items</h2>
-                <p>Description, quantity, and unit price for each charge line.</p>
               </div>
             </div>
 
@@ -58,7 +56,7 @@
                 <thead>
                   <tr>
                     <th>Description</th>
-                    <th>QTY</th>
+                    <th>Qty</th>
                     <th class="text-right">Unit Price</th>
                     <th class="text-right">Total</th>
                     <th></th>
@@ -118,10 +116,9 @@
               <span class="pay-numbered-section__num">3</span>
               <div>
                 <h2>Payment Details</h2>
-                <p>Discount, tax, and optional payment recorded with this bill.</p>
               </div>
             </div>
-            <div class="pay-filter-row">
+            <div class="pay-filter-row payment-row">
               <label class="pay-filter-field">
                 <span>Discount</span>
                 <input class="form-control" type="number" min="0" formControlName="discount" />
@@ -141,11 +138,11 @@
                 </select>
               </label>
               <label class="pay-filter-field">
-                <span>Payment Reference (optional)</span>
+                <span>Payment Reference</span>
                 <input class="form-control" type="text" formControlName="paymentReference" placeholder="Optional" />
               </label>
               <label class="pay-filter-field">
-                <span>Notes (optional)</span>
+                <span>Notes</span>
                 <input class="form-control" type="text" formControlName="notes" placeholder="Optional" />
               </label>
             </div>

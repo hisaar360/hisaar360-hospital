@@ -44,6 +44,8 @@ import { DoctorPerformancePageComponent } from './accounts/doctor-performance-pa
 import { DepartmentPerformancePageComponent } from './accounts/department-performance-page.component';
 import { DepartmentCashSettlementsPageComponent } from './accounts/department-cash-settlements-page.component';
 import { AppointmentPaymentsPageComponent } from './accounts/appointment-payments-page.component';
+import { HospitalCashPageComponent } from './accounts/hospital-cash-page.component';
+import { DoctorDuesPageComponent } from './accounts/doctor-dues-page.component';
 import { HelpCenterComponent } from './help/help-center.component';
 import { NotificationsPageComponent } from './notifications/notifications-page.component';
 
@@ -74,6 +76,21 @@ const ACCOUNTS_CASH_SETTLEMENT_ACCESS: AccessRequirement = {
     'accounts.read',
     'accounts.journals.create',
     'accounts.cash_settlement.manage',
+  ],
+};
+/** OPD Fees Audit: accounts staff OR clinical users with appointments access. */
+const APPOINTMENT_PAYMENTS_AUDIT_ACCESS: AccessRequirement = {
+  any: [
+    'accounts.cash_settlement.view',
+    'accounts.reports.read',
+    'accounts.read',
+    'accounts.journals.create',
+    'accounts.cash_settlement.manage',
+    'appointments.read',
+    'appointments.update',
+    'doctors.read',
+    'ledger_payments.create',
+    'sales.create',
   ],
 };
 const ACCOUNTS_JOURNAL_ACCESS = ['accounts.journals.read', 'accounts.journals.create'];
@@ -320,7 +337,7 @@ export const clientRoutes: Routes = [
         path: 'accounts/ward-cash',
         component: DepartmentCashSettlementsPageComponent,
         data: {
-          title: 'Hisaar360 Hospital Management System | Ward Till',
+          title: 'Hisaar360 Hospital Management System | Ward Settlement',
           department: 'ward',
         },
         canActivate: [roleGuard(ACCOUNTS_CASH_SETTLEMENT_ACCESS)],
@@ -329,10 +346,35 @@ export const clientRoutes: Routes = [
         path: 'accounts/opd-cash',
         component: DepartmentCashSettlementsPageComponent,
         data: {
-          title: 'Hisaar360 Hospital Management System | OPD Till',
+          title: 'Hisaar360 Hospital Management System | OPD Settlement',
           department: 'opd',
         },
         canActivate: [roleGuard(ACCOUNTS_CASH_SETTLEMENT_ACCESS)],
+      },
+      {
+        path: 'accounts/lab-cash',
+        component: DepartmentCashSettlementsPageComponent,
+        data: {
+          title: 'Hisaar360 Hospital Management System | Laboratory Settlement',
+          department: 'laboratory',
+        },
+        canActivate: [roleGuard(ACCOUNTS_CASH_SETTLEMENT_ACCESS)],
+      },
+      {
+        path: 'accounts/hospital-cash',
+        component: HospitalCashPageComponent,
+        data: {
+          title: 'Hisaar360 Hospital Management System | Hospital Settlement',
+        },
+        canActivate: [roleGuard(ACCOUNTS_CASH_SETTLEMENT_ACCESS)],
+      },
+      {
+        path: 'accounts/doctor-dues',
+        component: DoctorDuesPageComponent,
+        data: {
+          title: 'Hisaar360 Hospital Management System | Doctor Dues',
+        },
+        canActivate: [roleGuard(APPOINTMENT_PAYMENTS_AUDIT_ACCESS)],
       },
       {
         path: 'accounts/appointment-payments',
@@ -340,7 +382,7 @@ export const clientRoutes: Routes = [
         data: {
           title: 'Hisaar360 Hospital Management System | Appointment Payments',
         },
-        canActivate: [roleGuard(ACCOUNTS_CASH_SETTLEMENT_ACCESS)],
+        canActivate: [roleGuard(APPOINTMENT_PAYMENTS_AUDIT_ACCESS)],
       },
       {
         path: 'payments',

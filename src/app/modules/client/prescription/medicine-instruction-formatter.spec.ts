@@ -28,7 +28,10 @@ describe('medicine-instruction-formatter', () => {
 
     expect(formatted?.human).toBe('Take 1 tablet twice daily (morning + evening)');
     expect(formatted?.shorthand).toBe('1 tab BD (AM + PM)');
-    expect(formatted?.combined).toContain('→ 1 tab BD (AM + PM)');
+    expect(formatted?.printEn).toBe('1 tab BD (AM + PM)');
+    expect(formatted?.printUr).toContain('روزانہ 2 بار');
+    expect(formatted?.combined).toContain('1 tab BD (AM + PM)');
+    expect(formatted?.combined).toContain('روزانہ 2 بار');
     expect(formatted?.frequencyLabel).toBe('Twice daily (BD)');
   });
 

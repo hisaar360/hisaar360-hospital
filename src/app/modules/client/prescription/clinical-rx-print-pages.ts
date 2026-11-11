@@ -74,27 +74,27 @@ type GynaeExtendedChunk = {
 };
 
 function firstPageMedicineCapacity(input: ClinicalRxPrintLayoutInput): number {
-  // Keep typical OPD Rx on page 1; only paginate when content is genuinely long.
+  // Prefer packing medicines on page 1; CSS density shrinks row size when count is high.
   const isGynae = input.specialtySection === 'gynae';
-  let capacity = isGynae ? 8 : 10;
+  let capacity = isGynae ? 16 : 18;
 
-  if (isGynae && input.gynaeExtendedRows.length > 10) {
+  if (isGynae && input.gynaeExtendedRows.length > 12) {
     capacity -= 2;
   }
 
-  if (input.labTests.length > 8) {
+  if (input.labTests.length > 10) {
     capacity -= 1;
   }
 
-  if (input.ivFluids.length > 3) {
+  if (input.ivFluids.length > 4) {
     capacity -= 1;
   }
 
-  if ((input.patientNote || '').length > 220) {
+  if ((input.patientNote || '').length > 320) {
     capacity -= 1;
   }
 
-  return Math.max(5, capacity);
+  return Math.max(10, capacity);
 }
 
 function lastPageMedicineCapacity(extendedRowCount: number): number {
@@ -371,7 +371,8 @@ function buildGynaeCompactPreviewPrintPages(
   medicines: Array<Record<string, unknown>>,
   extendedRows: Array<{ label: string; value: string; wide?: boolean }>
 ): ClinicalRxPrintPage[] {
-  const medicineCap = 12;
+  // Keep medicines on one sheet; density CSS shrinks rows when count is high.
+  const medicineCap = 18;
 
   if (medicines.length <= medicineCap) {
     return finalizePages([
@@ -388,7 +389,7 @@ function buildGynaeCompactPreviewPrintPages(
     ]);
   }
 
-  const medicineChunks = chunkMedicines(medicines, medicineCap, 10, 12);
+  const medicineChunks = chunkMedicines(medicines, medicineCap, 12, 14);
   const pages: ClinicalRxPrintPage[] = medicineChunks.map((chunk, index) => ({
     isFirstPage: index === 0,
     isLastPage: false,
@@ -407,7 +408,7 @@ function buildGynaeWomensHealthPrintPages(
   medicines: Array<Record<string, unknown>>,
   extendedRows: Array<{ label: string; value: string; wide?: boolean }>
 ): ClinicalRxPrintPage[] {
-  const medicineCap = 10;
+  const medicineCap = 16;
 
   if (medicines.length <= medicineCap) {
     return finalizePages([
@@ -424,7 +425,7 @@ function buildGynaeWomensHealthPrintPages(
     ]);
   }
 
-  const medicineChunks = chunkMedicines(medicines, medicineCap, 10, 12);
+  const medicineChunks = chunkMedicines(medicines, medicineCap, 12, 14);
   const pages: ClinicalRxPrintPage[] = medicineChunks.map((chunk, index) => ({
     isFirstPage: index === 0,
     isLastPage: false,
@@ -506,20 +507,30 @@ export function buildClinicalRxPrintPages(input: ClinicalRxPrintLayoutInput): Cl
   const medicines = input.medicines || [];
   const extendedRows = input.gynaeExtendedRows || [];
 
+  if (usesGynaeModernPagination(input.specialtySection, input.prescriptionTemplate)) {
+    return buildGynaeModernPrintPages(medicines, extendedRows);
+  }
+  if (usesGynaeWomensHealthPagination(input.specialtySection, input.prescriptionTemplate)) {
+    return buildGynaeWomensHealthPrintPages(medicines, extendedRows);
+  }
+  if (usesGynaeClinicalPagination(input.specialtySection, input.prescriptionTemplate)) {
+    return buildGynaeClinicalPrintPages(medicines, extendedRows);
+  }
+
   // Prefer 1 page; use page 2 only when medicines overflow OR OBS block is large.
   // Never emit empty sheets.
   const firstCap = firstPageMedicineCapacity(input);
-  const continuationCap = 12;
+  const continuationCap = 14;
   // Keep room for OBS on last medicine page when packing together.
-  const lastCap = Math.max(6, lastPageMedicineCapacity(extendedRows.length));
+  const lastCap = Math.max(8, lastPageMedicineCapacity(extendedRows.length));
 
   const needsDedicatedObsPage =
-    input.specialtySection === 'gynae' && extendedRows.length > 8;
+    input.specialtySection === 'gynae' && extendedRows.length > 14;
 
   const fitsSinglePage =
     medicines.length <= firstCap &&
     !needsDedicatedObsPage &&
-    extendedRows.length <= 8;
+    extendedRows.length <= 12;
 
   if (fitsSinglePage) {
     return finalizePages([

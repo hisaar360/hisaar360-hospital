@@ -114,11 +114,17 @@
               <i class="fa fa-keyboard-o"></i>
             </button>
             <ng-container *ngIf="hasAssignedPatient()">
-              <button type="button" class="btn-light" [disabled]="saving" (click)="submitPrescription(false)">Save
-                Draft</button>
+              <button type="button" class="btn-light" [disabled]="saving" (click)="submitPrescription(false)">
+                Save Draft
+              </button>
+              <button type="button" class="btn-save" [disabled]="saving" (click)="submitPrescription(false)"
+                title="Save consultation without printing (Ctrl/Cmd+S)">
+                <i class="fa fa-save"></i>
+                {{ saving ? 'Saving...' : 'Save' }}
+              </button>
               <button type="button" class="btn-primary" [disabled]="saving" (click)="submitPrescription(true)">
                 <i class="fa fa-print"></i>
-                {{ saving ? 'Saving...' : 'Save & Print' }}
+                Save & Print
               </button>
             </ng-container>
           </div>
@@ -1575,35 +1581,45 @@
                         <option *ngFor="let duration of durationOptions" [value]="duration">{{ duration }}</option>
                       </select>
                     </td>
-                    <td><label class="tick-cell"><input type="checkbox" formControlName="afterMeal" (change)="onMedicineMealTimingChange(i)" /><span></span></label></td>
-                    <td><label class="tick-cell"><input type="checkbox" formControlName="beforeMeal" (change)="onMedicineMealTimingChange(i)" /><span></span></label></td>
-                    <td>
+                    <td class="tick-td tick-td--meal">
+                      <label class="tick-cell" title="After meal">
+                        <input type="checkbox" formControlName="afterMeal" (change)="onMedicineMealTimingChange(i)" />
+                        <span class="tick-box"></span>
+                      </label>
+                    </td>
+                    <td class="tick-td tick-td--meal">
+                      <label class="tick-cell" title="Before meal">
+                        <input type="checkbox" formControlName="beforeMeal" (change)="onMedicineMealTimingChange(i)" />
+                        <span class="tick-box"></span>
+                      </label>
+                    </td>
+                    <td class="tick-td">
                       <div class="slot-dose-cell">
-                        <label class="tick-cell"><input type="checkbox" formControlName="morning" (change)="onSlotToggle(i, 'morning')" /><span></span></label>
+                        <label class="tick-cell" title="Morning"><input type="checkbox" formControlName="morning" (change)="onSlotToggle(i, 'morning')" /><span class="tick-box"></span></label>
                         <input class="slot-dose-input" formControlName="morningDose" placeholder="Quantity"
                           aria-label="Morning dose quantity" [attr.data-slot-dose]="i + '-morning'"
                           (input)="onSlotDoseInput(i, 'morning')" (keydown)="handleSlotDoseKeydown($event, i, 'morning')" />
                       </div>
                     </td>
-                    <td>
+                    <td class="tick-td">
                       <div class="slot-dose-cell">
-                        <label class="tick-cell"><input type="checkbox" formControlName="noon" (change)="onSlotToggle(i, 'noon')" /><span></span></label>
+                        <label class="tick-cell" title="Noon"><input type="checkbox" formControlName="noon" (change)="onSlotToggle(i, 'noon')" /><span class="tick-box"></span></label>
                         <input class="slot-dose-input" formControlName="noonDose" placeholder="Quantity"
                           aria-label="Noon dose quantity" [attr.data-slot-dose]="i + '-noon'"
                           (input)="onSlotDoseInput(i, 'noon')" (keydown)="handleSlotDoseKeydown($event, i, 'noon')" />
                       </div>
                     </td>
-                    <td>
+                    <td class="tick-td">
                       <div class="slot-dose-cell">
-                        <label class="tick-cell"><input type="checkbox" formControlName="evening" (change)="onSlotToggle(i, 'evening')" /><span></span></label>
+                        <label class="tick-cell" title="Evening"><input type="checkbox" formControlName="evening" (change)="onSlotToggle(i, 'evening')" /><span class="tick-box"></span></label>
                         <input class="slot-dose-input" formControlName="eveningDose" placeholder="Quantity"
                           aria-label="Evening dose quantity" [attr.data-slot-dose]="i + '-evening'"
                           (input)="onSlotDoseInput(i, 'evening')" (keydown)="handleSlotDoseKeydown($event, i, 'evening')" />
                       </div>
                     </td>
-                    <td>
+                    <td class="tick-td">
                       <div class="slot-dose-cell">
-                        <label class="tick-cell"><input type="checkbox" formControlName="night" (change)="onSlotToggle(i, 'night')" /><span></span></label>
+                        <label class="tick-cell" title="Night"><input type="checkbox" formControlName="night" (change)="onSlotToggle(i, 'night')" /><span class="tick-box"></span></label>
                         <input class="slot-dose-input" formControlName="nightDose" placeholder="Quantity"
                           aria-label="Night dose quantity" [attr.data-slot-dose]="i + '-night'"
                           (input)="onSlotDoseInput(i, 'night')" (keydown)="handleSlotDoseKeydown($event, i, 'night')" />
@@ -2230,6 +2246,7 @@
         <div class="print-preview-loading" *ngIf="printPreviewLoading">Loading prescription preview...</div>
         <div class="prescription-print-host" #printContent
           [style.--prescription-logo-scale]="preview.hospitalLogoScale / 100"
+          [ngStyle]="preview.styleCssVars || preview.prescriptionStyleCssVars"
           [class.prescription-eye-sheet]="preview.specialtySection === 'eye'"
           *ngIf="!printPreviewLoading && printPreviewData as preview">
           <ng-container *ngIf="usesGynaeWomensHealthPrint(preview)">
@@ -2356,6 +2373,16 @@
                   <p>{{ row.value }}</p>
                 </div>
               </section>
+
+              <section
+                class="clinical-rx-gynae-metrics"
+                *ngIf="preview.specialtySection === 'gynae' && preview.gynaeSummaryRows?.length"
+              >
+                <div *ngFor="let row of preview.gynaeSummaryRows">
+                  <strong>{{ row.label }}</strong>
+                  <span>{{ row.value }}</span>
+                </div>
+              </section>
               </ng-container>
 
               <section class="clinical-rx-main"
@@ -2457,8 +2484,16 @@
                           <td>{{ slotDose(medicine, 'noon') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'evening') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'night') || '-' }}</td>
-                          <td>{{ medicine['beforeMeal'] ? 'Before Food' : medicine['afterMeal'] ? 'After Food' : '-' }}</td>
-                          <td>{{ medicine['instructions'] || '-' }}</td>
+                          <td><ng-container *ngIf="mealFoodLabel(medicine) as food">
+                            <span>{{ food.en }}</span>
+                            <small class="print-urdu-inline" *ngIf="food.ur" dir="rtl">{{ food.ur }}</small>
+                          </ng-container></td>
+                          <td class="print-inst-cell">
+                  <ng-container *ngIf="instructionLabel(medicine) as inst">
+                    <span class="print-inst-en">{{ inst.en }}</span>
+                    <span class="print-inst-ur" *ngIf="inst.ur" dir="rtl">{{ inst.ur }}</span>
+                  </ng-container>
+                </td>
                         </tr>
                         <tr *ngIf="page.medicines.length === 0 && page.isFirstPage" class="clinical-rx-no-medicine-row">
                           <td colspan="10">No medicine prescribed</td>
@@ -2679,8 +2714,16 @@
                         <td>{{ slotDose(medicine, 'noon') || '-' }}</td>
                         <td>{{ slotDose(medicine, 'evening') || '-' }}</td>
                         <td>{{ slotDose(medicine, 'night') || '-' }}</td>
-                        <td>{{ medicine['beforeMeal'] ? 'Before Food' : medicine['afterMeal'] ? 'After Food' : '-' }}</td>
-                        <td>{{ medicine['instructions'] || '-' }}</td>
+                        <td><ng-container *ngIf="mealFoodLabel(medicine) as food">
+                            <span>{{ food.en }}</span>
+                            <small class="print-urdu-inline" *ngIf="food.ur" dir="rtl">{{ food.ur }}</small>
+                          </ng-container></td>
+                        <td class="print-inst-cell">
+                  <ng-container *ngIf="instructionLabel(medicine) as inst">
+                    <span class="print-inst-en">{{ inst.en }}</span>
+                    <span class="print-inst-ur" *ngIf="inst.ur" dir="rtl">{{ inst.ur }}</span>
+                  </ng-container>
+                </td>
                       </tr>
                     </tbody>
                   </table>
@@ -2830,8 +2873,16 @@
                           <td>{{ slotDose(medicine, 'noon') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'evening') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'night') || '-' }}</td>
-                          <td>{{ medicine['beforeMeal'] ? 'Before Food' : medicine['afterMeal'] ? 'After Food' : '-' }}</td>
-                          <td>{{ medicine['instructions'] || '-' }}</td>
+                          <td><ng-container *ngIf="mealFoodLabel(medicine) as food">
+                            <span>{{ food.en }}</span>
+                            <small class="print-urdu-inline" *ngIf="food.ur" dir="rtl">{{ food.ur }}</small>
+                          </ng-container></td>
+                          <td class="print-inst-cell">
+                  <ng-container *ngIf="instructionLabel(medicine) as inst">
+                    <span class="print-inst-en">{{ inst.en }}</span>
+                    <span class="print-inst-ur" *ngIf="inst.ur" dir="rtl">{{ inst.ur }}</span>
+                  </ng-container>
+                </td>
                         </tr>
                       </tbody>
                     </table>
@@ -3031,7 +3082,10 @@
                       <td class="print-med-name">
                         <strong>{{ medicine['name'] || 'Medicine' }}</strong>
                         <span>{{ medicine['dosage'] || '' }}</span>
-                        <small>{{ medicine['instructions'] || '' }}</small>
+                        <small class="print-inst-cell" *ngIf="instructionLabel(medicine) as inst">
+                          <span class="print-inst-en">{{ inst.en }}</span>
+                          <span class="print-inst-ur" *ngIf="inst.ur" dir="rtl">{{ inst.ur }}</span>
+                        </small>
                       </td>
                       <td class="print-duration-cell">
                         <ng-container *ngIf="printDurationParts(medicine['duration']) as d">

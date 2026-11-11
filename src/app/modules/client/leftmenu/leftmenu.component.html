@@ -179,9 +179,8 @@
                                 </ul>
                             </li>
                         </ng-container>
-                        <li class="nav-subsection-label" *ngIf="canViewWardDayCollections || canViewWardCash">Collections</li>
+                        <li class="nav-subsection-label" *ngIf="canViewWardDayCollections">Collections</li>
                         <li *ngIf="canViewWardDayCollections"><a [routerLink]="['/ward/day-collections']" routerLinkActive="active">Ward Day Collections</a></li>
-                        <li *ngIf="canViewWardCash"><a [routerLink]="['/accounts/ward-cash']" routerLinkActive="active">Ward Till</a></li>
                     </ul>
                 </li>
 
@@ -240,16 +239,28 @@
                     </ul>
                 </li>
 
+                <li *ngIf="canViewSettlementsSection" [class.mm-active]="isTopOpen('settlements')">
+                    <button type="button" (click)="toggleSection('settlements', $event)"
+                        [attr.aria-expanded]="isTopOpen('settlements')" class="has-arrow">
+                        <i class="fa fa-handshake-o"></i><span>Settlements</span>
+                    </button>
+                    <ul class="nav-dropdown" [@sidebarDropdown]="(isTopOpen('settlements')) ? 'open' : 'closed'">
+                        <li *ngIf="canViewOpdCash"><a [routerLink]="['/accounts/opd-cash']" routerLinkActive="active">OPD Settlement</a></li>
+                        <li *ngIf="canViewPharmacyCash"><a [routerLink]="['/accounts/pharmacy-cash']" routerLinkActive="active">Pharmacy Settlement</a></li>
+                        <li *ngIf="canViewLabCash"><a [routerLink]="['/accounts/lab-cash']" routerLinkActive="active">Laboratory Settlement</a></li>
+                        <li *ngIf="canViewWardCash"><a [routerLink]="['/accounts/ward-cash']" routerLinkActive="active">Ward Settlement</a></li>
+                        <li *ngIf="canViewHospitalCash"><a [routerLink]="['/accounts/hospital-cash']" routerLinkActive="active">Hospital Settlement</a></li>
+                        <li *ngIf="canViewDoctorDues"><a [routerLink]="['/accounts/doctor-dues']" routerLinkActive="active">Doctor Dues</a></li>
+                        <li *ngIf="canViewAppointmentPayments"><a [routerLink]="['/accounts/appointment-payments']" routerLinkActive="active">OPD Fees Audit</a></li>
+                    </ul>
+                </li>
+
                 <li *ngIf="canViewAccounts" [class.mm-active]="isTopOpen('accounts')">
                     <button type="button" (click)="toggleSection('accounts', $event)"
                         [attr.aria-expanded]="isTopOpen('accounts')" class="has-arrow">
                         <i class="fa fa-book"></i><span>Hospital Accounts</span>
                     </button>
                     <ul class="nav-dropdown" [@sidebarDropdown]="(isTopOpen('accounts')) ? 'open' : 'closed'">
-                        <li class="nav-subsection-label" *ngIf="canViewPharmacyCash || canViewWardCash || canViewOpdCash">Department cash tills</li>
-                        <li *ngIf="canViewPharmacyCash"><a [routerLink]="['/accounts/pharmacy-cash']" routerLinkActive="active">Pharmacy Settlement</a></li>
-                        <li *ngIf="canViewWardCash"><a [routerLink]="['/accounts/ward-cash']" routerLinkActive="active">Ward Till</a></li>
-                        <li *ngIf="canViewOpdCash"><a [routerLink]="['/accounts/opd-cash']" routerLinkActive="active">OPD Till</a></li>
                         <li class="nav-subsection-label">Hospital ledger</li>
                         <li *ngIf="hasNavAccess('accounts.read')"><a [routerLink]="['/accounts/dashboard']">Accounts Dashboard</a></li>
                         <li *ngIf="hasNavAccess('accounts.read')"><a [routerLink]="['/accounts/chart-of-accounts']">Chart of Accounts</a></li>

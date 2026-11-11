@@ -527,9 +527,11 @@
 }
 
 .gynae-urdu-label {
-  font-family: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', serif;
+  font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif;
   font-size: 2.6mm;
   font-weight: 600;
+  line-height: 1.85;
+  padding-top: 0.4mm;
 }
 
 .gynae-clinical-medicines table {
@@ -574,11 +576,12 @@
 
 .gynae-th-ur {
   display: block;
-  font-family: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', serif;
-  font-size: 2mm;
+  font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif;
+  font-size: 2.1mm;
   font-weight: 600;
-  line-height: 1.3;
-  margin-top: 0.3mm;
+  line-height: 1.85;
+  margin-top: 0.7mm;
+  padding-top: 0.35mm;
 }
 
 .gynae-timing-col {
@@ -623,6 +626,26 @@
   font-size: 2.2mm;
   text-align: left !important;
   word-break: break-word;
+}
+
+.gynae-td-inst .print-inst-en {
+  display: block;
+  font-size: 2.15mm;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.gynae-td-inst .print-inst-ur,
+.gynae-td-food small {
+  color: #64748b;
+  display: block;
+  font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif;
+  font-size: 2.15mm;
+  font-weight: 600;
+  line-height: 1.9;
+  margin-top: 0.7mm;
+  padding-top: 0.4mm;
+  unicode-bidi: plaintext;
 }
 
 /* ── Drips ── */

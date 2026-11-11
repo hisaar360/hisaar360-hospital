@@ -1,7 +1,37 @@
-<section class="prescription-print-sheet" #printContent
+<div class="prescription-print-host" #printContent
   [style.--prescription-logo-scale]="preview.hospitalLogoScale / 100"
-  [ngClass]="'prescription-template-' + template"
+  [ngStyle]="styleCssVars()"
   *ngIf="preview">
+  <ng-container *ngIf="usesGynaeWomensHealthPrint() && gynaePreview() as gynae">
+    <app-gynae-womens-health-print-page
+      *ngFor="let page of clinicalPages(); trackBy: trackClinicalPage"
+      [preview]="gynae"
+      [page]="page">
+    </app-gynae-womens-health-print-page>
+  </ng-container>
+
+  <ng-container *ngIf="usesGynaeClinicalPrint() && gynaePreview() as gynae">
+    <app-gynae-clinical-print-page
+      *ngFor="let page of clinicalPages(); trackBy: trackClinicalPage"
+      [preview]="gynae"
+      [page]="page"
+      [medicineDensityClass]="printMedicineDensityClass(preview.medicines.length)">
+    </app-gynae-clinical-print-page>
+  </ng-container>
+
+  <ng-container *ngIf="usesGynaeModernPrint() && gynaePreview() as gynae">
+    <app-prescription-template-gynae-modern
+      *ngFor="let page of clinicalPages(); trackBy: trackClinicalPage"
+      [preview]="gynae"
+      [page]="page"
+      [medicineDensityClass]="printMedicineDensityClass(preview.medicines.length)">
+    </app-prescription-template-gynae-modern>
+  </ng-container>
+
+  <section class="prescription-print-sheet"
+    [ngClass]="'prescription-template-' + template"
+    [ngStyle]="styleCssVars()"
+    *ngIf="!usesAnyGynaePrint()">
           <ng-container *ngIf="template === 'clinical-blue'; else themedPrescriptionLayout">
             <div class="clinical-rx-page" [ngClass]="printMedicineDensityClass(preview.medicines.length)">
               <header class="clinical-rx-header">
@@ -152,8 +182,16 @@
                           <td>{{ slotDose(medicine, 'noon') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'evening') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'night') || '-' }}</td>
-                          <td>{{ medicine['beforeMeal'] ? 'Before Food' : medicine['afterMeal'] ? 'After Food' : '-' }}</td>
-                          <td>{{ medicine['instructions'] || '-' }}</td>
+                          <td><ng-container *ngIf="mealFoodLabel(medicine) as food">
+                          <span>{{ food.en }}</span>
+                          <small class="print-urdu-inline" *ngIf="food.ur" dir="rtl">{{ food.ur }}</small>
+                        </ng-container></td>
+                          <td class="print-inst-cell">
+                  <ng-container *ngIf="instructionLabel(medicine) as inst">
+                    <span class="print-inst-en">{{ inst.en }}</span>
+                    <span class="print-inst-ur" *ngIf="inst.ur" dir="rtl">{{ inst.ur }}</span>
+                  </ng-container>
+                </td>
                         </tr>
                         <tr *ngIf="preview.medicines.length === 0" class="clinical-rx-no-medicine-row">
                           <td colspan="10">No medicine prescribed</td>
@@ -312,8 +350,16 @@
                         <td>{{ slotDose(medicine, 'noon') || '-' }}</td>
                         <td>{{ slotDose(medicine, 'evening') || '-' }}</td>
                         <td>{{ slotDose(medicine, 'night') || '-' }}</td>
-                        <td>{{ medicine['beforeMeal'] ? 'Before Food' : medicine['afterMeal'] ? 'After Food' : '-' }}</td>
-                        <td>{{ medicine['instructions'] || '-' }}</td>
+                        <td><ng-container *ngIf="mealFoodLabel(medicine) as food">
+                          <span>{{ food.en }}</span>
+                          <small class="print-urdu-inline" *ngIf="food.ur" dir="rtl">{{ food.ur }}</small>
+                        </ng-container></td>
+                        <td class="print-inst-cell">
+                  <ng-container *ngIf="instructionLabel(medicine) as inst">
+                    <span class="print-inst-en">{{ inst.en }}</span>
+                    <span class="print-inst-ur" *ngIf="inst.ur" dir="rtl">{{ inst.ur }}</span>
+                  </ng-container>
+                </td>
                       </tr>
                     </tbody>
                   </table>
@@ -448,8 +494,16 @@
                           <td>{{ slotDose(medicine, 'noon') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'evening') || '-' }}</td>
                           <td>{{ slotDose(medicine, 'night') || '-' }}</td>
-                          <td>{{ medicine['beforeMeal'] ? 'Before Food' : medicine['afterMeal'] ? 'After Food' : '-' }}</td>
-                          <td>{{ medicine['instructions'] || '-' }}</td>
+                          <td><ng-container *ngIf="mealFoodLabel(medicine) as food">
+                          <span>{{ food.en }}</span>
+                          <small class="print-urdu-inline" *ngIf="food.ur" dir="rtl">{{ food.ur }}</small>
+                        </ng-container></td>
+                          <td class="print-inst-cell">
+                  <ng-container *ngIf="instructionLabel(medicine) as inst">
+                    <span class="print-inst-en">{{ inst.en }}</span>
+                    <span class="print-inst-ur" *ngIf="inst.ur" dir="rtl">{{ inst.ur }}</span>
+                  </ng-container>
+                </td>
                         </tr>
                       </tbody>
                     </table>
@@ -626,7 +680,10 @@
                       <td class="print-med-name">
                         <strong>{{ medicine['name'] || 'Medicine' }}</strong>
                         <span>{{ medicine['dosage'] || '' }}</span>
-                        <small>{{ medicine['instructions'] || '' }}</small>
+                        <small class="print-inst-cell" *ngIf="instructionLabel(medicine) as inst">
+                          <span class="print-inst-en">{{ inst.en }}</span>
+                          <span class="print-inst-ur" *ngIf="inst.ur" dir="rtl">{{ inst.ur }}</span>
+                        </small>
                       </td>
                       <td class="print-duration-cell">
                         <ng-container *ngIf="printDurationParts(medicine['duration']) as d">
@@ -691,9 +748,17 @@
                       <td>{{ slotDose(medicine, 'evening') }}</td>
                       <td>{{ slotDose(medicine, 'night') }}</td>
                       <td>
-                        {{ medicine['beforeMeal'] ? 'Before Food' : medicine['afterMeal'] ? 'After Food' : '-' }}
+                        <ng-container *ngIf="mealFoodLabel(medicine) as food">
+                          <span>{{ food.en }}</span>
+                          <small class="print-urdu-inline" *ngIf="food.ur" dir="rtl">{{ food.ur }}</small>
+                        </ng-container>
                       </td>
-                      <td class="print-instruction-cell">{{ medicine['instructions'] || '-' }}</td>
+                      <td class="print-inst-cell">
+                  <ng-container *ngIf="instructionLabel(medicine) as inst">
+                    <span class="print-inst-en">{{ inst.en }}</span>
+                    <span class="print-inst-ur" *ngIf="inst.ur" dir="rtl">{{ inst.ur }}</span>
+                  </ng-container>
+                </td>
                     </tr>
                     <tr *ngIf="preview.medicines.length === 0">
                       <td class="print-med-name" colspan="10">No medicines added</td>
@@ -741,7 +806,14 @@
             </div>
           </div>
 
-          <div class="print-signature-row" *ngIf="template !== 'classic'">
+          <section class="print-custom-sections" *ngIf="visibleCustomSections().length">
+            <article class="print-custom-section" *ngFor="let section of visibleCustomSections()">
+              <strong>{{ section.title }}</strong>
+              <p>{{ section.body || '-' }}</p>
+            </article>
+          </section>
+
+          <div class="print-signature-row" *ngIf="template !== 'classic' && sectionVisible('signature')">
             <div></div>
             <div>
               <span></span>
@@ -749,10 +821,11 @@
             </div>
           </div>
 
-          <footer class="print-footer">
+          <footer class="print-footer" *ngIf="sectionVisible('footer')">
             <strong *ngIf="preview.prescriptionRevisionNote">{{ preview.prescriptionRevisionNote }}</strong>
             <p *ngIf="preview.prescriptionFollowUpLine">{{ preview.prescriptionFollowUpLine }}</p>
             <p *ngFor="let line of preview.prescriptionFooterLines">{{ line }}</p>
           </footer>
           </ng-template>
         </section>
+</div>

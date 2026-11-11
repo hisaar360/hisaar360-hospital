@@ -1,4 +1,6 @@
 <section class="prescription-print-sheet prescription-template-gynae-womens-health"
+  [ngStyle]="preview.styleCssVars || {}"
+  [style.--prescription-logo-scale]="preview.hospitalLogoScale / 100"
   [class.gynae-wh-page-last]="page.isLastPage"
   [class.gynae-wh-continuation]="!page.isFirstPage"
   [style.--prescription-logo-scale]="(preview.hospitalLogoScale || 100) / 100">

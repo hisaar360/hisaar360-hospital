@@ -170,6 +170,9 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
       designationCustom: [''],
       experienceYears: [0],
       consultationFee: [0, [Validators.required, Validators.min(0)]],
+      consultationSharePercent: [100, [Validators.required, Validators.min(0), Validators.max(100)]],
+      operationFee: [0, [Validators.min(0)]],
+      operationSharePercent: [100, [Validators.min(0), Validators.max(100)]],
       followUpFeeEnabled: [false],
       followUpWithinDays: [7, [Validators.min(1), Validators.max(90)]],
       followUpFeeType: ['half' as 'half' | 'fixed' | 'percent'],
@@ -705,6 +708,9 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
       qualification,
       experienceYears: Number(value.experienceYears || 0),
       consultationFee: Number(value.consultationFee || 0),
+      consultationSharePercent: Number(value.consultationSharePercent ?? 100),
+      operationFee: Number(value.operationFee || 0),
+      operationSharePercent: Number(value.operationSharePercent ?? 100),
       followUpFeeEnabled: Boolean(value.followUpFeeEnabled),
       followUpWithinDays: Number(value.followUpWithinDays || 7),
       followUpFeeType: value.followUpFeeType || 'half',
@@ -844,6 +850,13 @@ export class AddDoctorsComponent implements OnInit, OnDestroy {
       designationCustom: designationMatch ? '' : designationRaw,
       experienceYears: this.editingDoctor.experienceYears || 0,
       consultationFee: this.editingDoctor.consultationFee || 0,
+      consultationSharePercent: Number(
+        (this.editingDoctor as { consultationSharePercent?: number }).consultationSharePercent ?? 100
+      ),
+      operationFee: Number((this.editingDoctor as { operationFee?: number }).operationFee || 0),
+      operationSharePercent: Number(
+        (this.editingDoctor as { operationSharePercent?: number }).operationSharePercent ?? 100
+      ),
       followUpFeeEnabled: Boolean(this.editingDoctor.followUpFeeEnabled),
       followUpWithinDays: this.editingDoctor.followUpWithinDays || 7,
       followUpFeeType: this.editingDoctor.followUpFeeType || 'half',
