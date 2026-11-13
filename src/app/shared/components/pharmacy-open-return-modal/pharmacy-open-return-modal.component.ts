@@ -19,6 +19,7 @@ import {
   Store,
 } from '../../models/hospital.model';
 import { formatCurrency } from '../../../modules/client/pharmacy-admin.utils';
+import { roundMoney, sumMoney } from '../../utils/money';
 import { PharmacyOpenReturnLine } from './pharmacy-open-return-modal.models';
 
 type LineSide = 'return' | 'issue';
@@ -100,7 +101,7 @@ export class PharmacyOpenReturnModalComponent implements OnChanges, OnDestroy {
   }
 
   get netAmount(): number {
-    return this.roundMoney(this.issueTotal - this.returnTotal);
+    return roundMoney(this.issueTotal - this.returnTotal);
   }
 
   get settlementLabel(): string {
@@ -268,9 +269,9 @@ export class PharmacyOpenReturnModalComponent implements OnChanges, OnDestroy {
     };
 
     if (this.netAmount > 0) {
-      payload.collectAmount = Math.abs(this.netAmount);
+      payload.collectAmount = roundMoney(Math.abs(this.netAmount));
     } else if (this.netAmount < 0) {
-      payload.refundAmount = Math.abs(this.netAmount);
+      payload.refundAmount = roundMoney(Math.abs(this.netAmount));
     }
 
     this.backend
@@ -423,13 +424,9 @@ export class PharmacyOpenReturnModalComponent implements OnChanges, OnDestroy {
   }
 
   private sumLines(lines: PharmacyOpenReturnLine[]): number {
-    return this.roundMoney(
-      lines.reduce((sum, line) => sum + Number(line.qty || 0) * Number(line.unitPrice || 0), 0),
+    return sumMoney(
+      lines.map((line) => Number(line.qty || 0) * Number(line.unitPrice || 0)),
     );
-  }
-
-  private roundMoney(value: number): number {
-    return Math.round((value + Number.EPSILON) * 100) / 100;
   }
 
   private resetState(): void {

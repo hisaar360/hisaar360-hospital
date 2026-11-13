@@ -8,6 +8,7 @@ import { ToastrService } from 'ngx-toastr';
 import { BackendService } from '../../../core/services/backend.service';
 import { PharmacyOpenReturnModalComponent } from '../../../shared/components/pharmacy-open-return-modal/pharmacy-open-return-modal.component';
 import { Sale, SalesReturn, Store } from '../../../shared/models/hospital.model';
+import { clampMoney, moneyLte, roundMoney, sumMoney } from '../../../shared/utils/money';
 import { formatCurrency, formatDate, readAssignedStoreId, toDateInputValue } from '../pharmacy-admin.utils';
 
 interface SalesReturnLine {
@@ -63,11 +64,11 @@ export class PharmacySalesReturnsComponent implements OnInit {
   }
 
   get refundTotal(): number {
-    return this.returns.reduce((sum, item) => sum + Number(item.refundAmount || 0), 0);
+    return sumMoney(this.returns.map((item) => item.refundAmount || 0));
   }
 
   get returnValueTotal(): number {
-    return this.returns.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    return sumMoney(this.returns.map((item) => item.total || 0));
   }
 
   get itemTotal(): number {
@@ -87,9 +88,7 @@ export class PharmacySalesReturnsComponent implements OnInit {
   }
 
   get returnValue(): number {
-    return this.round(
-      this.returnLines.reduce((sum, line) => sum + Number(line.qty || 0) * line.unitPrice, 0),
-    );
+    return sumMoney(this.returnLines.map((line) => Number(line.qty || 0) * line.unitPrice));
   }
 
   get returnQtyTotal(): number {
@@ -100,8 +99,10 @@ export class PharmacySalesReturnsComponent implements OnInit {
     if (!this.selectedSale) {
       return 0;
     }
-    const refundable = Math.max(Number(this.selectedSale.paidAmount || 0) - this.previousRefund, 0);
-    return this.round(Math.min(refundable, this.returnValue));
+    const refundable = roundMoney(
+      Math.max(Number(this.selectedSale.paidAmount || 0) - this.previousRefund, 0),
+    );
+    return roundMoney(Math.min(refundable, this.returnValue));
   }
 
   loadStores(): void {
@@ -272,7 +273,7 @@ export class PharmacySalesReturnsComponent implements OnInit {
           return;
         }
         const previous = (result.items || []).filter((item) => item.status === 'completed');
-        this.previousRefund = previous.reduce((sum, item) => sum + Number(item.refundAmount || 0), 0);
+        this.previousRefund = sumMoney(previous.map((item) => item.refundAmount || 0));
         for (const line of this.returnLines) {
           line.returnedQty = previous.reduce(
             (sum, record) =>
@@ -320,7 +321,7 @@ export class PharmacySalesReturnsComponent implements OnInit {
 
   onRefundChange(value: number): void {
     this.refundTouched = true;
-    this.refundAmount = Math.min(Math.max(Number(value || 0), 0), this.maxRefund);
+    this.refundAmount = clampMoney(value || 0, 0, this.maxRefund);
   }
 
   save(): void {
@@ -347,7 +348,7 @@ export class PharmacySalesReturnsComponent implements OnInit {
       saleId: this.selectedSale._id,
       returnDate: this.returnDate,
       items,
-      refundAmount: this.round(Math.min(Number(this.refundAmount || 0), this.maxRefund)),
+      refundAmount: clampMoney(this.refundAmount || 0, 0, this.maxRefund),
       paymentMethod: this.paymentMethod as 'cash' | 'card' | 'bank',
     }).subscribe({
       next: () => {
@@ -382,8 +383,10 @@ export class PharmacySalesReturnsComponent implements OnInit {
   private syncRefund(): void {
     if (!this.refundTouched) {
       this.refundAmount = this.maxRefund;
-    } else if (this.refundAmount > this.maxRefund) {
+    } else if (!moneyLte(this.refundAmount, this.maxRefund)) {
       this.refundAmount = this.maxRefund;
+    } else {
+      this.refundAmount = roundMoney(this.refundAmount);
     }
   }
 
@@ -392,12 +395,8 @@ export class PharmacySalesReturnsComponent implements OnInit {
     const units = Number(qty || 0);
     const disc = Number(discount || 0);
     if (!units || !disc) {
-      return price;
+      return roundMoney(price);
     }
-    return Math.max(price - disc / units, 0);
-  }
-
-  private round(value: number): number {
-    return Math.round((value + Number.EPSILON) * 100) / 100;
+    return roundMoney(Math.max(price - disc / units, 0));
   }
 }

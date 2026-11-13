@@ -17,6 +17,7 @@ import {
   SalesReturn,
 } from '../../models/hospital.model';
 import { formatCurrency } from '../../../modules/client/pharmacy-admin.utils';
+import { clampMoney, moneyLte, roundMoney, sumMoney } from '../../utils/money';
 import { PharmacySaleReturnLine } from './pharmacy-sale-return-modal.models';
 
 @Component({
@@ -93,14 +94,17 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
   }
 
   get saleReturnEstimatedTotal(): number {
-    return this.returnLines.reduce(
-      (sum, line) => sum + Number(line.qty || 0) * Number(line.unitPrice || 0),
-      0,
+    return sumMoney(
+      this.returnLines.map(
+        (line) => Number(line.qty || 0) * Number(line.unitPrice || 0),
+      ),
     );
   }
 
   get saleReturnRefundLimit(): number {
-    return Math.min(this.saleReturnEstimatedTotal, this.selectedReturnRefundCeiling);
+    return roundMoney(
+      Math.min(this.saleReturnEstimatedTotal, this.selectedReturnRefundCeiling),
+    );
   }
 
   currency(value: unknown): string {
@@ -158,23 +162,22 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
   }
 
   returnLineValue(line: PharmacySaleReturnLine): number {
-    return this.roundMoney(Number(line.qty || 0) * Number(line.unitPrice || 0));
+    return roundMoney(Number(line.qty || 0) * Number(line.unitPrice || 0));
   }
 
   updateReturnRefundAmount(value: string | number): void {
     this.returnRefundTouched = true;
     const numericValue = Number(value || 0);
-    this.returnRefundAmount = this.roundMoney(
-      Math.min(
-        Math.max(Number.isFinite(numericValue) ? numericValue : 0, 0),
-        this.saleReturnRefundLimit,
-      ),
+    this.returnRefundAmount = clampMoney(
+      Number.isFinite(numericValue) ? numericValue : 0,
+      0,
+      this.saleReturnRefundLimit,
     );
   }
 
   fillReturnRefundToLimit(): void {
     this.returnRefundTouched = true;
-    this.returnRefundAmount = this.roundMoney(this.saleReturnRefundLimit);
+    this.returnRefundAmount = roundMoney(this.saleReturnRefundLimit);
   }
 
   submit(): void {
@@ -196,7 +199,11 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
       return;
     }
 
-    if (this.returnRefundAmount > this.saleReturnRefundLimit) {
+    const limit = this.saleReturnRefundLimit;
+    const refundAmount = clampMoney(this.returnRefundAmount || 0, 0, limit);
+    this.returnRefundAmount = refundAmount;
+
+    if (!moneyLte(refundAmount, limit)) {
       this.errorMessage = 'Refund amount cannot exceed the selected return total.';
       return;
     }
@@ -205,9 +212,8 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
       saleId: this.selectedReturnSale._id,
       returnDate: new Date().toISOString(),
       items,
-      refundAmount: this.returnRefundAmount || 0,
-      paymentMethod:
-        this.returnRefundAmount > 0 ? this.returnPaymentMethod : undefined,
+      refundAmount,
+      paymentMethod: refundAmount > 0 ? this.returnPaymentMethod : undefined,
     };
 
     this.submitting = true;
@@ -299,13 +305,12 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
           next: (result) => {
             const history = result.items || [];
             this.selectedReturnSale = sale;
-            this.selectedReturnRefundCeiling = Math.max(
-              Number(sale.paidAmount || 0) -
-                history.reduce(
-                  (sum, item) => sum + Number(item.refundAmount || 0),
-                  0,
-                ),
-              0,
+            this.selectedReturnRefundCeiling = roundMoney(
+              Math.max(
+                Number(sale.paidAmount || 0) -
+                  sumMoney(history.map((item) => item.refundAmount || 0)),
+                0,
+              ),
             );
             this.returnLines = (sale.items || [])
               .map((item) => {
@@ -365,17 +370,15 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
   }
 
   private syncReturnRefundFromLines(): void {
-    const limit = this.roundMoney(this.saleReturnRefundLimit);
+    const limit = this.saleReturnRefundLimit;
     if (!this.returnRefundTouched) {
       this.returnRefundAmount = limit;
       return;
     }
-    if (this.returnRefundAmount > limit) {
+    if (!moneyLte(this.returnRefundAmount, limit)) {
       this.returnRefundAmount = limit;
+    } else {
+      this.returnRefundAmount = roundMoney(this.returnRefundAmount);
     }
-  }
-
-  private roundMoney(value: number): number {
-    return Math.round((Number(value) || 0) * 100) / 100;
   }
 }

@@ -8,6 +8,7 @@ import { ToastrService } from 'ngx-toastr';
 import { AppDialogService } from '../../../core/services/app-dialog.service';
 import { BackendService } from '../../../core/services/backend.service';
 import { Payment, ProductCatalogItem, Supplier, Warehouse } from '../../../shared/models/hospital.model';
+import { clampMoney, moneyLte, roundMoney, sumMoney } from '../../../shared/utils/money';
 import { formatCurrency, formatDate, toDateInputValue } from '../pharmacy-admin.utils';
 
 const PURCHASE_SEARCH_LIMIT = 25;
@@ -262,15 +263,15 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
   }
 
   get returnTotal(): number {
-    return this.returns.reduce((sum, item) => sum + Number(item['total'] || 0), 0);
+    return sumMoney(this.returns.map((item) => item['total'] || 0));
   }
 
   get returnRefundTotal(): number {
-    return this.returns.reduce((sum, item) => sum + Number(item['refundAmount'] || 0), 0);
+    return sumMoney(this.returns.map((item) => item['refundAmount'] || 0));
   }
 
   get returnCreditTotal(): number {
-    return Math.max(this.returnTotal - this.returnRefundTotal, 0);
+    return roundMoney(Math.max(this.returnTotal - this.returnRefundTotal, 0));
   }
 
   get formSubtotal(): number {
@@ -326,9 +327,7 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
   }
 
   get returnValue(): number {
-    return this.round(
-      this.returnLines.reduce((sum, line) => sum + Number(line.qty || 0) * line.unitCost, 0)
-    );
+    return sumMoney(this.returnLines.map((line) => Number(line.qty || 0) * line.unitCost));
   }
 
   get returnQtyTotal(): number {
@@ -339,8 +338,10 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
     if (!this.returnPurchase) {
       return 0;
     }
-    const refundable = Math.max(Number(this.returnPurchase['paidAmount'] || 0) - this.returnPrevRefund, 0);
-    return this.round(Math.min(refundable, this.returnValue));
+    const refundable = roundMoney(
+      Math.max(Number(this.returnPurchase['paidAmount'] || 0) - this.returnPrevRefund, 0)
+    );
+    return roundMoney(Math.min(refundable, this.returnValue));
   }
 
   get filteredReturnCandidates(): Array<Record<string, unknown>> {
@@ -1088,7 +1089,7 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
           return;
         }
         const previous = (result.items || []).filter((item) => this.text(item['status']) === 'completed');
-        this.returnPrevRefund = previous.reduce((sum, item) => sum + Number(item['refundAmount'] || 0), 0);
+        this.returnPrevRefund = sumMoney(previous.map((item) => item['refundAmount'] || 0));
         for (const line of this.returnLines) {
           line.returnedQty = previous.reduce(
             (sum, entry) =>
@@ -1126,7 +1127,7 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
 
   onReturnRefundChange(value: number): void {
     this.returnRefundTouched = true;
-    this.returnRefund = Math.min(Math.max(Number(value || 0), 0), this.returnMaxRefund);
+    this.returnRefund = clampMoney(value || 0, 0, this.returnMaxRefund);
   }
 
   submitReturn(): void {
@@ -1140,7 +1141,7 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
       this.toastr.error('Enter return quantity for at least one medicine');
       return;
     }
-    const refund = this.round(Math.min(Number(this.returnRefund || 0), this.returnMaxRefund));
+    const refund = clampMoney(this.returnRefund || 0, 0, this.returnMaxRefund);
     const purchaseId = this.text(this.returnPurchase['_id']);
     this.saving = true;
     this.backend
@@ -1248,8 +1249,10 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
   private syncReturnRefund(): void {
     if (!this.returnRefundTouched) {
       this.returnRefund = this.returnMaxRefund;
-    } else if (this.returnRefund > this.returnMaxRefund) {
+    } else if (!moneyLte(this.returnRefund, this.returnMaxRefund)) {
       this.returnRefund = this.returnMaxRefund;
+    } else {
+      this.returnRefund = roundMoney(this.returnRefund);
     }
   }
 
@@ -1404,7 +1407,7 @@ export class PharmacyPurchasesComponent implements OnInit, OnDestroy {
   }
 
   private round(value: number): number {
-    return Math.round((value + Number.EPSILON) * 100) / 100;
+    return roundMoney(value);
   }
 
   private emptyLine(): PurchaseLineForm {
