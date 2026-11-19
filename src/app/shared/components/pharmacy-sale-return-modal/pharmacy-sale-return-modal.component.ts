@@ -9,7 +9,8 @@ import {
   inject,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
+import { finalize } from 'rxjs/operators';
 import { BackendService } from '../../../core/services/backend.service';
 import { MooliOfflineService } from '../../../core/services/mooli-offline.service';
 import {
@@ -21,6 +22,11 @@ import { formatCurrency } from '../../../modules/client/pharmacy-admin.utils';
 import { clampMoney, moneyLte, roundMoney, sumMoney } from '../../utils/money';
 import { PharmacySaleReturnLine } from './pharmacy-sale-return-modal.models';
 
+/** Offline return picker keeps this many calendar days of completed sales. */
+const RETURNABLE_SALES_WINDOW_DAYS = 30;
+const RETURNABLE_PAGE_LIMIT = 100;
+const RETURNABLE_MAX_PAGES = 15;
+
 @Component({
   selector: 'app-pharmacy-sale-return-modal',
   standalone: true,
@@ -30,7 +36,7 @@ import { PharmacySaleReturnLine } from './pharmacy-sale-return-modal.models';
 })
 export class PharmacySaleReturnModalComponent implements OnChanges {
   private readonly backend = inject(BackendService);
-  private readonly offline = inject(MooliOfflineService);
+  readonly offline = inject(MooliOfflineService);
 
   /** Controls backdrop visibility. */
   @Input() open = false;
@@ -143,13 +149,22 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
   }
 
   applyDateFilter(): void {
-    this.loadPickerSales();
+    void this.loadPickerSales();
   }
 
   resetDateFilter(): void {
     this.fromDate = '';
     this.toDate = '';
-    this.loadPickerSales();
+    void this.loadPickerSales();
+  }
+
+  /** POS calls this while online so returns still work after wifi drops. */
+  warmStoreCache(storeId?: string): void {
+    const id = String(storeId || this.storeId || '').trim();
+    if (!id || !this.offline.online()) {
+      return;
+    }
+    void this.fetchAndCacheReturnableSales(id);
   }
 
   selectSaleForReturn(saleId: string): void {
@@ -298,11 +313,11 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
   private bootstrapOpen(): void {
     this.resetState();
     if (this.initialSaleId) {
-      this.loadSaleForReturn(this.initialSaleId);
+      void this.loadSaleForReturn(this.initialSaleId);
       return;
     }
     if (this.enablePicker) {
-      this.loadPickerSales();
+      void this.loadPickerSales();
     }
   }
 
@@ -320,46 +335,43 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
     this.selectedReturnRefundCeiling = 0;
   }
 
-  private loadPickerSales(): void {
+  private async loadPickerSales(): Promise<void> {
     this.loading = true;
     this.errorMessage = '';
-    if (!this.offline.online()) {
-      this.pickerSales = [];
-      this.loading = false;
-      return;
-    }
-    const hasDateRange = Boolean(this.fromDate || this.toDate);
-    this.backend
-      .getSales({
-        limit: hasDateRange ? 100 : 20,
-        storeId: this.storeId || undefined,
-        status: 'completed',
-        registerSessionId:
-          !hasDateRange && this.preferRegisterSession && this.registerSessionId
-            ? this.registerSessionId
-            : undefined,
-        fromDate: this.fromDate
-          ? new Date(`${this.fromDate}T00:00:00`).toISOString()
-          : undefined,
-        toDate: this.toDate
-          ? new Date(`${this.toDate}T23:59:59`).toISOString()
-          : undefined,
-      })
-      .pipe(finalize(() => (this.loading = false)))
-      .subscribe({
-        next: (result) => {
-          this.pickerSales = result.items || [];
-        },
-        error: (err) => {
-          this.pickerSales = [];
-          if (!this.offline.shouldQueue(err) && !(this.localQueuedSales || []).length) {
-            this.errorMessage = err?.error?.message || 'Unable to load sales.';
+    const storeId = String(this.storeId || '').trim();
+
+    try {
+      let sales: Sale[] = [];
+      if (this.offline.online() && storeId) {
+        try {
+          sales = await this.fetchAndCacheReturnableSales(storeId);
+        } catch (err) {
+          sales = await this.readReturnableSalesCache(storeId);
+          if (
+            !sales.length &&
+            !this.offline.shouldQueue(err) &&
+            !(this.localQueuedSales || []).length
+          ) {
+            this.errorMessage =
+              (err as { error?: { message?: string } })?.error?.message ||
+              'Unable to load sales.';
           }
-        },
-      });
+        }
+      } else {
+        sales = storeId ? await this.readReturnableSalesCache(storeId) : [];
+        if (!sales.length && !(this.localQueuedSales || []).length) {
+          this.errorMessage =
+            'No cached invoices for returns. Open POS once while online to save the last 30 days of sales.';
+        }
+      }
+
+      this.pickerSales = this.filterSalesByPickerDates(sales);
+    } finally {
+      this.loading = false;
+    }
   }
 
-  private loadSaleForReturn(saleId: string): void {
+  private async loadSaleForReturn(saleId: string): Promise<void> {
     this.loading = true;
     this.errorMessage = '';
     this.selectedReturnSale = null;
@@ -380,11 +392,29 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
       return;
     }
 
+    // Offline / local-first: use IndexedDB sale + pending return history.
+    if (!this.offline.online() || this.localFirst) {
+      const cached = await this.findCachedSale(saleId);
+      if (cached) {
+        const history = await this.returnHistoryForSale(saleId);
+        this.applySaleForReturn(cached, history);
+        return;
+      }
+      if (!this.offline.online()) {
+        this.loading = false;
+        this.errorMessage =
+          'Invoice not found in offline cache. Search another invoice or open POS while online first.';
+        return;
+      }
+    }
+
     this.backend.getSaleById(saleId).subscribe({
       next: (sale) => {
         this.backend.listSalesReturns({ saleId, limit: 100 }).subscribe({
           next: (result) => {
-            this.applySaleForReturn(sale, result.items || []);
+            const history = result.items || [];
+            void this.cacheSaleReturnDetail(sale, history);
+            this.applySaleForReturn(sale, history);
           },
           error: (err) => {
             this.loading = false;
@@ -393,12 +423,227 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
           },
         });
       },
-      error: (err) => {
+      error: async (err) => {
+        const cached = await this.findCachedSale(saleId);
+        if (cached) {
+          const history = await this.returnHistoryForSale(saleId);
+          this.applySaleForReturn(cached, history);
+          return;
+        }
         this.loading = false;
         this.errorMessage =
           err?.error?.message || 'Unable to load sale for return.';
       },
     });
+  }
+
+  private filterSalesByPickerDates(sales: Sale[]): Sale[] {
+    const fromMs = this.fromDate
+      ? new Date(`${this.fromDate}T00:00:00`).getTime()
+      : null;
+    const toMs = this.toDate
+      ? new Date(`${this.toDate}T23:59:59`).getTime()
+      : null;
+    if (fromMs == null && toMs == null) {
+      return sales;
+    }
+    return sales.filter((sale) => {
+      const ts = new Date(sale.saleDate || sale.createdAt || 0).getTime();
+      if (!Number.isFinite(ts)) {
+        return true;
+      }
+      if (fromMs != null && ts < fromMs) {
+        return false;
+      }
+      if (toMs != null && ts > toMs) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  private windowRangeIso(): { fromDate: string; toDate: string } {
+    const to = new Date();
+    const from = new Date();
+    from.setHours(0, 0, 0, 0);
+    from.setDate(from.getDate() - (RETURNABLE_SALES_WINDOW_DAYS - 1));
+    to.setHours(23, 59, 59, 999);
+    return { fromDate: from.toISOString(), toDate: to.toISOString() };
+  }
+
+  private returnableSalesCacheKey(storeId: string): string {
+    return this.offline.cacheKey('pos-returnable-sales', storeId || 'store');
+  }
+
+  private saleReturnHistoryCacheKey(saleId: string): string {
+    return this.offline.cacheKey('pos-sale-return-history', saleId || 'sale');
+  }
+
+  private async readReturnableSalesCache(storeId: string): Promise<Sale[]> {
+    return this.offline.readCachedValue<Sale[]>(
+      this.returnableSalesCacheKey(storeId),
+      [],
+    );
+  }
+
+  private async writeReturnableSalesCache(
+    storeId: string,
+    sales: Sale[],
+  ): Promise<void> {
+    if (!storeId) {
+      return;
+    }
+    await this.offline.cacheValue(this.returnableSalesCacheKey(storeId), sales);
+  }
+
+  /** Pull last 30 days of completed store sales (with line items) into IndexedDB. */
+  private async fetchAndCacheReturnableSales(storeId: string): Promise<Sale[]> {
+    const { fromDate, toDate } = this.windowRangeIso();
+    const collected: Sale[] = [];
+    const seen = new Set<string>();
+
+    for (let page = 1; page <= RETURNABLE_MAX_PAGES; page += 1) {
+      const result = await firstValueFrom(
+        this.backend.getSales({
+          page,
+          limit: RETURNABLE_PAGE_LIMIT,
+          storeId,
+          status: 'completed',
+          // Always pull the rolling 30-day window for offline returns (invoice search).
+          // Custom From/To only filters the on-screen list after cache is loaded.
+          fromDate,
+          toDate,
+        }),
+      );
+      const batch = Array.isArray(result?.items) ? result.items : [];
+      for (const sale of batch) {
+        const id = String(sale?._id || '');
+        if (!id || seen.has(id)) {
+          continue;
+        }
+        seen.add(id);
+        collected.push(sale);
+      }
+      const totalPages = Number(result?.pagination?.totalPages || 0);
+      if (
+        !batch.length ||
+        (totalPages > 0 && page >= totalPages) ||
+        batch.length < RETURNABLE_PAGE_LIMIT
+      ) {
+        break;
+      }
+    }
+
+    // Merge with prior cache so a date-filtered online fetch does not wipe the month.
+    const previous = await this.readReturnableSalesCache(storeId);
+    const merged = this.mergePickerSales(collected, previous).filter((sale) =>
+      this.isSaleWithinReturnWindow(sale),
+    );
+    merged.sort(
+      (a, b) =>
+        new Date(b.saleDate || b.createdAt || 0).getTime() -
+        new Date(a.saleDate || a.createdAt || 0).getTime(),
+    );
+    await this.writeReturnableSalesCache(storeId, merged);
+    return merged;
+  }
+
+  private isSaleWithinReturnWindow(sale: Sale): boolean {
+    const { fromDate } = this.windowRangeIso();
+    const fromMs = new Date(fromDate).getTime();
+    const ts = new Date(sale.saleDate || sale.createdAt || 0).getTime();
+    if (!Number.isFinite(ts)) {
+      return true;
+    }
+    return ts >= fromMs;
+  }
+
+  private async findCachedSale(saleId: string): Promise<Sale | null> {
+    const id = String(saleId || '').trim();
+    if (!id) {
+      return null;
+    }
+    const fromPicker = this.pickerSales.find((sale) => String(sale._id) === id);
+    if (fromPicker) {
+      return fromPicker;
+    }
+    const fromLocal = (this.localQueuedSales || []).find(
+      (sale) => String(sale._id) === id,
+    );
+    if (fromLocal) {
+      return fromLocal;
+    }
+    const storeId = String(this.storeId || '').trim();
+    if (!storeId) {
+      return null;
+    }
+    const cached = await this.readReturnableSalesCache(storeId);
+    return cached.find((sale) => String(sale._id) === id) || null;
+  }
+
+  private async returnHistoryForSale(saleId: string): Promise<SalesReturn[]> {
+    const cached = await this.offline.readCachedValue<SalesReturn[]>(
+      this.saleReturnHistoryCacheKey(saleId),
+      [],
+    );
+    const pending = await this.pendingReturnsAsHistory(saleId);
+    return this.mergeReturnHistory(cached, pending);
+  }
+
+  private async pendingReturnsAsHistory(saleId: string): Promise<SalesReturn[]> {
+    const entries = await this.offline.getQueuedWork('sales_return');
+    return entries
+      .filter((entry) => {
+        const payload = entry.payload as unknown as CreateSalesReturnPayload;
+        return String(payload?.saleId || '') === String(saleId);
+      })
+      .map((entry) => {
+        const payload = entry.payload as unknown as CreateSalesReturnPayload;
+        return {
+          _id: entry.id,
+          storeId: String(entry.meta?.['storeId'] || this.storeId || ''),
+          saleId: payload.saleId,
+          returnNo: `OFF-R-${String(entry.localId || entry.id).slice(-6).toUpperCase()}`,
+          returnDate: payload.returnDate,
+          items: payload.items || [],
+          total: 0,
+          refundAmount: payload.refundAmount || 0,
+          status: 'completed',
+        } as SalesReturn;
+      });
+  }
+
+  private mergeReturnHistory(
+    remote: SalesReturn[],
+    local: SalesReturn[],
+  ): SalesReturn[] {
+    const map = new Map<string, SalesReturn>();
+    [...remote, ...local].forEach((item) => {
+      if (item?._id) {
+        map.set(String(item._id), item);
+      }
+    });
+    return Array.from(map.values());
+  }
+
+  private async cacheSaleReturnDetail(
+    sale: Sale,
+    history: SalesReturn[],
+  ): Promise<void> {
+    const storeId = String(sale.storeId || this.storeId || '').trim();
+    if (storeId && sale?._id) {
+      const existing = await this.readReturnableSalesCache(storeId);
+      const merged = this.mergePickerSales([sale], existing).filter((item) =>
+        this.isSaleWithinReturnWindow(item),
+      );
+      await this.writeReturnableSalesCache(storeId, merged);
+    }
+    if (sale?._id) {
+      await this.offline.cacheValue(
+        this.saleReturnHistoryCacheKey(sale._id),
+        history || [],
+      );
+    }
   }
 
   private applySaleForReturn(sale: Sale, history: SalesReturn[]): void {

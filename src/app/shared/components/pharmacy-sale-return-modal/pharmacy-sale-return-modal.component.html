@@ -7,7 +7,7 @@
       <div>
         <strong id="psr-title">Return Sale</strong>
         <span *ngIf="selectedReturnSale">Process return for {{ selectedReturnSale.invoiceNo }}</span>
-        <span *ngIf="!selectedReturnSale">Select a sale to return.</span>
+        <span *ngIf="!selectedReturnSale">Select a sale to return. Offline keeps ~30 days by invoice.</span>
       </div>
       <button type="button" class="psr-close" (click)="close()" aria-label="Close">×</button>
     </div>
@@ -62,7 +62,10 @@
           </div>
         </div>
 
-        <div class="psr-loading" *ngIf="!returnablePickerSales.length">No returnable sales found.</div>
+        <div class="psr-loading" *ngIf="!returnablePickerSales.length">
+          No returnable sales found.
+          <small *ngIf="!offline.online()"> Open POS once while online to cache invoices for offline returns.</small>
+        </div>
       </ng-container>
 
       <ng-container *ngIf="!loading && selectedReturnSale">

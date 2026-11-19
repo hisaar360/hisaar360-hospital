@@ -1,5 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  HostListener,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize, firstValueFrom } from 'rxjs';
@@ -261,7 +268,7 @@ interface PharmacyReportCard {
   templateUrl: './pharmacy-pos.component.html',
   styleUrl: './pharmacy-pos.component.scss',
 })
-export class PharmacyPosComponent implements OnInit, OnDestroy {
+export class PharmacyPosComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(PharmacySaleReturnModalComponent)
   private saleReturnModal?: PharmacySaleReturnModalComponent;
 
@@ -523,6 +530,13 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     void this.refreshPendingStockDeltas();
     void this.syncOfflineWork(false);
     this.startStockRefreshPoll();
+  }
+
+  ngAfterViewInit(): void {
+    const storeId = this.currentStoreId();
+    if (storeId) {
+      this.saleReturnModal?.warmStoreCache(storeId);
+    }
   }
 
   ngOnDestroy(): void {
@@ -2738,6 +2752,17 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Keep ~30 days of invoices warm for offline Return Sale / invoice search.
+    this.saleReturnModal?.warmStoreCache(storeId);
+
+    if (!this.offline.online()) {
+      this.saleHistoryLoading = true;
+      void this.loadCachedRecentSales(storeId).finally(() => {
+        this.saleHistoryLoading = false;
+      });
+      return;
+    }
+
     this.saleHistoryLoading = true;
     this.backend
       .getSales({
@@ -2756,6 +2781,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
             result.items || [],
           );
           void this.applyRecentSales(result.items || []);
+          this.saleReturnModal?.warmStoreCache(storeId);
         },
         error: () => {
           void this.loadCachedRecentSales(storeId);
