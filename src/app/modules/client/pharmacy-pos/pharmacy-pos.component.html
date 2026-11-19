@@ -69,17 +69,25 @@
                 <span class="storepos-connection-pill" [class.offline]="offline.statusTone() === 'offline'"
                     [class.syncing]="offline.statusTone() === 'syncing'"
                     [class.failed]="offline.statusTone() === 'failed'"
-                    data-tooltip="Online / offline connection status for this POS">
+                    data-tooltip="Queued sales stay on this browser if you leave POS or close the tab. Sync when online.">
                     <i class="fa fa-circle"></i>
                     {{ offline.statusLabel() }}
                 </span>
+                <span class="storepos-connection-pill failed" *ngIf="offline.failedCount() > 0"
+                    data-tooltip="Some queued sales/returns failed (often stock conflict). Tap Sync after refreshing stock.">
+                    {{ offline.failedCount() }} failed — tap Sync
+                </span>
                 <button type="button" class="storepos-icon-btn" aria-label="Refresh stock and sync offline work"
                     data-tour="pos-sync"
-                    data-tooltip="Refresh store stock from inventory (and sync any offline sales)"
+                    data-tooltip="Refresh store stock and push queued sales when online"
                     [disabled]="!offline.online() || offline.syncing()"
                     (click)="syncOfflineWork()">
-                    <i class="fa fa-refresh"></i>
+                    <i class="fa" [ngClass]="offline.syncing() ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
                 </button>
+                <span class="storepos-offline-tip" *ngIf="!offline.online()"
+                    data-tooltip="Using more than one counter offline can cause stock problems when syncing.">
+                    If internet is not working, use only one counter to make sales.
+                </span>
                 <a [routerLink]="['/pharmacy']" class="storepos-icon-btn" aria-label="Back to pharmacy"
                     data-tour="pos-back"
                     data-tooltip="Go back to Pharmacy queue / dashboard">
@@ -574,8 +582,7 @@
                 <ng-container *ngIf="registerOpened; else openRegisterDock">
                     <button type="button" class="pay-btn" data-kb-dock-index="3" data-kb-dock-action="confirm"
                         [class.keyboard-active]="keyboardZone === 'actions' && selectedDockIndex === 3"
-                        (focus)="setKeyboardZone('actions', 3)" [disabled]="!canCheckout" (click)="confirmBilling()">
-                        <i class="fa fa-spinner fa-spin" *ngIf="saleSaving"></i>
+                        (focus)="setKeyboardZone('actions', 3)" [disabled]="!canCheckout" (click)="confirmPaidSale()">
                         Confirm Sale
                     </button>
                     <button type="button" class="pay-btn" data-kb-dock-index="4" data-kb-dock-action="credit"
@@ -832,8 +839,12 @@
     [storeId]="selectedStoreId"
     [registerSessionId]="registerSession?.status === 'open' ? registerSession?._id || null : null"
     [preferRegisterSession]="true"
+    [localQueuedSales]="recentLocalQueuedSales"
+    [localFirst]="true"
     (closed)="closeSaleReturn()"
     (completed)="onSaleReturnCompleted($event)"
+    (voidLocalSale)="onVoidLocalSale($event)"
+    (queueReturn)="onQueueSalesReturn($event)"
 ></app-pharmacy-sale-return-modal>
 
 <app-pharmacy-open-return-modal
@@ -1120,6 +1131,7 @@
   [product]="batchPickerProduct"
   [lots]="batchPickerLots"
   [defaultUnitPrice]="batchPickerDefaultPrice"
+  [loading]="batchPickerLoading"
   (closed)="closeBatchPicker()"
   (selected)="onBatchPicked($event)"
 ></app-pharmacy-pos-batch-picker>

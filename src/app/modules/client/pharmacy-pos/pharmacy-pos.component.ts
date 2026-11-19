@@ -36,6 +36,7 @@ import {
   Customer,
   CreateHeldSalePayload,
   CreateSalePayload,
+  CreateSalesReturnPayload,
   HeldSale,
   Encounter,
   Patient,
@@ -268,7 +269,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   batchPickerProduct: ProductCatalogItem | null = null;
   batchPickerLots: StockLot[] = [];
   batchPickerDefaultPrice = 0;
-  private batchPickerLoading = false;
+  batchPickerLoading = false;
   companyProfile: CompanyProfile | null = null;
   stores: Store[] = [];
   customers: Customer[] = [];
@@ -331,6 +332,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   registerOpening = false;
   registerClosed = false;
   registerLoading = true;
+  /** Avoid duplicate toasts when offline reopen loads catalog twice. */
+  private offlineCatalogWarned = false;
   closeRegisterOpen = false;
   openRegisterModalOpen = false;
   closeRegisterSaving = false;
@@ -359,6 +362,16 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   private cashReceivedTouched = false;
   /** True while Paid is updated from cart refresh so ngModelChange does not lock it. */
   private syncingPaidAmount = false;
+  /** Local-first: cached server qty adjusted by unsynced outbox deltas. */
+  private pendingStockDeltas = new Map<string, number>();
+  /** Lot-level pending deltas keyed by `${productId}:${lotId}`. */
+  private pendingLotStockDeltas = new Map<string, number>();
+  /** In-memory stock-options cache (hydrated from IndexedDB + live fetches). */
+  private stockOptionsMemory = new Map<
+    string,
+    { lots: StockLot[]; fetchedAt: string }
+  >();
+  private stockRefreshTimer: ReturnType<typeof setInterval> | null = null;
   openingAmount: number | null = null;
   openingNote = '';
   closingAmount: number | null = null;
@@ -507,7 +520,9 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     });
 
     this.refreshCurrentUser();
+    void this.refreshPendingStockDeltas();
     void this.syncOfflineWork(false);
+    this.startStockRefreshPoll();
   }
 
   ngOnDestroy(): void {
@@ -516,6 +531,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);
       this.searchDebounceTimer = null;
+    }
+    if (this.stockRefreshTimer) {
+      clearInterval(this.stockRefreshTimer);
+      this.stockRefreshTimer = null;
     }
     this.clearTutorialLayout();
   }
@@ -873,7 +892,6 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       this.canCreateSale &&
       this.registerOpened &&
       !this.registerClosed &&
-      !this.saleSaving &&
       !this.consultationFeeCollecting &&
       this.billLines.some((line) => line.billQty > 0) &&
       !!this.currentStoreId()
@@ -1166,6 +1184,12 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Offline: IndexedDB only — never wait on hanging getStores.
+    if (!this.offline.online()) {
+      void this.applyCachedStoresAndContinue(user?.storeId || '');
+      return;
+    }
+
     this.storesLoading = true;
     this.backend
       .getStores({
@@ -1185,7 +1209,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
           }
         },
         error: () => {
-          void this.loadCachedStores(user?.storeId || '');
+          void this.applyCachedStoresAndContinue(user?.storeId || '');
         },
       });
   }
@@ -1206,25 +1230,98 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.productsLoading = true;
     this.searchResults = null;
     void this.medicineCatalog.ensureLoaded();
-    void this.fetchAllStoreProducts(storeId)
-      .then((items) => {
-        // Full store pull — replace (do not force-zero missing rows from a partial page).
-        this.products = items;
-        void this.offline.cacheValue(this.productsCacheKey(storeId), this.products);
+    void this.loadProductsCacheFirst(storeId);
+  }
+
+  /**
+   * Paint IndexedDB catalog first so offline reopen never flashes stock 0.
+   * Live fetch only replaces cache when it returns a non-empty catalog.
+   */
+  private async loadProductsCacheFirst(storeId: string): Promise<void> {
+    this.productsLoading = true;
+    try {
+      const cached = await this.offline.readCachedValue<ProductCatalogItem[]>(
+        this.productsCacheKey(storeId),
+        [],
+      );
+      if (cached.length > 0) {
+        this.products = cached;
+        await this.refreshPendingStockDeltas();
         if (!this.saleInvoiceNo) {
           this.rebuildPrescriptionBill();
         }
-      })
-      .catch((err) => {
-        void this.loadCachedProducts(storeId, err);
-      })
-      .finally(() => {
-        this.productsLoading = false;
         this.focusInitialProductSearch();
-      });
+        // Catalog is usable from IndexedDB; live refresh can finish in background.
+        this.productsLoading = false;
+      }
+
+      if (!this.offline.online()) {
+        if (cached.length === 0) {
+          this.products = [];
+          if (!this.saleInvoiceNo) {
+            this.rebuildPrescriptionBill();
+          }
+          if (!this.offlineCatalogWarned) {
+            this.offlineCatalogWarned = true;
+            this.toastr.warning(
+              'Store stock is not cached yet. Open POS once while online to save stock and prices.',
+            );
+          }
+        }
+        await this.refreshPendingStockDeltas();
+        this.prefetchStockOptionsForCatalog(storeId);
+        return;
+      }
+
+      try {
+        const items = await this.fetchAllStoreProducts(storeId);
+        if (items.length > 0) {
+          // Reject live catalogs that look empty of commerce when cache already has prices/qty.
+          if (
+            this.catalogHasCommerce(cached) &&
+            !this.catalogHasCommerce(items)
+          ) {
+            // Keep painted cache; do not persist zeros.
+          } else {
+            this.products = items;
+            await this.persistProductsCache(storeId);
+            await this.refreshPendingStockDeltas();
+            this.prefetchStockOptionsForCatalog(storeId);
+            if (!this.saleInvoiceNo) {
+              this.rebuildPrescriptionBill();
+            }
+          }
+        } else if (cached.length === 0) {
+          this.products = [];
+        }
+        // Empty live result must never wipe a good IndexedDB catalog.
+      } catch (err) {
+        if (cached.length === 0) {
+          await this.loadCachedProducts(storeId, err);
+        }
+        // Keep already-painted cache; no toast storm when cache exists.
+        await this.refreshPendingStockDeltas();
+        this.prefetchStockOptionsForCatalog(storeId);
+      }
+    } finally {
+      this.productsLoading = false;
+      this.focusInitialProductSearch();
+    }
+  }
+
+  /**
+   * Write current catalog to IndexedDB.
+   * Stores last known server/catalog fields only — pending outbox deltas are applied at display
+   * time via productAvailableQty (avoids double-counting on reopen).
+   */
+  private async persistProductsCache(storeId?: string): Promise<void> {
+    const id = storeId || this.currentStoreId();
+    if (!id || !this.products.length) {
+      return;
+    }
+    await this.offline.cacheValue(this.productsCacheKey(id), this.products);
   }
 
   /** Paginate store catalog so POS stock matches Inventory for every SKU. */
@@ -1326,6 +1423,15 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       if (!this.storesLoading) {
         this.registerLoading = false;
       }
+      return;
+    }
+
+    // Offline: never call live register API (can hang on "Checking register...").
+    if (!this.offline.online()) {
+      this.registerLoading = true;
+      void this.loadCachedRegisterState(storeId).finally(() => {
+        this.registerLoading = false;
+      });
       return;
     }
 
@@ -1448,14 +1554,17 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const storeId = this.currentStoreId();
     const queuedSales = (await this.offline.getQueuedWork('sale')).filter(
       (entry) =>
-        (entry.payload as unknown as CreateSalePayload).storeId ===
-        this.currentStoreId(),
+        (entry.payload as unknown as CreateSalePayload).storeId === storeId,
     );
-    if (queuedSales.length > 0) {
+    const queuedReturns = (await this.offline.getQueuedWork('sales_return')).filter(
+      (entry) => String(entry.meta?.['storeId'] || '') === storeId || !entry.meta?.['storeId'],
+    );
+    if (queuedSales.length > 0 || queuedReturns.length > 0) {
       this.toastr.error(
-        'Sync queued offline POS sales before closing register.',
+        'Sync queued offline POS sales/returns before closing register.',
       );
       void this.syncOfflineWork(false);
       return;
@@ -1706,8 +1815,16 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
 
   private async runCatalogSearch(raw: string): Promise<void> {
     const storeId = this.currentStoreId();
-    if (!storeId || !this.canReadProducts) {
-      this.searchResults = this.localProductMatches(raw).slice(0, POS_SEARCH_LIMIT);
+    const localHits = this.localProductMatches(raw).slice(0, POS_SEARCH_LIMIT);
+
+    // Paint IndexedDB/in-memory hits immediately — don't wait on slow HTTP.
+    this.searchResults = this.rankSearchHits(localHits, raw);
+    this.selectedProductIndex = 0;
+    this.showSearchDropdown = true;
+    this.clampKeyboardNavigationState();
+
+    if (!storeId || !this.canReadProducts || !this.offline.online()) {
+      this.searchLoading = false;
       return;
     }
 
@@ -1731,16 +1848,17 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         this.mergeProductIntoCatalog(item);
       }
       if (items.length) {
-        void this.offline.cacheValue(this.productsCacheKey(storeId), this.products);
+        void this.persistProductsCache(storeId);
       }
 
-      this.searchResults = this.rankSearchHits(items, raw);
+      this.searchResults = this.rankSearchHits(items.length ? items : localHits, raw);
       this.selectedProductIndex = 0;
       this.showSearchDropdown = true;
       this.clampKeyboardNavigationState();
     } catch {
       if (requestId !== this.searchRequestSeq) return;
-      this.searchResults = this.localProductMatches(raw).slice(0, POS_SEARCH_LIMIT);
+      // Keep the local hits already painted.
+      this.searchResults = this.rankSearchHits(localHits, raw);
       this.showSearchDropdown = true;
     } finally {
       if (requestId === this.searchRequestSeq) {
@@ -1835,9 +1953,15 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
         this.productSearchText(product).includes(query),
     );
     const fromStore = this.rankSearchHits([...exact, ...partial], raw);
+
+    // Offline: only IndexedDB store rows (real price/qty). Medicine catalog has names only.
+    if (!this.offline.online()) {
+      return fromStore;
+    }
+
     const seen = new Set(fromStore.map((item) => String(item._id)));
 
-    // Hospital catalog fills name gaps while live store search is in flight.
+    // Online: hospital catalog fills name gaps while live store search is in flight.
     // Prefer store stock rows; never invent Rs 0 / Out of stock over a store hit.
     const fromCatalog = this.medicineCatalog
       .search(raw, POS_SEARCH_LIMIT)
@@ -1878,11 +2002,56 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       (item) => String(item._id) === String(product._id),
     );
     if (index >= 0) {
-      this.products[index] = { ...this.products[index], ...product };
+      const existing = this.products[index];
+      const nextPrice = this.preferCommerceNumber(
+        product.sellingPrice,
+        existing.sellingPrice,
+      );
+      const nextCost = this.preferCommerceNumber(
+        product.costPrice,
+        existing.costPrice,
+      );
+      const nextAvailable = this.preferCommerceNumber(
+        product.availableQuantity ?? product.stockQuantity,
+        existing.availableQuantity ?? existing.stockQuantity,
+      );
+      this.products[index] = {
+        ...existing,
+        ...product,
+        sellingPrice: nextPrice as ProductCatalogItem['sellingPrice'],
+        costPrice: nextCost as ProductCatalogItem['costPrice'],
+        availableQuantity: nextAvailable as ProductCatalogItem['availableQuantity'],
+        stockQuantity: nextAvailable as ProductCatalogItem['stockQuantity'],
+      };
       this.products = [...this.products];
       return;
     }
     this.products = [product, ...this.products];
+  }
+
+  /** Keep existing non-zero price/qty when incoming payload is blank or zero. */
+  private preferCommerceNumber(
+    incoming: string | number | null | undefined,
+    existing: string | number | null | undefined,
+  ): string | number | null | undefined {
+    const next = Number(incoming);
+    const prev = Number(existing);
+    if (incoming == null || incoming === '' || !Number.isFinite(next) || next === 0) {
+      if (Number.isFinite(prev) && prev !== 0) {
+        return existing;
+      }
+    }
+    return incoming ?? existing;
+  }
+
+  /** True when any row has a positive selling price or available stock. */
+  private catalogHasCommerce(items: ProductCatalogItem[]): boolean {
+    return (items || []).some((item) => {
+      const price = Number(item?.sellingPrice || 0) || 0;
+      const qty =
+        Number(item?.availableQuantity ?? item?.stockQuantity ?? 0) || 0;
+      return price > 0 || qty > 0;
+    });
   }
 
   private applyOptimisticStockDeltas(
@@ -1906,7 +2075,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       }
 
       const product = this.products[index];
-      const nextQty = Math.max(0, this.productAvailableQty(product) + qtyDelta);
+      // Adjust catalog base qty only — pending outbox deltas stay separate.
+      const baseQty =
+        Number(product.availableQuantity ?? product.stockQuantity ?? 0) || 0;
+      const nextQty = Math.max(0, baseQty + qtyDelta);
       this.products[index] = {
         ...product,
         availableQuantity: String(nextQty),
@@ -1920,15 +2092,18 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
 
     this.products = [...this.products];
-    const storeId = this.currentStoreId();
-    if (storeId) {
-      void this.offline.cacheValue(this.productsCacheKey(storeId), this.products);
-    }
+    void this.persistProductsCache();
   }
 
   private refreshLocalStockAfterTransaction(): void {
-    this.loadProducts();
-    void this.medicineCatalog.refresh();
+    // Offline/slow: keep IndexedDB catalog; only pull live when online.
+    if (this.offline.online()) {
+      this.loadProducts();
+      void this.medicineCatalog.refresh();
+      return;
+    }
+    void this.refreshPendingStockDeltas();
+    void this.persistProductsCache();
   }
 
   /** Keep POS stock aligned when returning to the tab after Inventory / Purchases. */
@@ -1949,6 +2124,22 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.cashReceivedAmount = this.payableAmount;
     this.paidAmountTouched = false;
     this.cashReceivedTouched = false;
+    this.confirmBilling();
+  }
+
+  /**
+   * Confirm Sale button — always a paid sale.
+   * If Payment dropdown / prior Credit click left method on credit, switch to cash
+   * so Walk-in does not keep hitting "Select a customer…" toast.
+   */
+  confirmPaidSale(): void {
+    if (this.paymentMethod === 'credit') {
+      this.paymentMethod = 'cash';
+      this.paidAmountTouched = false;
+      this.cashReceivedTouched = false;
+      this.paidAmount = this.payableAmount;
+      this.cashReceivedAmount = this.payableAmount;
+    }
     this.confirmBilling();
   }
 
@@ -2269,6 +2460,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   openRandomReturn(): void {
+    if (!this.offline.online()) {
+      this.toastr.error('Internet is required for random / open returns.');
+      return;
+    }
     if (!this.registerSession || this.registerSession.status !== 'open') {
       this.showPosMessage(
         'Open the register before processing a random return.',
@@ -2335,14 +2530,36 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
   }
 
+  get recentLocalQueuedSales(): Sale[] {
+    return this.recentSales.filter((sale) =>
+      String(sale._id || '').startsWith('local-'),
+    );
+  }
+
   onSaleReturnCompleted(salesReturn: SalesReturn): void {
     this.closeSaleHistory();
+    void this.refreshPendingStockDeltas();
     this.refreshLocalStockAfterTransaction();
     this.loadRecentSales();
     this.showPosMessage(
       `Sales return ${salesReturn.returnNo || salesReturn._id} completed successfully.`,
       'success',
     );
+  }
+
+  onVoidLocalSale(localSaleId: string): void {
+    void this.voidLocalQueuedSale(localSaleId);
+  }
+
+  onQueueSalesReturn(event: {
+    payload: CreateSalesReturnPayload;
+    storeId: string;
+    saleInvoiceNo: string;
+  }): void {
+    void this.queueLocalSalesReturn(event.payload, {
+      storeId: event.storeId,
+      saleInvoiceNo: event.saleInvoiceNo,
+    });
   }
 
   openReports(): void {
@@ -2583,6 +2800,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   addProduct(product: ProductCatalogItem): void {
+    void this.addProductFast(product);
+  }
+
+  private async addProductFast(product: ProductCatalogItem): Promise<void> {
     const availableQty = this.productAvailableQty(product);
     this.productSearch = '';
     this.searchResults = null;
@@ -2600,7 +2821,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
 
     const storeId = this.currentStoreId();
-    if (!storeId || this.batchPickerLoading) {
+    if (!storeId) {
       this.pushOrBumpBillLine(product, {
         unitPrice: this.productPrice(product),
         availableQty,
@@ -2608,60 +2829,324 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.batchPickerLoading = true;
-    this.backend.getProductStockOptions(product._id, { storeId }).subscribe({
-      next: (result) => {
-        this.batchPickerLoading = false;
-        const namedLots = (result.lots || []).filter(
-          (lot) =>
-            String(lot.lotNumber || '').trim() &&
-            Number(lot.availableQuantity ?? lot.quantity ?? 0) > 0,
-        );
-        const hasNearExpiry = namedLots.some(
-          (lot) =>
-            lot.nearExpiry === true ||
-            getPharmacyExpiryTone(lot.expiryDate) === 'near' ||
-            getPharmacyExpiryTone(lot.expiryDate) === 'expired',
-        );
+    // Memory → IndexedDB (fast) → then decide. Never wait on HTTP before UI.
+    let cachedLots = this.getCachedNamedLots(storeId, product._id);
+    if (!cachedLots) {
+      cachedLots = await this.hydrateStockOptionsFromIdb(storeId, product._id);
+    }
 
-        if (namedLots.length >= 2 || hasNearExpiry) {
-          this.batchPickerProduct = product;
-          this.batchPickerLots = namedLots;
-          this.batchPickerDefaultPrice = this.productPrice(product);
-          this.batchPickerOpen = true;
-          return;
+    if (cachedLots) {
+      this.applyLotsToBillOrPicker(product, cachedLots, availableQty);
+      if (this.offline.online()) {
+        // Refresh quietly; don't re-open modal if cashier already picking.
+        void this.refreshStockOptionsInBackground(product, storeId, false);
+      }
+      return;
+    }
+
+    // Cold cache: open batch shell immediately when online, fill lots when API returns.
+    if (this.offline.online()) {
+      this.batchPickerProduct = product;
+      this.batchPickerLots = [];
+      this.batchPickerDefaultPrice = this.productPrice(product);
+      this.batchPickerOpen = true;
+      this.batchPickerLoading = true;
+      try {
+        const result = await firstValueFrom(
+          this.backend.getProductStockOptions(product._id, { storeId }),
+        );
+        const lots = result.lots || [];
+        await this.writeStockOptionsCache(storeId, product._id, lots);
+        if (
+          this.batchPickerOpen &&
+          this.batchPickerProduct?._id === product._id
+        ) {
+          const namedLots = this.filterNamedAvailableLots(lots, product._id);
+          const needsPicker =
+            namedLots.length >= 2 ||
+            namedLots.some((lot) => this.lotIsNearOrExpired(lot));
+          if (needsPicker) {
+            this.batchPickerLots = namedLots;
+          } else {
+            this.closeBatchPicker();
+            this.applyLotsToBillOrPicker(product, lots, availableQty);
+          }
         }
-
-        if (namedLots.length === 1) {
-          const lot = namedLots[0];
+      } catch {
+        if (
+          this.batchPickerOpen &&
+          this.batchPickerProduct?._id === product._id
+        ) {
+          this.closeBatchPicker();
           this.pushOrBumpBillLine(product, {
-            unitPrice: this.lotSellingPrice(lot, product),
-            availableQty: Number(lot.availableQuantity ?? lot.quantity ?? 0) || 0,
-            lotId: lot._id,
-            lotNumber: lot.lotNumber || '',
-            expiryDate: lot.expiryDate || null,
-            nearExpiry:
-              lot.nearExpiry === true ||
-              getPharmacyExpiryTone(lot.expiryDate) === 'near' ||
-              getPharmacyExpiryTone(lot.expiryDate) === 'expired',
+            unitPrice: this.productPrice(product),
+            availableQty,
           });
-          return;
         }
-
-        // No named batch → default product price.
-        this.pushOrBumpBillLine(product, {
-          unitPrice: this.productPrice(product),
-          availableQty,
-        });
-      },
-      error: () => {
+      } finally {
         this.batchPickerLoading = false;
-        this.pushOrBumpBillLine(product, {
-          unitPrice: this.productPrice(product),
-          availableQty,
-        });
-      },
+      }
+      return;
+    }
+
+    // Offline + no cache: add without batch.
+    this.pushOrBumpBillLine(product, {
+      unitPrice: this.productPrice(product),
+      availableQty,
     });
+  }
+
+  private applyLotsToBillOrPicker(
+    product: ProductCatalogItem,
+    lots: StockLot[],
+    productAvailableQty: number,
+  ): void {
+    const namedLots = this.filterNamedAvailableLots(lots, product._id);
+    const hasNearExpiry = namedLots.some((lot) => this.lotIsNearOrExpired(lot));
+
+    if (namedLots.length >= 2 || hasNearExpiry) {
+      this.batchPickerProduct = product;
+      this.batchPickerLots = namedLots;
+      this.batchPickerDefaultPrice = this.productPrice(product);
+      this.batchPickerOpen = true;
+      return;
+    }
+
+    if (namedLots.length === 1) {
+      const lot = namedLots[0];
+      this.pushOrBumpBillLine(product, {
+        unitPrice: this.lotSellingPrice(lot, product),
+        availableQty: Math.min(
+          this.lotAvailableQty(product._id, lot),
+          productAvailableQty,
+        ),
+        lotId: lot._id,
+        lotNumber: lot.lotNumber || '',
+        expiryDate: lot.expiryDate || null,
+        nearExpiry: this.lotIsNearOrExpired(lot),
+      });
+      return;
+    }
+
+    this.pushOrBumpBillLine(product, {
+      unitPrice: this.productPrice(product),
+      availableQty: productAvailableQty,
+    });
+  }
+
+  private softUpgradeBillLineWithLots(
+    product: ProductCatalogItem,
+    lots: StockLot[],
+  ): void {
+    const namedLots = this.filterNamedAvailableLots(lots, product._id);
+    if (!namedLots.length) {
+      return;
+    }
+
+    const lineIndex = this.billLines.findIndex(
+      (line) =>
+        line.product._id === product._id && !String(line.lotId || '').trim(),
+    );
+    if (lineIndex < 0) {
+      // Line already has a batch, or user removed it — only open picker if multi-lot.
+      if (
+        namedLots.length >= 2 ||
+        namedLots.some((lot) => this.lotIsNearOrExpired(lot))
+      ) {
+        // Avoid surprising modal after a no-batch add unless still no line for product.
+        const hasAnyLine = this.billLines.some(
+          (line) => line.product._id === product._id,
+        );
+        if (!hasAnyLine) {
+          this.applyLotsToBillOrPicker(
+            product,
+            lots,
+            this.productAvailableQty(product),
+          );
+        }
+      }
+      return;
+    }
+
+    if (
+      namedLots.length >= 2 ||
+      namedLots.some((lot) => this.lotIsNearOrExpired(lot))
+    ) {
+      // Remove provisional no-batch line and let cashier pick.
+      this.billLines.splice(lineIndex, 1);
+      this.refreshPaidAmount();
+      this.applyLotsToBillOrPicker(
+        product,
+        lots,
+        this.productAvailableQty(product),
+      );
+      return;
+    }
+
+    if (namedLots.length === 1) {
+      const lot = namedLots[0];
+      const line = this.billLines[lineIndex];
+      line.lotId = lot._id;
+      line.lotNumber = lot.lotNumber || '';
+      line.expiryDate = lot.expiryDate || null;
+      line.nearExpiry = this.lotIsNearOrExpired(lot);
+      line.unitPrice = this.lotSellingPrice(lot, product);
+      line.availableQty = Math.min(
+        this.lotAvailableQty(product._id, lot),
+        this.productAvailableQty(product),
+      );
+      line.billQty = Math.min(line.billQty, line.availableQty);
+      this.syncLineDiscount(line);
+      this.refreshPaidAmount();
+    }
+  }
+
+  private async refreshStockOptionsInBackground(
+    product: ProductCatalogItem,
+    storeId: string,
+    softUpgradeIfNeeded: boolean,
+  ): Promise<void> {
+    try {
+      const result = await firstValueFrom(
+        this.backend.getProductStockOptions(product._id, { storeId }),
+      );
+      const lots = result.lots || [];
+      await this.writeStockOptionsCache(storeId, product._id, lots);
+      if (this.batchPickerOpen && this.batchPickerProduct?._id === product._id) {
+        this.batchPickerLots = this.filterNamedAvailableLots(lots, product._id);
+      } else if (softUpgradeIfNeeded) {
+        this.softUpgradeBillLineWithLots(product, lots);
+      }
+    } catch {
+      // Keep cached / product-level fallback.
+    }
+  }
+
+  private getCachedNamedLots(
+    storeId: string,
+    productId: string,
+  ): StockLot[] | null {
+    const cached = this.stockOptionsMemory.get(
+      this.stockOptionsMemoryKey(storeId, productId),
+    );
+    return cached ? cached.lots : null;
+  }
+
+  private async hydrateStockOptionsFromIdb(
+    storeId: string,
+    productId: string,
+  ): Promise<StockLot[] | null> {
+    const key = this.stockOptionsCacheKey(storeId, productId);
+    const stored = await this.offline.readCachedValue<{
+      lots?: StockLot[];
+      fetchedAt?: string;
+    } | null>(key, null);
+    if (!stored?.lots) {
+      return null;
+    }
+    this.stockOptionsMemory.set(this.stockOptionsMemoryKey(storeId, productId), {
+      lots: stored.lots,
+      fetchedAt: stored.fetchedAt || new Date().toISOString(),
+    });
+    return stored.lots;
+  }
+
+  private async writeStockOptionsCache(
+    storeId: string,
+    productId: string,
+    lots: StockLot[],
+  ): Promise<void> {
+    const fetchedAt = new Date().toISOString();
+    this.stockOptionsMemory.set(this.stockOptionsMemoryKey(storeId, productId), {
+      lots,
+      fetchedAt,
+    });
+    await this.offline.cacheValue(this.stockOptionsCacheKey(storeId, productId), {
+      lots,
+      fetchedAt,
+    });
+  }
+
+  private filterNamedAvailableLots(
+    lots: StockLot[],
+    productId: string,
+  ): StockLot[] {
+    return (lots || []).filter(
+      (lot) =>
+        String(lot.lotNumber || '').trim() &&
+        this.lotAvailableQty(productId, lot) > 0,
+    );
+  }
+
+  private lotAvailableQty(productId: string, lot: StockLot): number {
+    const raw = Number(lot.availableQuantity ?? lot.quantity ?? 0) || 0;
+    const lotId = String(lot._id || '').trim();
+    const pending = lotId
+      ? this.pendingLotStockDeltas.get(`${productId}:${lotId}`) || 0
+      : 0;
+    return Math.max(0, raw + pending);
+  }
+
+  private lotIsNearOrExpired(lot: StockLot): boolean {
+    return (
+      lot.nearExpiry === true ||
+      getPharmacyExpiryTone(lot.expiryDate) === 'near' ||
+      getPharmacyExpiryTone(lot.expiryDate) === 'expired'
+    );
+  }
+
+  private stockOptionsMemoryKey(storeId: string, productId: string): string {
+    return `${storeId}:${productId}`;
+  }
+
+  private stockOptionsCacheKey(storeId: string, productId: string): string {
+    return this.offline.cacheKey('pos-stock-options', storeId, productId);
+  }
+
+  private prefetchStockOptionsForCatalog(storeId: string): void {
+    if (!storeId) {
+      return;
+    }
+    const candidates = [...this.products]
+      .filter((product) => this.productAvailableQty(product) > 0)
+      .slice(0, 25);
+
+    // Warm memory from IndexedDB first (instant on reopen / after browser close).
+    void (async () => {
+      for (const product of candidates) {
+        if (this.getCachedNamedLots(storeId, product._id)) {
+          continue;
+        }
+        await this.hydrateStockOptionsFromIdb(storeId, product._id);
+      }
+    })();
+
+    if (!this.offline.online()) {
+      return;
+    }
+
+    let index = 0;
+    const pump = () => {
+      if (index >= candidates.length || !this.offline.online()) {
+        return;
+      }
+      const product = candidates[index++];
+      if (this.getCachedNamedLots(storeId, product._id)) {
+        queueMicrotask(pump);
+        return;
+      }
+      void firstValueFrom(
+        this.backend.getProductStockOptions(product._id, { storeId }),
+      )
+        .then((result) =>
+          this.writeStockOptionsCache(storeId, product._id, result.lots || []),
+        )
+        .catch(() => undefined)
+        .finally(() => {
+          window.setTimeout(pump, 120);
+        });
+    };
+    window.setTimeout(pump, 400);
   }
 
   closeBatchPicker(): void {
@@ -2669,6 +3154,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.batchPickerProduct = null;
     this.batchPickerLots = [];
     this.batchPickerDefaultPrice = 0;
+    this.batchPickerLoading = false;
     this.focusProductSearch(true);
   }
 
@@ -2679,16 +3165,17 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     if (!product || !lot) {
       return;
     }
+    const availableQty = Math.min(
+      this.lotAvailableQty(product._id, lot),
+      this.productAvailableQty(product),
+    );
     this.pushOrBumpBillLine(product, {
       unitPrice: result.unitPrice,
-      availableQty: Number(lot.availableQuantity ?? lot.quantity ?? 0) || 0,
+      availableQty,
       lotId: lot._id,
       lotNumber: lot.lotNumber || '',
       expiryDate: lot.expiryDate || null,
-      nearExpiry:
-        lot.nearExpiry === true ||
-        getPharmacyExpiryTone(lot.expiryDate) === 'near' ||
-        getPharmacyExpiryTone(lot.expiryDate) === 'expired',
+      nearExpiry: this.lotIsNearOrExpired(lot),
     });
   }
 
@@ -3101,10 +3588,7 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       }
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7728/ingest/74b8b091-3eac-4d13-8a65-3c0f1c42eb89',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a41656'},body:JSON.stringify({sessionId:'a41656',hypothesisId:'A-B-C-D',location:'pharmacy-pos.component.ts:confirmBilling',message:'sale payload before create',data:{paymentMethod:this.paymentMethod,settlementMode:this.settlementMode,hasCustomer:Boolean(this.selectedCustomerId),paidAmount,payableAmount:this.payableAmount,subtotal:this.subtotal,billTotal,paidAmountTouched:this.paidAmountTouched,statusPreview:this.paymentStatusPreview,lineCount:saleItems.length,unitPrices:saleItems.map((item)=>item.unitPrice),qtys:saleItems.map((item)=>item.qty),discounts:saleItems.map((item)=>item.discount)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
+    const clientSaleId = this.offline.buildClientId();
     const payload: CreateSalePayload = {
       storeId,
       customerId: this.selectedCustomerId || undefined,
@@ -3130,27 +3614,16 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       encounterId: this.settlementMode === 'ENCOUNTER' ? this.selectedEncounterId : undefined,
       prescriptionId: this.prescription?._id || this.prescriptionId || undefined,
       attributedDoctorId: this.prescription?.doctorId || undefined,
+      clientSaleId,
     };
 
-    if (!this.offline.online()) {
-      void this.queueOfflineSale(payload);
-      return;
-    }
-
-    const soldStockDeltas = this.billLines
-      .filter((line) => line.billQty > 0 && line.product?._id)
-      .map((line) => ({
-        productId: String(line.product._id),
-        delta: -Number(line.billQty || 0),
-      }));
-
+    // Local-first: never block checkout on slow/offline HTTP.
     const shouldCollectFeeAfterSale =
       this.collectConsultationFee && this.consultationFeeDue;
     const pendingFeeAmount = this.consultationFeeDue
       ? this.consultationFeeAmount
       : 0;
     const hasUnavailableForSlip = this.unavailableMedicines.length > 0;
-    // Snapshot slip before cart clears; fee line patched after collect.
     const dispenseSlipBase =
       hasUnavailableForSlip || pendingFeeAmount > 0
         ? this.buildDispenseSlipReceipt(null, {
@@ -3159,83 +3632,10 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
           })
         : null;
 
-    this.saleSaving = true;
-    this.backend
-      .createSale(payload)
-      .pipe(finalize(() => (this.saleSaving = false)))
-      .subscribe({
-        next: (response) => {
-          this.saleInvoiceNo = response.data?.sale?.invoiceNo || '';
-          const completedSale = response.data?.sale || null;
-          if (completedSale) {
-            // One step only: open the browser print dialog (no preview modal first).
-            this.openReceiptPrintWindow(this.buildReceiptFromSale(completedSale));
-          }
-          this.showPosMessage(
-            this.saleInvoiceNo
-              ? `Sale completed: ${this.saleInvoiceNo}`
-              : 'Sale completed successfully.',
-            'success',
-          );
-          const printFollowUpSlip = (feePaidAmount: number | null) => {
-            if (!dispenseSlipBase && !(feePaidAmount && feePaidAmount > 0)) {
-              return;
-            }
-            const slip =
-              feePaidAmount && feePaidAmount > 0
-                ? this.buildDispenseSlipReceipt(completedSale, {
-                    feeAmount: feePaidAmount,
-                    feePaid: true,
-                  })
-                : dispenseSlipBase;
-            if (!slip) {
-              return;
-            }
-            window.setTimeout(() => {
-              this.openReceiptPrintWindow(slip, true);
-            }, 1300);
-          };
-          const finishSale = (feePaidAmount: number | null = null) => {
-            // Build paid-fee slip before clearSale wipes prescription context.
-            printFollowUpSlip(feePaidAmount);
-            this.clearSale();
-            this.applyOptimisticStockDeltas(soldStockDeltas);
-            this.refreshLocalStockAfterTransaction();
-            this.refreshRegisterState();
-          };
-          if (shouldCollectFeeAfterSale) {
-            void this.collectLinkedAppointmentFee(false).then((collected) => {
-              finishSale(collected);
-            });
-          } else {
-            finishSale(null);
-          }
-        },
-        error: (err) => {
-          if (this.offline.shouldQueue(err)) {
-            void this.queueOfflineSale(payload);
-            return;
-          }
-
-          if (err?.status === 403) {
-            this.toastr.error(
-              err?.error?.message || 'You do not have permission to complete this sale.',
-            );
-            return;
-          }
-
-          const message =
-            err?.error?.message || 'Unable to confirm pharmacy bill.';
-          if (String(message).toLowerCase().includes('register')) {
-            this.toastr.error(
-              'Open an active cash register for this store before confirming the bill.',
-            );
-            return;
-          }
-
-          this.toastr.error(message);
-        },
-      });
+    void this.completeSaleLocalFirst(payload, {
+      shouldCollectFeeAfterSale,
+      dispenseSlipBase,
+    });
   }
 
   saveHeldSale(): void {
@@ -3981,13 +4381,20 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     }
 
     const result = await this.offline.syncQueuedWork();
-    // Always pull fresh store stock after sync / manual refresh.
+    await this.refreshPendingStockDeltas();
+    // Online: loadProducts refreshes + persists. Offline: snapshot stays in IndexedDB.
     this.refreshLocalStockAfterTransaction();
     this.refreshRegisterState();
     if (result.syncedCount > 0) {
       this.loadRecentSales();
       if (showToast) {
         this.toastr.success(`${result.syncedCount} offline item(s) synced. Stock updated.`);
+      }
+    } else if (result.failedCount > 0) {
+      if (showToast) {
+        this.toastr.error(
+          `${result.failedCount} queued sale/return(s) failed to sync. Check stock and tap Sync to retry.`,
+        );
       }
     } else if (showToast) {
       this.toastr.info('Stock refreshed from inventory.');
@@ -4001,6 +4408,20 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     );
     if (!this.selectedStoreId) {
       this.selectedStoreId = userStoreId || this.stores[0]?._id || '';
+    }
+  }
+
+  /** Offline / failed stores fetch: restore IndexedDB then reload catalog + register. */
+  private async applyCachedStoresAndContinue(userStoreId = ''): Promise<void> {
+    this.storesLoading = true;
+    try {
+      await this.loadCachedStores(userStoreId);
+      if (this.selectedStoreId) {
+        this.loadProducts();
+        this.refreshRegisterState();
+      }
+    } finally {
+      this.storesLoading = false;
     }
   }
 
@@ -4074,22 +4495,59 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     ]);
   }
 
+  private async completeSaleLocalFirst(
+    payload: CreateSalePayload,
+    options?: {
+      shouldCollectFeeAfterSale?: boolean;
+      dispenseSlipBase?: ReceiptPreviewData | null;
+    },
+  ): Promise<void> {
+    await this.queueOfflineSale(payload);
+
+    const printFollowUpSlip = (feePaidAmount: number | null) => {
+      if (!options?.dispenseSlipBase && !(feePaidAmount && feePaidAmount > 0)) {
+        return;
+      }
+      const slip =
+        feePaidAmount && feePaidAmount > 0
+          ? this.buildDispenseSlipReceipt(null, {
+              feeAmount: feePaidAmount,
+              feePaid: true,
+            })
+          : options?.dispenseSlipBase;
+      if (!slip) {
+        return;
+      }
+      window.setTimeout(() => {
+        this.openReceiptPrintWindow(slip, true);
+      }, 1300);
+    };
+
+    if (options?.shouldCollectFeeAfterSale && this.offline.online()) {
+      const collected = await this.collectLinkedAppointmentFee(false);
+      printFollowUpSlip(collected);
+    } else {
+      printFollowUpSlip(null);
+    }
+
+    if (this.offline.online()) {
+      void this.syncOfflineWork(false);
+    }
+  }
+
   private async queueOfflineSale(payload: CreateSalePayload): Promise<void> {
-    this.saleSaving = true;
+    // Do not set saleSaving — next bill must not wait on sync/enqueue.
     const localId = this.offline.buildLocalId('sale');
+    const clientSaleId = payload.clientSaleId || this.offline.buildClientId();
+    const idempotencyKey = this.offline.buildIdempotencyKey(clientSaleId);
+    payload = { ...payload, clientSaleId };
     const invoiceNo = `OFF-${localId.slice(-6).toUpperCase()}`;
     const receipt = {
       ...this.buildReceiptFromCurrentCart(),
       reference: invoiceNo,
-      note: `${this.prescription ? `Prescription ${this.prescription._id}. ` : ''}Saved offline`,
+      note: `${this.prescription ? `Prescription ${this.prescription._id}. ` : ''}Saved locally — syncing when online`,
     };
     const sale = this.buildLocalSale(localId, invoiceNo, payload, receipt);
-    const soldStockDeltas = (payload.items || [])
-      .filter((item) => Number(item.qty || 0) > 0 && item.productId)
-      .map((item) => ({
-        productId: String(item.productId),
-        delta: -Number(item.qty || 0),
-      }));
 
     await this.offline.enqueueWork({
       id: localId,
@@ -4097,7 +4555,8 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
       operation: 'create',
       localId,
       payload,
-      meta: { sale, receipt },
+      idempotencyKey,
+      meta: { sale, receipt, storeId: payload.storeId },
     });
 
     this.recentSales = this.mergeSales([sale, ...this.recentSales]);
@@ -4111,9 +4570,66 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
     this.selectedProductIndex = 0;
     this.paidAmount = '0';
     this.cashReceivedAmount = '0';
-    this.applyOptimisticStockDeltas(soldStockDeltas);
-    this.saleSaving = false;
-    this.showPosMessage(`Sale saved offline: ${invoiceNo}`, 'success');
+    // Stock = catalog cache − pending outbox; keep IndexedDB warm for offline reopen.
+    await this.refreshPendingStockDeltas();
+    await this.persistProductsCache();
+    this.showPosMessage(
+      this.offline.online()
+        ? `Sale saved: ${invoiceNo} (syncing…)`
+        : `Sale saved offline: ${invoiceNo}`,
+      'success',
+    );
+  }
+
+  /** Void an unsynced local OFF bill (not a server sales return). */
+  async voidLocalQueuedSale(localSaleId: string): Promise<boolean> {
+    const entries = await this.offline.getQueuedWork('sale');
+    const entry = entries.find(
+      (item) => item.id === localSaleId || item.localId === localSaleId,
+    );
+    if (!entry) {
+      this.toastr.error('Local sale not found in the sync queue.');
+      return false;
+    }
+
+    await this.offline.removeQueuedWork(entry.id);
+    await this.refreshPendingStockDeltas();
+    await this.persistProductsCache();
+    this.recentSales = this.recentSales.filter(
+      (sale) => sale._id !== entry.id && sale._id !== entry.localId,
+    );
+    this.showPosMessage('Local bill voided. Stock restored on this counter.', 'success');
+    return true;
+  }
+
+  async queueLocalSalesReturn(
+    payload: CreateSalesReturnPayload,
+    meta?: { storeId?: string; saleInvoiceNo?: string },
+  ): Promise<void> {
+    const localId = this.offline.buildLocalId('sales_return');
+    const clientReturnId = payload.clientReturnId || this.offline.buildClientId();
+    const idempotencyKey = this.offline.buildIdempotencyKey(clientReturnId);
+    const nextPayload = { ...payload, clientReturnId };
+
+    await this.offline.enqueueWork({
+      id: localId,
+      entity: 'sales_return',
+      operation: 'create',
+      localId,
+      payload: nextPayload,
+      idempotencyKey,
+      meta: {
+        storeId: meta?.storeId || this.currentStoreId(),
+        saleInvoiceNo: meta?.saleInvoiceNo || '',
+      },
+    });
+
+    await this.refreshPendingStockDeltas();
+    await this.persistProductsCache();
+    this.showPosMessage('Return saved locally — will sync when online.', 'success');
+    if (this.offline.online()) {
+      void this.syncOfflineWork(false);
+    }
   }
 
   private buildLocalSale(
@@ -4770,7 +5286,37 @@ export class PharmacyPosComponent implements OnInit, OnDestroy {
   }
 
   productAvailableQty(product: ProductCatalogItem): number {
-    return Number(product.availableQuantity ?? product.stockQuantity ?? 0) || 0;
+    const cached =
+      Number(product.availableQuantity ?? product.stockQuantity ?? 0) || 0;
+    const pending = this.pendingStockDeltas.get(String(product._id)) || 0;
+    // pending deltas are already signed (− sales, + returns)
+    return Math.max(0, cached + pending);
+  }
+
+  private async refreshPendingStockDeltas(): Promise<void> {
+    const storeId = this.currentStoreId();
+    if (!storeId) {
+      this.pendingStockDeltas = new Map();
+      this.pendingLotStockDeltas = new Map();
+      return;
+    }
+    const deltas = await this.offline.pendingStockDeltas(storeId);
+    this.pendingStockDeltas = deltas.products;
+    this.pendingLotStockDeltas = deltas.lots;
+  }
+
+  private startStockRefreshPoll(): void {
+    if (this.stockRefreshTimer) {
+      clearInterval(this.stockRefreshTimer);
+    }
+    this.stockRefreshTimer = setInterval(() => {
+      if (!this.offline.online() || this.offline.syncing()) {
+        return;
+      }
+      this.refreshLocalStockAfterTransaction();
+      void this.refreshPendingStockDeltas();
+      void this.syncOfflineWork(false);
+    }, 45000);
   }
 
   private productCost(product: ProductCatalogItem): number {

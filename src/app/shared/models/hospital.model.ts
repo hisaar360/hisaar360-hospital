@@ -1252,6 +1252,8 @@ export interface CreateSalePayload {
   hospitalId?: string;
   prescriptionId?: string;
   attributedDoctorId?: string;
+  /** Stable client id for local-first / offline sync (idempotent create). */
+  clientSaleId?: string;
 }
 
 export interface CreateSaleResponse {
@@ -1337,6 +1339,8 @@ export interface CreateSalesReturnPayload {
   refundAmount?: number;
   paymentMethod?: Exclude<SalePaymentMethod, 'check'>;
   paymentReferenceNo?: string;
+  /** Stable client id for local-first / offline sync (idempotent create). */
+  clientReturnId?: string;
 }
 
 export interface CreateOpenSalesExchangePayload {

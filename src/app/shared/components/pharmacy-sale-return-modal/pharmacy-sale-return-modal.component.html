@@ -66,6 +66,10 @@
       </ng-container>
 
       <ng-container *ngIf="!loading && selectedReturnSale">
+        <div class="psr-message" *ngIf="isSelectedLocalSale">
+          This bill is still local (OFF / unsynced). Void it to restore stock on this counter.
+          A formal sales return is only for synced SAL invoices.
+        </div>
         <div class="psr-summary">
           <div>
             <span>Invoice</span>
@@ -174,6 +178,16 @@
           <button
             type="button"
             class="psr-btn is-primary"
+            *ngIf="isSelectedLocalSale"
+            [disabled]="submitting"
+            (click)="voidSelectedLocalSale()"
+          >
+            Void Local Bill
+          </button>
+          <button
+            type="button"
+            class="psr-btn is-primary"
+            *ngIf="!isSelectedLocalSale"
             [disabled]="submitting || !selectedReturnItemsCount"
             (click)="submit()"
           >

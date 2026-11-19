@@ -11,6 +11,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { BackendService } from '../../../core/services/backend.service';
+import { MooliOfflineService } from '../../../core/services/mooli-offline.service';
 import {
   CreateSalesReturnPayload,
   Sale,
@@ -29,6 +30,7 @@ import { PharmacySaleReturnLine } from './pharmacy-sale-return-modal.models';
 })
 export class PharmacySaleReturnModalComponent implements OnChanges {
   private readonly backend = inject(BackendService);
+  private readonly offline = inject(MooliOfflineService);
 
   /** Controls backdrop visibility. */
   @Input() open = false;
@@ -42,9 +44,21 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
   @Input() registerSessionId: string | null = null;
   /** Use register session filter only when dates are empty. */
   @Input() preferRegisterSession = true;
+  /** Unsynced local OFF sales from POS recent/outbox. */
+  @Input() localQueuedSales: Sale[] = [];
+  /** When true, never wait on HTTP — always queue return via parent. */
+  @Input() localFirst = false;
 
   @Output() closed = new EventEmitter<void>();
   @Output() completed = new EventEmitter<SalesReturn>();
+  /** Parent voids unsynced local bill from IndexedDB outbox. */
+  @Output() voidLocalSale = new EventEmitter<string>();
+  /** Parent queues sales return for local-first sync. */
+  @Output() queueReturn = new EventEmitter<{
+    payload: CreateSalesReturnPayload;
+    storeId: string;
+    saleInvoiceNo: string;
+  }>();
 
   loading = false;
   submitting = false;
@@ -74,10 +88,15 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
     }
   }
 
+  get isSelectedLocalSale(): boolean {
+    return Boolean(this.selectedReturnSale && this.isLocalSaleId(this.selectedReturnSale._id));
+  }
+
   get returnablePickerSales(): Sale[] {
     const search = this.returnSaleSearch.trim().toLowerCase();
-    return this.pickerSales
-      .filter((sale) => this.canReturnSale(sale))
+    const merged = this.mergePickerSales(this.pickerSales, this.localQueuedSales);
+    return merged
+      .filter((sale) => this.canReturnSale(sale) || this.isLocalSaleId(sale._id))
       .filter((sale) => ['completed', 'returned'].includes(sale.status))
       .filter((sale) => {
         if (!search) {
@@ -180,9 +199,23 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
     this.returnRefundAmount = roundMoney(this.saleReturnRefundLimit);
   }
 
+  voidSelectedLocalSale(): void {
+    if (!this.selectedReturnSale || !this.isSelectedLocalSale) {
+      return;
+    }
+    this.voidLocalSale.emit(this.selectedReturnSale._id);
+    this.closed.emit();
+  }
+
   submit(): void {
     if (!this.selectedReturnSale) {
       this.errorMessage = 'Select a sale to continue with the return.';
+      return;
+    }
+
+    if (this.isSelectedLocalSale) {
+      this.errorMessage =
+        'This bill is still unsynced (OFF). Void the local bill instead of creating a server return.';
       return;
     }
 
@@ -214,12 +247,18 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
       items,
       refundAmount,
       paymentMethod: refundAmount > 0 ? this.returnPaymentMethod : undefined,
+      clientReturnId: this.offline.buildClientId(),
     };
+
+    if (this.localFirst || !this.offline.online()) {
+      this.emitQueuedReturn(payload);
+      return;
+    }
 
     this.submitting = true;
     this.errorMessage = '';
     this.backend
-      .createSalesReturn(payload)
+      .createSalesReturn(payload, { idempotencyKey: payload.clientReturnId })
       .pipe(finalize(() => (this.submitting = false)))
       .subscribe({
         next: (salesReturn) => {
@@ -227,10 +266,33 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
           this.closed.emit();
         },
         error: (err) => {
+          if (this.offline.shouldQueue(err)) {
+            this.emitQueuedReturn(payload);
+            return;
+          }
           this.errorMessage =
             err?.error?.message || 'Unable to complete sales return.';
         },
       });
+  }
+
+  private emitQueuedReturn(payload: CreateSalesReturnPayload): void {
+    this.queueReturn.emit({
+      payload,
+      storeId: this.storeId || String(this.selectedReturnSale?.storeId || ''),
+      saleInvoiceNo: String(this.selectedReturnSale?.invoiceNo || ''),
+    });
+    this.completed.emit({
+      _id: `local-sales_return-${payload.clientReturnId}`,
+      storeId: this.storeId || String(this.selectedReturnSale?.storeId || ''),
+      returnNo: `OFF-R-${String(payload.clientReturnId).slice(-6).toUpperCase()}`,
+      returnDate: payload.returnDate,
+      items: payload.items,
+      total: this.saleReturnEstimatedTotal,
+      refundAmount: payload.refundAmount || 0,
+      status: 'completed',
+    });
+    this.closed.emit();
   }
 
   private bootstrapOpen(): void {
@@ -261,6 +323,11 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
   private loadPickerSales(): void {
     this.loading = true;
     this.errorMessage = '';
+    if (!this.offline.online()) {
+      this.pickerSales = [];
+      this.loading = false;
+      return;
+    }
     const hasDateRange = Boolean(this.fromDate || this.toDate);
     this.backend
       .getSales({
@@ -285,7 +352,9 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
         },
         error: (err) => {
           this.pickerSales = [];
-          this.errorMessage = err?.error?.message || 'Unable to load sales.';
+          if (!this.offline.shouldQueue(err) && !(this.localQueuedSales || []).length) {
+            this.errorMessage = err?.error?.message || 'Unable to load sales.';
+          }
         },
       });
   }
@@ -299,44 +368,23 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
     this.returnRefundTouched = false;
     this.selectedReturnRefundCeiling = 0;
 
+    if (this.isLocalSaleId(saleId)) {
+      const local =
+        (this.localQueuedSales || []).find((sale) => sale._id === saleId) || null;
+      if (!local) {
+        this.loading = false;
+        this.errorMessage = 'Local sale not found in the sync queue.';
+        return;
+      }
+      this.applySaleForReturn(local, []);
+      return;
+    }
+
     this.backend.getSaleById(saleId).subscribe({
       next: (sale) => {
         this.backend.listSalesReturns({ saleId, limit: 100 }).subscribe({
           next: (result) => {
-            const history = result.items || [];
-            this.selectedReturnSale = sale;
-            this.selectedReturnRefundCeiling = roundMoney(
-              Math.max(
-                Number(sale.paidAmount || 0) -
-                  sumMoney(history.map((item) => item.refundAmount || 0)),
-                0,
-              ),
-            );
-            this.returnLines = (sale.items || [])
-              .map((item) => {
-                const soldQty = Number(item.qty || 0) || 0;
-                const returnedQty = this.returnedQuantityForSaleItem(
-                  item.productId,
-                  history,
-                );
-                const maxQty = Math.max(soldQty - returnedQty, 0);
-                return {
-                  productId: item.productId,
-                  name: item.name || 'Product',
-                  sku: item.sku || '',
-                  soldQty,
-                  alreadyReturnedQty: returnedQty,
-                  maxQty,
-                  qty: 0,
-                  unitPrice: Number(item.unitPrice || 0),
-                  reason: '',
-                };
-              })
-              .filter((line) => line.maxQty > 0);
-            this.loading = false;
-            if (!this.returnLines.length) {
-              this.errorMessage = 'No returnable quantity left on this sale.';
-            }
+            this.applySaleForReturn(sale, result.items || []);
           },
           error: (err) => {
             this.loading = false;
@@ -353,8 +401,55 @@ export class PharmacySaleReturnModalComponent implements OnChanges {
     });
   }
 
+  private applySaleForReturn(sale: Sale, history: SalesReturn[]): void {
+    this.selectedReturnSale = sale;
+    this.selectedReturnRefundCeiling = roundMoney(
+      Math.max(
+        Number(sale.paidAmount || 0) -
+          sumMoney(history.map((item) => item.refundAmount || 0)),
+        0,
+      ),
+    );
+    this.returnLines = (sale.items || [])
+      .map((item) => {
+        const soldQty = Number(item.qty || 0) || 0;
+        const returnedQty = this.returnedQuantityForSaleItem(item.productId, history);
+        const maxQty = Math.max(soldQty - returnedQty, 0);
+        return {
+          productId: item.productId,
+          name: item.name || 'Product',
+          sku: item.sku || '',
+          soldQty,
+          alreadyReturnedQty: returnedQty,
+          maxQty,
+          qty: 0,
+          unitPrice: Number(item.unitPrice || 0),
+          reason: '',
+        };
+      })
+      .filter((line) => line.maxQty > 0);
+    this.loading = false;
+    if (!this.returnLines.length && !this.isLocalSaleId(sale._id)) {
+      this.errorMessage = 'No returnable quantity left on this sale.';
+    }
+  }
+
   private canReturnSale(sale: Sale): boolean {
-    return !String(sale._id || '').startsWith('local-');
+    return !this.isLocalSaleId(sale._id);
+  }
+
+  private isLocalSaleId(id: string | null | undefined): boolean {
+    return String(id || '').startsWith('local-');
+  }
+
+  private mergePickerSales(remote: Sale[], local: Sale[]): Sale[] {
+    const map = new Map<string, Sale>();
+    [...local, ...remote].forEach((sale) => {
+      if (sale?._id) {
+        map.set(String(sale._id), sale);
+      }
+    });
+    return Array.from(map.values());
   }
 
   private returnedQuantityForSaleItem(

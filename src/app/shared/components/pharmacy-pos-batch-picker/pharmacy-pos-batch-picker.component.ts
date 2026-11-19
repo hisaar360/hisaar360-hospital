@@ -29,6 +29,7 @@ export class PharmacyPosBatchPickerComponent implements OnChanges {
   @Input() product: ProductCatalogItem | null = null;
   @Input() lots: StockLot[] = [];
   @Input() defaultUnitPrice = 0;
+  @Input() loading = false;
 
   @Output() closed = new EventEmitter<void>();
   @Output() selected = new EventEmitter<PharmacyPosBatchPickResult>();

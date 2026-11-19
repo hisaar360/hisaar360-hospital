@@ -54,7 +54,11 @@
       </div>
 
       <ng-template #emptyLots>
-        <p class="ppb-empty">No named batches available for this medicine.</p>
+        <p class="ppb-empty" *ngIf="loading">
+          <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+          Loading batches…
+        </p>
+        <p class="ppb-empty" *ngIf="!loading">No named batches available for this medicine.</p>
       </ng-template>
     </div>
 

@@ -5,13 +5,18 @@ import { ApiResponse } from '../../shared/models/api-response.model';
 import {
   Appointment,
   CreateSalePayload,
-  CreateSaleResponse,
+  CreateSalesReturnPayload,
   Patient,
   Prescription,
 } from '../../shared/models/hospital.model';
 import { BackendService } from './backend.service';
 
-export type MooliOfflineEntity = 'patient' | 'appointment' | 'prescription' | 'sale';
+export type MooliOfflineEntity =
+  | 'patient'
+  | 'appointment'
+  | 'prescription'
+  | 'sale'
+  | 'sales_return';
 export type MooliOfflineOperation = 'create' | 'update' | 'status';
 export type MooliOfflineStatus = 'queued' | 'syncing' | 'failed';
 
@@ -25,6 +30,8 @@ export interface MooliQueuedWork<TPayload = Record<string, unknown>> {
   payload: TPayload;
   status: MooliOfflineStatus;
   error?: string;
+  /** Stable HTTP idempotency key reused on every sync attempt. */
+  idempotencyKey?: string;
   meta?: Record<string, unknown>;
 }
 
@@ -103,6 +110,17 @@ export class MooliOfflineService {
     return `local-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
+  buildClientId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `cid-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  buildIdempotencyKey(seed?: string): string {
+    return seed || this.buildClientId();
+  }
+
   shouldQueue(error?: unknown): boolean {
     const status = Number((error as { status?: number } | null)?.status ?? -1);
     return !this.online() || status === 0;
@@ -140,10 +158,63 @@ export class MooliOfflineService {
       ...entry,
       createdAt: entry.createdAt || new Date().toISOString(),
       status: entry.status || 'queued',
+      idempotencyKey: entry.idempotencyKey || this.buildIdempotencyKey(entry.id),
     };
     await this.putValue(MooliOfflineService.OUTBOX_STORE, queued);
     await this.refreshCounts();
     return queued;
+  }
+
+  /** Pending qty deltas from unsynced sales (−) and sales returns (+) for a store. */
+  async pendingStockDeltaByProduct(storeId: string): Promise<Map<string, number>> {
+    const { products } = await this.pendingStockDeltas(storeId);
+    return products;
+  }
+
+  /** Product + lot-level pending deltas for local-first POS stock. */
+  async pendingStockDeltas(
+    storeId: string,
+  ): Promise<{ products: Map<string, number>; lots: Map<string, number> }> {
+    const products = new Map<string, number>();
+    const lots = new Map<string, number>();
+    const entries = await this.getQueuedWork();
+    for (const entry of entries) {
+      if (entry.entity === 'sale') {
+        const payload = entry.payload as unknown as CreateSalePayload;
+        if (String(payload.storeId || '') !== String(storeId)) {
+          continue;
+        }
+        for (const item of payload.items || []) {
+          const productId = String(item.productId || '');
+          const qty = Number(item.qty || 0);
+          if (!productId || !qty) {
+            continue;
+          }
+          products.set(productId, (products.get(productId) || 0) - qty);
+          const lotId = String(item.lotId || '').trim();
+          if (lotId) {
+            const lotKey = `${productId}:${lotId}`;
+            lots.set(lotKey, (lots.get(lotKey) || 0) - qty);
+          }
+        }
+      }
+      if (entry.entity === 'sales_return') {
+        const payload = entry.payload as unknown as CreateSalesReturnPayload;
+        const metaStoreId = String(entry.meta?.['storeId'] || '');
+        if (metaStoreId && metaStoreId !== String(storeId)) {
+          continue;
+        }
+        for (const item of payload.items || []) {
+          const productId = String(item.productId || '');
+          const qty = Number(item.qty || 0);
+          if (!productId || !qty) {
+            continue;
+          }
+          products.set(productId, (products.get(productId) || 0) + qty);
+        }
+      }
+    }
+    return { products, lots };
   }
 
   async getQueuedWork(entity?: MooliOfflineEntity): Promise<MooliQueuedWork[]> {
@@ -236,7 +307,50 @@ export class MooliOfflineService {
     }
 
     if (entry.entity === 'sale') {
-      await firstValueFrom(this.backend.createSale(entry.payload as unknown as CreateSalePayload));
+      await this.syncSaleEntry(entry);
+      return;
+    }
+
+    if (entry.entity === 'sales_return') {
+      await this.syncSalesReturnEntry(entry);
+    }
+  }
+
+  private async syncSaleEntry(entry: MooliQueuedWork): Promise<void> {
+    const payload = { ...(entry.payload as unknown as CreateSalePayload) };
+    if (!payload.clientSaleId) {
+      payload.clientSaleId = entry.localId || entry.id;
+    }
+    const response = await firstValueFrom(
+      this.backend.createSale(payload, {
+        idempotencyKey: entry.idempotencyKey || entry.id,
+      }),
+    );
+    const sale = response?.data?.sale;
+    if (entry.localId && sale?._id) {
+      await this.cacheValue(this.idMapKey(entry.localId), sale._id);
+      if (sale.invoiceNo) {
+        await this.cacheValue(`invoice-map:${this.scopeKey()}:${entry.localId}`, sale.invoiceNo);
+      }
+    }
+  }
+
+  private async syncSalesReturnEntry(entry: MooliQueuedWork): Promise<void> {
+    const payload = {
+      ...(entry.payload as unknown as CreateSalesReturnPayload),
+    };
+    payload.saleId = await this.resolveRequiredId(String(payload.saleId || ''));
+    if (!payload.clientReturnId) {
+      payload.clientReturnId = entry.localId || entry.id;
+    }
+    const salesReturn = await firstValueFrom(
+      this.backend.createSalesReturn(payload, {
+        idempotencyKey: entry.idempotencyKey || entry.id,
+        skipLoader: true,
+      }),
+    );
+    if (entry.localId && salesReturn?._id) {
+      await this.cacheValue(this.idMapKey(entry.localId), salesReturn._id);
     }
   }
 
@@ -329,6 +443,7 @@ export class MooliOfflineService {
       appointment: 2,
       prescription: 3,
       sale: 4,
+      sales_return: 5,
     };
 
     return [...entries].sort((first, second) => {

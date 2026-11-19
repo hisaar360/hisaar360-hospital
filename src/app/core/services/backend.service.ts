@@ -156,9 +156,10 @@ export class BackendService {
     return this.http.post<ApiResponse<T>>(url, this.cleanBody(body), { headers });
   }
 
-  private idempotencyHeaders(): Record<string, string> {
+  private idempotencyHeaders(key?: string): Record<string, string> {
     return {
-      'X-Idempotency-Key': `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      'X-Idempotency-Key':
+        key || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     };
   }
 
@@ -1262,8 +1263,15 @@ export class BackendService {
     );
   }
 
-  createSale(payload: CreateSalePayload): Observable<ApiResponse<CreateSaleResponse>> {
-    return this.post<CreateSaleResponse>(CONFIG.sales, payload);
+  createSale(
+    payload: CreateSalePayload,
+    options?: { idempotencyKey?: string },
+  ): Observable<ApiResponse<CreateSaleResponse>> {
+    // Local-first POS always queues then syncs in background — never block UI with global loader.
+    return this.post<CreateSaleResponse>(CONFIG.sales, payload, {
+      ...this.idempotencyHeaders(options?.idempotencyKey),
+      'X-Skip-Loader': '1',
+    });
   }
 
   getSaleById(id: string): Observable<Sale> {
@@ -1302,12 +1310,25 @@ export class BackendService {
     return this.delete<{ deleted: boolean }>(`${CONFIG.sales}/holds/${id}`);
   }
 
-  createSalesReturn(payload: CreateSalesReturnPayload): Observable<SalesReturn> {
-    return this.post<SalesReturn | { salesReturn?: SalesReturn }>(CONFIG.returns.sales, payload).pipe(
+  createSalesReturn(
+    payload: CreateSalesReturnPayload,
+    options?: { idempotencyKey?: string; skipLoader?: boolean },
+  ): Observable<SalesReturn> {
+    const headers: Record<string, string> = {
+      ...this.idempotencyHeaders(options?.idempotencyKey),
+    };
+    if (options?.skipLoader) {
+      headers['X-Skip-Loader'] = '1';
+    }
+    return this.post<SalesReturn | { salesReturn?: SalesReturn }>(
+      CONFIG.returns.sales,
+      payload,
+      headers,
+    ).pipe(
       map((response) => {
         const data = response.data;
         return ('salesReturn' in data ? data.salesReturn : data) as SalesReturn;
-      })
+      }),
     );
   }
 

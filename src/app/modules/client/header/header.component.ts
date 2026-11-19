@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { NgClass, NgFor, NgIf } from '@angular/common';
 import { BackendService } from '../../../core/services/backend.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { MooliOfflineService } from '../../../core/services/mooli-offline.service';
 import { PackageReminderService } from '../../../core/services/package-reminder.service';
 import { HospitalNotificationService, HospitalNotificationItem } from '../../../core/services/hospital-notification.service';
 import { NotificationSoundService } from '../../../core/services/notification-sound.service';
@@ -44,6 +45,7 @@ export class HeaderComponent implements OnInit {
     private router: Router,
     private backend: BackendService,
     private authService: AuthService,
+    private offline: MooliOfflineService,
     public notifications: HospitalNotificationService,
     public notificationSound: NotificationSoundService,
     public packageReminders: PackageReminderService
@@ -211,8 +213,17 @@ export class HeaderComponent implements OnInit {
     }
   }
 
-  logout(): void {
+  async logout(): Promise<void> {
     this.closeProfileMenu();
+    const pending = this.offline.pendingCount();
+    if (pending > 0) {
+      const proceed = window.confirm(
+        `${pending} unsynced POS/offline item(s) are still on this browser. They stay here until you log back in on this device and sync. Log out anyway?`,
+      );
+      if (!proceed) {
+        return;
+      }
+    }
     this.authService.logout();
   }
 }
